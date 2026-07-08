@@ -1,0 +1,75 @@
+# Cluster ici PostgreSQL (pilot karari) — Hermes'le ayni model:
+# StatefulSet + local-path PVC.
+#
+# !!! UYARI: local-path StorageClass reclaimPolicy=Delete'dir.
+# PVC'yi silmek VERIYI SILER. Once pg_dump alin (bkz. k8s/README.md Backup).
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: logislot-postgres
+  labels:
+    app.kubernetes.io/name: logislot-postgres
+spec:
+  serviceName: logislot-postgres
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: logislot-postgres
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: logislot-postgres
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16
+          ports:
+            - name: postgres
+              containerPort: 5432
+          env:
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef: { name: logislot-secrets, key: POSTGRES_USER }
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: logislot-secrets, key: POSTGRES_PASSWORD }
+            - name: POSTGRES_DB
+              valueFrom:
+                secretKeyRef: { name: logislot-secrets, key: POSTGRES_DB }
+            # local-path hostPath dizininde initdb'nin bos-dizin kontrolune
+            # takilmamak icin veri alt dizinde tutulur.
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+          resources:
+            requests:
+              cpu: 150m
+              memory: 512Mi
+            limits:
+              cpu: 800m
+              memory: 1Gi
+          readinessProbe:
+            exec:
+              command: ["sh", "-c", "pg_isready -U \"$POSTGRES_USER\" -d \"$POSTGRES_DB\""]
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 3
+          livenessProbe:
+            exec:
+              command: ["sh", "-c", "pg_isready -U \"$POSTGRES_USER\" -d \"$POSTGRES_DB\""]
+            initialDelaySeconds: 30
+            periodSeconds: 20
+            timeoutSeconds: 3
+          securityContext:
+            allowPrivilegeEscalation: false
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: local-path
+        resources:
+          requests:
+            storage: 10Gi

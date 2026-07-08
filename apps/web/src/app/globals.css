@@ -1,0 +1,64 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * LogiSlot tema tokenlari.
+ * White-label: tenant/facility markasi bu degiskenleri override eder.
+ */
+:root {
+  --background: 220 25% 97%;
+  --foreground: 224 40% 12%;
+  --card: 0 0% 100%;
+  --card-foreground: 224 40% 12%;
+  --muted: 220 16% 93%;
+  --muted-foreground: 224 12% 45%;
+  --border: 220 16% 88%;
+
+  /* Marka: LogiSlot indigo */
+  --primary: 243 70% 55%;
+  --primary-hover: 243 70% 48%;
+  --primary-foreground: 0 0% 100%;
+
+  --accent: 32 95% 52%;
+  --accent-foreground: 24 60% 15%;
+
+  --destructive: 0 72% 51%;
+
+  /* Randevu statu renkleri (v2.0 — 6 statu) */
+  --status-pending: 38 92% 50%;
+  --status-approved: 152 60% 40%;
+  --status-revision: 262 72% 58%;
+  --status-rejected: 0 72% 51%;
+  --status-completed: 205 80% 45%;
+  --status-cancelled: 220 10% 55%;
+
+  /* Kargo uyari katmani — statu renginden ayri */
+  --cargo: 22 95% 55%;
+}
+
+body {
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
+  font-family:
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    "Segoe UI",
+    Roboto,
+    "Helvetica Neue",
+    Arial,
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Takvimde kargo overlay deseni: statu renginin ustune cizgili doku */
+.cargo-overlay {
+  background-image: repeating-linear-gradient(
+    45deg,
+    transparent,
+    transparent 6px,
+    hsl(var(--cargo) / 0.25) 6px,
+    hsl(var(--cargo) / 0.25) 10px
+  );
+}

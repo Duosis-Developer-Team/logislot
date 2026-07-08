@@ -1,0 +1,18 @@
+# LogiSlot PROD ortami — namespace: logislot-prod.
+# DEV'den TAMAMEN izole: ayri namespace, ayri PVC, ayri secret, ayri config.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: logislot-prod
+resources:
+  - namespace.yaml
+  - ../../base
+  - nodeport-services.yaml
+images:
+  - name: ghcr.io/duosis-developer-team/logislot-api
+    newTag: prod
+  - name: ghcr.io/duosis-developer-team/logislot-web
+    newTag: prod
+patches:
+  - path: configmap-patch.yaml
+  - path: ingress-patch.yaml
+  - path: resources-patch.yaml

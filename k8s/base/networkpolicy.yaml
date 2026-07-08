@@ -1,0 +1,27 @@
+# OPSIYONEL — kustomization'a dahil DEGILDIR.
+# Cluster CNI'si NetworkPolicy desteklemiyorsa (ornegin duz flannel) bu
+# manifest sessizce ETKISIZ kalir; destekliyorsa secilen pod'lara yalnizca
+# listelenen trafige izin verir. Ilk pilotta cluster agini bozmamak icin
+# default-deny BILINCLI olarak YOKTUR. Uygulamadan once CNI destegini test edin
+# (bkz. k8s/README.md).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: logislot-postgres-ingress
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: logislot-postgres
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels: { app.kubernetes.io/name: logislot-api }
+        - podSelector:
+            matchLabels: { app.kubernetes.io/name: logislot-scheduler }
+        - podSelector:
+            matchLabels: { app.kubernetes.io/name: logislot-migration }
+        - podSelector:
+            matchLabels: { app.kubernetes.io/name: logislot-seed }
+      ports:
+        - port: 5432

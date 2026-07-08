@@ -1,0 +1,39 @@
+# ============================================================================
+# DEMO SEED — OTOMATIK DEPLOY'UN PARCASI DEGILDIR, kustomization'a dahil
+# DEGILDIR ve YALNIZCA BILINCLI olarak elle uygulanir:
+#   kubectl -n logislot delete job logislot-seed --ignore-not-found
+#   kubectl -n logislot apply -f k8s/base/seed-job.yaml
+#
+# Seed idempotenttir ('bta' tenant'i varsa atlar) ama GERCEK musteri verisi
+# olan bir veritabaninda demo hesaplar (Demo123!) olusturur — pilot/prod
+# ortamda kosmadan once iki kez dusunun.
+# ============================================================================
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: logislot-seed
+  labels:
+    app.kubernetes.io/name: logislot-seed
+    app.kubernetes.io/part-of: logislot
+spec:
+  backoffLimit: 0
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: logislot-seed
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: seed
+          image: ghcr.io/duosis-developer-team/logislot-api:dev
+          command: ["python", "-m", "app.seed"]
+          envFrom:
+            - configMapRef: { name: logislot-config }
+            - secretRef: { name: logislot-secrets }
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi

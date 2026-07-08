@@ -1,0 +1,36 @@
+# Host-bazli ingress (dev/prod ayni nginx class'inda cakismadan yasar).
+# Host'lar overlay'lerde patch'lenir:
+#   dev : logislot-dev.local  / logislot-dev-api.local
+#   prod: logislot-prod.local / logislot-prod-api.local
+# Domain YOKKEN pratik erisim NodePort servisleriyledir (overlay'lerde);
+# .local host'lariyla test icin /etc/hosts kaydi gerekir (bkz. k8s/README.md).
+# Gercek domain gelince host'lar patch'lenir; TLS icin cert-manager kurulumu
+# veya elle TLS secret gerekir (cluster'da cert-manager YOK — blok yorumda).
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: logislot
+spec:
+  ingressClassName: nginx
+  # tls:
+  #   - hosts: [REPLACE_WEB_HOST, REPLACE_API_HOST]
+  #     secretName: logislot-tls
+  rules:
+    - host: REPLACE_WEB_HOST
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: logislot-web
+                port: { name: http }
+    - host: REPLACE_API_HOST
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: logislot-api
+                port: { name: http }

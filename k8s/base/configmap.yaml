@@ -1,0 +1,20 @@
+# Non-secret konfigurasyon. IP/host'a bagli degerler overlays/pilot'ta
+# patch'lenir; secret degerler logislot-secrets'ta yasar (asla burada degil).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: logislot-config
+data:
+  LOGISLOT_ENVIRONMENT: "production"
+  LOGISLOT_ENABLE_DOCS: "false"
+  LOGISLOT_RATE_LIMIT_ENABLED: "true"
+  # Pilot ilk deploy: gercek SMTP yok -> log_only (e-postalar email_logs'a yazilir).
+  # SMTP hazir olunca logislot-secrets'a SMTP_* ekleyip bu degeri "smtp" yapin.
+  LOGISLOT_EMAIL_PROVIDER: "log_only"
+  LOGISLOT_SCHEDULER_ENABLED: "true"
+  LOGISLOT_EMAIL_RETRY_INTERVAL_SECONDS: "300"
+  LOGISLOT_NOTIFICATION_CLEANUP_INTERVAL_SECONDS: "86400"
+  LOGISLOT_NOTIFICATION_RETENTION_DAYS: "90"
+  # Asagidaki iki deger overlay'de gercek erisim adresiyle degistirilir.
+  LOGISLOT_PUBLIC_WEB_URL: "http://REPLACE_ME"
+  LOGISLOT_CORS_ORIGINS: '["http://REPLACE_ME"]'

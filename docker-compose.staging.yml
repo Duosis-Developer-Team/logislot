@@ -1,0 +1,66 @@
+# LogiSlot — staging profili.
+#
+# Kullanim:
+#   cp .env.staging.example .env.staging   # degerleri doldurun (gercek secret'lar SADECE sunucuda)
+#   docker compose -f docker-compose.yml -f docker-compose.staging.yml --env-file .env.staging up -d --build
+#   docker compose -f docker-compose.yml -f docker-compose.staging.yml exec api alembic upgrade head
+#
+# Farklar (dev compose'a gore):
+# - docs kapali, rate limit acik, LOGISLOT_ENVIRONMENT=production
+# - restart policy + healthcheck'ler
+# - SMTP/public URL env'leri .env.staging'den gelir
+services:
+  db:
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-logislot}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?staging icin zorunlu}
+      POSTGRES_DB: ${POSTGRES_DB:-logislot}
+
+  api:
+    restart: unless-stopped
+    environment:
+      LOGISLOT_ENVIRONMENT: production
+      LOGISLOT_ENABLE_DOCS: "false"
+      LOGISLOT_RATE_LIMIT_ENABLED: "true"
+      LOGISLOT_DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-logislot}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-logislot}
+      LOGISLOT_SECRET_KEY: ${LOGISLOT_SECRET_KEY:?staging icin zorunlu}
+      LOGISLOT_CORS_ORIGINS: ${LOGISLOT_CORS_ORIGINS:-["https://staging.example.com"]}
+      LOGISLOT_PUBLIC_WEB_URL: ${LOGISLOT_PUBLIC_WEB_URL:-https://staging.example.com}
+      LOGISLOT_EMAIL_PROVIDER: ${LOGISLOT_EMAIL_PROVIDER:-log_only}
+      LOGISLOT_SMTP_HOST: ${LOGISLOT_SMTP_HOST:-}
+      LOGISLOT_SMTP_PORT: ${LOGISLOT_SMTP_PORT:-587}
+      LOGISLOT_SMTP_USERNAME: ${LOGISLOT_SMTP_USERNAME:-}
+      LOGISLOT_SMTP_PASSWORD: ${LOGISLOT_SMTP_PASSWORD:-}
+      LOGISLOT_SMTP_FROM_EMAIL: ${LOGISLOT_SMTP_FROM_EMAIL:-}
+      LOGISLOT_SMTP_FROM_NAME: ${LOGISLOT_SMTP_FROM_NAME:-LogiSlot}
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request;urllib.request.urlopen('http://localhost:8000/health')\""]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  scheduler:
+    restart: unless-stopped
+    environment:
+      LOGISLOT_ENVIRONMENT: production
+      LOGISLOT_DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-logislot}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-logislot}
+      LOGISLOT_SECRET_KEY: ${LOGISLOT_SECRET_KEY:?staging icin zorunlu}
+      LOGISLOT_EMAIL_PROVIDER: ${LOGISLOT_EMAIL_PROVIDER:-log_only}
+      LOGISLOT_SMTP_HOST: ${LOGISLOT_SMTP_HOST:-}
+      LOGISLOT_SMTP_PORT: ${LOGISLOT_SMTP_PORT:-587}
+      LOGISLOT_SMTP_USERNAME: ${LOGISLOT_SMTP_USERNAME:-}
+      LOGISLOT_SMTP_PASSWORD: ${LOGISLOT_SMTP_PASSWORD:-}
+      LOGISLOT_SMTP_FROM_EMAIL: ${LOGISLOT_SMTP_FROM_EMAIL:-}
+      LOGISLOT_PUBLIC_WEB_URL: ${LOGISLOT_PUBLIC_WEB_URL:-https://staging.example.com}
+
+  web:
+    restart: unless-stopped
+    build:
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-https://api.staging.example.com}
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:3000/login || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5

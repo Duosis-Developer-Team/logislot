@@ -1,0 +1,218 @@
+# Branch-aware Kubernetes deploy:
+#   dev  push -> Build Images -> bu workflow -> logislot-dev
+#   prod push -> Build Images -> bu workflow -> logislot-prod (environment: production)
+#
+# GUVENLIK KURALLARI (degistirmeyin):
+# - NAMESPACE yalnizca logislot-dev | logislot-prod olabilir (guard step).
+# - Hermes/ingress/monitoring namespace'lerine ASLA dokunulmaz.
+# - delete yalnizca kendi namespace'imizdeki migration job'lari icin.
+# - PVC delete HICBIR kosulda yok.
+# - kubeconfig asla loglanmaz.
+# - Seed YALNIZCA workflow_dispatch + run_seed=true ile (prod'da da bilinçli).
+name: Deploy
+
+on:
+  workflow_run:
+    workflows: ["Build Images"]
+    types: [completed]
+    branches: [dev, prod]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Hedef ortam"
+        required: true
+        type: choice
+        options: [dev, prod]
+      image_tag:
+        description: "Image tag (bos = <env>-<bu commitin sha7'si>)"
+        required: false
+      run_seed:
+        description: "Deploy sonrasi seed job kossun mu? (demo verisi!)"
+        required: false
+        default: "false"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-${{ github.event.workflow_run.head_branch || inputs.environment }}
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    outputs:
+      env_name: ${{ steps.env.outputs.env_name }}
+      namespace: ${{ steps.env.outputs.namespace }}
+      image_tag: ${{ steps.env.outputs.image_tag }}
+      gh_environment: ${{ steps.env.outputs.gh_environment }}
+      checkout_ref: ${{ steps.env.outputs.checkout_ref }}
+    steps:
+      - name: Ortam ve tag belirle
+        id: env
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            ENV_NAME="${{ inputs.environment }}"
+            SHORT_SHA="${GITHUB_SHA::7}"
+            IMAGE_TAG="${{ inputs.image_tag }}"
+            IMAGE_TAG="${IMAGE_TAG:-$ENV_NAME-$SHORT_SHA}"
+            CHECKOUT_REF="$GITHUB_SHA"
+          else
+            BRANCH="${{ github.event.workflow_run.head_branch }}"
+            if [[ "$BRANCH" == "prod" ]]; then ENV_NAME=prod; else ENV_NAME=dev; fi
+            SHA="${{ github.event.workflow_run.head_sha }}"
+            IMAGE_TAG="$ENV_NAME-${SHA::7}"
+            CHECKOUT_REF="$SHA"
+          fi
+          NAMESPACE="logislot-$ENV_NAME"
+          # --- NAMESPACE GUARD ---
+          if [[ "$NAMESPACE" != "logislot-dev" && "$NAMESPACE" != "logislot-prod" ]]; then
+            echo "Gecersiz namespace: $NAMESPACE"; exit 1
+          fi
+          if [[ "$ENV_NAME" == "prod" ]]; then GH_ENV=production; else GH_ENV=development; fi
+          {
+            echo "env_name=$ENV_NAME"
+            echo "namespace=$NAMESPACE"
+            echo "image_tag=$IMAGE_TAG"
+            echo "gh_environment=$GH_ENV"
+            echo "checkout_ref=$CHECKOUT_REF"
+          } >> "$GITHUB_OUTPUT"
+          echo "Ortam: $ENV_NAME | ns: $NAMESPACE | tag: $IMAGE_TAG"
+
+  deploy:
+    needs: prepare
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # GitHub repo ayarlarindan "production" environment'ina required reviewers
+    # eklenirse prod deploy MANUEL ONAY bekler (onerilir).
+    environment: ${{ needs.prepare.outputs.gh_environment }}
+    env:
+      ENV_NAME: ${{ needs.prepare.outputs.env_name }}
+      NAMESPACE: ${{ needs.prepare.outputs.namespace }}
+      IMAGE_TAG: ${{ needs.prepare.outputs.image_tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare.outputs.checkout_ref }}
+
+      - name: Kubeconfig hazirla (loglanmaz)
+        run: |
+          mkdir -p ~/.kube
+          if [[ "$ENV_NAME" == "prod" && -n "${{ secrets.KUBE_CONFIG_PROD }}" ]]; then
+            printf '%s' "${{ secrets.KUBE_CONFIG_PROD }}" | base64 -d > ~/.kube/config
+          elif [[ "$ENV_NAME" == "dev" && -n "${{ secrets.KUBE_CONFIG_DEV }}" ]]; then
+            printf '%s' "${{ secrets.KUBE_CONFIG_DEV }}" | base64 -d > ~/.kube/config
+          else
+            printf '%s' "${{ secrets.KUBE_CONFIG }}" | base64 -d > ~/.kube/config
+          fi
+          chmod 600 ~/.kube/config
+          kubectl version --client=true >/dev/null
+
+      - name: Namespace guard (cift kontrol)
+        run: |
+          if [[ "$NAMESPACE" != "logislot-dev" && "$NAMESPACE" != "logislot-prod" ]]; then
+            echo "Invalid namespace"; exit 1
+          fi
+
+      - name: Namespace + secret olustur/guncelle
+        # DIKKAT: ternary (prod && secrets.PROD_X || secrets.DEV_X) KULLANILMAZ —
+        # PROD secret'i bos oldugunda sessizce DEV degerine duserdi. Secim bash'te
+        # ACIK olarak yapilir; zorunlu prod secret'lari eksikse deploy DURUR.
+        env:
+          DEV_LOGISLOT_SECRET_KEY: ${{ secrets.DEV_LOGISLOT_SECRET_KEY }}
+          DEV_POSTGRES_PASSWORD: ${{ secrets.DEV_POSTGRES_PASSWORD }}
+          DEV_DATABASE_URL: ${{ secrets.DEV_DATABASE_URL }}
+          DEV_SMTP_HOST: ${{ secrets.DEV_SMTP_HOST }}
+          DEV_SMTP_PORT: ${{ secrets.DEV_SMTP_PORT }}
+          DEV_SMTP_USERNAME: ${{ secrets.DEV_SMTP_USERNAME }}
+          DEV_SMTP_PASSWORD: ${{ secrets.DEV_SMTP_PASSWORD }}
+          DEV_SMTP_FROM_EMAIL: ${{ secrets.DEV_SMTP_FROM_EMAIL }}
+          DEV_SMTP_FROM_NAME: ${{ secrets.DEV_SMTP_FROM_NAME }}
+          PROD_LOGISLOT_SECRET_KEY: ${{ secrets.PROD_LOGISLOT_SECRET_KEY }}
+          PROD_POSTGRES_PASSWORD: ${{ secrets.PROD_POSTGRES_PASSWORD }}
+          PROD_DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
+          PROD_SMTP_HOST: ${{ secrets.PROD_SMTP_HOST }}
+          PROD_SMTP_PORT: ${{ secrets.PROD_SMTP_PORT }}
+          PROD_SMTP_USERNAME: ${{ secrets.PROD_SMTP_USERNAME }}
+          PROD_SMTP_PASSWORD: ${{ secrets.PROD_SMTP_PASSWORD }}
+          PROD_SMTP_FROM_EMAIL: ${{ secrets.PROD_SMTP_FROM_EMAIL }}
+          PROD_SMTP_FROM_NAME: ${{ secrets.PROD_SMTP_FROM_NAME }}
+        run: |
+          if [[ "$ENV_NAME" == "prod" ]]; then
+            SECRET_KEY="$PROD_LOGISLOT_SECRET_KEY"; PG_PASSWORD="$PROD_POSTGRES_PASSWORD"
+            DATABASE_URL="$PROD_DATABASE_URL"; SMTP_HOST="$PROD_SMTP_HOST"
+            SMTP_PORT="$PROD_SMTP_PORT"; SMTP_USERNAME="$PROD_SMTP_USERNAME"
+            SMTP_PASSWORD="$PROD_SMTP_PASSWORD"; SMTP_FROM_EMAIL="$PROD_SMTP_FROM_EMAIL"
+            SMTP_FROM_NAME="$PROD_SMTP_FROM_NAME"
+          else
+            SECRET_KEY="$DEV_LOGISLOT_SECRET_KEY"; PG_PASSWORD="$DEV_POSTGRES_PASSWORD"
+            DATABASE_URL="$DEV_DATABASE_URL"; SMTP_HOST="$DEV_SMTP_HOST"
+            SMTP_PORT="$DEV_SMTP_PORT"; SMTP_USERNAME="$DEV_SMTP_USERNAME"
+            SMTP_PASSWORD="$DEV_SMTP_PASSWORD"; SMTP_FROM_EMAIL="$DEV_SMTP_FROM_EMAIL"
+            SMTP_FROM_NAME="$DEV_SMTP_FROM_NAME"
+          fi
+          if [[ -z "$SECRET_KEY" || -z "$PG_PASSWORD" || -z "$DATABASE_URL" ]]; then
+            echo "Zorunlu secret'lar eksik: ${ENV_NAME^^}_LOGISLOT_SECRET_KEY / _POSTGRES_PASSWORD / _DATABASE_URL"
+            exit 1
+          fi
+          kubectl create namespace "$NAMESPACE" --dry-run=client -o yaml | kubectl apply -f -
+          kubectl -n "$NAMESPACE" create secret generic logislot-secrets \
+            --from-literal=POSTGRES_USER=logislot \
+            --from-literal=POSTGRES_PASSWORD="$PG_PASSWORD" \
+            --from-literal=POSTGRES_DB=logislot \
+            --from-literal=LOGISLOT_SECRET_KEY="$SECRET_KEY" \
+            --from-literal=LOGISLOT_DATABASE_URL="$DATABASE_URL" \
+            --from-literal=LOGISLOT_SMTP_HOST="${SMTP_HOST:-}" \
+            --from-literal=LOGISLOT_SMTP_PORT="${SMTP_PORT:-587}" \
+            --from-literal=LOGISLOT_SMTP_USERNAME="${SMTP_USERNAME:-}" \
+            --from-literal=LOGISLOT_SMTP_PASSWORD="${SMTP_PASSWORD:-}" \
+            --from-literal=LOGISLOT_SMTP_FROM_EMAIL="${SMTP_FROM_EMAIL:-}" \
+            --from-literal=LOGISLOT_SMTP_FROM_NAME="${SMTP_FROM_NAME:-LogiSlot}" \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Image tag'lerini sabitle ve manifest'leri uygula
+        run: |
+          cd "k8s/overlays/$ENV_NAME"
+          kustomize edit set image \
+            "ghcr.io/duosis-developer-team/logislot-api=ghcr.io/duosis-developer-team/logislot-api:$IMAGE_TAG" \
+            "ghcr.io/duosis-developer-team/logislot-web=ghcr.io/duosis-developer-team/logislot-web:$IMAGE_TAG"
+          cd -
+          kubectl apply -k "k8s/overlays/$ENV_NAME"
+          kubectl -n "$NAMESPACE" rollout status statefulset/logislot-postgres --timeout=300s
+
+      - name: Migration job (SHA'li isim; yalnizca kendi namespace'imiz)
+        run: |
+          SHORT="${IMAGE_TAG##*-}"
+          JOB_NAME="logislot-migration-$SHORT"
+          # Eski migration joblarini SADECE kendi namespace + part-of etiketiyle temizle
+          kubectl -n "$NAMESPACE" delete job \
+            -l app.kubernetes.io/name=logislot-migration --ignore-not-found=true
+          sed -e "s|name: logislot-migration|name: $JOB_NAME|" \
+              -e "s|ghcr.io/duosis-developer-team/logislot-api:dev|ghcr.io/duosis-developer-team/logislot-api:$IMAGE_TAG|" \
+              k8s/base/migration-job.yaml | kubectl -n "$NAMESPACE" apply -f -
+          kubectl -n "$NAMESPACE" wait --for=condition=complete "job/$JOB_NAME" --timeout=180s || {
+            kubectl -n "$NAMESPACE" logs "job/$JOB_NAME" --tail 100; exit 1; }
+          kubectl -n "$NAMESPACE" logs "job/$JOB_NAME" --tail 30
+
+      - name: Rollout + saglik dogrulamasi
+        run: |
+          kubectl -n "$NAMESPACE" rollout status deploy/logislot-api --timeout=180s
+          kubectl -n "$NAMESPACE" rollout status deploy/logislot-web --timeout=180s
+          kubectl -n "$NAMESPACE" rollout status deploy/logislot-scheduler --timeout=120s
+          kubectl -n "$NAMESPACE" port-forward svc/logislot-api 18010:8000 &
+          PF_PID=$!
+          sleep 3
+          curl -fsS http://localhost:18010/health
+          kill $PF_PID
+          kubectl -n "$NAMESPACE" get pods -o wide
+
+      - name: Seed job (YALNIZCA manuel istekle)
+        if: github.event_name == 'workflow_dispatch' && inputs.run_seed == 'true'
+        run: |
+          echo "UYARI: seed demo verisi olusturur (Demo123!). Bilincli istek: run_seed=true"
+          kubectl -n "$NAMESPACE" delete job logislot-seed --ignore-not-found=true
+          sed -e "s|ghcr.io/duosis-developer-team/logislot-api:dev|ghcr.io/duosis-developer-team/logislot-api:$IMAGE_TAG|" \
+              k8s/base/seed-job.yaml | kubectl -n "$NAMESPACE" apply -f -
+          kubectl -n "$NAMESPACE" wait --for=condition=complete job/logislot-seed --timeout=120s
+          kubectl -n "$NAMESPACE" logs job/logislot-seed --tail 20

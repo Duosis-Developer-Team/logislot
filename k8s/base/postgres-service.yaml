@@ -1,0 +1,16 @@
+# StatefulSet icin headless service: pod DNS'i stabil olur; uygulamalar
+# "logislot-postgres:5432" ile baglanir.
+apiVersion: v1
+kind: Service
+metadata:
+  name: logislot-postgres
+  labels:
+    app.kubernetes.io/name: logislot-postgres
+spec:
+  clusterIP: None
+  selector:
+    app.kubernetes.io/name: logislot-postgres
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: 5432

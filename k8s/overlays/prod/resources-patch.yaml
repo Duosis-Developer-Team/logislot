@@ -1,0 +1,61 @@
+# PROD kaynak plani + 10Gi PVC.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: logislot-api
+spec:
+  template:
+    spec:
+      containers:
+        - name: api
+          resources:
+            requests: { cpu: 150m, memory: 256Mi }
+            limits: { cpu: 700m, memory: 768Mi }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: logislot-web
+spec:
+  template:
+    spec:
+      containers:
+        - name: web
+          resources:
+            requests: { cpu: 100m, memory: 192Mi }
+            limits: { cpu: 500m, memory: 512Mi }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: logislot-scheduler
+spec:
+  template:
+    spec:
+      containers:
+        - name: scheduler
+          resources:
+            requests: { cpu: 50m, memory: 128Mi }
+            limits: { cpu: 250m, memory: 256Mi }
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: logislot-postgres
+spec:
+  template:
+    spec:
+      containers:
+        - name: postgres
+          resources:
+            requests: { cpu: 150m, memory: 512Mi }
+            limits: { cpu: 800m, memory: 1Gi }
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: local-path
+        resources:
+          requests:
+            storage: 10Gi

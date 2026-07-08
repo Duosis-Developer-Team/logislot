@@ -1,0 +1,23 @@
+# Placeholder host'lar — gercek domain gelince guncellenir.
+# Domain'siz test icin /etc/hosts:
+#   84.247.180.172 logislot-dev.local logislot-dev-api.local
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: logislot
+spec:
+  rules:
+    - host: logislot-dev.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service: { name: logislot-web, port: { name: http } }
+    - host: logislot-dev-api.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service: { name: logislot-api, port: { name: http } }

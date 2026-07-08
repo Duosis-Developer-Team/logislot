@@ -1,0 +1,68 @@
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+
+from app.auth.router import router as auth_router
+from app.core.config import get_settings
+from app.core.errors import register_error_handlers
+from app.routers.appointments import router as appointments_router
+from app.routers.audit import router as audit_router
+from app.routers.branding import router as branding_router
+from app.routers.catalogs import router as catalogs_router
+from app.routers.docks import router as docks_router
+from app.routers.health import router as health_router
+from app.routers.me import router as me_router
+from app.routers.notifications import router as notifications_router
+from app.routers.platform import router as platform_router
+from app.routers.reports import router as reports_router
+from app.routers.supplier_portal import router as supplier_router
+from app.routers.suppliers import router as suppliers_router
+from app.routers.users import router as users_router
+
+
+def create_app() -> FastAPI:
+    settings = get_settings()
+    app = FastAPI(
+        title=settings.app_name,
+        version="0.1.0",
+        description="LogiSlot — Akilli Mal Kabul & Rampa Randevu Platformu",
+        # Production'da LOGISLOT_ENABLE_DOCS=false ile dokumantasyon kapatilir
+        docs_url="/docs" if settings.enable_docs else None,
+        redoc_url="/redoc" if settings.enable_docs else None,
+        openapi_url="/openapi.json" if settings.enable_docs else None,
+    )
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=settings.cors_origins,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
+    @app.middleware("http")
+    async def security_headers(request, call_next):
+        response = await call_next(request)
+        response.headers.setdefault("X-Content-Type-Options", "nosniff")
+        response.headers.setdefault("X-Frame-Options", "DENY")
+        response.headers.setdefault("Referrer-Policy", "same-origin")
+        return response
+
+    register_error_handlers(app)
+
+    app.include_router(health_router)
+    app.include_router(auth_router)
+    app.include_router(me_router)
+    app.include_router(platform_router)
+    app.include_router(catalogs_router)
+    app.include_router(branding_router)
+    app.include_router(docks_router)
+    app.include_router(suppliers_router)
+    app.include_router(users_router)
+    app.include_router(appointments_router)
+    app.include_router(reports_router)
+    app.include_router(supplier_router)
+    app.include_router(notifications_router)
+    app.include_router(audit_router)
+    return app
+
+
+app = create_app()

@@ -1,0 +1,57 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: logislot
+      POSTGRES_PASSWORD: logislot
+      POSTGRES_DB: logislot
+    ports:
+      - "5433:5432"
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U logislot -d logislot"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build: ./apps/api
+    environment:
+      LOGISLOT_DATABASE_URL: postgresql+asyncpg://logislot:logislot@db:5432/logislot
+      LOGISLOT_SECRET_KEY: dev-secret-change-me
+      LOGISLOT_CORS_ORIGINS: '["http://localhost:3000","http://localhost:3010"]'
+    ports:
+      # Yerel makinelerde 8000/3000 sik dolu oldugu icin LogiSlot 8010/3010 kullanir.
+      - "8010:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # Maintenance scheduler: email retry (5 dk) + bildirim temizligi (24 sa).
+  # Dev compose'ta ACIK (karar: pilot demo'da otomasyon gorunur olsun);
+  # kapatmak icin: docker compose stop scheduler
+  scheduler:
+    build: ./apps/api
+    # API imajinin entrypoint'i uvicorn baslatir; scheduler kendi komutunu kosar.
+    entrypoint: ["python", "-m", "app.maintenance.scheduler"]
+    environment:
+      LOGISLOT_DATABASE_URL: postgresql+asyncpg://logislot:logislot@db:5432/logislot
+      LOGISLOT_SECRET_KEY: dev-secret-change-me
+    depends_on:
+      db:
+        condition: service_healthy
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: http://localhost:8010
+    ports:
+      - "3010:3000"
+    depends_on:
+      - api
+
+volumes:
+  db-data:

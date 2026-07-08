@@ -1,0 +1,27 @@
+# Monorepo kokunden build edilir:
+#   docker build -f apps/web/Dockerfile .
+FROM node:22-alpine AS deps
+WORKDIR /repo
+COPY package.json package-lock.json ./
+COPY apps/web/package.json apps/web/
+COPY packages/shared/package.json packages/shared/
+RUN npm ci
+
+FROM node:22-alpine AS builder
+WORKDIR /repo
+COPY --from=deps /repo/node_modules ./node_modules
+COPY package.json package-lock.json ./
+COPY apps/web ./apps/web
+COPY packages/shared ./packages/shared
+ARG NEXT_PUBLIC_API_URL=http://localhost:8000
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+RUN npm run build -w @logislot/web
+
+FROM node:22-alpine AS runner
+WORKDIR /app
+ENV NODE_ENV=production
+COPY --from=builder /repo/apps/web/.next/standalone ./
+COPY --from=builder /repo/apps/web/.next/static ./apps/web/.next/static
+
+EXPOSE 3000
+CMD ["node", "apps/web/server.js"]

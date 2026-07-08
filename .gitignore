@@ -1,0 +1,33 @@
+# Node
+node_modules/
+.next/
+out/
+*.tsbuildinfo
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+
+# Env / local
+.env
+.env.local
+.DS_Store
+
+# Docker
+db-data/
+
+# Playwright
+e2e/test-results/
+playwright-report/
+.env.staging
+
+# Kubernetes / CI guvenligi (repo PUBLIC)
+kubeconfig*
+*.kubeconfig
+.env.staging
+k8s/**/secret.yaml
+*.dump

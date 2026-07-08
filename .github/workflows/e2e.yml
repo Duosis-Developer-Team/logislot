@@ -1,0 +1,76 @@
+# LogiSlot E2E — compose stack'e karsi demo smoke + Playwright.
+#
+# Karar (Sprint 9 raporu): repo henuz GitHub'a puslanmadigi icin workflow
+# hem manuel tetiklenebilir (workflow_dispatch) hem PR'larda kosar; push
+# sonrasi ek ayar gerekmez.
+name: e2e
+
+on:
+  workflow_dispatch:
+  pull_request:
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compose stack'i ayaga kaldir
+        run: docker compose up -d --build
+
+      - name: API saglik bekle
+        run: |
+          for i in $(seq 1 60); do
+            if curl -fsS http://localhost:8010/health > /dev/null 2>&1; then
+              echo "API hazir (deneme $i)"; exit 0
+            fi
+            sleep 2
+          done
+          echo "API 120 sn icinde hazir olmadi" >&2; exit 1
+
+      - name: Migration + seed
+        run: |
+          docker compose exec -T api alembic upgrade head
+          docker compose exec -T api python -m app.seed
+
+      - name: Web saglik bekle
+        run: |
+          for i in $(seq 1 30); do
+            if curl -fsS -o /dev/null http://localhost:3010/login; then
+              echo "Web hazir (deneme $i)"; exit 0
+            fi
+            sleep 2
+          done
+          echo "Web 60 sn icinde hazir olmadi" >&2; exit 1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Bagimliliklar + Chromium
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+
+      - name: Demo smoke (18 adim)
+        run: python3 scripts/demo_smoke.py
+
+      - name: Playwright E2E
+        run: npx playwright test
+
+      - name: Hata durumunda compose loglari
+        if: failure()
+        run: docker compose logs --tail 200
+
+      - name: Hata artefaktlari (screenshot/trace)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-artifacts
+          path: e2e/test-results/
+          retention-days: 7
+
+      - name: Stack'i indir
+        if: always()
+        run: docker compose down -v

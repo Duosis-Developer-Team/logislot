@@ -1,0 +1,15 @@
+# PROD konfigurasyonu. NEXT_PUBLIC_API_URL build-time'dir — CI'da
+# vars.PROD_NEXT_PUBLIC_API_URL ile verilir (varsayilan:
+# http://84.247.180.172:30083). Domain gelince:
+#   LOGISLOT_PUBLIC_WEB_URL=https://logislot.example.com
+#   LOGISLOT_CORS_ORIGINS=["https://logislot.example.com"]
+#   + web image'i https://logislot-api.example.com ile YENIDEN build.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: logislot-config
+data:
+  LOGISLOT_ENVIRONMENT: "production"
+  LOGISLOT_ENABLE_DOCS: "false"
+  LOGISLOT_PUBLIC_WEB_URL: "http://84.247.180.172:30082"
+  LOGISLOT_CORS_ORIGINS: '["http://84.247.180.172:30082","http://84.247.180.173:30082"]'

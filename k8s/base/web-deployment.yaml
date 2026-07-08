@@ -1,0 +1,48 @@
+# LogiSlot Web (Next.js standalone).
+#
+# ONEMLI: NEXT_PUBLIC_API_URL BUILD-TIME'dir — istemci bundle'ina gomulur.
+# Buradaki runtime env DEGISTIREMEZ. API adresi degisirse web image'i
+# --build-arg NEXT_PUBLIC_API_URL=... ile YENIDEN BUILD edilmelidir.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: logislot-web
+  labels:
+    app.kubernetes.io/name: logislot-web
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: logislot-web
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: logislot-web
+    spec:
+      containers:
+        - name: web
+          image: ghcr.io/duosis-developer-team/logislot-web:dev
+          ports:
+            - name: http
+              containerPort: 3000
+          resources:
+            requests:
+              cpu: 100m
+              memory: 192Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          startupProbe:
+            httpGet: { path: /login, port: http }
+            failureThreshold: 30
+            periodSeconds: 2
+          readinessProbe:
+            httpGet: { path: /login, port: http }
+            periodSeconds: 10
+            timeoutSeconds: 3
+          livenessProbe:
+            httpGet: { path: /login, port: http }
+            periodSeconds: 20
+            timeoutSeconds: 3
+          securityContext:
+            allowPrivilegeEscalation: false

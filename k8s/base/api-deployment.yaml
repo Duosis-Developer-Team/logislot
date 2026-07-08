@@ -1,0 +1,56 @@
+# LogiSlot API.
+#
+# ONEMLI: image entrypoint'i (docker-entrypoint.sh) acilista OTOMATIK
+# "alembic upgrade head" + "python -m app.seed" kosar. Kubernetes'te bunu
+# ISTEMIYORUZ (migration ayri Job'dir, seed MANUEL'dir) — bu yuzden command
+# override ile dogrudan uvicorn baslatilir.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: logislot-api
+  labels:
+    app.kubernetes.io/name: logislot-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: logislot-api
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: logislot-api
+    spec:
+      containers:
+        - name: api
+          image: ghcr.io/duosis-developer-team/logislot-api:dev
+          command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+          ports:
+            - name: http
+              containerPort: 8000
+          envFrom:
+            - configMapRef: { name: logislot-config }
+            - secretRef: { name: logislot-secrets }
+          resources:
+            requests:
+              cpu: 150m
+              memory: 256Mi
+            limits:
+              cpu: 700m
+              memory: 768Mi
+          startupProbe:
+            httpGet: { path: /health, port: http }
+            failureThreshold: 30
+            periodSeconds: 2
+          readinessProbe:
+            httpGet: { path: /health, port: http }
+            periodSeconds: 10
+            timeoutSeconds: 3
+          livenessProbe:
+            httpGet: { path: /health, port: http }
+            periodSeconds: 20
+            timeoutSeconds: 3
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false
+            # runAsNonRoot: image python:3.13-slim root kullanicisiyla calisiyor;
+            # non-root'a gecis Dockerfile degisikligi ister (bilincli yorumda).
