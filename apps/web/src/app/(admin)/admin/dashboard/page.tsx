@@ -15,6 +15,8 @@ import { EmptyState, ErrorState, LoadingState } from "@/components/config/states
 import { AppointmentDrawer } from "@/components/appointments/appointment-drawer";
 import { CargoBadge } from "@/components/domain/cargo-badge";
 import { StatusBadge } from "@/components/domain/status-badge";
+import { MetricCard } from "@/components/shell/metric-card";
+import { PageContainer, PageHeader } from "@/components/shell/page";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useDashboardSummary } from "@/lib/api/appointments";
 import { useFacilityPlanWarnings } from "@/lib/api/reports";
@@ -35,30 +37,33 @@ export default function DashboardPage() {
     );
 
   const data = summary.data;
-  const stats = [
+  const stats: {
+    label: string;
+    value: number;
+    icon: typeof CalendarClock;
+    tone?: "primary" | "cargo";
+  }[] = [
     { label: "Bugünkü Randevular", value: data.today_appointments, icon: CalendarClock },
     { label: "Onay Bekleyen", value: data.pending_approvals, icon: CalendarCheck2 },
     { label: "Bugün Tamamlanan", value: data.completed_today, icon: CheckCircle2 },
     { label: "Bu Hafta Toplam", value: data.week_total, icon: Truck },
     { label: "Aktif Tedarikçi", value: data.active_suppliers, icon: Users2 },
     { label: "Aktif Rampa", value: data.active_docks, icon: Warehouse },
-    { label: "Kargo Uyarılı", value: data.cargo_warned, icon: Package, accent: true },
+    { label: "Kargo Uyarılı", value: data.cargo_warned, icon: Package, tone: "cargo" },
   ];
 
   return (
-    <div className="flex flex-col gap-6">
+    <PageContainer>
       <PlanWarningBanner />
-      <div>
-        <h1 className="text-xl font-bold">Genel Bakış</h1>
-        <p className="text-sm text-muted-foreground">
-          {activeFacility?.name} — günün operasyonel özeti
-        </p>
-      </div>
+      <PageHeader
+        title="Genel Bakış"
+        description={`${activeFacility?.name ?? ""} — günün operasyonel özeti`}
+      />
 
       {flash && (
         <div
           className={cn(
-            "rounded-lg border px-3 py-2 text-sm",
+            "rounded-xl border px-3.5 py-2.5 text-sm",
             flash.kind === "success"
               ? "border-status-approved/40 bg-status-approved/10 text-status-approved"
               : "border-destructive/40 bg-destructive/10 text-destructive",
@@ -69,27 +74,15 @@ export default function DashboardPage() {
       )}
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-7">
-        {stats.map((s) => {
-          const Icon = s.icon;
-          return (
-            <Card key={s.label}>
-              <CardContent className="flex flex-col items-start gap-2 p-4">
-                <span
-                  className={cn(
-                    "flex h-9 w-9 items-center justify-center rounded-lg",
-                    s.accent ? "bg-cargo/15" : "bg-primary/10",
-                  )}
-                >
-                  <Icon className={cn("h-4 w-4", s.accent ? "text-cargo" : "text-primary")} />
-                </span>
-                <div>
-                  <div className="text-2xl font-bold leading-none">{s.value}</div>
-                  <div className="mt-1 text-xs text-muted-foreground">{s.label}</div>
-                </div>
-              </CardContent>
-            </Card>
-          );
-        })}
+        {stats.map((s) => (
+          <MetricCard
+            key={s.label}
+            icon={s.icon}
+            label={s.label}
+            value={s.value}
+            tone={s.tone ?? "primary"}
+          />
+        ))}
       </div>
 
       <div className="grid gap-4 xl:grid-cols-2">
@@ -173,7 +166,7 @@ export default function DashboardPage() {
         onClose={() => setSelectedId(null)}
         onActionSuccess={(message) => showFlash("success", message)}
       />
-    </div>
+    </PageContainer>
   );
 }
 

@@ -37,19 +37,24 @@ export function UserMenu({ profileHref }: { profileHref?: string }) {
     <div className="relative">
       <button
         onClick={() => setOpen((v) => !v)}
-        className="flex items-center gap-2 rounded-lg py-1 pl-1 pr-1.5 text-left hover:bg-muted sm:pr-2"
+        className="flex items-center gap-2 rounded-xl py-1 pl-1 pr-1.5 text-left transition-colors hover:bg-muted sm:pr-2"
         aria-label="Kullanıcı menüsü"
         aria-haspopup="menu"
         aria-expanded={open}
       >
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary to-primary-hover text-xs font-bold text-primary-foreground shadow-sm ring-1 ring-black/5">
           {initials(name)}
         </span>
         <span className="hidden min-w-0 flex-col leading-tight sm:flex">
-          <span className="truncate text-sm font-medium">{name}</span>
+          <span className="truncate text-sm font-semibold">{name}</span>
           <span className="truncate text-[11px] text-muted-foreground">{roleLabel}</span>
         </span>
-        <ChevronDown className="hidden h-4 w-4 shrink-0 text-muted-foreground sm:block" />
+        <ChevronDown
+          className={cn(
+            "hidden h-4 w-4 shrink-0 text-muted-foreground transition-transform sm:block",
+            open && "rotate-180",
+          )}
+        />
       </button>
 
       {open && (
@@ -57,7 +62,7 @@ export function UserMenu({ profileHref }: { profileHref?: string }) {
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
           <div
             role="menu"
-            className="absolute right-0 z-50 mt-2 w-60 overflow-hidden rounded-xl border border-border bg-card shadow-xl"
+            className="absolute right-0 z-50 mt-2 w-64 origin-top-right overflow-hidden rounded-2xl border border-border bg-card shadow-pop animate-scale-in"
           >
             <div className="border-b border-border px-4 py-3">
               <p className="truncate text-sm font-semibold">{name}</p>

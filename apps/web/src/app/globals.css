@@ -3,53 +3,90 @@
 @tailwind utilities;
 
 /*
- * LogiSlot tema tokenlari.
- * White-label: tenant/facility markasi bu degiskenleri override eder.
+ * LogiSlot tasarim sistemi — Premium logistics SaaS teması.
+ * Renkler HSL degiskenleridir; white-label tenant/facility markasi
+ * yalnizca --primary / --primary-hover / --accent'i override eder.
+ * Kimlik: derin indigo marka + soguk premium notr yuzeyler +
+ * erisilebilir operasyon (statu) renkleri.
  */
 :root {
-  --background: 220 25% 97%;
-  --foreground: 224 40% 12%;
+  /* Notr yuzeyler — soguk, premium slate */
+  --background: 220 24% 97%;
+  --foreground: 222 32% 12%;
   --card: 0 0% 100%;
-  --card-foreground: 224 40% 12%;
-  --muted: 220 16% 93%;
-  --muted-foreground: 224 12% 45%;
-  --border: 220 16% 88%;
+  --card-foreground: 222 32% 12%;
+  --muted: 220 22% 94%;
+  --muted-foreground: 221 13% 46%;
+  --border: 220 20% 90%;
+  --ring: 234 54% 48%;
 
-  /* Marka: LogiSlot indigo */
-  --primary: 243 70% 55%;
-  --primary-hover: 243 70% 48%;
+  /* Marka — derin indigo (LogiSlot) */
+  --primary: 234 54% 48%;
+  --primary-hover: 234 54% 41%;
   --primary-foreground: 0 0% 100%;
 
-  --accent: 32 95% 52%;
-  --accent-foreground: 24 60% 15%;
+  /* Vurgu — kontrollu amber (indigo ile premium kontrast) */
+  --accent: 36 92% 50%;
+  --accent-foreground: 28 45% 14%;
 
-  --destructive: 0 72% 51%;
+  --destructive: 0 72% 52%;
 
-  /* Randevu statu renkleri (v2.0 — 6 statu) */
-  --status-pending: 38 92% 50%;
-  --status-approved: 152 60% 40%;
-  --status-revision: 262 72% 58%;
-  --status-rejected: 0 72% 51%;
-  --status-completed: 205 80% 45%;
-  --status-cancelled: 220 10% 55%;
+  /* Randevu statu renkleri (6 statu) — erisilebilir, doygun degil */
+  --status-pending: 38 92% 48%;
+  --status-approved: 158 62% 38%;
+  --status-revision: 262 60% 58%;
+  --status-rejected: 0 72% 52%;
+  --status-completed: 210 80% 46%;
+  --status-cancelled: 220 12% 52%;
 
   /* Kargo uyari katmani — statu renginden ayri */
-  --cargo: 22 95% 55%;
+  --cargo: 24 92% 53%;
+
+  --radius: 0.75rem;
 }
 
-body {
-  background-color: hsl(var(--background));
-  color: hsl(var(--foreground));
-  font-family:
-    ui-sans-serif,
-    system-ui,
-    -apple-system,
-    "Segoe UI",
-    Roboto,
-    "Helvetica Neue",
-    Arial,
-    sans-serif;
-  -webkit-font-smoothing: antialiased;
+@layer base {
+  * {
+    border-color: hsl(var(--border));
+  }
+
+  body {
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+    font-feature-settings: "cv02", "cv03", "cv04", "ss01";
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Baslik hissi: sikilastirilmis harf araligi (premium editorial) */
+  h1, h2, h3, h4 {
+    letter-spacing: -0.018em;
+  }
+
+  ::selection {
+    background-color: hsl(var(--primary) / 0.16);
+    color: hsl(var(--foreground));
+  }
+
+  /* Ince, premium scrollbar */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--muted-foreground) / 0.28) transparent;
+  }
+  *::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  *::-webkit-scrollbar-thumb {
+    background-color: hsl(var(--muted-foreground) / 0.24);
+    border: 3px solid transparent;
+    background-clip: content-box;
+    border-radius: 9999px;
+  }
+  *::-webkit-scrollbar-thumb:hover {
+    background-color: hsl(var(--muted-foreground) / 0.4);
+  }
 }
 
 /* Takvimde kargo overlay deseni: statu renginin ustune cizgili doku */
@@ -60,5 +97,14 @@ body {
     transparent 6px,
     hsl(var(--cargo) / 0.25) 6px,
     hsl(var(--cargo) / 0.25) 10px
+  );
+}
+
+/* Marka degeri belli olmayan yuzeylerde ince ust isik (premium his) */
+.surface-sheen {
+  background-image: linear-gradient(
+    180deg,
+    hsl(0 0% 100% / 0.6),
+    hsl(0 0% 100% / 0) 120px
   );
 }

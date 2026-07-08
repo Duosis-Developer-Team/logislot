@@ -67,13 +67,18 @@ function NavLinks({
             onClick={onNavigate}
             aria-current={active ? "page" : undefined}
             className={cn(
-              "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+              "group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-all duration-150",
               active
-                ? "bg-primary/10 text-primary"
-                : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                ? "bg-primary/10 font-semibold text-primary ring-1 ring-inset ring-primary/10"
+                : "font-medium text-muted-foreground hover:bg-muted hover:text-foreground",
             )}
           >
-            <Icon className="h-4 w-4 shrink-0" />
+            <Icon
+              className={cn(
+                "h-[1.15rem] w-[1.15rem] shrink-0 transition-colors",
+                active ? "text-primary" : "text-muted-foreground group-hover:text-foreground",
+              )}
+            />
             {item.label}
           </Link>
         );
@@ -149,7 +154,7 @@ export function AppShell({
             onClick={() => setMobileOpen(false)}
           />
           <div
-            className="absolute inset-y-0 left-0 flex w-72 max-w-[85%] flex-col bg-card shadow-2xl"
+            className="absolute inset-y-0 left-0 flex w-72 max-w-[85%] flex-col border-r border-border bg-card shadow-pop animate-slide-in-left"
             style={sidebarStyle}
           >
             <div className="flex h-14 items-center justify-between border-b border-border px-4">
@@ -170,12 +175,12 @@ export function AppShell({
 
       {/* Ana kolon */}
       <div className="flex min-w-0 flex-1 flex-col lg:pl-60">
-        <header className="sticky top-0 z-30 flex h-14 items-center justify-between gap-3 border-b border-border bg-card/95 px-4 backdrop-blur lg:px-6">
+        <header className="sticky top-0 z-30 flex h-14 items-center justify-between gap-3 border-b border-border bg-card/80 px-4 backdrop-blur-xl lg:px-6">
           <div className="flex min-w-0 items-center gap-2">
             <button
               onClick={() => setMobileOpen(true)}
               aria-label="Menü"
-              className="rounded-lg p-2 text-muted-foreground hover:bg-muted lg:hidden"
+              className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted lg:hidden"
             >
               <Menu className="h-5 w-5" />
             </button>
@@ -183,7 +188,7 @@ export function AppShell({
             {headerStart}
           </div>
           <div className="flex items-center gap-1 sm:gap-2">
-            <span className="hidden rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground md:inline">
+            <span className="hidden rounded-full bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary ring-1 ring-inset ring-primary/15 md:inline">
               {roleLabel}
             </span>
             {headerActions}
@@ -191,7 +196,9 @@ export function AppShell({
           </div>
         </header>
 
-        <main className="flex-1 p-4 lg:p-6">{children}</main>
+        <main className="mx-auto w-full max-w-[96rem] flex-1 p-4 sm:p-5 lg:p-8">
+          {children}
+        </main>
       </div>
     </div>
   );

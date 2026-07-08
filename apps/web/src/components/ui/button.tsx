@@ -3,19 +3,25 @@ import { forwardRef } from "react";
 import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 rounded-lg text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 disabled:pointer-events-none disabled:opacity-50",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg font-semibold transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-50 active:translate-y-px [&_svg]:shrink-0",
   {
     variants: {
       variant: {
-        primary: "bg-primary text-primary-foreground hover:bg-primary-hover shadow-sm",
-        secondary: "bg-card border border-border text-foreground hover:bg-muted",
+        primary:
+          "bg-primary text-primary-foreground shadow-sm hover:bg-primary-hover hover:shadow-primary-glow",
+        secondary:
+          "border border-border bg-card text-foreground shadow-soft hover:border-border hover:bg-muted",
+        outline:
+          "border border-border bg-transparent text-foreground hover:border-primary/40 hover:bg-primary/5 hover:text-primary",
         ghost: "text-foreground hover:bg-muted",
-        destructive: "bg-destructive text-white hover:opacity-90",
+        accent: "bg-accent text-accent-foreground shadow-sm hover:brightness-[1.03]",
+        destructive: "bg-destructive text-white shadow-sm hover:brightness-95",
       },
       size: {
-        sm: "h-8 px-3 text-xs",
-        md: "h-10 px-4",
-        lg: "h-12 px-6 text-base",
+        sm: "h-8 gap-1.5 px-3 text-xs [&_svg]:size-3.5",
+        md: "h-10 px-4 text-sm [&_svg]:size-4",
+        lg: "h-12 px-6 text-base [&_svg]:size-5",
+        icon: "h-10 w-10 [&_svg]:size-5",
       },
     },
     defaultVariants: { variant: "primary", size: "md" },
@@ -32,3 +38,5 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
   ),
 );
 Button.displayName = "Button";
+
+export { buttonVariants };
