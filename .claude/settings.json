@@ -14,7 +14,8 @@
       "Bash(kubectl --kubeconfig /private/tmp/claude-501/-Users-camoka-LogiSlot/d0bc42e1-75b4-45c2-a528-b8e24fefe821/scratchpad/kc -n logislot-dev delete job logislot-seed --ignore-not-found)",
       "Bash(kubectl --kubeconfig /private/tmp/claude-501/-Users-camoka-LogiSlot/d0bc42e1-75b4-45c2-a528-b8e24fefe821/scratchpad/kc -n logislot-dev get deploy,statefulset,svc,pvc,ingress)",
       "Bash(git -c user.email=akadir1256@gmail.com -c user.name=LogiSlot commit -q -m 'docs: secrets + CI/CD activation + dev deploy raporu *)",
-      "Bash(rm -f /private/tmp/claude-501/-Users-camoka-LogiSlot/d0bc42e1-75b4-45c2-a528-b8e24fefe821/scratchpad/*.log /private/tmp/claude-501/-Users-camoka-LogiSlot/d0bc42e1-75b4-45c2-a528-b8e24fefe821/scratchpad/kc*)"
+      "Bash(rm -f /private/tmp/claude-501/-Users-camoka-LogiSlot/d0bc42e1-75b4-45c2-a528-b8e24fefe821/scratchpad/*.log /private/tmp/claude-501/-Users-camoka-LogiSlot/d0bc42e1-75b4-45c2-a528-b8e24fefe821/scratchpad/kc*)",
+      "Bash(git -c user.email=akadir1256@gmail.com -c user.name=LogiSlot commit -q -m 'docs: dev demo rol hesaplari dogrulama raporu *)"
     ]
   }
 }
