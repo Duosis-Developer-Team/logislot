@@ -2,6 +2,7 @@
 # E2E (compose + demo smoke + Playwright) ayri workflow'tadir: e2e.yml —
 # birlestirilmedi cunku E2E daha yavas ve compose gerektirir; hizli geri
 # bildirim icin bu iki job bagimsiz kosar (rapor karari).
+# NOT: workflow yeniden indeksleme (Actions kayit) tetiklemesi.
 name: ci
 
 on:

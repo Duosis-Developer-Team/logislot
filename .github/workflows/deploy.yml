@@ -9,6 +9,7 @@
 # - PVC delete HICBIR kosulda yok.
 # - kubeconfig asla loglanmaz.
 # - Seed YALNIZCA workflow_dispatch + run_seed=true ile (prod'da da bilinçli).
+# NOT: workflow yeniden indeksleme (Actions kayit) tetiklemesi.
 name: Deploy
 
 on:
