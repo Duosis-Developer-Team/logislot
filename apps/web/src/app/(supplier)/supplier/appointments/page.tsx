@@ -77,9 +77,9 @@ export default function SupplierAppointmentsPage() {
   }
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="mx-auto flex w-full max-w-5xl flex-col gap-4">
       <div>
-        <h1 className="text-lg font-bold">
+        <h1 className="text-xl font-bold sm:text-2xl">
           {profile.data?.company_name ?? "Randevularım"}
         </h1>
         {profile.data && (
@@ -140,19 +140,19 @@ export default function SupplierAppointmentsPage() {
         ))}
       </div>
 
-      <div className="flex flex-col gap-3">
-        {shown.length === 0 && (
-          <EmptyState
-            title="Randevu yok"
-            description={
-              activeTab === "upcoming"
-                ? "Yeni Randevu sekmesinden 3 adımda talep oluşturabilirsiniz."
-                : "Geçmiş randevunuz bulunmuyor."
-            }
-          />
-        )}
-        {shown.map((a) => (
-          <Card key={a.id}>
+      {shown.length === 0 ? (
+        <EmptyState
+          title="Randevu yok"
+          description={
+            activeTab === "upcoming"
+              ? "Yeni Randevu sekmesinden 3 adımda talep oluşturabilirsiniz."
+              : "Geçmiş randevunuz bulunmuyor."
+          }
+        />
+      ) : (
+        <div className="grid gap-3 md:grid-cols-2">
+          {shown.map((a) => (
+            <Card key={a.id}>
             <CardContent className="flex flex-col gap-2 p-4">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
@@ -215,8 +215,9 @@ export default function SupplierAppointmentsPage() {
               )}
             </CardContent>
           </Card>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
 
       <ConfirmDialog
         open={confirmTarget !== null}

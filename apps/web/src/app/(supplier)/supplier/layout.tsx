@@ -2,24 +2,22 @@
 
 import { CalendarDays, CirclePlus, UserRound } from "lucide-react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
 import { LoadingState } from "@/components/config/states";
 import { ApplyBranding, BrandMark } from "@/components/domain/apply-branding";
 import { Logo } from "@/components/domain/logo";
 import { NotificationBell } from "@/components/notifications/notification-bell";
+import { AppShell, type AppNavItem } from "@/components/shell/app-shell";
 import { Button } from "@/components/ui/button";
 import { useBranding } from "@/lib/api/branding";
 import { SessionProvider, useSession } from "@/lib/auth/session";
-import { cn } from "@/lib/utils";
 
-const TABS = [
+const NAV: AppNavItem[] = [
   { href: "/supplier/appointments", label: "Randevularım", icon: CalendarDays },
   { href: "/supplier/new-appointment", label: "Yeni Randevu", icon: CirclePlus },
   { href: "/supplier/profile", label: "Profil", icon: UserRound },
 ];
 
 function SupplierShell({ children }: { children: React.ReactNode }) {
-  const pathname = usePathname();
   const session = useSession();
   // Tedarikcinin tesisi = me.default_facility_id; markasi portala uygulanir
   const branding = useBranding(
@@ -50,43 +48,19 @@ function SupplierShell({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="mx-auto flex min-h-screen max-w-md flex-col bg-background">
+    <>
       <ApplyBranding branding={branding.data} />
-      <header className="sticky top-0 z-40 flex items-center justify-between border-b border-border bg-card/95 px-4 py-3 backdrop-blur">
-        <BrandMark branding={branding.data} fallback={<Logo />} />
-        <div className="flex items-center gap-1">
-          <NotificationBell variant="supplier" facilityId="self" />
-          <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground">
-            Tedarikçi
-          </span>
-        </div>
-      </header>
-
-      <main className="flex-1 px-4 pb-24 pt-4">{children}</main>
-
-      {/* Mobile-first alt gezinme cubugu */}
-      <nav className="fixed inset-x-0 bottom-0 z-40 mx-auto max-w-md border-t border-border bg-card/95 backdrop-blur">
-        <div className="grid grid-cols-3">
-          {TABS.map((tab) => {
-            const Icon = tab.icon;
-            const active = pathname.startsWith(tab.href);
-            return (
-              <Link
-                key={tab.href}
-                href={tab.href}
-                className={cn(
-                  "flex flex-col items-center gap-1 py-2.5 text-[11px] font-medium",
-                  active ? "text-primary" : "text-muted-foreground",
-                )}
-              >
-                <Icon className="h-5 w-5" />
-                {tab.label}
-              </Link>
-            );
-          })}
-        </div>
-      </nav>
-    </div>
+      <AppShell
+        nav={NAV}
+        roleLabel="Tedarikçi"
+        brand={<BrandMark branding={branding.data} fallback={<Logo />} />}
+        profileHref="/supplier/profile"
+        footer="LogiSlot · Tedarikçi Portalı"
+        headerActions={<NotificationBell variant="supplier" facilityId="self" />}
+      >
+        {children}
+      </AppShell>
+    </>
   );
 }
 

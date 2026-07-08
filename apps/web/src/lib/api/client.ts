@@ -206,6 +206,8 @@ export const authApi = {
       body: { current_password: currentPassword, new_password: newPassword },
     }),
   me: () => apiRequest<unknown>("/auth/me"),
+  /** Sunucu tarafi oturum iptali (logout-everywhere). En iyi caba; hata firlatabilir. */
+  logout: () => apiRequest<{ logged_out: boolean }>("/auth/logout", { method: "POST" }),
 };
 
 /** Token'li CSV indirme: yaniti blob olarak alir ve tarayicida kaydettirir. */

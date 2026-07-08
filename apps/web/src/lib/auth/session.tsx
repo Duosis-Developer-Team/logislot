@@ -8,7 +8,7 @@
  * bu facility_id ile path uzerinden gider ve backend membership dogrular.
  */
 
-import { useQuery } from "@tanstack/react-query";
+import { QueryClient, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   createContext,
   useCallback,
@@ -17,10 +17,30 @@ import {
   useMemo,
   useState,
 } from "react";
-import { ApiError, apiRequest, clearSession, getStoredToken } from "@/lib/api/client";
+import { ApiError, apiRequest, authApi, clearSession, getStoredToken } from "@/lib/api/client";
 import type { FacilitySummaryDto, MeDto } from "@/lib/api/types";
 
 const ACTIVE_FACILITY_KEY = "logislot.active_facility";
+
+/**
+ * Ortak, dayanikli cikis akisi — tum portallar ayni yolu kullanir.
+ *  1. Sunucuda oturumu iptal et (best-effort; logout-everywhere).
+ *  2. Backend hata verse bile access/refresh token + portal bilgisini temizle.
+ *  3. TanStack Query onbellegini bosalt (baska kullanicinin verisi sizmasin).
+ *  4. /login'e REPLACE ile don — geri tusuyla korumali rotaya donulmez.
+ */
+async function performLogout(queryClient: QueryClient): Promise<void> {
+  try {
+    await authApi.logout();
+  } catch {
+    // Istemci oturumu, backend cagrisi basarisiz olsa da mutlaka temizlenir.
+  }
+  clearSession();
+  queryClient.clear();
+  if (typeof window !== "undefined") {
+    window.location.replace("/login");
+  }
+}
 
 interface SessionState {
   me: MeDto | null;
@@ -39,8 +59,13 @@ interface SessionState {
 const SessionContext = createContext<SessionState | null>(null);
 
 export function SessionProvider({ children }: { children: React.ReactNode }) {
+  const queryClient = useQueryClient();
   const [hasToken, setHasToken] = useState<boolean | null>(null);
   useEffect(() => setHasToken(getStoredToken() !== null), []);
+
+  const logout = useCallback(() => {
+    void performLogout(queryClient);
+  }, [queryClient]);
 
   const meQuery = useQuery({
     queryKey: ["auth", "me"],
@@ -96,10 +121,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     permissions,
     can: (permission: string) => permissions.includes(permission),
     setActiveFacilityId,
-    logout: () => {
-      clearSession();
-      window.location.href = "/login";
-    },
+    logout,
   };
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;
