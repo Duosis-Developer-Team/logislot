@@ -10,7 +10,8 @@ import {
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { Logo } from "@/components/domain/logo";
+import { LogiSlotLogo } from "@/components/brand/logo";
+import { ThemeToggle } from "@/components/shell/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import { authApi, storeSession } from "@/lib/api/client";
@@ -101,9 +102,12 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="grid min-h-screen lg:grid-cols-[1.05fr_1fr]">
-      {/* Marka hero paneli — masaustu */}
-      <section className="relative hidden overflow-hidden bg-primary text-primary-foreground lg:flex lg:flex-col lg:justify-between lg:p-12">
+    <main className="relative grid min-h-screen lg:grid-cols-[1.05fr_1fr]">
+      <div className="absolute right-3 top-3 z-20">
+        <ThemeToggle />
+      </div>
+      {/* Marka hero paneli — masaustu (her iki temada sabit navy) */}
+      <section className="relative hidden overflow-hidden bg-brand-navy text-white lg:flex lg:flex-col lg:justify-between lg:p-12">
         {/* Dekoratif isik katmanlari */}
         <div className="pointer-events-none absolute inset-0">
           <div className="absolute -left-24 -top-24 h-96 w-96 rounded-full bg-white/10 blur-3xl" />
@@ -119,14 +123,14 @@ export default function LoginPage() {
         </div>
 
         <div className="relative">
-          <Logo light className="text-2xl" />
+          <LogiSlotLogo variant="dark" size="xl" priority />
         </div>
 
         <div className="relative max-w-md">
           <h1 className="text-3xl font-bold leading-tight tracking-tight xl:text-4xl">
             Akıllı mal kabul ve rampa randevu platformu
           </h1>
-          <p className="mt-3 text-sm text-primary-foreground/70">
+          <p className="mt-3 text-sm text-white/70">
             Tedarikçiden tesise, tüm randevu operasyonunu tek bir modern panelde
             yönetin.
           </p>
@@ -141,7 +145,7 @@ export default function LoginPage() {
                   </span>
                   <div>
                     <div className="text-sm font-semibold">{h.title}</div>
-                    <div className="text-sm text-primary-foreground/60">{h.body}</div>
+                    <div className="text-sm text-white/60">{h.body}</div>
                   </div>
                 </li>
               );
@@ -149,7 +153,7 @@ export default function LoginPage() {
           </ul>
         </div>
 
-        <div className="relative text-xs text-primary-foreground/50">
+        <div className="relative text-xs text-white/50">
           © {new Date().getFullYear()} LogiSlot · Kurumsal lojistik operasyon platformu
         </div>
       </section>
@@ -158,7 +162,7 @@ export default function LoginPage() {
       <section className="flex items-center justify-center p-5 sm:p-8">
         <div className="w-full max-w-md animate-fade-up">
           <div className="mb-8 flex flex-col items-center gap-2 text-center lg:hidden">
-            <Logo className="text-2xl" />
+            <LogiSlotLogo size="lg" priority />
             <p className="text-sm text-muted-foreground">
               Akıllı Mal Kabul &amp; Rampa Randevu Platformu
             </p>

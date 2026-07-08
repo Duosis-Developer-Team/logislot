@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { LoadingState } from "@/components/config/states";
-import { Logo } from "@/components/domain/logo";
+import { LogiSlotLogo } from "@/components/brand/logo";
 import { AppShell, type AppNavItem } from "@/components/shell/app-shell";
 import { Button } from "@/components/ui/button";
 import { SessionProvider, useSession } from "@/lib/auth/session";
@@ -44,7 +44,7 @@ function PlatformShell({ children }: { children: React.ReactNode }) {
   if (session.isUnauthorized || (session.me && session.me.user_type !== "platform")) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-4 p-4">
-        <Logo className="text-xl" />
+        <LogiSlotLogo size="lg" />
         <p className="text-sm text-muted-foreground">
           Bu panel için platform yöneticisi girişi gerekli.
         </p>

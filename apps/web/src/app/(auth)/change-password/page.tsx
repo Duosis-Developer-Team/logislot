@@ -3,7 +3,7 @@
 import { KeyRound } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { Logo } from "@/components/domain/logo";
+import { LogiSlotLogo } from "@/components/brand/logo";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input, Label } from "@/components/ui/input";
@@ -64,7 +64,7 @@ export default function ChangePasswordPage() {
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center gap-6 bg-muted/40 p-4">
-      <Logo />
+      <LogiSlotLogo size="lg" />
       <Card className="w-full max-w-md">
         <CardContent className="pt-5">
           <div className="mb-4 flex items-center gap-2">

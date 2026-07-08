@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
@@ -18,11 +18,21 @@ export const metadata: Metadata = {
   title: "LogiSlot — Akıllı Mal Kabul & Rampa Randevu Platformu",
   description:
     "Fabrikaların tedarikçi mal kabul süreçlerini dijitalleştiren, rampa kullanımını optimize eden SaaS platformu",
+  manifest: "/site.webmanifest",
+  applicationName: "LogiSlot",
+  appleWebApp: { capable: true, title: "LogiSlot", statusBarStyle: "black-translucent" },
+};
+
+export const viewport: Viewport = {
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#0a1b33" },
+    { media: "(prefers-color-scheme: dark)", color: "#070c14" },
+  ],
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="tr" className={jakarta.variable}>
+    <html lang="tr" className={jakarta.variable} suppressHydrationWarning>
       <body className="font-sans antialiased">
         <Providers>{children}</Providers>
       </body>

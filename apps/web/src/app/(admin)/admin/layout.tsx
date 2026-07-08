@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { ApplyBranding, BrandMark } from "@/components/domain/apply-branding";
-import { Logo } from "@/components/domain/logo";
+import { LogiSlotLogo } from "@/components/brand/logo";
 import { ErrorState, LoadingState } from "@/components/config/states";
 import { NotificationPreferencesForm } from "@/components/domain/notification-preferences";
 import { AppShell, type AppNavItem } from "@/components/shell/app-shell";
@@ -80,7 +80,7 @@ function AdminShell({ children }: { children: React.ReactNode }) {
   if (session.isUnauthorized || (session.me && session.me.user_type !== "tenant")) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-4 p-4">
-        <Logo className="text-xl" />
+        <LogiSlotLogo size="lg" />
         <p className="text-sm text-muted-foreground">
           Bu panel için tenant yöneticisi girişi gerekli.
         </p>
@@ -129,7 +129,7 @@ function AdminShell({ children }: { children: React.ReactNode }) {
       <AppShell
         nav={visibleNav}
         roleLabel="Yönetim"
-        brand={<BrandMark branding={branding.data} fallback={<Logo />} />}
+        brand={<BrandMark branding={branding.data} fallback={<LogiSlotLogo size="md" priority />} />}
         sidebarStyle={sidebarStyle}
         headerStart={facilitySwitcher}
         footer={branding.data?.custom_footer_text ?? `${session.me?.name} · LogiSlot`}

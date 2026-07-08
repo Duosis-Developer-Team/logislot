@@ -4,7 +4,7 @@ import { CalendarDays, CirclePlus, UserRound } from "lucide-react";
 import Link from "next/link";
 import { LoadingState } from "@/components/config/states";
 import { ApplyBranding, BrandMark } from "@/components/domain/apply-branding";
-import { Logo } from "@/components/domain/logo";
+import { LogiSlotLogo } from "@/components/brand/logo";
 import { NotificationBell } from "@/components/notifications/notification-bell";
 import { AppShell, type AppNavItem } from "@/components/shell/app-shell";
 import { Button } from "@/components/ui/button";
@@ -36,7 +36,7 @@ function SupplierShell({ children }: { children: React.ReactNode }) {
   if (session.isUnauthorized || (session.me && session.me.user_type !== "supplier")) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-4 p-4">
-        <Logo className="text-xl" />
+        <LogiSlotLogo size="lg" />
         <p className="text-center text-sm text-muted-foreground">
           Tedarikçi portalı için tedarikçi hesabıyla giriş yapın.
         </p>
@@ -53,7 +53,7 @@ function SupplierShell({ children }: { children: React.ReactNode }) {
       <AppShell
         nav={NAV}
         roleLabel="Tedarikçi"
-        brand={<BrandMark branding={branding.data} fallback={<Logo />} />}
+        brand={<BrandMark branding={branding.data} fallback={<LogiSlotLogo size="md" priority />} />}
         profileHref="/supplier/profile"
         footer="LogiSlot · Tedarikçi Portalı"
         headerActions={<NotificationBell variant="supplier" facilityId="self" />}

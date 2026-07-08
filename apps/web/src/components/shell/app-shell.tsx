@@ -17,7 +17,8 @@ import { LogOut, Menu, X, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Logo } from "@/components/domain/logo";
+import { LogiSlotLogo } from "@/components/brand/logo";
+import { ThemeToggle } from "@/components/shell/theme-toggle";
 import { UserMenu } from "@/components/shell/user-menu";
 import { useSession } from "@/lib/auth/session";
 import { cn } from "@/lib/utils";
@@ -123,7 +124,7 @@ export function AppShell({
 }: AppShellProps) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const brandNode = brand ?? <Logo />;
+  const brandNode = brand ?? <LogiSlotLogo size="md" priority />;
 
   // Rota degisince mobil drawer kapanir.
   useEffect(() => {
@@ -192,6 +193,7 @@ export function AppShell({
               {roleLabel}
             </span>
             {headerActions}
+            <ThemeToggle />
             <UserMenu profileHref={profileHref} />
           </div>
         </header>

@@ -3,46 +3,83 @@
 @tailwind utilities;
 
 /*
- * LogiSlot tasarim sistemi — Premium logistics SaaS teması.
- * Renkler HSL degiskenleridir; white-label tenant/facility markasi
- * yalnizca --primary / --primary-hover / --accent'i override eder.
- * Kimlik: derin indigo marka + soguk premium notr yuzeyler +
- * erisilebilir operasyon (statu) renkleri.
+ * LogiSlot tasarim sistemi — logo-uyumlu premium logistics SaaS teması.
+ * Marka: derin navy (logo #00183C) + logistics mavi accent (logo #4884CC).
+ * Renkler HSL degiskenleridir; white-label yalnizca --primary/--primary-hover/--accent
+ * override eder. Light + dark mode (class stratejisi, next-themes).
  */
 :root {
-  /* Notr yuzeyler — soguk, premium slate */
-  --background: 220 24% 97%;
-  --foreground: 222 32% 12%;
-  --card: 0 0% 100%;
-  --card-foreground: 222 32% 12%;
-  --muted: 220 22% 94%;
-  --muted-foreground: 221 13% 46%;
-  --border: 220 20% 90%;
-  --ring: 234 54% 48%;
+  color-scheme: light;
 
-  /* Marka — derin indigo (LogiSlot) */
-  --primary: 234 54% 48%;
-  --primary-hover: 234 54% 41%;
+  /* Notr yuzeyler — soguk premium slate */
+  --background: 214 40% 97%;
+  --foreground: 217 40% 12%;
+  --card: 0 0% 100%;
+  --card-foreground: 217 40% 12%;
+  --muted: 214 30% 93%;
+  --muted-foreground: 216 14% 44%;
+  --border: 214 28% 88%;
+  --ring: 212 74% 50%;
+
+  /* Marka — derin navy (logo) */
+  --primary: 214 78% 19%;
+  --primary-hover: 214 82% 14%;
   --primary-foreground: 0 0% 100%;
 
-  /* Vurgu — kontrollu amber (indigo ile premium kontrast) */
-  --accent: 36 92% 50%;
-  --accent-foreground: 28 45% 14%;
+  /* Vurgu — logistics mavi (logo yol rengi) */
+  --accent: 212 74% 50%;
+  --accent-foreground: 0 0% 100%;
 
-  --destructive: 0 72% 52%;
+  /* Marka navy — login hero / koyu vurgu yüzeyleri (her iki modda sabit) */
+  --brand-navy: 214 80% 12%;
 
-  /* Randevu statu renkleri (6 statu) — erisilebilir, doygun degil */
-  --status-pending: 38 92% 48%;
-  --status-approved: 158 62% 38%;
-  --status-revision: 262 60% 58%;
-  --status-rejected: 0 72% 52%;
-  --status-completed: 210 80% 46%;
-  --status-cancelled: 220 12% 52%;
+  --destructive: 0 72% 51%;
 
-  /* Kargo uyari katmani — statu renginden ayri */
-  --cargo: 24 92% 53%;
+  /* Randevu statu renkleri (6 statu) — erisilebilir */
+  --status-pending: 38 92% 46%;
+  --status-approved: 158 64% 36%;
+  --status-revision: 262 60% 56%;
+  --status-rejected: 0 72% 51%;
+  --status-completed: 210 82% 44%;
+  --status-cancelled: 216 14% 50%;
+
+  --cargo: 24 92% 52%;
 
   --radius: 0.75rem;
+}
+
+.dark {
+  color-scheme: dark;
+
+  /* Notr yuzeyler — near-black navy (logo dark zeminiyle uyumlu) */
+  --background: 218 44% 6%;
+  --foreground: 214 32% 96%;
+  --card: 218 38% 9%;
+  --card-foreground: 214 32% 96%;
+  --muted: 217 30% 15%;
+  --muted-foreground: 215 22% 66%;
+  --border: 216 26% 18%;
+  --ring: 212 84% 60%;
+
+  /* Marka — dark'ta parlak mavi (navy buton dark zeminde görünmez) */
+  --primary: 212 84% 56%;
+  --primary-hover: 212 84% 62%;
+  --primary-foreground: 218 45% 8%;
+
+  --accent: 212 84% 60%;
+  --accent-foreground: 218 45% 8%;
+
+  --destructive: 0 74% 58%;
+
+  /* Statu renkleri — dark'ta daha parlak/okunaklı */
+  --status-pending: 38 94% 56%;
+  --status-approved: 158 64% 48%;
+  --status-revision: 262 72% 70%;
+  --status-rejected: 0 78% 66%;
+  --status-completed: 205 90% 60%;
+  --status-cancelled: 215 16% 60%;
+
+  --cargo: 24 92% 60%;
 }
 
 @layer base {
@@ -59,17 +96,15 @@
     text-rendering: optimizeLegibility;
   }
 
-  /* Baslik hissi: sikilastirilmis harf araligi (premium editorial) */
   h1, h2, h3, h4 {
     letter-spacing: -0.018em;
   }
 
   ::selection {
-    background-color: hsl(var(--primary) / 0.16);
+    background-color: hsl(var(--primary) / 0.18);
     color: hsl(var(--foreground));
   }
 
-  /* Ince, premium scrollbar */
   * {
     scrollbar-width: thin;
     scrollbar-color: hsl(var(--muted-foreground) / 0.28) transparent;
@@ -89,7 +124,7 @@
   }
 }
 
-/* Takvimde kargo overlay deseni: statu renginin ustune cizgili doku */
+/* Tema geçişinde renk yumuşaması (next-themes disableTransitionOnChange ile kapatılır anlık) */
 .cargo-overlay {
   background-image: repeating-linear-gradient(
     45deg,
@@ -100,11 +135,10 @@
   );
 }
 
-/* Marka degeri belli olmayan yuzeylerde ince ust isik (premium his) */
 .surface-sheen {
   background-image: linear-gradient(
     180deg,
-    hsl(0 0% 100% / 0.6),
+    hsl(0 0% 100% / 0.06),
     hsl(0 0% 100% / 0) 120px
   );
 }

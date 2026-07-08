@@ -7,6 +7,7 @@ import type { Config } from "tailwindcss";
  * Font next/font ile --font-sans degiskenine baglanir (layout.tsx).
  */
 const config: Config = {
+  darkMode: "class",
   content: ["./src/**/*.{ts,tsx}", "../../packages/shared/src/**/*.ts"],
   theme: {
     extend: {
@@ -31,6 +32,7 @@ const config: Config = {
           DEFAULT: "hsl(var(--accent))",
           foreground: "hsl(var(--accent-foreground))",
         },
+        "brand-navy": "hsl(var(--brand-navy))",
         destructive: "hsl(var(--destructive))",
         // Statu renkleri: takvim ve rozetlerin ana sinyali
         status: {
