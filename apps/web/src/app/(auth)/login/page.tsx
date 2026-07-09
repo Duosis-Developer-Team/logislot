@@ -48,19 +48,19 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="relative flex min-h-screen items-center justify-center gap-8 overflow-hidden bg-gradient-to-br from-white via-sky-50 to-sky-100 px-5 py-10 dark:from-background dark:via-background dark:to-background sm:px-6 lg:gap-14 xl:gap-24">
+    <main className="relative flex min-h-screen items-center justify-center gap-6 overflow-hidden bg-gradient-to-br from-white via-sky-50 to-sky-100 px-5 py-10 dark:from-background dark:via-background dark:to-background sm:px-6 lg:gap-10 xl:gap-16">
       <LoginBackground />
 
       <div className="absolute right-3 top-3 z-20">
         <ThemeToggle />
       </div>
 
-      {/* Büyük marka ikonu — sol (yalnızca masaüstü) */}
+      {/* Büyük marka ikonu — sol (yalnızca masaüstü); giriş kartıyla benzer boyda */}
       <div className="relative z-10 hidden shrink-0 items-center justify-center lg:flex">
         <LogiSlotIcon
           variant="auto"
           priority
-          className="animate-float h-64 w-64 drop-shadow-2xl xl:h-80 xl:w-80 2xl:h-[26rem] 2xl:w-[26rem]"
+          className="animate-float w-auto drop-shadow-2xl lg:h-[26rem] xl:h-[32rem] 2xl:h-[36rem]"
         />
       </div>
 
