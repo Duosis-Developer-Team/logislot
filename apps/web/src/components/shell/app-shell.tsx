@@ -131,7 +131,7 @@ export function AppShell({
       aria-label="Ana sayfa"
       className="inline-flex items-center rounded-lg outline-none transition-opacity hover:opacity-80 focus-visible:ring-2 focus-visible:ring-ring/40"
     >
-      {brand ?? <LogiSlotLogo size="md" priority />}
+      {brand ?? <LogiSlotLogo size="lg" priority />}
     </Link>
   );
 
@@ -147,7 +147,7 @@ export function AppShell({
         className="fixed inset-y-0 left-0 z-40 hidden w-60 flex-col border-r border-border bg-card lg:flex"
         style={sidebarStyle}
       >
-        <div className="flex h-14 items-center border-b border-border px-4">{brandNode}</div>
+        <div className="flex h-16 items-center border-b border-border px-4">{brandNode}</div>
         <NavLinks nav={nav} />
         {footer && (
           <div className="border-t border-border p-3 text-xs text-muted-foreground">
@@ -167,7 +167,7 @@ export function AppShell({
             className="absolute inset-y-0 left-0 flex w-72 max-w-[85%] flex-col border-r border-border bg-card shadow-pop animate-slide-in-left"
             style={sidebarStyle}
           >
-            <div className="flex h-14 items-center justify-between border-b border-border px-4">
+            <div className="flex h-16 items-center justify-between border-b border-border px-4">
               {brandNode}
               <button
                 onClick={() => setMobileOpen(false)}
@@ -185,7 +185,7 @@ export function AppShell({
 
       {/* Ana kolon */}
       <div className="flex min-w-0 flex-1 flex-col lg:pl-60">
-        <header className="sticky top-0 z-30 flex h-14 items-center justify-between gap-3 border-b border-border bg-card/80 px-4 backdrop-blur-xl lg:px-6">
+        <header className="sticky top-0 z-30 flex h-16 items-center justify-between gap-3 border-b border-border bg-card/80 px-4 backdrop-blur-xl lg:px-6">
           <div className="flex min-w-0 items-center gap-2">
             <button
               onClick={() => setMobileOpen(true)}

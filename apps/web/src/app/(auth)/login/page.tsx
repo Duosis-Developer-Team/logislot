@@ -4,10 +4,9 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { LoginBackground } from "@/components/auth/login-background";
 import { LoginFormCard } from "@/components/auth/login-form-card";
-import { LoginSideCards } from "@/components/auth/login-side-cards";
 import { PortalSelector } from "@/components/auth/portal-selector";
 import { PORTALS, type Portal } from "@/components/auth/portals";
-import { LogiSlotLogo } from "@/components/brand/logo";
+import { LogiSlotIcon, LogiSlotLogo } from "@/components/brand/logo";
 import { ThemeToggle } from "@/components/shell/theme-toggle";
 import { authApi, storeSession } from "@/lib/api/client";
 
@@ -49,15 +48,23 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-gradient-to-br from-white via-sky-50 to-sky-100 px-5 py-10 dark:from-background dark:via-background dark:to-background sm:px-6">
+    <main className="relative flex min-h-screen items-center justify-center gap-8 overflow-hidden bg-gradient-to-br from-white via-sky-50 to-sky-100 px-5 py-10 dark:from-background dark:via-background dark:to-background sm:px-6 lg:gap-14 xl:gap-24">
       <LoginBackground />
-      <LoginSideCards />
 
       <div className="absolute right-3 top-3 z-20">
         <ThemeToggle />
       </div>
 
-      <div className="relative z-10 w-full max-w-md">
+      {/* Büyük marka ikonu — sol (yalnızca masaüstü) */}
+      <div className="relative z-10 hidden shrink-0 items-center justify-center lg:flex">
+        <LogiSlotIcon
+          variant="auto"
+          priority
+          className="animate-float h-64 w-64 drop-shadow-2xl xl:h-80 xl:w-80 2xl:h-[26rem] 2xl:w-[26rem]"
+        />
+      </div>
+
+      <div className="relative z-10 w-full max-w-md shrink-0">
         <div className="animate-scale-in rounded-3xl border border-border bg-card/95 p-6 shadow-pop backdrop-blur-xl sm:p-8">
           <div className="stagger">
             <div className="flex flex-col items-center gap-3 text-center">

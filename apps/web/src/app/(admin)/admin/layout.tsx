@@ -120,7 +120,7 @@ function AdminShell({ children }: { children: React.ReactNode }) {
       <AppShell
         nav={visibleNav}
         roleLabel="Yönetim"
-        brand={<LogiSlotLogo size="md" priority />}
+        brand={<LogiSlotLogo size="lg" priority />}
         headerStart={facilitySwitcher}
         footer={`${session.me?.name} · LogiSlot`}
         headerActions={

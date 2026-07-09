@@ -45,7 +45,7 @@ function SupplierShell({ children }: { children: React.ReactNode }) {
     <AppShell
       nav={NAV}
       roleLabel="Tedarikçi"
-      brand={<LogiSlotLogo size="md" priority />}
+      brand={<LogiSlotLogo size="lg" priority />}
       profileHref="/supplier/profile"
       footer="LogiSlot · Tedarikçi Portalı"
       headerActions={<NotificationBell variant="supplier" facilityId="self" />}
