@@ -40,7 +40,7 @@ test("geçici parolalı kullanıcı ilk girişte parola değiştirir", async ({ 
     await page.goto("/login");
     await page.getByRole("radio", { name: "Yönetim Paneli" }).click();
     await page.getByLabel("E-posta").fill(email);
-    await page.getByLabel("Parola").fill(tempPassword);
+    await page.getByLabel("Parola", { exact: true }).fill(tempPassword);
     await page.getByRole("button", { name: /Giriş$/ }).click();
     await expect(page).toHaveURL(/\/change-password/);
     await expect(page.getByRole("heading", { name: "Parola Değiştir" })).toBeVisible();

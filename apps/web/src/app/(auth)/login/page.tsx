@@ -2,8 +2,8 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { LoginBackground } from "@/components/auth/login-background";
 import { LoginFormCard } from "@/components/auth/login-form-card";
-import { LoginHero } from "@/components/auth/login-hero";
 import { PortalSelector } from "@/components/auth/portal-selector";
 import { PORTALS, type Portal } from "@/components/auth/portals";
 import { LogiSlotLogo } from "@/components/brand/logo";
@@ -48,39 +48,34 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="relative grid min-h-screen grid-cols-1 lg:grid-cols-[1.05fr_1fr]">
+    <main className="relative flex min-h-screen items-center justify-center overflow-hidden px-5 py-10 sm:px-6">
+      <LoginBackground />
+
       <div className="absolute right-3 top-3 z-20">
         <ThemeToggle />
       </div>
 
-      <LoginHero />
-
-      {/* Giriş paneli */}
-      <section className="flex items-center justify-center p-5 sm:p-8">
-        <div className="w-full max-w-md">
+      <div className="relative z-10 w-full max-w-md">
+        <div className="animate-scale-in rounded-3xl border border-border bg-card/95 p-6 shadow-pop backdrop-blur-xl sm:p-8">
           <div className="stagger">
-            {/* Mobil marka başlığı */}
-            <div className="mb-8 flex flex-col items-center gap-2.5 text-center lg:hidden">
+            <div className="flex flex-col items-center gap-3 text-center">
               <LogiSlotLogo size="lg" priority />
-              <p className="text-sm text-muted-foreground">
-                Akıllı Mal Kabul &amp; Rampa Randevu Platformu
-              </p>
             </div>
 
-            <div className="mb-6">
-              <h2 className="text-[1.7rem] font-bold tracking-tight">Giriş yap</h2>
-              <p className="mt-1 text-sm text-muted-foreground">
+            <div className="mt-6 text-center">
+              <h1 className="text-2xl font-bold tracking-tight">Giriş yap</h1>
+              <p className="mt-1.5 text-sm text-muted-foreground">
                 Portalınızı seçin ve hesabınızla devam edin.
               </p>
             </div>
 
-            <div className="mb-5">
+            <div className="mt-6">
               <PortalSelector value={portal} onChange={selectPortal} />
             </div>
           </div>
 
-          {/* Portal değişince form içeriği yeniden fade-in olsun (key) */}
-          <div key={portal} className="animate-fade-in">
+          {/* Portal değişince form yeniden fade-in olsun (key) */}
+          <div key={portal} className="mt-4 animate-fade-in">
             <LoginFormCard
               active={active}
               email={email}
@@ -93,7 +88,11 @@ export default function LoginPage() {
             />
           </div>
         </div>
-      </section>
+
+        <p className="mt-5 text-center text-xs text-muted-foreground">
+          © 2026 LogiSlot · Kurumsal lojistik operasyon platformu
+        </p>
+      </div>
     </main>
   );
 }

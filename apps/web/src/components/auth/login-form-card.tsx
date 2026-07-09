@@ -33,10 +33,7 @@ export function LoginFormCard({
   const [show, setShow] = useState(false);
 
   return (
-    <form
-      onSubmit={onSubmit}
-      className="flex flex-col gap-4 rounded-2xl border border-border bg-card p-5 shadow-card sm:p-6"
-    >
+    <form onSubmit={onSubmit} className="flex flex-col gap-4">
       <div>
         <Label htmlFor="email">E-posta</Label>
         <Input

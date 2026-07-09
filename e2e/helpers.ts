@@ -20,7 +20,7 @@ export async function loginViaUi(
   // Portal seçici radio kartı (accessible name = tam portal başlığı, aria-label)
   await page.getByRole("radio", { name: portal }).click();
   await page.getByLabel("E-posta").fill(email);
-  await page.getByLabel("Parola").fill(DEMO_PASSWORD);
+  await page.getByLabel("Parola", { exact: true }).fill(DEMO_PASSWORD);
   // Buton metni portala gore degisir: "...'na Giriş"
   await page.getByRole("button", { name: /Giriş$/ }).click();
 }
