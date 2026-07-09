@@ -19,7 +19,7 @@ import { CargoBadge } from "@/components/domain/cargo-badge";
 import { StatusBadge } from "@/components/domain/status-badge";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
-import { Drawer } from "@/components/ui/drawer";
+import { Modal } from "@/components/ui/modal";
 import { Input, Label, Select } from "@/components/ui/input";
 import {
   useAdminAvailability,
@@ -29,6 +29,7 @@ import {
   useSeriesCancel,
 } from "@/lib/api/appointments";
 import { ApiError } from "@/lib/api/client";
+import { emailProviderLabel, emailStatusLabel, emailTemplateLabel } from "@/lib/email-labels";
 import { useEmailLogs } from "@/lib/api/reports";
 import { docks as dockResource } from "@/lib/api/resources";
 import { useSession } from "@/lib/auth/session";
@@ -145,12 +146,7 @@ export function AppointmentDrawer({
     actions.revise.isPending;
 
   return (
-    <Drawer
-      open={appointmentId !== null}
-      onClose={onClose}
-      title="Randevu Detayı"
-      className="max-w-xl"
-    >
+    <Modal open={appointmentId !== null} onClose={onClose} title="Randevu Detayı">
       {detail.isLoading ? (
         <LoadingState />
       ) : detail.isError || !a ? (
@@ -308,8 +304,7 @@ export function AppointmentDrawer({
                   <div className="min-w-0 flex-1">
                     <div className="truncate font-medium">{log.subject}</div>
                     <div className="text-muted-foreground">
-                      {log.recipient_email} ·{" "}
-                      <span className="font-mono">{log.template_key}</span>
+                      {log.recipient_email} · {emailTemplateLabel(log.template_key)}
                     </div>
                     <div className="mt-0.5 flex items-center gap-2 text-[10px] text-muted-foreground">
                       <span
@@ -321,9 +316,9 @@ export function AppointmentDrawer({
                               : ""
                         }
                       >
-                        {log.status}
+                        {emailStatusLabel(log.status)}
                       </span>
-                      <span>provider: {log.provider}</span>
+                      <span>{emailProviderLabel(log.provider)}</span>
                       {log.retry_count > 0 && (
                         <span>deneme: {log.retry_count}/{log.max_attempts}</span>
                       )}
@@ -673,6 +668,6 @@ export function AppointmentDrawer({
           </div>
         </div>
       </Dialog>
-    </Drawer>
+    </Modal>
   );
 }

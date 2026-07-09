@@ -3,12 +3,10 @@
 import { CalendarDays, CirclePlus, UserRound } from "lucide-react";
 import Link from "next/link";
 import { LoadingState } from "@/components/config/states";
-import { ApplyBranding, BrandMark } from "@/components/domain/apply-branding";
 import { LogiSlotLogo } from "@/components/brand/logo";
 import { NotificationBell } from "@/components/notifications/notification-bell";
 import { AppShell, type AppNavItem } from "@/components/shell/app-shell";
 import { Button } from "@/components/ui/button";
-import { useBranding } from "@/lib/api/branding";
 import { SessionProvider, useSession } from "@/lib/auth/session";
 
 const NAV: AppNavItem[] = [
@@ -19,10 +17,6 @@ const NAV: AppNavItem[] = [
 
 function SupplierShell({ children }: { children: React.ReactNode }) {
   const session = useSession();
-  // Tedarikcinin tesisi = me.default_facility_id; markasi portala uygulanir
-  const branding = useBranding(
-    session.me?.user_type === "supplier" ? session.me.default_facility_id : null,
-  );
 
   if (session.isLoading) {
     return (
@@ -48,19 +42,16 @@ function SupplierShell({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <>
-      <ApplyBranding branding={branding.data} />
-      <AppShell
-        nav={NAV}
-        roleLabel="Tedarikçi"
-        brand={<BrandMark branding={branding.data} fallback={<LogiSlotLogo size="md" priority />} />}
-        profileHref="/supplier/profile"
-        footer="LogiSlot · Tedarikçi Portalı"
-        headerActions={<NotificationBell variant="supplier" facilityId="self" />}
-      >
-        {children}
-      </AppShell>
-    </>
+    <AppShell
+      nav={NAV}
+      roleLabel="Tedarikçi"
+      brand={<LogiSlotLogo size="md" priority />}
+      profileHref="/supplier/profile"
+      footer="LogiSlot · Tedarikçi Portalı"
+      headerActions={<NotificationBell variant="supplier" facilityId="self" />}
+    >
+      {children}
+    </AppShell>
   );
 }
 

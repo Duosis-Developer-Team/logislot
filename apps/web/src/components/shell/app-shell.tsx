@@ -124,7 +124,16 @@ export function AppShell({
 }: AppShellProps) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const brandNode = brand ?? <LogiSlotLogo size="md" priority />;
+  const homeHref = nav[0]?.href ?? "/";
+  const brandNode = (
+    <Link
+      href={homeHref}
+      aria-label="Ana sayfa"
+      className="inline-flex items-center rounded-lg outline-none transition-opacity hover:opacity-80 focus-visible:ring-2 focus-visible:ring-ring/40"
+    >
+      {brand ?? <LogiSlotLogo size="md" priority />}
+    </Link>
+  );
 
   // Rota degisince mobil drawer kapanir.
   useEffect(() => {

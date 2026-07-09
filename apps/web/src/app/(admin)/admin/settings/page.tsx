@@ -5,12 +5,12 @@ import {
   CalendarOff,
   GitFork,
   Handshake,
-  Palette,
   Truck,
   Users2,
   Warehouse,
   MailWarning,
   ScrollText,
+  type LucideIcon,
 } from "lucide-react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
@@ -93,14 +93,6 @@ export default function SettingsPage() {
       permission: "user.manage",
     },
     {
-      icon: Palette,
-      title: "Marka / White-Label",
-      description: "Logo, renk paleti ve portal başlığı — tesis bazlı",
-      stat: "Özelleştir",
-      href: "/admin/settings/branding",
-      permission: "user.manage",
-    },
-    {
       icon: MailWarning,
       title: "E-posta Logları",
       description: "Giden e-postalar, hatalılar ve toplu yeniden gönderim",
@@ -120,7 +112,7 @@ export default function SettingsPage() {
   ].filter((s) => can(s.permission));
 
   const upcoming: {
-    icon: typeof Palette;
+    icon: LucideIcon;
     title: string;
     description: string;
     sprint: string;

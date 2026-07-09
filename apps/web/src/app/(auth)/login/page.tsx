@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { LoginBackground } from "@/components/auth/login-background";
 import { LoginFormCard } from "@/components/auth/login-form-card";
+import { LoginSideCards } from "@/components/auth/login-side-cards";
 import { PortalSelector } from "@/components/auth/portal-selector";
 import { PORTALS, type Portal } from "@/components/auth/portals";
 import { LogiSlotLogo } from "@/components/brand/logo";
@@ -48,8 +49,9 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="relative flex min-h-screen items-center justify-center overflow-hidden px-5 py-10 sm:px-6">
+    <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-gradient-to-br from-white via-sky-50 to-sky-100 px-5 py-10 dark:from-background dark:via-background dark:to-background sm:px-6">
       <LoginBackground />
+      <LoginSideCards />
 
       <div className="absolute right-3 top-3 z-20">
         <ThemeToggle />

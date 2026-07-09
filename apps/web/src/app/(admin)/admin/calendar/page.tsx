@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarOff, Package } from "lucide-react";
+import { CalendarOff, ChevronLeft, ChevronRight, Package } from "lucide-react";
 import { useState } from "react";
 import type { AppointmentStatus } from "@logislot/shared";
 import { APPOINTMENT_STATUS_LABELS } from "@logislot/shared";
@@ -126,28 +126,36 @@ export default function CalendarPage() {
               </button>
             ))}
           </div>
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => setDate(shiftDate(date, view === "day" ? -1 : -7))}
-          >
-            ← Önceki
-          </Button>
-          <Input
-            type="date"
-            className="h-8 w-40 text-sm"
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
-          />
+          <div className="flex items-center gap-1.5">
+            <Button
+              variant="secondary"
+              size="icon"
+              className="h-9 w-9"
+              aria-label={view === "day" ? "Önceki gün" : "Önceki hafta"}
+              title={view === "day" ? "Önceki gün" : "Önceki hafta"}
+              onClick={() => setDate(shiftDate(date, view === "day" ? -1 : -7))}
+            >
+              <ChevronLeft />
+            </Button>
+            <Input
+              type="date"
+              className="h-9 w-40 text-sm"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+            />
+            <Button
+              variant="secondary"
+              size="icon"
+              className="h-9 w-9"
+              aria-label={view === "day" ? "Sonraki gün" : "Sonraki hafta"}
+              title={view === "day" ? "Sonraki gün" : "Sonraki hafta"}
+              onClick={() => setDate(shiftDate(date, view === "day" ? 1 : 7))}
+            >
+              <ChevronRight />
+            </Button>
+          </div>
           <Button variant="secondary" size="sm" onClick={() => setDate(todayISO())}>
             Bugün
-          </Button>
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => setDate(shiftDate(date, view === "day" ? 1 : 7))}
-          >
-            Sonraki →
           </Button>
         </div>
       </div>

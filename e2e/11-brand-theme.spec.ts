@@ -11,9 +11,8 @@ test("login'de marka logosu ve tema toggle görünür; koyu tema seçilebilir", 
   await page.goto("/login");
   await expect(page.locator('img[alt="LogiSlot"]').first()).toBeVisible();
 
-  // Tema toggle -> Koyu
-  await page.getByRole("button", { name: "Tema" }).first().click();
-  await page.getByRole("menuitemradio", { name: "Koyu" }).click();
+  // Tema toggle anında koyuya geçer (menü yok)
+  await page.getByRole("button", { name: "Karanlık moda geç" }).click();
   await expect(page.locator("html")).toHaveClass(/dark/);
 });
 
@@ -26,9 +25,8 @@ test("admin panelinde logo görünür ve tema koyu seçilip refresh sonrası kor
   // Kabuk markası (logo) görünür
   await expect(page.locator('img[alt="LogiSlot"]').first()).toBeVisible();
 
-  // Koyu temaya geç
-  await page.getByRole("button", { name: "Tema" }).click();
-  await page.getByRole("menuitemradio", { name: "Koyu" }).click();
+  // Koyu temaya geç (tek tık)
+  await page.getByRole("button", { name: "Karanlık moda geç" }).click();
   await expect(page.locator("html")).toHaveClass(/dark/);
 
   // localStorage'a yazıldı mı
@@ -47,5 +45,5 @@ test("platform ve tedarikçi panellerinde logo + tema toggle mevcut", async ({ p
   await loginViaUi(page, "Platform Yönetimi", ACCOUNTS.platform);
   await expect(page).toHaveURL(/\/platform\/tenants/);
   await expect(page.locator('img[alt="LogiSlot"]').first()).toBeVisible();
-  await expect(page.getByRole("button", { name: "Tema" })).toBeVisible();
+  await expect(page.getByRole("button", { name: /moda geç/ })).toBeVisible();
 });

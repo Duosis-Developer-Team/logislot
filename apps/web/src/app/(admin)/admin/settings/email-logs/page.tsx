@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input, Label, Select } from "@/components/ui/input";
 import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
+import { emailProviderLabel, emailStatusLabel, emailTemplateLabel } from "@/lib/email-labels";
 import { ApiError, apiRequest } from "@/lib/api/client";
 import {
   useEmailLogsPage,
@@ -339,12 +340,14 @@ export default function EmailLogsPage() {
                     </div>
                   )}
                 </TD>
-                <TD className="font-mono text-[10px] text-muted-foreground">
-                  {log.template_key}
+                <TD className="text-xs text-muted-foreground">
+                  {emailTemplateLabel(log.template_key)}
                 </TD>
-                <TD className="text-xs">{log.provider}</TD>
+                <TD className="text-xs">{emailProviderLabel(log.provider)}</TD>
                 <TD>
-                  <Badge className={STATUS_BADGE[log.status] ?? ""}>{log.status}</Badge>
+                  <Badge className={STATUS_BADGE[log.status] ?? ""}>
+                    {emailStatusLabel(log.status)}
+                  </Badge>
                 </TD>
                 <TD className="text-xs">
                   {log.retry_count}/{log.max_attempts}

@@ -12,14 +12,12 @@ import {
   SlidersHorizontal,
 } from "lucide-react";
 import Link from "next/link";
-import { ApplyBranding, BrandMark } from "@/components/domain/apply-branding";
 import { LogiSlotLogo } from "@/components/brand/logo";
 import { ErrorState, LoadingState } from "@/components/config/states";
 import { NotificationPreferencesForm } from "@/components/domain/notification-preferences";
 import { AppShell, type AppNavItem } from "@/components/shell/app-shell";
 import { Dialog } from "@/components/ui/dialog";
 import { NotificationBell } from "@/components/notifications/notification-bell";
-import { useBranding } from "@/lib/api/branding";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/input";
 import { SessionProvider, useSession } from "@/lib/auth/session";
@@ -67,7 +65,6 @@ function AdminShell({ children }: { children: React.ReactNode }) {
   const session = useSession();
   const [preferencesOpen, setPreferencesOpen] = useState(false);
   const visibleNav = NAV.filter((item) => navAllowed(item, session.can));
-  const branding = useBranding(session.activeFacilityId);
 
   if (session.isLoading) {
     return (
@@ -102,11 +99,6 @@ function AdminShell({ children }: { children: React.ReactNode }) {
     );
   }
 
-  const sidebarStyle =
-    branding.data?.is_customized && branding.data.sidebar_color
-      ? { backgroundColor: branding.data.sidebar_color }
-      : undefined;
-
   const facilitySwitcher =
     session.me && session.me.facilities.length > 0 ? (
       <Select
@@ -125,14 +117,12 @@ function AdminShell({ children }: { children: React.ReactNode }) {
 
   return (
     <>
-      <ApplyBranding branding={branding.data} />
       <AppShell
         nav={visibleNav}
         roleLabel="Yönetim"
-        brand={<BrandMark branding={branding.data} fallback={<LogiSlotLogo size="md" priority />} />}
-        sidebarStyle={sidebarStyle}
+        brand={<LogiSlotLogo size="md" priority />}
         headerStart={facilitySwitcher}
-        footer={branding.data?.custom_footer_text ?? `${session.me?.name} · LogiSlot`}
+        footer={`${session.me?.name} · LogiSlot`}
         headerActions={
           <>
             <NotificationBell variant="admin" facilityId={session.activeFacilityId} />
