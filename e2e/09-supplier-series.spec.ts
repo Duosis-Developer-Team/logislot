@@ -35,7 +35,7 @@ test("tedarikçi seri bölümü mobil görünümde çalışır", async ({ page, 
 
   try {
     await page.goto("/login");
-    await page.getByRole("button", { name: "Tedarikçi Portalı" }).first().click();
+    await page.getByRole("radio", { name: "Tedarikçi Portalı" }).click();
     await page.getByLabel("E-posta").fill(ACCOUNTS.supplierAuto);
     await page.getByLabel("Parola").fill("Demo123!");
     await page.getByRole("button", { name: /Giriş$/ }).click();

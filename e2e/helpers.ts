@@ -17,8 +17,8 @@ export async function loginViaUi(
   email: string,
 ) {
   await page.goto("/login");
-  // Ayni metin submit butonunda da gectigi icin ilk eslesme = portal karti
-  await page.getByRole("button", { name: portal }).first().click();
+  // Portal seçici radio kartı (accessible name = tam portal başlığı, aria-label)
+  await page.getByRole("radio", { name: portal }).click();
   await page.getByLabel("E-posta").fill(email);
   await page.getByLabel("Parola").fill(DEMO_PASSWORD);
   // Buton metni portala gore degisir: "...'na Giriş"
