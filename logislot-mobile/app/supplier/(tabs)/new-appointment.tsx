@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useMemo, useState } from "react";
-import { Pressable, ScrollView, Text, View } from "react-native";
+import { Pressable, ScrollView, Switch, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ApiError } from "@/api/client";
 import {
@@ -15,7 +15,7 @@ import {
   useSupplierCatalog,
   useSupplierProfile,
 } from "@/api/supplier";
-import type { AppointmentDto } from "@/api/types";
+import type { AppointmentDto, SeriesCreateResultDto } from "@/api/types";
 import { Button, Card, Chip, ErrorState, Field, LoadingState } from "@/components/ui";
 import { useTheme } from "@/theme/theme";
 import { spacing } from "@/theme/tokens";
@@ -25,10 +25,37 @@ import { addDaysISO, dayLabel, timeInTz, todayISO } from "@/utils/format";
  * Yeni randevu sihirbazı — web wizard'ın mobile-native karşılığı:
  * 3 adım (Ürün → Araç & Teslimat → Tarih & Özet), dokunulabilir chip/slot seçimi.
  * Aynı API contract: /supplier/availability/evaluate + POST /supplier/appointments.
+ * Tekrarlayan seri de web ile aynı kurallar: yalnızca standart teslimat,
+ * haftalık/2 haftalık/aylık, 2..12 (aylıkta 6) tekrar; hepsi-ya-hiç doğrulama.
  */
 
 const STEPS = ["Ürün", "Araç & Teslimat", "Tarih & Özet"];
 const DURATION_OPTIONS = [30, 45, 60, 90, 120, 150, 180, 240];
+
+const FREQUENCY_LABELS = {
+  weekly: "Her hafta",
+  biweekly: "2 haftada bir",
+  monthly: "Her ay",
+} as const;
+type Frequency = keyof typeof FREQUENCY_LABELS;
+
+/** Ay ekleme — backend ile aynı kural: hedef ayda gün yoksa ayın son gününe kırpılır. */
+function addMonthsClamped(base: Date, months: number): Date {
+  const day = base.getDate();
+  const target = new Date(base.getFullYear(), base.getMonth() + months, 1);
+  const lastDay = new Date(target.getFullYear(), target.getMonth() + 1, 0).getDate();
+  target.setDate(Math.min(day, lastDay));
+  return target;
+}
+
+function occurrenceDates(startDate: string, frequency: Frequency, count: number): Date[] {
+  const base = new Date(`${startDate}T12:00:00`);
+  return Array.from({ length: count }, (_, i) => {
+    if (frequency === "weekly") return new Date(base.getTime() + i * 7 * 86_400_000);
+    if (frequency === "biweekly") return new Date(base.getTime() + i * 14 * 86_400_000);
+    return addMonthsClamped(base, i);
+  });
+}
 
 export default function NewAppointmentWizard() {
   const { colors } = useTheme();
@@ -58,6 +85,12 @@ export default function NewAppointmentWizard() {
   const [date, setDate] = useState(addDaysISO(todayISO(), 1));
   const [duration, setDuration] = useState<number | null>(null);
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
+
+  // Tekrarlayan seri (yalnızca standart teslimat; kargo ile birleşmez)
+  const [recurringEnabled, setRecurringEnabled] = useState(false);
+  const [recurringFrequency, setRecurringFrequency] = useState<Frequency>("weekly");
+  const [recurringCount, setRecurringCount] = useState("4");
+  const [seriesResult, setSeriesResult] = useState<SeriesCreateResultDto | null>(null);
 
   const categories = catalog.data?.product_categories ?? [];
   const vehicles = catalog.data?.vehicle_categories ?? [];
@@ -106,26 +139,47 @@ export default function NewAppointmentWizard() {
     [],
   );
 
+  // Web ile aynı kurallar: kargo iken seri kapalı; aylıkta en fazla 6 tekrar.
+  const recurringActive = recurringEnabled && !isCargo;
+  const maxOccurrences = recurringFrequency === "monthly" ? 6 : 12;
+  const effectiveRecurringCount = Math.min(
+    Math.max(parseInt(recurringCount, 10) || 2, 2),
+    maxOccurrences,
+  );
+  const previewDates = recurringActive
+    ? occurrenceDates(date, recurringFrequency, effectiveRecurringCount)
+    : [];
+
   async function submit() {
     setSubmitError(null);
+    const body = {
+      product_category_id: categoryId,
+      product_name: productName,
+      quantity: qty,
+      quantity_unit: unit,
+      vehicle_category_id: vehicleOverrideId,
+      license_plate: plate || null,
+      driver_name: driver || null,
+      delivery_type: isCargo ? "cargo" : "standard",
+      cargo_window: isCargo ? cargoWindow : null,
+      target_date: date,
+      start_at: isCargo ? null : selectedSlot,
+      duration_minutes: isCargo ? null : effectiveDuration,
+      acknowledged_warning_codes: selectedAdvisories.map((w) => w.code),
+      recurring: recurringActive
+        ? { frequency: recurringFrequency, occurrence_count: effectiveRecurringCount }
+        : undefined,
+    };
     try {
-      const created = (await create.mutateAsync({
-        product_category_id: categoryId,
-        product_name: productName,
-        quantity: qty,
-        quantity_unit: unit,
-        vehicle_category_id: vehicleOverrideId,
-        license_plate: plate || null,
-        driver_name: driver || null,
-        delivery_type: isCargo ? "cargo" : "standard",
-        cargo_window: isCargo ? cargoWindow : null,
-        target_date: date,
-        start_at: isCargo ? null : selectedSlot,
-        duration_minutes: isCargo ? null : effectiveDuration,
-        acknowledged_warning_codes: selectedAdvisories.map((w) => w.code),
-      })) as AppointmentDto;
-      setResult(created);
+      if (recurringActive) {
+        const created = (await create.mutateAsync(body)) as unknown as SeriesCreateResultDto;
+        setSeriesResult(created);
+      } else {
+        const created = (await create.mutateAsync(body)) as AppointmentDto;
+        setResult(created);
+      }
     } catch (err) {
+      // Seri hatası: hangi tekrarın hangi tarihte neden düştüğü mesajda gelir.
       setSubmitError(
         err instanceof ApiError ? err.message : "Talep gönderilemedi; tekrar deneyin.",
       );
@@ -135,6 +189,7 @@ export default function NewAppointmentWizard() {
   function reset() {
     setStep(0);
     setResult(null);
+    setSeriesResult(null);
     setProductName("");
     setCategoryId("");
     setQuantity("1");
@@ -144,6 +199,9 @@ export default function NewAppointmentWizard() {
     setIsCargo(false);
     setSelectedSlot(null);
     setSubmitError(null);
+    setRecurringEnabled(false);
+    setRecurringFrequency("weekly");
+    setRecurringCount("4");
   }
 
   if (catalog.isLoading)
@@ -154,6 +212,74 @@ export default function NewAppointmentWizard() {
         <ErrorState message="Katalog yüklenemedi." onRetry={() => catalog.refetch()} />
       </Center>
     );
+
+  // Seri başarı ekranı — web ile aynı içerik: sayaç + tüm tekrar tarihleri.
+  if (seriesResult) {
+    const first = seriesResult.appointments[0];
+    const seriesApproved = first?.status === "approved";
+    return (
+      <Center>
+        <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: "center" }}>
+          <Card style={{ alignItems: "center", gap: spacing.md, margin: spacing.lg }}>
+            <View
+              style={{
+                width: 64,
+                height: 64,
+                borderRadius: 32,
+                alignItems: "center",
+                justifyContent: "center",
+                backgroundColor: seriesApproved
+                  ? `${colors.status.approved}20`
+                  : `${colors.status.pending}20`,
+              }}
+            >
+              <Ionicons
+                name="repeat"
+                size={30}
+                color={seriesApproved ? colors.status.approved : colors.status.pending}
+              />
+            </View>
+            <Text style={{ color: colors.text, fontSize: 18, fontWeight: "700", textAlign: "center" }}>
+              {seriesApproved
+                ? `${seriesResult.occurrence_count} randevunuz onaylandı`
+                : `${seriesResult.occurrence_count} randevu talebiniz onaya gönderildi`}
+            </Text>
+            <Text style={{ color: colors.mutedText, fontSize: 13, textAlign: "center" }}>
+              {FREQUENCY_LABELS[seriesResult.frequency]} tekrarlayan seri oluşturuldu.
+            </Text>
+            <View style={{ gap: 4, alignSelf: "stretch" }}>
+              {seriesResult.appointments.map((a) => (
+                <Text key={a.id} style={{ color: colors.mutedText, fontSize: 13 }}>
+                  <Text style={{ color: colors.text, fontWeight: "600" }}>
+                    {a.occurrence_index}.
+                  </Text>{" "}
+                  {new Date(a.scheduled_start_at).toLocaleString("tr-TR", {
+                    day: "2-digit",
+                    month: "long",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                    timeZone: tz,
+                  })}
+                </Text>
+              ))}
+            </View>
+            <View style={{ flexDirection: "row", gap: spacing.sm }}>
+              <Button
+                title="Randevularım"
+                variant="secondary"
+                onPress={() => {
+                  reset();
+                  router.replace("/supplier/appointments" as never);
+                }}
+                style={{ paddingHorizontal: 20 }}
+              />
+              <Button title="Yeni Talep" onPress={reset} style={{ paddingHorizontal: 20 }} />
+            </View>
+          </Card>
+        </ScrollView>
+      </Center>
+    );
+  }
 
   // Başarı ekranı
   if (result) {
@@ -444,6 +570,87 @@ export default function NewAppointmentWizard() {
               </>
             )}
 
+            {/* Tekrarlayan seri — web ile aynı: yalnızca standart teslimatta */}
+            {!isCargo && (
+              <View
+                style={{
+                  gap: spacing.sm,
+                  borderTopWidth: 1,
+                  borderTopColor: colors.border,
+                  paddingTop: spacing.md,
+                }}
+              >
+                <View
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                  }}
+                >
+                  <Text style={{ color: colors.text, fontSize: 14, fontWeight: "500" }}>
+                    Tekrarlayan randevu oluştur
+                  </Text>
+                  <Switch
+                    value={recurringEnabled}
+                    onValueChange={setRecurringEnabled}
+                    trackColor={{ true: colors.accent }}
+                  />
+                </View>
+                {recurringEnabled && (
+                  <>
+                    <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
+                      {(Object.keys(FREQUENCY_LABELS) as Frequency[]).map((f) => (
+                        <Chip
+                          key={f}
+                          label={FREQUENCY_LABELS[f]}
+                          selected={recurringFrequency === f}
+                          onPress={() => {
+                            setRecurringFrequency(f);
+                            if (f === "monthly" && (parseInt(recurringCount, 10) || 0) > 6) {
+                              setRecurringCount("6");
+                            }
+                          }}
+                        />
+                      ))}
+                    </View>
+                    <Field
+                      label={`Tekrar Sayısı (2–${maxOccurrences})`}
+                      value={recurringCount}
+                      onChangeText={setRecurringCount}
+                      keyboardType="number-pad"
+                    />
+                    <View
+                      style={{
+                        gap: 4,
+                        borderRadius: 12,
+                        borderWidth: 1,
+                        borderColor: colors.border,
+                        padding: spacing.md,
+                      }}
+                    >
+                      <Text style={{ color: colors.text, fontSize: 12, fontWeight: "700" }}>
+                        {effectiveRecurringCount} randevu oluşturulacak:
+                      </Text>
+                      {previewDates.map((d, i) => (
+                        <Text key={d.toISOString()} style={{ color: colors.mutedText, fontSize: 12 }}>
+                          {i + 1}.{" "}
+                          {d.toLocaleDateString("tr-TR", {
+                            day: "2-digit",
+                            month: "long",
+                            year: "numeric",
+                          })}
+                        </Text>
+                      ))}
+                      <Text style={{ color: colors.faintText, fontSize: 11, marginTop: 2 }}>
+                        Tüm tarihler kural setinden geçer; biri uygun değilse hiçbiri
+                        oluşturulmaz ve hangi tarihin neden uygun olmadığı gösterilir.
+                      </Text>
+                    </View>
+                  </>
+                )}
+              </View>
+            )}
+
             {/* Özet */}
             <View
               style={{
@@ -474,6 +681,12 @@ export default function NewAppointmentWizard() {
                     : ""
                 }`}
               />
+              {recurringActive && (
+                <SummaryRow
+                  label="Tekrar"
+                  value={`${FREQUENCY_LABELS[recurringFrequency]} · ${effectiveRecurringCount} randevu`}
+                />
+              )}
               {limits?.auto_approval_enabled && (
                 <Text style={{ color: colors.status.approved, fontSize: 12 }}>
                   Otomatik onay yetkiniz var; talebiniz anında onaylanır.

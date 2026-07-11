@@ -4,11 +4,16 @@
  */
 
 import { Ionicons } from "@expo/vector-icons";
+import { useState } from "react";
 import {
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   TextInput,
   View,
@@ -370,6 +375,222 @@ export function SectionTitle({ title }: { title: string }) {
     >
       {title}
     </Text>
+  );
+}
+
+// ------------------------------------------------------- Modal (bottom sheet)
+
+/** Web'deki Dialog karşılığı — alttan açılan, kaydırılabilir sheet. */
+export function AppModal({
+  visible,
+  onClose,
+  title,
+  children,
+}: {
+  visible: boolean;
+  onClose: () => void;
+  title: string;
+  children: React.ReactNode;
+}) {
+  const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <KeyboardAvoidingView
+        style={{ flex: 1, justifyContent: "flex-end" }}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+      >
+        <Pressable
+          style={[StyleSheet.absoluteFill, { backgroundColor: "#00000088" }]}
+          onPress={onClose}
+          accessibilityLabel="Kapat"
+        />
+        <View
+          style={{
+            maxHeight: "88%",
+            backgroundColor: colors.background,
+            borderTopLeftRadius: 22,
+            borderTopRightRadius: 22,
+            paddingBottom: insets.bottom + spacing.md,
+          }}
+        >
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "space-between",
+              paddingHorizontal: spacing.lg,
+              paddingTop: spacing.lg,
+              paddingBottom: spacing.sm,
+            }}
+          >
+            <Text style={{ color: colors.text, fontSize: 18, fontWeight: "700", flex: 1 }}>
+              {title}
+            </Text>
+            <Pressable onPress={onClose} hitSlop={10} accessibilityLabel="Kapat">
+              <Ionicons name="close" size={24} color={colors.mutedText} />
+            </Pressable>
+          </View>
+          <ScrollView
+            contentContainerStyle={{ padding: spacing.lg, gap: spacing.md }}
+            keyboardShouldPersistTaps="handled"
+          >
+            {children}
+          </ScrollView>
+        </View>
+      </KeyboardAvoidingView>
+    </Modal>
+  );
+}
+
+// ---------------------------------------------------------------- Switch satırı
+
+export function SwitchRow({
+  label,
+  hint,
+  value,
+  onValueChange,
+  disabled,
+}: {
+  label: string;
+  hint?: string;
+  value: boolean;
+  onValueChange: (v: boolean) => void;
+  disabled?: boolean;
+}) {
+  const { colors } = useTheme();
+  return (
+    <View
+      style={{
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: spacing.md,
+      }}
+    >
+      <View style={{ flex: 1, gap: 2 }}>
+        <Text style={{ color: colors.text, fontSize: 14, fontWeight: "500" }}>{label}</Text>
+        {hint && <Text style={{ color: colors.faintText, fontSize: 12 }}>{hint}</Text>}
+      </View>
+      <Switch
+        value={value}
+        onValueChange={onValueChange}
+        disabled={disabled}
+        trackColor={{ true: colors.accent }}
+      />
+    </View>
+  );
+}
+
+// ------------------------------------------------------------- Seçim alanı
+
+/** Web'deki Select karşılığı — dokununca modal listesi açılır. */
+export function PickerField({
+  label,
+  value,
+  placeholder = "— Seçin —",
+  options,
+  onChange,
+  disabled,
+}: {
+  label?: string;
+  value: string | null;
+  placeholder?: string;
+  options: { value: string; label: string }[];
+  onChange: (value: string) => void;
+  disabled?: boolean;
+}) {
+  const { colors } = useTheme();
+  const [open, setOpen] = useState(false);
+  const selected = options.find((o) => o.value === value) ?? null;
+  return (
+    <View style={{ gap: 6 }}>
+      {label && (
+        <Text style={{ color: colors.text, fontSize: 14, fontWeight: "500" }}>{label}</Text>
+      )}
+      <Pressable
+        onPress={() => setOpen(true)}
+        disabled={disabled}
+        style={{
+          height: 50,
+          borderRadius: radius.md,
+          borderWidth: 1,
+          borderColor: colors.border,
+          backgroundColor: colors.card,
+          paddingHorizontal: 14,
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "space-between",
+          opacity: disabled ? 0.5 : 1,
+        }}
+      >
+        <Text
+          numberOfLines={1}
+          style={{
+            color: selected ? colors.text : colors.faintText,
+            fontSize: 16,
+            flex: 1,
+          }}
+        >
+          {selected?.label ?? placeholder}
+        </Text>
+        <Ionicons name="chevron-down" size={18} color={colors.mutedText} />
+      </Pressable>
+      <AppModal visible={open} onClose={() => setOpen(false)} title={label ?? "Seçin"}>
+        <View style={{ gap: spacing.sm }}>
+          {options.map((o) => (
+            <Pressable
+              key={o.value}
+              onPress={() => {
+                onChange(o.value);
+                setOpen(false);
+              }}
+              style={({ pressed }) => ({
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
+                padding: spacing.md,
+                borderRadius: radius.md,
+                borderWidth: 1,
+                borderColor: o.value === value ? colors.accent : colors.border,
+                backgroundColor: o.value === value ? `${colors.accent}14` : colors.card,
+                opacity: pressed ? 0.8 : 1,
+              })}
+            >
+              <Text
+                style={{
+                  color: o.value === value ? colors.accent : colors.text,
+                  fontSize: 15,
+                  fontWeight: o.value === value ? "600" : "400",
+                  flex: 1,
+                }}
+              >
+                {o.label}
+              </Text>
+              {o.value === value && (
+                <Ionicons name="checkmark" size={18} color={colors.accent} />
+              )}
+            </Pressable>
+          ))}
+        </View>
+      </AppModal>
+    </View>
+  );
+}
+
+// ------------------------------------------------------------- Anahtar-değer
+
+export function KeyValueRow({ label, value }: { label: string; value: string }) {
+  const { colors } = useTheme();
+  return (
+    <View style={{ flexDirection: "row", justifyContent: "space-between", gap: 12 }}>
+      <Text style={{ color: colors.mutedText, fontSize: 13 }}>{label}</Text>
+      <Text
+        style={{ color: colors.text, fontSize: 13, fontWeight: "500", flexShrink: 1, textAlign: "right" }}
+      >
+        {value}
+      </Text>
+    </View>
   );
 }
 

@@ -197,3 +197,28 @@ export async function apiRequest<T>(
   }
   return envelope.data;
 }
+
+/** Envelope'suz düz metin yanıtlar (CSV raporları) — aynı auth/refresh akışı. */
+export async function apiRequestText(
+  path: string,
+  options: RequestOptions = {},
+): Promise<string> {
+  let token = accessToken;
+  let response = await rawRequest(path, options, token);
+
+  if (response.status === 401 && !AUTH_PATHS.some((p) => path.startsWith(p))) {
+    const newToken = await refreshAccessToken();
+    if (newToken) {
+      token = newToken;
+      response = await rawRequest(path, options, token);
+      if (response.status === 401) {
+        await dropSession();
+      }
+    }
+  }
+
+  if (!response.ok) {
+    throw new ApiError("HTTP_ERROR", `İndirme başarısız (HTTP ${response.status})`);
+  }
+  return response.text();
+}

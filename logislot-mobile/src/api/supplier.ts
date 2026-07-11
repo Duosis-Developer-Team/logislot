@@ -89,3 +89,32 @@ export function useSupplierSeries() {
     queryFn: () => apiRequest<SupplierSeriesRowDto[]>("/supplier/appointment-series"),
   });
 }
+
+export function useSupplierSeriesDetail(seriesId: string | null) {
+  return useQuery({
+    queryKey: ["supplier", "series", seriesId ?? "none"],
+    queryFn: () =>
+      apiRequest<{
+        id: string;
+        frequency: string;
+        occurrence_count: number;
+        appointments: AppointmentDto[];
+      }>(`/supplier/appointment-series/${seriesId}`),
+    enabled: seriesId !== null,
+  });
+}
+
+/** Tedarikçi kendi serisinin GELECEK randevularını iptal eder (sebep zorunlu). */
+export function useSupplierSeriesCancel() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ seriesId, reason }: { seriesId: string; reason: string }) =>
+      apiRequest<{ affected_count: number }>(
+        `/supplier/appointment-series/${seriesId}/cancel`,
+        { method: "POST", body: { reason } },
+      ),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["supplier"] });
+    },
+  });
+}

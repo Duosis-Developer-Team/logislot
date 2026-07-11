@@ -2,14 +2,11 @@ import { router } from "expo-router";
 import { useMemo, useState } from "react";
 import { FlatList, RefreshControl, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import {
-  useSupplierAppointments,
-  useSupplierProfile,
-  useSupplierSeries,
-} from "@/api/supplier";
+import { useSupplierAppointments, useSupplierProfile } from "@/api/supplier";
 import { AppointmentCard } from "@/components/appointment";
+import { NotificationBellButton } from "@/components/notifications";
+import { SupplierSeriesSection } from "@/components/supplier-series";
 import {
-  Card,
   Chip,
   EmptyState,
   ErrorState,
@@ -25,7 +22,6 @@ export default function SupplierAppointments() {
   const insets = useSafeAreaInsets();
   const profile = useSupplierProfile();
   const list = useSupplierAppointments();
-  const series = useSupplierSeries();
   const [tab, setTab] = useState<"upcoming" | "past">("upcoming");
 
   // Ekran acilis ani — gecmis/gelecek ayrimi icin tek seferlik referans.
@@ -55,7 +51,6 @@ export default function SupplierAppointments() {
     );
   const shown = tab === "upcoming" ? upcoming : past;
   const tz = profile.data?.facility.timezone ?? "Europe/Istanbul";
-  const activeSeries = (series.data ?? []).filter((s) => s.status === "active");
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
@@ -77,16 +72,26 @@ export default function SupplierAppointments() {
         }
         ListHeaderComponent={
           <View style={{ gap: spacing.md, marginBottom: spacing.sm }}>
-            <View>
-              <Text style={{ color: colors.text, fontSize: 24, fontWeight: "800" }}>
-                {profile.data?.company_name ?? "Randevularım"}
-              </Text>
-              {profile.data && (
-                <Text style={{ color: colors.mutedText, fontSize: 13, marginTop: 2 }}>
-                  Kod: {profile.data.code}
-                  {profile.data.category_label ? ` · ${profile.data.category_label}` : ""}
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "flex-start",
+                justifyContent: "space-between",
+                gap: spacing.sm,
+              }}
+            >
+              <View style={{ flex: 1 }}>
+                <Text style={{ color: colors.text, fontSize: 24, fontWeight: "800" }}>
+                  {profile.data?.company_name ?? "Randevularım"}
                 </Text>
-              )}
+                {profile.data && (
+                  <Text style={{ color: colors.mutedText, fontSize: 13, marginTop: 2 }}>
+                    Kod: {profile.data.code}
+                    {profile.data.category_label ? ` · ${profile.data.category_label}` : ""}
+                  </Text>
+                )}
+              </View>
+              <NotificationBellButton variant="supplier" facilityId={null} />
             </View>
 
             <View style={{ flexDirection: "row", gap: spacing.sm }}>
@@ -105,24 +110,7 @@ export default function SupplierAppointments() {
               />
             </View>
 
-            {activeSeries.length > 0 && (
-              <Card style={{ gap: 6, padding: spacing.md }}>
-                <Text style={{ color: colors.text, fontSize: 13, fontWeight: "700" }}>
-                  Tekrarlayan randevular
-                </Text>
-                {activeSeries.map((s) => (
-                  <Text key={s.id} style={{ color: colors.mutedText, fontSize: 12 }}>
-                    • {s.product_name ?? "Seri"} —{" "}
-                    {s.frequency === "weekly"
-                      ? "haftalık"
-                      : s.frequency === "biweekly"
-                        ? "2 haftada bir"
-                        : "aylık"}{" "}
-                    × {s.occurrence_count}
-                  </Text>
-                ))}
-              </Card>
-            )}
+            <SupplierSeriesSection />
 
             <View style={{ flexDirection: "row", gap: spacing.sm }}>
               <Chip label={`Yaklaşan (${upcoming.length})`} selected={tab === "upcoming"} onPress={() => setTab("upcoming")} />

@@ -44,6 +44,63 @@ export interface VehicleCategoryDto {
   is_active: boolean;
 }
 
+export type WorkingHours = Record<string, { start: string; end: string } | null>;
+
+export interface DockDto {
+  id: string;
+  name: string;
+  note: string | null;
+  is_active: boolean;
+  working_hours_json: WorkingHours | null;
+  accepted_product_category_ids: string[];
+  accepted_vehicle_category_ids: string[];
+}
+
+export type ConflictRelationType = "mutual_block" | "shared_capacity" | "conditional";
+
+export interface ConflictGroupDto {
+  id: string;
+  name: string;
+  relation_type: ConflictRelationType;
+  trigger_condition_json: { vehicle_category_ids?: string[] } | null;
+  is_active: boolean;
+  member_dock_ids: string[];
+}
+
+export type OverrideType = "closed" | "extra_hours";
+
+export interface OverrideDto {
+  id: string;
+  dock_id: string;
+  date: string;
+  type: OverrideType;
+  start_time: string | null;
+  end_time: string | null;
+  reason: string | null;
+  is_active: boolean;
+}
+
+export interface SupplierDto {
+  id: string;
+  company_name: string;
+  code: string;
+  category_label: string | null;
+  contact_name: string | null;
+  contact_email: string | null;
+  contact_phone: string | null;
+  status: string;
+  is_active: boolean;
+  auto_approval_enabled: boolean;
+  min_block_minutes: number | null;
+  max_block_minutes: number | null;
+  weekly_quota: number | null;
+  monthly_quota: number | null;
+  notes: string | null;
+  allowed_product_category_ids: string[];
+  account_email: string | null;
+  account_active: boolean | null;
+}
+
 export interface SupplierProfileDto {
   id: string;
   company_name: string;
@@ -202,6 +259,209 @@ export interface SupplierSeriesRowDto {
   future_cancellable_count: number;
 }
 
+export interface SeriesCreateResultDto {
+  series_id: string;
+  frequency: "weekly" | "biweekly" | "monthly";
+  occurrence_count: number;
+  appointments: AppointmentDto[];
+}
+
+export interface CalendarWeekDayDto {
+  date: string;
+  total: number;
+  pending: number;
+  approved: number;
+  revision_pending: number;
+  completed: number;
+  cancelled: number;
+  cargo: number;
+  dock_count: number;
+  active_dock_count: number;
+  utilization_percent: number;
+  has_closed_override: boolean;
+  has_extra_hours: boolean;
+  top_docks: { dock_id: string; dock_name: string | null; appointments: number; cargo: number }[];
+}
+
+export interface CalendarWeekDto {
+  week_start: string;
+  week_end: string;
+  timezone: string;
+  days: CalendarWeekDayDto[];
+}
+
+export interface NotificationDto {
+  id: string;
+  type: string;
+  severity: "info" | "success" | "warning" | "error";
+  title: string;
+  body: string | null;
+  entity_type: string | null;
+  entity_id: string | null;
+  metadata_json: {
+    appointment_id?: string;
+    route_hint?: string;
+    status?: string;
+    dock_id?: string | null;
+    supplier_id?: string;
+    reason?: string | null;
+    old_start_at?: string | null;
+    new_start_at?: string | null;
+    window?: string | null;
+  } | null;
+  read_at: string | null;
+  created_at: string;
+  is_read: boolean;
+}
+
+export interface NotificationPreferencesDto {
+  in_app_enabled: boolean;
+  email_enabled: boolean;
+  email_events: Record<string, boolean>;
+}
+
+export interface FacilityUserDto {
+  id: string;
+  name: string;
+  email: string;
+  status: string;
+  is_active: boolean;
+  roles: { id: string; name: string; display_name: string }[];
+  assigned_dock_ids: string[] | null;
+}
+
+export interface RoleDto {
+  id: string;
+  name: string;
+  display_name: string;
+  description: string | null;
+  permissions: string[];
+  is_default: boolean;
+  is_system: boolean;
+  is_active: boolean;
+}
+
+// ------------------------------------------------------------ raporlar & loglar
+
+export interface BreakdownRow {
+  key: string;
+  label: string | null;
+  count: number;
+  completed: number;
+  cargo: number;
+  cancelled: number;
+  rejected: number;
+  percentage: number;
+}
+
+export interface ReportsSummaryDto {
+  range: { date_from: string; date_to: string; timezone: string };
+  scope: { restricted: boolean };
+  totals: {
+    appointments: number;
+    pending: number;
+    approved: number;
+    revision_pending: number;
+    completed: number;
+    rejected: number;
+    cancelled: number;
+    cargo: number;
+    auto_approved: number;
+    manual_approval: number;
+  };
+  rates: {
+    completion_rate: number;
+    rejection_rate: number;
+    cancellation_rate: number;
+    cargo_rate: number;
+  };
+  approval_sla: {
+    average_minutes_to_decision: number | null;
+    median_minutes_to_decision: number | null;
+    pending_over_2h: number;
+    pending_over_24h: number;
+  };
+  by_status: { key: string; label: string; count: number; percentage: number }[];
+  by_category: BreakdownRow[];
+  by_dock: {
+    dock_id: string;
+    dock_name: string;
+    appointment_count: number;
+    blocked_minutes: number;
+    utilization_percent: number;
+  }[];
+  by_supplier: {
+    supplier_id: string;
+    supplier_name: string | null;
+    appointment_count: number;
+    completed: number;
+    cancelled: number;
+    rejected: number;
+    cargo: number;
+  }[];
+  daily_trend: { date: string; total: number; completed: number; pending: number; cargo: number }[];
+}
+
+export interface EmailLogDto {
+  id: string;
+  recipient_email: string;
+  recipient_name: string | null;
+  subject: string;
+  template_key: string;
+  status: string;
+  provider: string;
+  appointment_id: string | null;
+  created_at: string;
+  sent_at: string | null;
+  error_message: string | null;
+  retry_count: number;
+  max_attempts: number;
+  next_retry_at: string | null;
+  last_attempt_at: string | null;
+}
+
+export interface EmailLogListDto {
+  items: EmailLogDto[];
+  total: number;
+  limit: number;
+  offset: number;
+  summary: { sent: number; failed: number; queued: number; skipped: number };
+}
+
+export interface AuditEntryDto {
+  id: string;
+  created_at: string;
+  actor_type: string;
+  actor_name: string | null;
+  action: string;
+  summary: string;
+  entity_type: string | null;
+  entity_id: string | null;
+  before: Record<string, unknown> | null;
+  after: Record<string, unknown> | null;
+  metadata: Record<string, unknown> | null;
+}
+
+export interface AuditListDto {
+  items: AuditEntryDto[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export interface FacilityPlanWarningsDto {
+  effective_plan: { id: string; name: string; is_override: boolean } | null;
+  warnings: {
+    dimension: string;
+    label: string;
+    used: number;
+    included_quota: number;
+    percent: number;
+    severity: "info" | "warning" | "critical";
+    message: string;
+  }[];
+}
+
 // ------------------------------------------------------------------ platform
 
 export interface PlatformTenantDto {
@@ -226,6 +486,70 @@ export interface PlatformFacilityDto {
   status: string;
   plan_override_id: string | null;
   created_at: string;
+  bootstrap?: {
+    vehicle_categories: number;
+    product_categories: number;
+    docks: number;
+    roles: number;
+  } | null;
+  // Yalnızca create yanıtında dolu; geçici parola BİR kez gösterilir.
+  initial_admin?: {
+    id: string;
+    name: string;
+    email: string;
+    temporary_password: string;
+    must_change_password: boolean;
+  } | null;
+}
+
+export interface PlanDto {
+  id: string;
+  name: string;
+  scope: string;
+  billing_unit_label: string;
+  measurable_dimensions_json: string[] | null;
+  rate_card_json: unknown[] | null;
+  status: string;
+}
+
+export interface PlanUsageWarningDto {
+  tenant_id: string;
+  tenant_name: string;
+  facility_id: string | null;
+  facility_name: string | null;
+  plan_name: string;
+  dimension: string;
+  used: number;
+  included_quota: number;
+  percent: number;
+  severity: "info" | "warning" | "critical";
+  message: string;
+}
+
+export interface SchedulerJobStatus {
+  last_status: string;
+  last_finished_at: string | null;
+  processed_count: number;
+  error_message: string | null;
+}
+
+export interface SupportHealthDto {
+  failed_email_count: number;
+  due_email_retry_count: number;
+  unread_critical_notification_count: number;
+  pending_appointment_count: number;
+  revision_pending_appointment_count: number;
+  tenant_count: number;
+  active_facility_count: number;
+  plan_warning_count: number;
+  scheduler: Record<string, SchedulerJobStatus | null>;
+  config: {
+    environment: string;
+    email_provider: string;
+    docs_enabled: boolean;
+    rate_limit_enabled: boolean;
+    scheduler_enabled: boolean;
+  };
 }
 
 export interface PlatformUsageDto {

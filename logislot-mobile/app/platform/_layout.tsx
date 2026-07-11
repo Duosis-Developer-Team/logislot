@@ -13,6 +13,25 @@ export default function PlatformLayout() {
         }}
       >
         <Stack.Screen name="(tabs)" />
+        {(
+          [
+            ["plans", "Planlar"],
+            ["support", "Pilot Destek"],
+            ["audit-logs", "Denetim İzleri"],
+          ] as const
+        ).map(([name, title]) => (
+          <Stack.Screen
+            key={name}
+            name={name}
+            options={{
+              headerShown: true,
+              title,
+              headerStyle: { backgroundColor: colors.card },
+              headerTintColor: colors.text,
+              headerBackTitle: "Geri",
+            }}
+          />
+        ))}
       </Stack>
     </RoleGuard>
   );

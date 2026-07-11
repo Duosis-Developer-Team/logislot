@@ -1,4 +1,6 @@
-import { Text, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { router } from "expo-router";
+import { Pressable, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useSession } from "@/auth/session";
 import { ThemeAndLogoutSection } from "@/components/settings";
@@ -7,15 +9,106 @@ import { useTheme } from "@/theme/theme";
 import { spacing } from "@/theme/tokens";
 
 /**
- * Yönetim — Menü: tesis seçici + hesap + tema + çıkış.
- * Web'deki topbar tesis seçici ve UserMenu'nün mobile karşılığı.
- * Not: Kategoriler/rampalar/kullanıcılar gibi config CRUD ekranları backlog'da
- * (docs/FEATURE_PARITY_MATRIX.md) — mimari hazır, sıradaki sprintte eklenecek.
+ * Yönetim — Menü: tesis seçici + operasyon/konfigürasyon kısayolları +
+ * hesap + tema + çıkış. Web'deki topbar tesis seçici, sidebar navigasyonu
+ * ve UserMenu'nün mobile karşılığı. Girişler web ile aynı RBAC izinlerine
+ * göre gösterilir.
  */
+
+interface MenuEntry {
+  title: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  route: string;
+  permission?: string;
+}
+
+const OPERATION_ENTRIES: MenuEntry[] = [
+  {
+    title: "Yeni Randevu (Tedarikçi Adına)",
+    icon: "add-circle-outline",
+    route: "/admin/new-appointment",
+    permission: "appt.create",
+  },
+  { title: "Tekrarlayan Seriler", icon: "repeat-outline", route: "/admin/series" },
+  { title: "Bildirimler", icon: "notifications-outline", route: "/admin/notifications" },
+  {
+    title: "Raporlar",
+    icon: "bar-chart-outline",
+    route: "/admin/reports",
+    permission: "report.view",
+  },
+];
+
+const CONFIG_ENTRIES: MenuEntry[] = [
+  {
+    title: "Ürün Kategorileri",
+    icon: "pricetags-outline",
+    route: "/admin/settings/categories",
+    permission: "category.manage",
+  },
+  {
+    title: "Araç Kategorileri",
+    icon: "car-outline",
+    route: "/admin/settings/vehicle-categories",
+    permission: "vehicle_category.manage",
+  },
+  {
+    title: "Rampalar",
+    icon: "business-outline",
+    route: "/admin/settings/docks",
+    permission: "dock.manage",
+  },
+  {
+    title: "Çakışma Grupları",
+    icon: "git-branch-outline",
+    route: "/admin/settings/conflict-groups",
+    permission: "dock_conflict_group.manage",
+  },
+  {
+    title: "Takvim İstisnaları",
+    icon: "calendar-clear-outline",
+    route: "/admin/settings/overrides",
+    permission: "calendar.override",
+  },
+  {
+    title: "Tedarikçiler",
+    icon: "people-outline",
+    route: "/admin/settings/suppliers",
+    permission: "supplier.manage",
+  },
+  {
+    title: "Kullanıcılar & Roller",
+    icon: "shield-checkmark-outline",
+    route: "/admin/settings/users",
+    permission: "user.manage",
+  },
+  {
+    title: "E-posta Logları",
+    icon: "mail-outline",
+    route: "/admin/settings/email-logs",
+  },
+  {
+    title: "Denetim İzleri",
+    icon: "document-text-outline",
+    route: "/admin/settings/audit-logs",
+  },
+  {
+    title: "Bildirim Tercihleri",
+    icon: "options-outline",
+    route: "/admin/settings/notification-preferences",
+  },
+];
+
 export default function AdminMenu() {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const session = useSession();
+
+  const visible = (entries: MenuEntry[]) =>
+    entries.filter((e) => !e.permission || session.can(e.permission));
+
+  const operations = visible(OPERATION_ENTRIES);
+  const configs = visible(CONFIG_ENTRIES);
 
   return (
     <Screen style={{ paddingTop: insets.top }}>
@@ -48,13 +141,55 @@ export default function AdminMenu() {
           </>
         )}
 
-        <ThemeAndLogoutSection />
+        {operations.length > 0 && (
+          <>
+            <SectionTitle title="Operasyon" />
+            <Card style={{ padding: 0, overflow: "hidden" }}>
+              {operations.map((entry, i) => (
+                <MenuRow key={entry.route} entry={entry} showBorder={i > 0} />
+              ))}
+            </Card>
+          </>
+        )}
 
-        <Text style={{ color: colors.faintText, fontSize: 11, textAlign: "center" }}>
-          Tesis konfigürasyonları (kategoriler, rampalar, kullanıcılar…) için web
-          panelini kullanın — mobile karşılıkları sıradaki sprintte.
-        </Text>
+        {configs.length > 0 && (
+          <>
+            <SectionTitle title="Tesis Konfigürasyonu" />
+            <Card style={{ padding: 0, overflow: "hidden" }}>
+              {configs.map((entry, i) => (
+                <MenuRow key={entry.route} entry={entry} showBorder={i > 0} />
+              ))}
+            </Card>
+          </>
+        )}
+
+        <ThemeAndLogoutSection />
       </View>
     </Screen>
+  );
+}
+
+function MenuRow({ entry, showBorder }: { entry: MenuEntry; showBorder: boolean }) {
+  const { colors } = useTheme();
+  return (
+    <Pressable
+      onPress={() => router.push(entry.route as never)}
+      style={({ pressed }) => ({
+        flexDirection: "row",
+        alignItems: "center",
+        gap: spacing.md,
+        paddingHorizontal: spacing.lg,
+        paddingVertical: 14,
+        borderTopWidth: showBorder ? 1 : 0,
+        borderTopColor: colors.border,
+        backgroundColor: pressed ? `${colors.mutedText}12` : "transparent",
+      })}
+    >
+      <Ionicons name={entry.icon} size={20} color={colors.accent} />
+      <Text style={{ color: colors.text, fontSize: 15, fontWeight: "500", flex: 1 }}>
+        {entry.title}
+      </Text>
+      <Ionicons name="chevron-forward" size={17} color={colors.faintText} />
+    </Pressable>
   );
 }

@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useDashboardSummary } from "@/api/admin";
 import { useSession } from "@/auth/session";
 import { AppointmentCard } from "@/components/appointment";
+import { NotificationBellButton } from "@/components/notifications";
 import {
   EmptyState,
   ErrorState,
@@ -37,13 +38,23 @@ export default function AdminDashboard() {
   return (
     <Screen style={{ paddingTop: insets.top }}>
       <View style={{ gap: spacing.md }}>
-        <View>
-          <Text style={{ color: colors.text, fontSize: 24, fontWeight: "800" }}>
-            Genel Bakış
-          </Text>
-          <Text style={{ color: colors.mutedText, fontSize: 13 }}>
-            {activeFacility?.name} — günün operasyonel özeti
-          </Text>
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "flex-start",
+            justifyContent: "space-between",
+            gap: spacing.sm,
+          }}
+        >
+          <View style={{ flex: 1 }}>
+            <Text style={{ color: colors.text, fontSize: 24, fontWeight: "800" }}>
+              Genel Bakış
+            </Text>
+            <Text style={{ color: colors.mutedText, fontSize: 13 }}>
+              {activeFacility?.name} — günün operasyonel özeti
+            </Text>
+          </View>
+          <NotificationBellButton variant="admin" facilityId={activeFacilityId} />
         </View>
 
         <View style={{ flexDirection: "row", gap: spacing.sm }}>

@@ -2,12 +2,13 @@ import { Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useSupplierProfile } from "@/api/supplier";
 import { useSession } from "@/auth/session";
+import { NotificationPreferencesForm } from "@/components/notification-preferences";
 import { ThemeAndLogoutSection } from "@/components/settings";
 import { Badge, Card, ErrorState, LoadingState, Screen, SectionTitle } from "@/components/ui";
 import { useTheme } from "@/theme/theme";
 import { spacing } from "@/theme/tokens";
 
-/** Tedarikçi profili — firma bilgisi + tema + çıkış. */
+/** Tedarikçi profili — firma bilgisi + bildirim tercihleri + tema + çıkış. */
 export default function SupplierProfile() {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
@@ -59,6 +60,9 @@ export default function SupplierProfile() {
           </Text>
           <Text style={{ color: colors.mutedText, fontSize: 13 }}>{session.me?.email}</Text>
         </Card>
+
+        <SectionTitle title="Bildirim Tercihleri" />
+        <NotificationPreferencesForm />
 
         <ThemeAndLogoutSection />
       </View>
