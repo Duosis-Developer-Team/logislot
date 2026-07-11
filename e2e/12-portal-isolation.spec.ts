@@ -12,8 +12,9 @@ test("public entry yalnızca tedarikçi + yönetim gösterir; platform görünme
   page,
 }) => {
   await page.goto("/");
-  await expect(page.getByText("Tedarikçi Portalı")).toBeVisible();
-  await expect(page.getByText("Yönetim Paneli")).toBeVisible();
+  // Landing page'de portal adları birden çok yerde geçer (topbar/hero/footer)
+  await expect(page.getByText("Tedarikçi Portalı").first()).toBeVisible();
+  await expect(page.getByText("Yönetim Paneli").first()).toBeVisible();
   // Platform portalı hiçbir şekilde geçmez (kart/link/metin).
   // Not: "…operasyon platformu" footer sloganı serbesttir; yasak olan
   // internal portalın adları/varyantlarıdır.
