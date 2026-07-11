@@ -41,8 +41,15 @@ interface SessionState {
   can: (permission: string) => boolean;
   setActiveFacilityId: (id: string) => void;
   logout: () => void;
-  /** Login sonrası me query'sini tazeler. */
+  /** Login sonrası me query'sini tazeler (fire-and-forget). */
   refresh: () => void;
+  /**
+   * Login/parola-değişimi sonrası me'yi ZORLA tazeler ve döner. Navigasyondan
+   * ÖNCE await edilir; böylece hedef portalın RoleGuard'ı güncel user_type'ı
+   * anında görür (aksi halde ilk-giriş dışındaki girişlerde tokenLoaded zaten
+   * true olduğundan sorgu yeniden fetch etmez ve login'e geri düşer).
+   */
+  reloadMe: () => Promise<MeDto | null>;
 }
 
 const SessionContext = createContext<SessionState | null>(null);
@@ -96,11 +103,13 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     return me.default_facility_id ?? ids[0] ?? null;
   }, [me, storedFacilityId]);
 
+  // SADECE sunucunun token'ı reddettiği durum (401/403). "Token yok" durumu
+  // burada DEĞİL — guard/index taze hasToken() ile karar verir; aksi halde
+  // login sonrası context bir tık geriden geldiğinde yanlışça login'e atılır.
   const isUnauthorized =
-    tokenLoaded === false ||
-    (meQuery.isError &&
-      meQuery.error instanceof ApiError &&
-      ["UNAUTHORIZED", "FORBIDDEN"].includes(meQuery.error.code));
+    meQuery.isError &&
+    meQuery.error instanceof ApiError &&
+    ["UNAUTHORIZED", "FORBIDDEN"].includes(meQuery.error.code);
 
   const permissions = useMemo(() => {
     if (!me) return [];
@@ -110,6 +119,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   }, [me, activeFacilityId]);
 
   const logout = useCallback(() => {
+    setTokenLoaded(false);
     void performLogout(queryClient);
   }, [queryClient]);
 
@@ -118,9 +128,28 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     void queryClient.invalidateQueries({ queryKey: ["auth", "me"] });
   }, [queryClient]);
 
+  const reloadMe = useCallback(async (): Promise<MeDto | null> => {
+    setTokenLoaded(hasToken());
+    if (!hasToken()) return null;
+    try {
+      // staleTime:0 → her zaman taze fetch; önceki kullanıcının cache'ini
+      // (farklı user_type) atlar. Cache'i doldurur; gözlemci re-render'da okur.
+      const fresh = await queryClient.fetchQuery({
+        queryKey: ["auth", "me"],
+        queryFn: () => authApi.me(),
+        staleTime: 0,
+      });
+      return fresh ?? null;
+    } catch {
+      return null;
+    }
+  }, [queryClient]);
+
   const value: SessionState = {
     me,
-    isLoading: tokenLoaded === null || (tokenLoaded === true && meQuery.isLoading),
+    // Token var ama profil henüz gelmedi (ve reddedilmedi) → hâlâ çözülüyor.
+    isLoading:
+      tokenLoaded === null || (hasToken() && !me && !isUnauthorized),
     isUnauthorized,
     error:
       meQuery.isError && !isUnauthorized
@@ -135,6 +164,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     setActiveFacilityId,
     logout,
     refresh,
+    reloadMe,
   };
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;

@@ -1,5 +1,6 @@
 import { Redirect } from "expo-router";
 import { View } from "react-native";
+import { hasToken } from "@/api/client";
 import { useSession } from "@/auth/session";
 import { LoadingState } from "@/components/ui";
 import { useTheme } from "@/theme/theme";
@@ -8,8 +9,10 @@ import { useTheme } from "@/theme/theme";
 export default function Index() {
   const session = useSession();
   const { colors } = useTheme();
+  const tokenPresent = hasToken();
 
-  if (session.isLoading) {
+  // Token var ama profil henüz gelmedi (ve reddedilmedi) → bekle.
+  if (session.isLoading || (tokenPresent && !session.me && !session.isUnauthorized)) {
     return (
       <View style={{ flex: 1, justifyContent: "center", backgroundColor: colors.background }}>
         <LoadingState label="Oturum doğrulanıyor…" />
@@ -17,7 +20,7 @@ export default function Index() {
     );
   }
 
-  if (session.isUnauthorized || !session.me) {
+  if (!tokenPresent || session.isUnauthorized || !session.me) {
     return <Redirect href="/login" />;
   }
 

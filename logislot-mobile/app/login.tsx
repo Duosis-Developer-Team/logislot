@@ -76,12 +76,23 @@ export default function LoginScreen() {
     try {
       const tokens = await authApi.login(portal, email.trim(), password);
       await storeSession(tokens.access_token, portal, tokens.refresh_token);
-      session.refresh();
       if (tokens.must_change_password) {
+        session.refresh();
         router.replace("/change-password");
-      } else {
-        router.replace(active.target as never);
+        return;
       }
+      // me'yi navigasyondan ÖNCE zorla-tazele: hedefin RoleGuard'ı anında
+      // doğru user_type'ı görsün (ilk-giriş dışı girişlerdeki race'i giderir).
+      const me = await session.reloadMe();
+      const target =
+        me?.user_type === "supplier"
+          ? "/supplier/appointments"
+          : me?.user_type === "tenant"
+            ? "/admin/dashboard"
+            : me?.user_type === "platform"
+              ? "/platform/overview"
+              : active.target;
+      router.replace(target as never);
     } catch (err) {
       setError(
         err instanceof Error

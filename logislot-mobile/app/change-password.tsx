@@ -34,7 +34,7 @@ export default function ChangePasswordScreen() {
       const tokens = await authApi.changePassword(current, next);
       const portal = getPortal() ?? "admin";
       await storeSession(tokens.access_token, portal, tokens.refresh_token);
-      session.refresh();
+      await session.reloadMe();
       router.replace("/");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Parola değiştirilemedi.");
