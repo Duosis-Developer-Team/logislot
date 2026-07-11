@@ -75,7 +75,13 @@ Login'de tam logo (temaya göre light/dark asset), app icon + Android adaptive i
 
 Prod'a dokunulmadı; Hermes namespace'lerine dokunulmadı; seed çalıştırılmadı.
 
-⚠️ **Bu sprintten bağımsız dev cluster arızası tespit edildi:** `logislot-dev`'de `/health` OK ama **tüm login'ler HTTP 500** (DB'ye yazan her endpoint). Tanı: deploy workflow'unun `kubectl rollout status statefulset/logislot-postgres` beklemesi **timeout** — **Postgres pod'u ready değil**. Son günlerdeki scheduler rollout timeout'ları da aynı belirtinin parçası (node kaynak/disk baskısı olasılığı yüksek). Cluster erişimi olan biri şunlara bakmalı: `kubectl -n logislot-dev describe pod logislot-postgres-0`, `kubectl -n logislot-dev logs logislot-postgres-0`, node disk/PVC doluluk (`kubectl describe nodes | grep -A5 Pressure`). Bu yüzden dev'e karşı E2E bu sprintte koşulamadı; consistency testi yerel stack'te yapıldı.
+✅ **Dev cluster arızası tespit edildi ve ÇÖZÜLDÜ (2026-07-11):**
+
+- **Belirti:** `/health` OK ama tüm login'ler 500; `logislot-postgres-0` node2'de 16+ saattir `Terminating`'de sıkışmış; node2 `NotReady`.
+- **Kök neden:** `ingress-nginx-test` namespace'indeki `ingress-nginx-test-controller` servisi **`externalIPs: [84.247.180.172]`** (node1'in gerçek IP'si) ile tanımlanmış. kube-proxy IPVS modunda externalIP'leri her node'un `kube-ipvs0` dummy interface'ine ekler → node2, node1'in IP'sini **local** sanmaya başladı → node2'den node1'e (API server 6443 dahil) tüm trafik loopback'e düştü → kubelet API'ye ulaşamadı → node2 NotReady → StatefulSet Postgres'i yeniden yaratamadı.
+- **Çözüm (SSH ile, kullanıcı onayıyla):** (1) servisten `externalIPs` alanı patch ile kaldırıldı (servis silinmedi); (2) node2'de kube-proxy eski cache'iyle adresi geri eklediği için (yumurta-tavuk) kube-proxy container'ı kısa süreliğine durdurulup `ip addr del 84.247.180.172/32 dev kube-ipvs0` yapıldı; bağlantı kurulunca kube-proxy API'den temiz spec'i çekti ve adresi bir daha eklemedi.
+- **Sonuç:** node2 Ready, `logislot-postgres-0` **1/1 Running (aynı PVC — veri kaybı YOK)**, login'ler çalışıyor, **16/16 web E2E dev'e karşı geçti**, mobile contract smoke (create→detail→cancel) dev'de doğrulandı.
+- **Ops notu:** Bir node'un gerçek IP'sini bir Service'e `externalIPs` olarak vermek IPVS'te tam bu arızaya yol açar — `ingress-nginx-test` servisi artık externalIP'siz; bu test kurulumuna gerçekten gerek var mı gözden geçirilmeli. Ayrıca node root parolası yeniden paylaşıldı → rotasyon önerilir.
 
 ## 13. Eksikler / Backlog (matriste işli)
 
