@@ -10,15 +10,21 @@ export const ACCOUNTS = {
   supplierManual: "tedarikci@marmarasoguk.com",
 } as const;
 
-/** Login sayfasindan portal secip giris yapar (UI akisi). */
+/** Portal-specific login sayfasindan giris yapar (UI akisi).
+ *  Portal switcher KALDIRILDI (portal izolasyonu) — "all" modunda her portalin
+ *  login'i /login/<portal> altindadir; dev/prod'da ayri port/subdomain'dedir. */
+const PORTAL_LOGIN_PATHS = {
+  "Tedarikçi Portalı": "/login/supplier",
+  "Yönetim Paneli": "/login/admin",
+  "Platform Yönetimi": "/login/platform",
+} as const;
+
 export async function loginViaUi(
   page: Page,
   portal: "Tedarikçi Portalı" | "Yönetim Paneli" | "Platform Yönetimi",
   email: string,
 ) {
-  await page.goto("/login");
-  // Portal seçici radio kartı (accessible name = tam portal başlığı, aria-label)
-  await page.getByRole("radio", { name: portal }).click();
+  await page.goto(PORTAL_LOGIN_PATHS[portal]);
   await page.getByLabel("E-posta").fill(email);
   await page.getByLabel("Parola", { exact: true }).fill(DEMO_PASSWORD);
   // Buton metni portala gore degisir: "...'na Giriş"

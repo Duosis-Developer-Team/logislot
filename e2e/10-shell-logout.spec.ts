@@ -9,11 +9,13 @@ import { ACCOUNTS, loginViaUi } from "./helpers";
  * temizler ve /login'e doner. Cikis sonrasi korumali rotaya erisim engellenir.
  */
 
-/** UserMenu'yu acip "Cikis Yap"a tiklar ve /login'e donusu bekler. */
+/** UserMenu'yu acip "Cikis Yap"a tiklar ve login yuzeyine donusu bekler.
+ *  Portal izolasyonu: "all" modda /login -> / (public selector) redirect'i
+ *  oldugundan cikis "/" ya da "/login*"e donebilir — ikisi de gecerlidir. */
 async function logoutViaUserMenu(page: Page) {
   await page.getByRole("button", { name: "Kullanıcı menüsü" }).click();
   await page.getByRole("menuitem", { name: "Çıkış Yap" }).click();
-  await expect(page).toHaveURL(/\/login/, { timeout: 15_000 });
+  await expect(page).toHaveURL(/\/(login(\/.*)?)?$/, { timeout: 15_000 });
 }
 
 test("admin: kullanıcı menüsünden çıkış token'ları temizler ve korumalı rotayı kilitler", async ({
