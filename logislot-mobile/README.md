@@ -54,7 +54,6 @@ npx expo export --platform ios --platform android   # Metro bundle derlemesi
 
 | Rol | E-posta | Parola |
 |---|---|---|
-| Platform | admin@logislot.com | Demo123! |
 | Tenant/Yönetim | admin@cakesbakes.com | Demo123! |
 | Tedarikçi | tedarikci@anadoluun.com | Demo123! |
 | Rampa Yöneticisi | rampa@cakesbakes.com | Demo123! |
@@ -65,12 +64,14 @@ npx expo export --platform ios --platform android   # Metro bundle derlemesi
 ```
 app/                    # Expo Router dosya-tabanlı rotalar
   _layout.tsx           # Theme + QueryClient + Session provider'ları
-  index.tsx             # role-based yönlendirme (supplier/admin/platform)
-  login.tsx             # portal seçimi + giriş
+  index.tsx             # role-based yönlendirme (supplier/admin)
+  login.tsx             # public portal seçimi (YALNIZ Tedarikçi + Yönetim)
+  supplier-login.tsx    # tedarikçi portal girişi (switcher yok)
+  admin-login.tsx       # yönetim portal girişi (switcher yok)
   change-password.tsx   # geçici parola akışı
   supplier/             # Tedarikçi: tabs (Randevular, Yeni Randevu, Profil) + detay
   admin/                # Yönetim: tabs (Genel Bakış, Takvim, Randevular, Menü) + detay
-  platform/             # Platform: tabs (Genel Bakış, Tenantlar, Tesisler, Menü)
+  platform/             # (erişilemez) Platform hidden web portalıdır; mobile'da giriş YOKTUR
 src/
   api/                  # client (envelope+refresh), auth, supplier, admin, platform, types
   auth/                 # SessionProvider + RoleGuard
@@ -98,12 +99,11 @@ logistics mavi accent + aynı statü renkleri).
 
 ## Bilinen Sınırlar (backlog: docs/FEATURE_PARITY_MATRIX.md)
 
-- Admin config CRUD'ları (kategoriler, rampalar, kullanıcılar, çakışma grupları,
-  istisnalar, tedarikçi yönetimi) mobile'da henüz yok — web'i kullanın.
-- Bildirim zili/listesi, raporlar, e-posta/denetim logları mobile'da henüz yok.
-- Tedarikçi sihirbazında tekrarlayan (recurring) seri oluşturma henüz yok
-  (seriler görüntülenir; oluşturma web'de).
-- Platform: planlar/destek sağlığı/denetim izleri mobile'da henüz yok.
+- **Platform Yönetimi mobile'da BİLİNÇLİ olarak yoktur** (hidden internal web
+  portalı — bkz. `docs/PORTAL_ISOLATION_AND_ROUTING.md`). Platform hesabıyla
+  mobile public akışlarından giriş yapılamaz.
+- Shared types paketi çıkarımı backlog'da (şimdilik senkron kopya).
+- Native push bildirimleri backlog'da (in-app bildirim merkezi mevcut).
 
 ## Feature Parity Kuralı
 

@@ -3,12 +3,14 @@
 Durumlar: ✅ tam · 🟡 kısmi · ❌ yok · — kapsam dışı
 Güncelleme kuralı: her feature sprint'inde bu matris güncellenir (bkz. WEB_MOBILE_PARITY.md).
 
-_Son güncelleme: 2026-07-11 (Full Parity Sprint — tüm web özellikleri mobile'a taşındı)_
+_Son güncelleme: 2026-07-11 (Portal İzolasyonu: public selector yalnız Tedarikçi+Yönetim; Platform hidden web portalı — mobile'da bilinçli yok)_
 
 | Feature | Backend | Web | Mobile | Status | Notes |
 |---|---|---|---|---|---|
 | **Auth** |
-| Login + portal seçimi (3 portal) | ✅ | ✅ | ✅ | OK | Aynı endpoint'ler (login/supplier-login/platform-login) |
+| Public portal seçici (YALNIZ Tedarikçi+Yönetim) | ✅ | ✅ | ✅ | OK | Platform seçicide YOK (hidden); portal-specific login, switcher kaldırıldı |
+| Portal-aware login (opsiyonel `portal` parametresi) | ✅ | ✅ | ✅ | OK | Backward-compatible; yanlış portalda doğrulanmış kimliğe net hata |
+| Hidden platform login | ✅ | ✅ | — | Kapsam dışı | Yalnız web :30086 (direkt URL); mobile'da bilinçli yok |
 | Refresh token (rotation, tek-uçuş) | ✅ | ✅ | ✅ | OK | Aynı algoritma; mobile SecureStore |
 | Logout (logout-everywhere + client temizliği) | ✅ | ✅ | ✅ | OK | |
 | Geçici parola / change-password | ✅ | ✅ | ✅ | OK | |
@@ -37,13 +39,13 @@ _Son güncelleme: 2026-07-11 (Full Parity Sprint — tüm web özellikleri mobil
 | E-posta logları + resend | ✅ | ✅ | ✅ | OK | Filtre + sayfalama + tekil/toplu resend (toplu: user.manage) |
 | Denetim izleri | ✅ | ✅ | ✅ | OK | Filtre + sayfalama + before/after JSON detayı |
 | Bildirim zili + tercihler | ✅ | ✅ | ✅ | OK | Zil dashboard'da; tercihler Menü → Bildirim Tercihleri |
-| **Platform** |
-| Genel bakış / kullanım (agregat, 30 gün) | ✅ | ✅ | ✅ | OK | + tenant/tesis kullanım listeleri + plan kullanım uyarıları |
-| Tenant dizini + oluştur/düzenle | ✅ | ✅ | ✅ | OK | Slug otomatik türetme; kimlik alanları düzenlemede kilitli |
-| Tesis dizini + oluştur/düzenle | ✅ | ✅ | ✅ | OK | Bootstrap + ilk yönetici + tek-seferlik geçici parola paneli |
-| Planlar + atama | ✅ | ✅ | ✅ | OK | Plan CRUD + emekliye ayırma + tenant/tesis plan atama (Genel Bakış) |
-| Destek sağlığı | ✅ | ✅ | ✅ | OK | Sağlık kartları + scheduler durumu + ortam bilgisi |
-| Platform denetim izleri | ✅ | ✅ | ✅ | OK | Ortak audit bileşeni |
+| **Platform** — hidden internal web portalı (:30086); mobile'da GİRİŞ YOKTUR (bilinçli karar, bkz. PORTAL_ISOLATION_AND_ROUTING.md) |
+| Genel bakış / kullanım (agregat, 30 gün) | ✅ | ✅ | — | Kapsam dışı | Mobile ekran kodu mevcut ama erişilemez (login yolu yok) |
+| Tenant dizini + oluştur/düzenle | ✅ | ✅ | — | Kapsam dışı | |
+| Tesis dizini + oluştur/düzenle | ✅ | ✅ | — | Kapsam dışı | |
+| Planlar + atama | ✅ | ✅ | — | Kapsam dışı | |
+| Destek sağlığı | ✅ | ✅ | — | Kapsam dışı | |
+| Platform denetim izleri | ✅ | ✅ | — | Kapsam dışı | |
 | **Ortak** |
 | Light/dark/system tema | — | ✅ | ✅ | OK | Aynı navy/blue palet |
 | Marka logo/ikon assetleri | — | ✅ | ✅ | OK | Aynı assetler; app icon + splash dahil |

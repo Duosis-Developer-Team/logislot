@@ -1,114 +1,48 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import { useState } from "react";
-import {
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  ScrollView,
-  Text,
-  View,
-} from "react-native";
+import { Pressable, ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { authApi } from "@/api/auth";
-import { storeSession, type Portal } from "@/api/client";
-import { useSession } from "@/auth/session";
 import { LogiSlotLogo } from "@/components/brand";
-import { Button, Card, Field } from "@/components/ui";
 import { useTheme } from "@/theme/theme";
 import { spacing } from "@/theme/tokens";
 
-/** Portal seçimi + giriş — web (auth)/login ile aynı davranış ve demo hesaplar. */
+/**
+ * Public portal seçimi — email/parola YOKTUR; yalnızca kullanıcı portalları
+ * listelenir: Tedarikçi Portalı + Yönetim Paneli.
+ *
+ * Platform Yönetimi mobile'da BİLİNÇLİ olarak yoktur (hidden internal web
+ * portalı; public discovery yapılmaz — bkz. docs/PORTAL_ISOLATION_AND_ROUTING.md).
+ */
 
 const PORTALS: {
-  key: Portal;
+  key: "supplier" | "admin";
   title: string;
+  description: string;
   icon: keyof typeof Ionicons.glyphMap;
-  demo: string;
-  target: string;
+  route: string;
 }[] = [
   {
     key: "supplier",
-    title: "Tedarikçi",
+    title: "Tedarikçi Portalı",
+    description: "Tesise teslimat randevusu oluşturun ve takip edin.",
     icon: "car-outline",
-    demo: "tedarikci@anadoluun.com",
-    target: "/supplier/appointments",
+    route: "/supplier-login",
   },
   {
     key: "admin",
-    title: "Yönetim",
+    title: "Yönetim Paneli",
+    description: "Rampa takvimi, onaylar ve operasyon yönetimi.",
     icon: "business-outline",
-    demo: "admin@cakesbakes.com",
-    target: "/admin/dashboard",
-  },
-  {
-    key: "platform",
-    title: "Platform",
-    icon: "globe-outline",
-    demo: "admin@logislot.com",
-    target: "/platform/overview",
+    route: "/admin-login",
   },
 ];
 
-export default function LoginScreen() {
+export default function PortalSelection() {
   const { colors, resolved, setMode } = useTheme();
-  const session = useSession();
   const insets = useSafeAreaInsets();
-  const [portal, setPortal] = useState<Portal>("supplier");
-  const [email, setEmail] = useState(PORTALS[0].demo);
-  const [password, setPassword] = useState("Demo123!");
-  const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-
-  const active = PORTALS.find((p) => p.key === portal)!;
-
-  function selectPortal(next: Portal) {
-    const cfg = PORTALS.find((p) => p.key === next)!;
-    setPortal(next);
-    setEmail(cfg.demo);
-    setError(null);
-  }
-
-  async function handleSubmit() {
-    setError(null);
-    setLoading(true);
-    try {
-      const tokens = await authApi.login(portal, email.trim(), password);
-      await storeSession(tokens.access_token, portal, tokens.refresh_token);
-      if (tokens.must_change_password) {
-        session.refresh();
-        router.replace("/change-password");
-        return;
-      }
-      // me'yi navigasyondan ÖNCE zorla-tazele: hedefin RoleGuard'ı anında
-      // doğru user_type'ı görsün (ilk-giriş dışı girişlerdeki race'i giderir).
-      const me = await session.reloadMe();
-      const target =
-        me?.user_type === "supplier"
-          ? "/supplier/appointments"
-          : me?.user_type === "tenant"
-            ? "/admin/dashboard"
-            : me?.user_type === "platform"
-              ? "/platform/overview"
-              : active.target;
-      router.replace(target as never);
-    } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Giriş başarısız — API'ye ulaşılamadı.",
-      );
-    } finally {
-      setLoading(false);
-    }
-  }
 
   return (
-    <KeyboardAvoidingView
-      style={{ flex: 1, backgroundColor: colors.background }}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-    >
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
       <ScrollView
         contentContainerStyle={{
           flexGrow: 1,
@@ -117,7 +51,6 @@ export default function LoginScreen() {
           paddingTop: insets.top + spacing.xl,
           paddingBottom: insets.bottom + spacing.xl,
         }}
-        keyboardShouldPersistTaps="handled"
       >
         {/* Tema anahtarı */}
         <Pressable
@@ -132,142 +65,86 @@ export default function LoginScreen() {
           />
         </Pressable>
 
-        <View style={{ alignItems: "center", marginBottom: spacing.xl }}>
-          <LogiSlotLogo height={52} />
-          <Text style={{ color: colors.mutedText, fontSize: 13, marginTop: 10 }}>
-            Akıllı Mal Kabul & Rampa Randevu Platformu
+        <View style={{ alignItems: "center", marginBottom: spacing.xl * 1.5 }}>
+          <LogiSlotLogo height={56} />
+          <Text
+            style={{
+              color: colors.text,
+              fontSize: 22,
+              fontWeight: "800",
+              marginTop: spacing.lg,
+              textAlign: "center",
+            }}
+          >
+            LogiSlot&apos;a hoş geldiniz
+          </Text>
+          <Text
+            style={{
+              color: colors.mutedText,
+              fontSize: 14,
+              marginTop: 6,
+              textAlign: "center",
+              lineHeight: 20,
+            }}
+          >
+            Devam etmek istediğiniz portalı seçin.
           </Text>
         </View>
 
-        <Card style={{ gap: spacing.lg }}>
-          <View>
-            <Text style={{ color: colors.text, fontSize: 22, fontWeight: "700" }}>
-              Giriş yap
-            </Text>
-            <Text style={{ color: colors.mutedText, fontSize: 13, marginTop: 4 }}>
-              Portalınızı seçin ve hesabınızla devam edin.
-            </Text>
-          </View>
-
-          {/* Portal seçici */}
-          <View style={{ flexDirection: "row", gap: spacing.sm }}>
-            {PORTALS.map((p) => {
-              const selected = portal === p.key;
-              return (
-                <Pressable
-                  key={p.key}
-                  onPress={() => selectPortal(p.key)}
-                  accessibilityRole="radio"
-                  accessibilityState={{ selected }}
-                  style={{
-                    flex: 1,
-                    alignItems: "center",
-                    gap: 8,
-                    paddingVertical: 14,
-                    borderRadius: 14,
-                    borderWidth: 1.5,
-                    borderColor: selected ? colors.accent : colors.border,
-                    backgroundColor: selected ? `${colors.accent}14` : colors.card,
-                  }}
-                >
-                  <View
-                    style={{
-                      width: 38,
-                      height: 38,
-                      borderRadius: 12,
-                      alignItems: "center",
-                      justifyContent: "center",
-                      backgroundColor: selected ? colors.primary : `${colors.mutedText}1A`,
-                    }}
-                  >
-                    <Ionicons
-                      name={p.icon}
-                      size={19}
-                      color={selected ? colors.primaryText : colors.mutedText}
-                    />
-                  </View>
-                  <Text
-                    style={{
-                      fontSize: 12,
-                      fontWeight: "600",
-                      color: selected ? colors.accent : colors.text,
-                    }}
-                  >
-                    {p.title}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
-
-          <Field
-            label="E-posta"
-            value={email}
-            onChangeText={setEmail}
-            autoCapitalize="none"
-            autoComplete="email"
-            keyboardType="email-address"
-          />
-          <View>
-            <Field
-              label="Parola"
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry={!showPassword}
-              autoCapitalize="none"
-            />
+        <View style={{ gap: spacing.md }}>
+          {PORTALS.map((portal) => (
             <Pressable
-              onPress={() => setShowPassword((v) => !v)}
-              style={{ position: "absolute", right: 12, bottom: 13 }}
-              accessibilityLabel={showPassword ? "Parolayı gizle" : "Parolayı göster"}
-            >
-              <Ionicons
-                name={showPassword ? "eye-off-outline" : "eye-outline"}
-                size={20}
-                color={colors.mutedText}
-              />
-            </Pressable>
-          </View>
-
-          {error && (
-            <View
-              style={{
+              key={portal.key}
+              onPress={() => router.push(portal.route as never)}
+              accessibilityRole="button"
+              style={({ pressed }) => ({
                 flexDirection: "row",
-                gap: 8,
-                padding: 12,
-                borderRadius: 12,
-                backgroundColor: `${colors.destructive}15`,
-              }}
+                alignItems: "center",
+                gap: spacing.lg,
+                padding: spacing.xl,
+                borderRadius: 20,
+                borderWidth: 1.5,
+                borderColor: pressed ? colors.accent : colors.border,
+                backgroundColor: pressed ? `${colors.accent}0D` : colors.card,
+                transform: [{ scale: pressed ? 0.98 : 1 }],
+              })}
             >
-              <Ionicons name="alert-circle" size={18} color={colors.destructive} />
-              <Text style={{ color: colors.destructive, fontSize: 13, flex: 1 }}>
-                {error}
-              </Text>
-            </View>
-          )}
-
-          <Button
-            title={`${active.title} Girişi`}
-            onPress={() => void handleSubmit()}
-            loading={loading}
-          />
-
-          <Text style={{ color: colors.faintText, fontSize: 12, textAlign: "center" }}>
-            Demo hesap: {active.demo} / Demo123!
-          </Text>
-        </Card>
+              <View
+                style={{
+                  width: 56,
+                  height: 56,
+                  borderRadius: 18,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  backgroundColor: colors.primary,
+                }}
+              >
+                <Ionicons name={portal.icon} size={26} color={colors.primaryText} />
+              </View>
+              <View style={{ flex: 1, gap: 3 }}>
+                <Text style={{ color: colors.text, fontSize: 17, fontWeight: "700" }}>
+                  {portal.title}
+                </Text>
+                <Text style={{ color: colors.mutedText, fontSize: 13, lineHeight: 18 }}>
+                  {portal.description}
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color={colors.faintText} />
+            </Pressable>
+          ))}
+        </View>
 
         <Text
           style={{
             color: colors.faintText,
             fontSize: 11,
             textAlign: "center",
-            marginTop: spacing.xl,
+            marginTop: spacing.xl * 1.5,
           }}
         >
           © 2026 LogiSlot · Kurumsal lojistik operasyon platformu
         </Text>
       </ScrollView>
-    </KeyboardAvoidingView>
+    </View>
   );
 }

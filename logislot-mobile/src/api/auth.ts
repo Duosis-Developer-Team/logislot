@@ -19,7 +19,8 @@ export const authApi = {
   login: (portal: Portal, email: string, password: string) =>
     apiRequest<TokenPairDto>(LOGIN_ENDPOINTS[portal], {
       method: "POST",
-      body: { email, password },
+      // portal: backend'de opsiyonel portal-aware dogrulama (backward-compat).
+      body: { email, password, portal },
     }),
   changePassword: (currentPassword: string, newPassword: string) =>
     apiRequest<TokenPairDto>("/auth/change-password", {

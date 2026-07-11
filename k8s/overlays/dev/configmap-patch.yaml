@@ -8,5 +8,9 @@ metadata:
 data:
   LOGISLOT_ENVIRONMENT: "development"
   LOGISLOT_ENABLE_DOCS: "true"
+  # Public entry URL'i (backward-compat: eski tek-web adresi = yeni entry).
   LOGISLOT_PUBLIC_WEB_URL: "http://84.247.180.172:30080"
-  LOGISLOT_CORS_ORIGINS: '["http://84.247.180.172:30080","http://84.247.180.173:30080","http://localhost:3010"]'
+  # Portal izolasyonu (port-bazli, domain gelene kadar):
+  #   30080 entry · 30084 supplier · 30085 admin · 30086 hidden platform
+  # Platformun CORS'ta olmasi normaldir — gizlilik UI'dadir, guvenlik RBAC'te.
+  LOGISLOT_CORS_ORIGINS: '["http://84.247.180.172:30080","http://84.247.180.172:30084","http://84.247.180.172:30085","http://84.247.180.172:30086","http://84.247.180.173:30080","http://84.247.180.173:30084","http://84.247.180.173:30085","http://84.247.180.173:30086","http://localhost:3010"]'

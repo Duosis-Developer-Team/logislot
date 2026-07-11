@@ -193,7 +193,8 @@ export const authApi = {
       must_change_password: boolean;
     }>(endpoint, {
       method: "POST",
-      body: { email, password },
+      // portal: backend'de opsiyonel portal-aware dogrulama (backward-compat).
+      body: { email, password, portal },
     });
   },
   changePassword: (currentPassword: string, newPassword: string) =>

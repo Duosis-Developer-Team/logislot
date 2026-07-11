@@ -29,8 +29,9 @@ export default function Index() {
       return <Redirect href="/supplier/appointments" />;
     case "tenant":
       return <Redirect href="/admin/dashboard" />;
-    case "platform":
-      return <Redirect href="/platform/overview" />;
+    // Platform Yönetimi mobile'da BİLİNÇLİ olarak yoktur (hidden internal
+    // web portalı). Eski/yabancı bir platform oturumu varsa portal seçimine
+    // düşer; mobile'dan platform login akışı yoktur.
     default:
       return <Redirect href="/login" />;
   }
