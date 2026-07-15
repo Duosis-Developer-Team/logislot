@@ -27,8 +27,10 @@ export function middleware(request: NextRequest) {
     NextResponse.redirect(new URL(to, request.url));
 
   if (m === "entry") {
-    // Entry yalnızca public selector servis eder; app route'ları yok.
-    if (pathname !== "/") return redirect("/");
+    // Entry, landing + public pazarlama/yasal sayfaları servis eder;
+    // uygulama (portal) route'ları burada YOK.
+    const publicPaths = ["/", "/demo", "/kvkk", "/cerez-politikasi"];
+    if (!publicPaths.includes(pathname)) return redirect("/");
     return NextResponse.next();
   }
 

@@ -41,3 +41,21 @@ export function getPortalUrls(): PortalUrls {
     admin: process.env.LOGISLOT_ADMIN_URL ?? "/login/admin",
   };
 }
+
+export interface LandingConfig {
+  /**
+   * Duosis (altyapı ortağı) sitesi — strateji dokümanı gereği nihai URL
+   * Duosis tarafıyla teyit edilene kadar env'den gelir; yoksa güven cümlesi
+   * LİNKSİZ metin olarak gösterilir (uydurma link koyulmaz).
+   */
+  duosisUrl: string | null;
+  /** Demo/iletişim talepleri için e-posta (env ile override edilir). */
+  contactEmail: string;
+}
+
+export function getLandingConfig(): LandingConfig {
+  return {
+    duosisUrl: process.env.LOGISLOT_DUOSIS_URL ?? null,
+    contactEmail: process.env.LOGISLOT_CONTACT_EMAIL ?? "demo@logislot.com",
+  };
+}

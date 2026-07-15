@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { LandingPage } from "@/components/landing/landing-page";
-import { getPortalMode, getPortalUrls } from "@/lib/portal-mode";
+import { getLandingConfig, getPortalMode, getPortalUrls } from "@/lib/portal-mode";
 
 /**
  * Kök sayfa — entry/all modunda premium landing page + public portal seçici
@@ -16,5 +16,12 @@ export default function Home() {
     redirect("/login");
   }
   const urls = getPortalUrls();
-  return <LandingPage supplierUrl={urls.supplier} adminUrl={urls.admin} />;
+  const landing = getLandingConfig();
+  return (
+    <LandingPage
+      supplierUrl={urls.supplier}
+      adminUrl={urls.admin}
+      duosisUrl={landing.duosisUrl}
+    />
+  );
 }

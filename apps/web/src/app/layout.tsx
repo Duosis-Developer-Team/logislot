@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
+import { CookieNotice } from "@/components/landing/cookie-notice";
 import { Providers } from "./providers";
 
 /**
@@ -34,7 +35,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="tr" className={jakarta.variable} suppressHydrationWarning>
       <body className="font-sans antialiased">
-        <Providers>{children}</Providers>
+        <Providers>
+          {children}
+          {/* KVKK: zorunlu çerez/yerel depolama bilgilendirmesi (tüm portallar) */}
+          <CookieNotice />
+        </Providers>
       </body>
     </html>
   );

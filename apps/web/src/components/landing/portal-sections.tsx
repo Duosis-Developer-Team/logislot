@@ -5,6 +5,8 @@ import {
   CheckCircle2,
   ClipboardCheck,
   History,
+  Lock,
+  ServerCog,
   ShieldCheck,
   Smartphone,
   Users,
@@ -249,15 +251,24 @@ const TRUST_ITEMS = [
   { icon: History, text: "Onay geçmişi ve revizyon takibi" },
   { icon: Users, text: "Rol bazlı erişim" },
   { icon: ShieldCheck, text: "Denetim (audit) kayıtları" },
-  { icon: BellRing, text: "Bildirim altyapısı" },
+  { icon: Lock, text: "Tenant/tesis bazlı veri izolasyonu" },
 ];
 
-export function OperationsTrustSection() {
+/**
+ * Güvenilir altyapı — operasyonel güven maddeleri + dibinde İNCE Duosis
+ * güven cümlesi (strateji dokümanı: ayrı büyük bölüm DEĞİL, tek satır +
+ * link; URL Duosis tarafıyla teyit edilene kadar env'den gelir, yoksa
+ * cümle linksiz gösterilir).
+ */
+export function OperationsTrustSection({ duosisUrl }: { duosisUrl: string | null }) {
   return (
     <section className="border-y border-border bg-muted/40 dark:bg-muted/20">
       <div className="mx-auto max-w-7xl px-5 py-14 sm:px-8 lg:py-20">
         <Reveal>
-          <h2 className="max-w-2xl text-2xl font-bold tracking-tight sm:text-3xl">
+          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-primary">
+            Güvenilir altyapı
+          </p>
+          <h2 className="mt-2 max-w-2xl text-2xl font-bold tracking-tight sm:text-3xl">
             Operasyon ekipleri için güvenilir karar desteği.
           </h2>
         </Reveal>
@@ -274,6 +285,28 @@ export function OperationsTrustSection() {
             );
           })}
         </div>
+        {/* İnce Duosis güven satırı — bağırmayan tek cümle */}
+        <Reveal delay={240}>
+          <p className="mt-8 flex items-center gap-2 text-sm text-muted-foreground">
+            <ServerCog className="h-4 w-4 shrink-0 text-primary" />
+            <span>
+              Altyapı,{" "}
+              {duosisUrl ? (
+                <a
+                  href={duosisUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-medium text-foreground underline decoration-border underline-offset-2 transition-colors hover:decoration-foreground"
+                >
+                  Duosis
+                </a>
+              ) : (
+                <span className="font-medium text-foreground">Duosis</span>
+              )}{" "}
+              güvencesiyle kurulur ve 7/24 izlenir.
+            </span>
+          </p>
+        </Reveal>
       </div>
     </section>
   );

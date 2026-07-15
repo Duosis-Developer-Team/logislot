@@ -1,4 +1,5 @@
-import { CalendarCheck2, Package, Truck } from "lucide-react";
+import { ArrowRight, CalendarCheck2, CalendarPlus, Package, Truck } from "lucide-react";
+import Link from "next/link";
 import { LogiSlotIcon } from "@/components/brand/logo";
 import { PortalAccessCards } from "@/components/landing/portal-access-cards";
 
@@ -75,7 +76,22 @@ export function LandingHero({
             modern operasyon platformunda yönetin.
           </p>
 
-          <div className="mt-8">
+          {/* Birincil aksiyon: demo hunisi (müşteri olmayanlar için) */}
+          <div className="mt-7 flex flex-wrap items-center gap-3">
+            <Link
+              href="/demo"
+              className="group inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground shadow-card transition-all duration-300 hover:-translate-y-0.5 hover:shadow-card-hover"
+            >
+              <CalendarPlus className="h-4 w-4" />
+              Demo Talep Et
+              <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
+            </Link>
+            <span className="text-xs text-muted-foreground">
+              Kullanıcı mısınız? Aşağıdan portalınızı seçin.
+            </span>
+          </div>
+
+          <div className="mt-7">
             <p className="mb-3 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
               Portalınızı seçin
             </p>
