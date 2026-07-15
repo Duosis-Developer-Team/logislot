@@ -148,7 +148,8 @@ Domain geçişinde aynı yapı subdomain'lere taşınır: `logislot.com` (entry)
 
 | Rol | E-posta | Parola | Girdiği yüzey |
 |---|---|---|---|
-| Tedarikçi (otomatik onaylı) | `tedarikci@anadoluun.com` | `Demo123!` | 30084 + mobil |
+| Tedarikçi (manuel onay — talepler yönetime düşer) | `tedarikci@anadoluun.com` | `Demo123!` | 30084 + mobil |
+| Tedarikçi (otomatik onay özelliği örnekli) | `tedarikci@marmarasoguk.com` | `Demo123!` | 30084 + mobil |
 | Sistem Yöneticisi (tenant) | `admin@cakesbakes.com` | `Demo123!` | 30085 + mobil |
 | Rampa Yöneticisi | `rampa@cakesbakes.com` | `Demo123!` | 30085 + mobil |
 | İzleyici | `izleyici@cakesbakes.com` | `Demo123!` | 30085 + mobil |
@@ -330,7 +331,7 @@ Günün KPI'ları (bugünkü/bekleyen/tamamlanan/haftalık/aktif tedarikçi/karg
 
 ### 10.2 Takvim
 
-Gün bazlı rampa×saat ızgarası: randevular statü renkleriyle, kargo pencereleri taralı katmanla, kapalı/ek-mesai istisnaları bloklarıyla görünür. Boş slota tıklayınca **o gün-saat önceden dolu** şekilde adına-randevu oluşturma açılır; haftalık görünüm doluluk yüzdeleriyle özet verir:
+Yatay zaman çizelgesi (timeline): her **rampa bir satır**, saat ekseni yataydır — rampa sayısı arttıkça görünüm satır ekleyerek kompakt kalır. Randevular statü renkli bloklar, kargolar taralı katman, kapalı/ek-mesai istisnaları kesikli bantlarla görünür; bugünde **“şu an” çizgisi** akar. Boş alana tıklayınca **o rampa+saat (30 dk hassasiyet) önceden dolu** adına-randevu oluşturma açılır; haftalık görünüm doluluk yüzdeleriyle özet verir:
 
 ![Takvim](screenshots/v1/27-yonetim-takvim.png)
 

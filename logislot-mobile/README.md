@@ -55,7 +55,8 @@ npx expo export --platform ios --platform android   # Metro bundle derlemesi
 | Rol | E-posta | Parola |
 |---|---|---|
 | Tenant/Yönetim | admin@cakesbakes.com | Demo123! |
-| Tedarikçi | tedarikci@anadoluun.com | Demo123! |
+| Tedarikçi (manuel onay) | tedarikci@anadoluun.com | Demo123! |
+| Tedarikçi (otomatik onaylı) | tedarikci@marmarasoguk.com | Demo123! |
 | Rampa Yöneticisi | rampa@cakesbakes.com | Demo123! |
 | İzleyici | izleyici@cakesbakes.com | Demo123! |
 

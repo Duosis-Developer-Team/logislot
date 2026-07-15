@@ -11,15 +11,33 @@ REVISE hem tedarikciye hem ilgili ekibe gider (v1.0 saha davranisi).
 
 import uuid
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.core.permissions import TenantPermission
-from app.models import Appointment, Dock, FacilityMembership, Notification, Supplier
+from app.models import Appointment, Dock, Facility, FacilityMembership, Notification, Supplier
 from app.services.email import EmailMessage, send_email
 from app.services.email_templates import EmailContext, render_email
+
+
+async def _facility_when(
+    db: AsyncSession, appointment: Appointment, fmt: str = "%d.%m %H:%M"
+) -> str:
+    """Randevu saatini TESIS saat diliminde formatlar.
+
+    scheduled_start_at UTC(aware) saklanir; bildirim/e-posta metinlerinde
+    kullaniciya ham UTC gostermek yanlis saate yol acar (or. 08:00 yerine
+    05:00). Facility.timezone'a cevrilerek yazilir.
+    """
+    tz_name = (
+        await db.execute(
+            select(Facility.timezone).where(Facility.id == appointment.facility_id)
+        )
+    ).scalar_one_or_none() or "Europe/Istanbul"
+    return appointment.scheduled_start_at.astimezone(ZoneInfo(tz_name)).strftime(fmt)
 
 
 def _route_hint(appointment: Appointment) -> str:
@@ -132,7 +150,7 @@ async def _email_context(
     ctx = EmailContext(
         supplier_name=name or "Tedarikçi",
         product_name=appointment.product_name,
-        when=appointment.scheduled_start_at.strftime("%d.%m.%Y %H:%M"),
+        when=await _facility_when(db, appointment, "%d.%m.%Y %H:%M"),
         dock_name=await _dock_name(db, appointment.dock_id),
         status=appointment.status.value,
         **extra,
@@ -221,7 +239,7 @@ async def on_appointment_created(
     from app.core.enums import AppointmentStatus, DeliveryType
 
     auto_approved = appointment.status == AppointmentStatus.approved
-    when = appointment.scheduled_start_at.strftime("%d.%m %H:%M")
+    when = await _facility_when(db, appointment)
     if by_admin:
         # Admin tedarikci adina acti: tedarikciye haber ver (onayli dogar),
         # diger yoneticilere olagan olusturma bildirimi.
@@ -286,7 +304,7 @@ async def on_lifecycle_action(
     new_start: str | None = None,
 ) -> None:
     """approve/reject/revise/complete/cancel olaylarinin bildirim + e-postalari."""
-    when = appointment.scheduled_start_at.strftime("%d.%m %H:%M")
+    when = await _facility_when(db, appointment)
 
     if action == "approve":
         await notify_supplier(

@@ -6,8 +6,11 @@ export const DEMO_PASSWORD = "Demo123!";
 export const ACCOUNTS = {
   admin: "admin@cakesbakes.com",
   platform: "admin@logislot.com",
-  supplierAuto: "tedarikci@anadoluun.com",
-  supplierManual: "tedarikci@marmarasoguk.com",
+  // Urun karari: ana demo tedarikcisi (anadoluun) MANUEL onaylidir —
+  // talepler yonetim paneline duser. Otomatik onay OZELLIGI marmarasoguk
+  // hesabinda ornekli kalir (auto-akis testleri onu kullanir).
+  supplierAuto: "tedarikci@marmarasoguk.com",
+  supplierManual: "tedarikci@anadoluun.com",
 } as const;
 
 /** Portal-specific login sayfasindan giris yapar (UI akisi).

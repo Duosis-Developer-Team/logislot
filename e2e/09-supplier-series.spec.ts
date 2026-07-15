@@ -19,7 +19,7 @@ test("tedarikçi seri bölümü mobil görünümde çalışır", async ({ page, 
       quantity: 1,
       target_date: day,
       start_at: `${day}T15:00:00+03:00`,
-      duration_minutes: 45,
+      duration_minutes: 60, // supplierAuto (Marmara) kategorisi min 60 dk
       recurring: { frequency: "weekly", occurrence_count: 2 },
     },
   });

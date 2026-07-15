@@ -37,6 +37,15 @@ async def session_maker(db_engine):
 async def seeded(session_maker):
     async with session_maker() as db:
         refs = await seed_data(db)
+        # Test sozlesmesi: mevcut testler tarihsel olarak "otomatik onayli
+        # tedarikci = Anadolu Un" varsayimiyla yazildi. Urun demo seed'i ana
+        # demo hesabini MANUEL onaya cevirdi (talepler yonetim onayina duser);
+        # test niyetlerini degistirmemek icin bayraklar test ortaminda eski
+        # sozlesmeye sabitlenir. (Auto ve manuel akislarin ikisi de boylece
+        # kapsanmaya devam eder.)
+        refs["suppliers"]["un"].auto_approval_enabled = True
+        refs["suppliers"]["soguk"].auto_approval_enabled = False
+        await db.commit()
     return refs
 
 
