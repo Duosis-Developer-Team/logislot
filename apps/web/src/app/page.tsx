@@ -22,6 +22,7 @@ export default function Home() {
       supplierUrl={urls.supplier}
       adminUrl={urls.admin}
       duosisUrl={landing.duosisUrl}
+      contactEmail={landing.contactEmail}
     />
   );
 }

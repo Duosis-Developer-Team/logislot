@@ -45,7 +45,7 @@ const FEATURES = [
 
 export function FeatureGrid() {
   return (
-    <section className="mx-auto max-w-7xl px-5 py-16 sm:px-8 lg:py-24">
+    <section id="ozellikler" className="mx-auto max-w-7xl scroll-mt-20 px-5 py-16 sm:px-8 lg:py-24">
       <Reveal>
         <p className="text-xs font-semibold uppercase tracking-[0.14em] text-primary">
           Neler yapar

@@ -65,7 +65,7 @@ const STEPS = [
 
 export function HowItWorksTimeline() {
   return (
-    <section className="border-y border-border bg-muted/40 dark:bg-muted/20">
+    <section id="nasil-calisir" className="scroll-mt-20 border-y border-border bg-muted/40 dark:bg-muted/20">
       <div className="mx-auto max-w-7xl px-5 py-16 sm:px-8 lg:py-24">
         <Reveal>
           <p className="text-xs font-semibold uppercase tracking-[0.14em] text-primary">

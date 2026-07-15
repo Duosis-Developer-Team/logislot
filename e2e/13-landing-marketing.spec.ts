@@ -28,6 +28,18 @@ test("landing: demo CTA'ları ve yeni bölümler görünür", async ({ page }) =
   // Entegrasyon işaretleri
   await expect(page.getByText("Mevcut sistemlerinize bağlanır mı?")).toBeVisible();
 
+  // Bölüm navigasyonu: topbar linki tıklanınca ilgili bölüme kayar
+  const nav = page.getByRole("navigation", { name: "Sayfa bölümleri" });
+  await expect(nav.getByRole("link", { name: "Destek" })).toBeVisible();
+  await nav.getByRole("link", { name: "Destek" }).click();
+  await expect(page).toHaveURL(/#destek/);
+  await expect(page.locator("#destek")).toBeInViewport();
+
+  // Destek bölümü: SSS akordeonu açılır
+  const faq = page.locator("#destek details").first();
+  await faq.locator("summary").click();
+  await expect(faq).toHaveAttribute("open", "");
+
   // Footer yasal linkleri + altyapı ortağı satırı (banner'da da link olabilir → .first)
   await expect(
     page.getByRole("link", { name: "KVKK Aydınlatma Metni" }).first(),
@@ -62,6 +74,10 @@ test("kvkk sayfası: taslak uyarısı + aydınlatma ve açık rıza bölümleri"
   await expect(
     page.getByRole("heading", { name: /Açık Rıza Bilgilendirmesi/ }),
   ).toBeVisible();
+  // Doldurulacak-alan görünümü (köşeli parantez) kalmadı
+  await expect(page.getByText(/\[(Duosis|adres|MERSİS|başvuru|iletişim)/)).toHaveCount(0);
+  // Veri sorumlusu ve başvuru kanalı dolu
+  await expect(page.getByRole("heading", { name: "Veri Sorumlusu ve Başvuru" })).toBeVisible();
 });
 
 test("çerez politikası: depolama tablosu ve kvkk linki", async ({ page }) => {

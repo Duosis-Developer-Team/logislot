@@ -17,7 +17,7 @@ const CHANNELS = [
 
 export function IntegrationSection() {
   return (
-    <section className="mx-auto max-w-7xl px-5 py-16 sm:px-8 lg:py-20">
+    <section id="entegrasyon" className="mx-auto max-w-7xl scroll-mt-20 px-5 py-16 sm:px-8 lg:py-20">
       <div className="rounded-3xl border border-border bg-card p-8 shadow-card sm:p-10">
         <div className="grid items-center gap-8 lg:grid-cols-[1fr_auto]">
           <Reveal>

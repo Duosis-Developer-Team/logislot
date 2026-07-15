@@ -33,7 +33,12 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="tr" className={jakarta.variable} suppressHydrationWarning>
+    <html
+      lang="tr"
+      // Bölüm çapalarına yumuşak kaydırma (reduced-motion tercihine saygılı)
+      className={`${jakarta.variable} motion-safe:scroll-smooth`}
+      suppressHydrationWarning
+    >
       <body className="font-sans antialiased">
         <Providers>
           {children}

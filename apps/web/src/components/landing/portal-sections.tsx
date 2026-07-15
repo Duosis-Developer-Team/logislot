@@ -29,7 +29,7 @@ const MANAGEMENT_ITEMS = [
 
 export function ManagementPanelSection({ adminUrl }: { adminUrl: string }) {
   return (
-    <section className="mx-auto max-w-7xl px-5 py-16 sm:px-8 lg:py-24">
+    <section id="yonetim" className="mx-auto max-w-7xl scroll-mt-20 px-5 py-16 sm:px-8 lg:py-24">
       <div className="grid items-center gap-10 lg:grid-cols-2 lg:gap-16">
         <Reveal>
           <p className="text-xs font-semibold uppercase tracking-[0.14em] text-primary">
@@ -112,7 +112,7 @@ const SUPPLIER_ITEMS = [
 
 export function SupplierPortalSection({ supplierUrl }: { supplierUrl: string }) {
   return (
-    <section className="border-y border-border bg-muted/40 dark:bg-muted/20">
+    <section id="tedarikci" className="scroll-mt-20 border-y border-border bg-muted/40 dark:bg-muted/20">
       <div className="mx-auto grid max-w-7xl items-center gap-10 px-5 py-16 sm:px-8 lg:grid-cols-2 lg:gap-16 lg:py-24">
         {/* Wizard mock — mobilde sona düşer */}
         <Reveal delay={120} className="order-2 lg:order-1">
@@ -262,7 +262,7 @@ const TRUST_ITEMS = [
  */
 export function OperationsTrustSection({ duosisUrl }: { duosisUrl: string | null }) {
   return (
-    <section className="border-y border-border bg-muted/40 dark:bg-muted/20">
+    <section id="altyapi" className="scroll-mt-20 border-y border-border bg-muted/40 dark:bg-muted/20">
       <div className="mx-auto max-w-7xl px-5 py-14 sm:px-8 lg:py-20">
         <Reveal>
           <p className="text-xs font-semibold uppercase tracking-[0.14em] text-primary">

@@ -5,6 +5,7 @@ import { LandingHero } from "@/components/landing/landing-hero";
 import { FinalCTA, LandingFooter, LandingTopbar } from "@/components/landing/landing-shell";
 import { ProblemSection, SolutionSection } from "@/components/landing/problem-solution";
 import { ScenarioSection } from "@/components/landing/scenario-section";
+import { SupportSection } from "@/components/landing/support-section";
 import {
   ManagementPanelSection,
   OperationsTrustSection,
@@ -25,10 +26,12 @@ export function LandingPage({
   supplierUrl,
   adminUrl,
   duosisUrl,
+  contactEmail,
 }: {
   supplierUrl: string;
   adminUrl: string;
   duosisUrl: string | null;
+  contactEmail: string;
 }) {
   return (
     <div className="min-h-screen bg-background">
@@ -45,6 +48,7 @@ export function LandingPage({
         <SaaSArchitectureSection />
         <OperationsTrustSection duosisUrl={duosisUrl} />
         <IntegrationSection />
+        <SupportSection contactEmail={contactEmail} />
         <FinalCTA supplierUrl={supplierUrl} adminUrl={adminUrl} />
       </main>
       <LandingFooter supplierUrl={supplierUrl} adminUrl={adminUrl} duosisUrl={duosisUrl} />

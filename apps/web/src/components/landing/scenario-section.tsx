@@ -31,7 +31,7 @@ const SCENARIO_POINTS = [
 
 export function ScenarioSection() {
   return (
-    <section className="mx-auto max-w-7xl px-5 py-16 sm:px-8 lg:py-24">
+    <section id="senaryo" className="mx-auto max-w-7xl scroll-mt-20 px-5 py-16 sm:px-8 lg:py-24">
       <div className="grid items-start gap-10 lg:grid-cols-[1.1fr_0.9fr] lg:gap-16">
         {/* Temsili senaryo — açıkça etiketli */}
         <Reveal>

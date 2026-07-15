@@ -16,6 +16,16 @@ import { ThemeToggle } from "@/components/shell/theme-toggle";
  *  - Platform Yönetimi'ne dair hiçbir link/metin YOKTUR (hidden portal).
  */
 
+/** Bölüm çapaları — "/#id" biçimi yan sayfalardan da çalışır; landing
+ *  içindeyken tarayıcı yumuşak kaydırır (html.motion-safe:scroll-smooth). */
+const SECTION_NAV = [
+  { label: "Özellikler", href: "/#ozellikler" },
+  { label: "Nasıl Çalışır", href: "/#nasil-calisir" },
+  { label: "Yönetim", href: "/#yonetim" },
+  { label: "Tedarikçi", href: "/#tedarikci" },
+  { label: "Destek", href: "/#destek" },
+];
+
 export function LandingTopbar({
   supplierUrl,
   adminUrl,
@@ -26,18 +36,34 @@ export function LandingTopbar({
   return (
     <header className="sticky top-0 z-40 border-b border-border/70 bg-background/80 backdrop-blur-xl">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-3 px-5 sm:px-8">
-        <LogiSlotLogo size="md" priority />
+        <Link href="/" aria-label="LogiSlot ana sayfa" className="shrink-0">
+          <LogiSlotLogo size="md" priority />
+        </Link>
+
+        {/* Bölüm navigasyonu — tıklayınca ilgili alana kayar */}
+        <nav aria-label="Sayfa bölümleri" className="hidden items-center gap-0.5 lg:flex">
+          {SECTION_NAV.map((item) => (
+            <a
+              key={item.href}
+              href={item.href}
+              className="rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            >
+              {item.label}
+            </a>
+          ))}
+        </nav>
+
         <div className="flex items-center gap-2">
           <a
             href={supplierUrl}
-            className="hidden items-center gap-1.5 rounded-lg border border-border px-3.5 py-2 text-sm font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground md:inline-flex"
+            className="hidden items-center gap-1.5 rounded-lg border border-border px-3.5 py-2 text-sm font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground xl:inline-flex"
           >
             <Truck className="h-4 w-4" />
             Tedarikçi
           </a>
           <a
             href={adminUrl}
-            className="hidden items-center gap-1.5 rounded-lg border border-border px-3.5 py-2 text-sm font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground md:inline-flex"
+            className="hidden items-center gap-1.5 rounded-lg border border-border px-3.5 py-2 text-sm font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground xl:inline-flex"
           >
             <Building2 className="h-4 w-4" />
             Yönetim
@@ -108,13 +134,30 @@ export function LandingFooter({
 }) {
   return (
     <footer className="border-t border-border bg-muted/40 dark:bg-muted/20">
-      <div className="mx-auto grid max-w-7xl gap-10 px-5 py-12 sm:px-8 md:grid-cols-[1.2fr_1fr_1fr]">
+      <div className="mx-auto grid max-w-7xl gap-10 px-5 py-12 sm:px-8 md:grid-cols-2 lg:grid-cols-[1.4fr_1fr_1fr_1fr]">
         <div className="max-w-sm">
           <LogiSlotLogo size="md" />
           <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
             Fabrikaların ve depoların tedarikçi mal kabul süreçlerini
             dijitalleştiren modern operasyon platformu.
           </p>
+        </div>
+        <div>
+          <div className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+            Keşfet
+          </div>
+          <ul className="mt-3 space-y-2 text-sm">
+            {SECTION_NAV.map((item) => (
+              <li key={item.href}>
+                <a
+                  href={item.href}
+                  className="text-muted-foreground transition-colors hover:text-foreground"
+                >
+                  {item.label}
+                </a>
+              </li>
+            ))}
+          </ul>
         </div>
         <div>
           <div className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">

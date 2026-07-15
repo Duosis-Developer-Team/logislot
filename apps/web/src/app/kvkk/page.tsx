@@ -6,10 +6,11 @@ import { getLandingConfig, getPortalUrls } from "@/lib/portal-mode";
  * KVKK Aydınlatma Metinleri + Açık Rıza kalemleri.
  *
  * İçerik, "LogiSlot KVKK Uyum Rehberi & Örnek Metinler" dokümanındaki
- * şablonlardan alınmıştır. Doküman gereği: (1) metinler avukat incelemesinden
- * geçene kadar TASLAK olarak etiketlenir, (2) köşeli parantezli alanlar
- * şirkete özel bilgilerle doldurulacak şekilde bırakılır, (3) aydınlatma ile
- * açık rıza AYRI sunulur (tek onay kutusunda birleştirilmez).
+ * şablonlara dayanır. Köşeli parantezli boşluklar yerine akıcı metin
+ * kullanılır; ticari unvan/sicil gibi şirketleşmeyle netleşecek bilgiler
+ * uydurulmaz, "yayımlandığında bu sayfada güncellenir" cümlesiyle taahhüt
+ * edilir. Aydınlatma ile açık rıza AYRI sunulur; avukat incelemesi
+ * tamamlanana kadar taslak bandı korunur.
  */
 export const dynamic = "force-dynamic";
 
@@ -18,15 +19,6 @@ export const metadata = {
   description:
     "LogiSlot kişisel verilerin korunması (KVKK) aydınlatma metinleri ve açık rıza bilgilendirmesi.",
 };
-
-/** Şirkete özel doldurulacak alan — görünür ve ayırt edilebilir placeholder. */
-function Fill({ children }: { children: React.ReactNode }) {
-  return (
-    <span className="rounded bg-status-pending/15 px-1.5 py-0.5 font-medium text-status-pending">
-      [{children}]
-    </span>
-  );
-}
 
 function LegalSection({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -42,6 +34,7 @@ function LegalSection({ title, children }: { title: string; children: React.Reac
 export default function KvkkPage() {
   const urls = getPortalUrls();
   const landing = getLandingConfig();
+  const contact = landing.contactEmail;
 
   return (
     <MarketingPageShell
@@ -57,18 +50,32 @@ export default function KvkkPage() {
           <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-status-pending" />
           <p className="text-muted-foreground">
             <strong className="text-foreground">Taslak metin.</strong> Bu sayfa,
-            KVKK uyum çalışması kapsamında hazırlanan başlangıç metinlerini
-            içerir; uzman avukat incelemesi ve VERBİS beyanıyla uyum kontrolü
-            tamamlandığında nihai hâliyle güncellenecektir. İşaretli alanlar
-            şirkete özel bilgilerle doldurulacaktır.
+            KVKK uyum çalışması kapsamında hazırlanan metinleri içerir; uzman
+            avukat incelemesi ve VERBİS beyanıyla uyum kontrolü tamamlandığında
+            nihai hâliyle güncellenecektir.
           </p>
         </div>
 
-        <LegalSection title="Aydınlatma Metni — Tesis / Yönetim Kullanıcısı">
+        <LegalSection title="Veri Sorumlusu ve Başvuru">
           <p>
-            <strong>Veri Sorumlusu:</strong> <Fill>Duosis tüzel kişilik tam ünvanı</Fill>,{" "}
-            <Fill>adres</Fill>, <Fill>MERSİS/VKN</Fill>, <Fill>KEP/e-posta</Fill>.
+            LogiSlot, <strong>Duosis</strong> tarafından işletilmektedir ve bu
+            metinler kapsamındaki veri sorumlusu Duosis&apos;tir. Ticari unvan,
+            adres ve sicil (MERSİS/VKN) bilgileri, süren şirketleşme çalışması
+            tamamlandığında bu sayfada yayımlanacaktır.
           </p>
+          <p>
+            KVKK kapsamındaki tüm bilgi ve başvuru talepleriniz için:{" "}
+            <a
+              href={`mailto:${contact}`}
+              className="font-medium text-foreground underline decoration-border underline-offset-2 hover:decoration-foreground"
+            >
+              {contact}
+            </a>
+            . Başvurular mevzuattaki süreler içinde yanıtlanır.
+          </p>
+        </LegalSection>
+
+        <LegalSection title="Aydınlatma Metni — Tesis / Yönetim Kullanıcısı">
           <p>
             <strong>İşlenen veriler:</strong> ad-soyad, kurumsal e-posta, telefon,
             unvan/rol, çalıştığı tesis, sistem kullanım kayıtları.
@@ -81,9 +88,10 @@ export default function KvkkPage() {
           </p>
           <p>
             <strong>Aktarım:</strong> veriler; hizmetin sunulması için altyapı ve
-            barındırma sağlayıcılarına, yasal olarak yetkili kurum ve kuruluşlara
-            aktarılabilir. <Fill>Yurt dışı aktarım varsa: hangi ülke/servis ve
-            hangi güvence — standart sözleşme — ile</Fill>.
+            barındırma sağlayıcılarına ve yasal olarak yetkili kurum ve
+            kuruluşlara aktarılabilir. Kişisel verilerin yurt dışına aktarılması
+            hâlinde KVKK m.9 kapsamındaki uygun güvenceler (ör. standart
+            sözleşme) sağlanır ve gerekli bildirimler yapılır.
           </p>
           <p>
             <strong>Toplama yöntemi ve hukuki sebep:</strong> veriler elektronik
@@ -95,16 +103,12 @@ export default function KvkkPage() {
             <strong>Haklarınız (KVKK m.11):</strong> kişisel verilerinizin işlenip
             işlenmediğini öğrenme, bilgi talep etme, amaca uygun kullanılıp
             kullanılmadığını öğrenme, düzeltme, silme, aktarıldığı üçüncü kişileri
-            öğrenme ve zararın giderilmesini talep etme. Başvuru:{" "}
-            <Fill>başvuru e-posta/KEP/adres</Fill>.
+            öğrenme ve zararın giderilmesini talep etme. Başvurular yukarıdaki
+            iletişim kanalından alınır.
           </p>
         </LegalSection>
 
         <LegalSection title="Aydınlatma Metni — Tedarikçi / Sürücü (Mobil Uygulama)">
-          <p>
-            <strong>Veri Sorumlusu:</strong> <Fill>Duosis tüzel kişilik tam ünvanı</Fill>,
-            iletişim: <Fill>iletişim bilgisi</Fill>.
-          </p>
           <p>
             <strong>İşlenen veriler:</strong> ad-soyad, telefon/e-posta, firma
             bilgisi, araç ve plaka, sürücü bilgisi, teslimat/randevu geçmişi,
@@ -132,7 +136,8 @@ export default function KvkkPage() {
           </p>
           <p>
             <strong>Haklarınız (KVKK m.11):</strong> yukarıdaki bölümde sayılan
-            haklar aynen geçerlidir. Başvuru: <Fill>başvuru kanalı</Fill>.
+            haklar aynen geçerlidir; başvurular yukarıdaki iletişim kanalından
+            alınır.
           </p>
         </LegalSection>
 
