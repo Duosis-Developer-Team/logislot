@@ -30,6 +30,30 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * 422 gövdesindeki alan bilgisini kullanıcıya taşır (web client ile aynı davranış).
+ *
+ * Backend `VALIDATION_ERROR` için genel bir mesaj döner; hangi alanın
+ * reddedildiği `details` içindedir. Göstermezsek kullanıcı formda neyi
+ * düzelteceğini bilemez.
+ */
+function describeValidation(message: string, details: unknown): string {
+  if (!Array.isArray(details) || details.length === 0) return message;
+  const fields = details
+    .map((d) => {
+      const loc = Array.isArray((d as { loc?: unknown[] }).loc)
+        ? (d as { loc: unknown[] }).loc.filter((p) => p !== "body")
+        : [];
+      return loc.join(".");
+    })
+    .filter(Boolean);
+  if (fields.length === 0) return message;
+  const unique = [...new Set(fields)];
+  const shown = unique.slice(0, 3).join(", ");
+  return `${message}: ${shown}${unique.length > 3 ? ` (+${unique.length - 3})` : ""}`;
+}
+
+
 const TOKEN_KEY = "logislot.access_token";
 const REFRESH_KEY = "logislot.refresh_token";
 const PORTAL_KEY = "logislot.portal";
@@ -193,7 +217,11 @@ export async function apiRequest<T>(
   const envelope = (await response.json()) as ApiEnvelope<T>;
   if (!response.ok || !envelope.success) {
     const err = envelope.error ?? { code: "UNKNOWN", message: "Bilinmeyen hata" };
-    throw new ApiError(err.code, err.message, err.details);
+    throw new ApiError(
+      err.code,
+      err.code === "VALIDATION_ERROR" ? describeValidation(err.message, err.details) : err.message,
+      err.details,
+    );
   }
   return envelope.data;
 }

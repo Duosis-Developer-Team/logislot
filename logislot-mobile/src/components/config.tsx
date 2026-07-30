@@ -260,7 +260,7 @@ export function WorkingHoursEditor({
 
 /** Liste görünümü için kısa özet: "Her gün 08:00–17:00" vb. */
 export function summarizeWorkingHours(hours: WorkingHours | null): string {
-  if (!hours) return "Tesis varsayılanı";
+  if (!hours) return "Varsayılan";
   const openDays = DAYS.filter((d) => hours[d.key]);
   if (openDays.length === 0) return "Tüm günler kapalı";
   const first = hours[openDays[0].key]!;

@@ -10,7 +10,12 @@ import { Drawer } from "@/components/ui/drawer";
 import { Input, Label, Select } from "@/components/ui/input";
 import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
 import { ApiError } from "@/lib/api/client";
-import { usePlanMutations, usePlatformPlans, type PlanDto } from "@/lib/api/platform";
+import {
+  usePlanLimitDimensions,
+  usePlanMutations,
+  usePlatformPlans,
+  type PlanDto,
+} from "@/lib/api/platform";
 import { cn } from "@/lib/utils";
 
 const DIMENSIONS = [
@@ -19,7 +24,6 @@ const DIMENSIONS = [
   "active_docks",
   "active_suppliers",
   "active_users",
-  "active_facilities",
 ];
 
 const BILLING_UNITS = ["fixed", "per_appointment", "per_active_dock", "per_facility", "hybrid"];
@@ -33,6 +37,7 @@ const STATUS_BADGE: Record<string, string> = {
 export default function PlansPage() {
   const plans = usePlatformPlans();
   const mutations = usePlanMutations();
+  const limitDimensions = usePlanLimitDimensions();
 
   const [drawer, setDrawer] = useState<{ open: boolean; editing: PlanDto | null }>({
     open: false,
@@ -44,6 +49,8 @@ export default function PlansPage() {
   const [status, setStatus] = useState("draft");
   const [dimensions, setDimensions] = useState<string[]>([]);
   const [rateCardText, setRateCardText] = useState("[]");
+  // Dinamik kotalar: bos string = sinirsiz. Anahtarlar backend katalogundan gelir.
+  const [limits, setLimits] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [retireTarget, setRetireTarget] = useState<PlanDto | null>(null);
   const [flash, setFlash] = useState<string | null>(null);
@@ -61,6 +68,7 @@ export default function PlansPage() {
         2,
       ),
     );
+    setLimits({});
     setFormError(null);
     setDrawer({ open: true, editing: null });
   }
@@ -72,6 +80,11 @@ export default function PlansPage() {
     setStatus(plan.status);
     setDimensions(plan.measurable_dimensions_json ?? []);
     setRateCardText(JSON.stringify(plan.rate_card_json ?? [], null, 2));
+    setLimits(
+      Object.fromEntries(
+        Object.entries(plan.limits_json ?? {}).map(([k, v]) => [k, String(v)]),
+      ),
+    );
     setFormError(null);
     setDrawer({ open: true, editing: plan });
   }
@@ -96,6 +109,13 @@ export default function PlansPage() {
           status,
           measurable_dimensions_json: dimensions,
           rate_card_json: rateCard,
+          // Bos birakilan / 0 girilen boyut = sinirsiz; backend de ayni
+          // normalizasyonu uygular (app/core/plan_limits.py).
+          limits_json: Object.fromEntries(
+            Object.entries(limits)
+              .map(([key, raw]) => [key, Number.parseInt(raw, 10)] as const)
+              .filter(([, value]) => Number.isFinite(value) && value > 0),
+          ),
         },
       });
       setFlash(drawer.editing ? "Plan güncellendi." : "Plan oluşturuldu.");
@@ -155,6 +175,7 @@ export default function PlansPage() {
               <TH>Kapsam</TH>
               <TH>Faturalama Birimi</TH>
               <TH>Ölçülen Boyutlar</TH>
+              <TH>Limitler</TH>
               <TH>Durum</TH>
               <TH className="text-right">İşlem</TH>
             </TR>
@@ -165,7 +186,7 @@ export default function PlansPage() {
                 <TD className="font-medium">{plan.name}</TD>
                 <TD>
                   <Badge className="bg-primary/10 text-primary">
-                    {plan.scope === "tenant" ? "Tenant" : "Tesis"}
+                    {plan.scope === "tenant" ? "Müşteri hesabı" : "Operasyon"}
                   </Badge>
                 </TD>
                 <TD className="font-mono text-xs">{plan.billing_unit_label}</TD>
@@ -176,6 +197,25 @@ export default function PlansPage() {
                         {d}
                       </Badge>
                     ))}
+                  </div>
+                </TD>
+                <TD>
+                  <div className="flex max-w-64 flex-wrap gap-1">
+                    {Object.keys(plan.limits_json ?? {}).length === 0 ? (
+                      <span className="text-xs text-muted-foreground">Sınırsız</span>
+                    ) : (
+                      (limitDimensions.data?.dimensions ?? [])
+                        .filter((dim) => plan.limits_json?.[dim.key])
+                        .map((dim) => (
+                          <Badge
+                            key={dim.key}
+                            className="bg-muted text-[10px] text-muted-foreground"
+                            title={dim.description}
+                          >
+                            {dim.label}: {plan.limits_json?.[dim.key]}
+                          </Badge>
+                        ))
+                    )}
                   </div>
                 </TD>
                 <TD>
@@ -214,8 +254,8 @@ export default function PlansPage() {
             <div>
               <Label>Kapsam</Label>
               <Select value={scope} onChange={(e) => setScope(e.target.value)}>
-                <option value="tenant">Tenant</option>
-                <option value="facility">Tesis</option>
+                <option value="tenant">Müşteri hesabı</option>
+                <option value="facility">Operasyon kapsamı</option>
               </Select>
             </div>
             <div>
@@ -244,6 +284,51 @@ export default function PlansPage() {
               value={dimensions}
               onChange={setDimensions}
             />
+          </div>
+          <div className="rounded-xl border border-border bg-muted/30 p-3">
+            <div className="flex items-baseline justify-between gap-2">
+              <Label className="mb-0">Plan Limitleri</Label>
+              <span className="text-xs text-muted-foreground">Boş bırakılan = sınırsız</span>
+            </div>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Rakamlar sabit değildir; bu plandaki her sınırı istediğiniz zaman
+              buradan değiştirebilirsiniz. Değişiklik kaydedildiği anda geçerli olur.
+            </p>
+            {limitDimensions.isLoading ? (
+              <p className="mt-3 text-xs text-muted-foreground">Limit türleri yükleniyor…</p>
+            ) : (
+              <div className="mt-3 flex flex-col gap-3">
+                {(limitDimensions.data?.dimensions ?? []).map((dim) => {
+                  const raw = limits[dim.key] ?? "";
+                  const unlimited = raw.trim() === "" || Number.parseInt(raw, 10) <= 0;
+                  return (
+                    <div key={dim.key} className="grid gap-2 sm:grid-cols-[1fr_10rem] sm:items-start">
+                      <div>
+                        <p className="text-sm font-medium">{dim.label}</p>
+                        <p className="text-xs text-muted-foreground">{dim.description}</p>
+                      </div>
+                      <div>
+                        <Input
+                          type="number"
+                          min={0}
+                          inputMode="numeric"
+                          value={raw}
+                          placeholder="Sınırsız"
+                          aria-label={`${dim.label} limiti (${dim.unit})`}
+                          onChange={(e) =>
+                            setLimits((prev) => ({ ...prev, [dim.key]: e.target.value }))
+                          }
+                        />
+                        <p className="mt-1 text-[11px] text-muted-foreground">
+                          {unlimited ? "Sınırsız" : `${raw} ${dim.unit}`}
+                          {dim.enforced_at === "assignment" && " · atamada engellenir"}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
           <div>
             <Label>Rate Card (JSON)</Label>

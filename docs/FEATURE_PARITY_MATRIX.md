@@ -29,7 +29,7 @@ _Son güncelleme: 2026-07-11 (Portal İzolasyonu: public selector yalnız Tedari
 | Takvim | ✅ | ✅ | ✅ | OK | Web: saat-ızgara; mobile: agenda (gün okları + rampa grupları) |
 | Randevu listesi (statü filtreli) | ✅ | ✅ | ✅ | OK | |
 | Randevu detay + Onayla/Reddet/Revize/Tamamla/İptal | ✅ | ✅ | ✅ | OK | allowed_actions haritasına göre; revize mobile'da auto-dock |
-| Tesis seçici (multi-facility) | ✅ | ✅ | ✅ | OK | Mobile: Menü ekranında |
+| Aktif kapsam göstergesi | ✅ | ✅ | ✅ | OK | 1 hesap = 1 tesis: seçici yerine sade etiket (web: header, mobile: Menü → Hesap kartı) |
 | Admin adına randevu oluşturma | ✅ | ✅ | ✅ | OK | Tedarikçi/kategori/limit kuralları UI'da; seri desteği dahil; onaylı doğar |
 | Seri yönetimi (liste/toplu iptal/revize/onay) | ✅ | ✅ | ✅ | OK | future_only; occurrence detayından randevuya gidilir |
 | Config CRUD: kategoriler/araçlar/rampalar/çakışma/istisnalar | ✅ | ✅ | ✅ | OK | Rampa: çalışma saatleri editörü + çoklu kategori seçimi dahil |
@@ -41,9 +41,9 @@ _Son güncelleme: 2026-07-11 (Portal İzolasyonu: public selector yalnız Tedari
 | Bildirim zili + tercihler | ✅ | ✅ | ✅ | OK | Zil dashboard'da; tercihler Menü → Bildirim Tercihleri |
 | **Platform** — hidden internal web portalı (:30086); mobile'da GİRİŞ YOKTUR (bilinçli karar, bkz. PORTAL_ISOLATION_AND_ROUTING.md) |
 | Genel bakış / kullanım (agregat, 30 gün) | ✅ | ✅ | — | Kapsam dışı | Mobile ekran kodu mevcut ama erişilemez (login yolu yok) |
-| Tenant dizini + oluştur/düzenle | ✅ | ✅ | — | Kapsam dışı | |
-| Tesis dizini + oluştur/düzenle | ✅ | ✅ | — | Kapsam dışı | |
+| Müşteri hesabı dizini + tek adımda açılış (kapsam + bootstrap + ilk yönetici) | ✅ | ✅ | — | Kapsam dışı | Ayrı tesis ekranı KALDIRILDI; eski rota yönlendirir |
 | Planlar + atama | ✅ | ✅ | — | Kapsam dışı | |
+| Dinamik plan limitleri (kota editörü) | ✅ | ✅ | — | Kapsam dışı | Boyut kataloğu backend'den; `max_tenants` atamada zorlanır |
 | Destek sağlığı | ✅ | ✅ | — | Kapsam dışı | |
 | Platform denetim izleri | ✅ | ✅ | — | Kapsam dışı | |
 | **Ortak** |

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { FlatList, RefreshControl, Text, View } from "react-native";
+import { FlatList, RefreshControl, Share, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ApiError } from "@/api/client";
 import { usePlatformPlans, usePlatformTenants, useTenantMutations } from "@/api/platform";
@@ -13,12 +13,20 @@ import {
   EmptyState,
   ErrorState,
   Field,
+  KeyValueRow,
   LoadingState,
+  SwitchRow,
 } from "@/components/ui";
 import { useTheme } from "@/theme/theme";
 import { spacing } from "@/theme/tokens";
 
-/** Platform — Tenant dizini + oluştur/düzenle (web platform/tenants karşılığı). */
+/**
+ * Platform — Müşteri hesapları (web platform/tenants karşılığı).
+ *
+ * 1 tenant = 1 tesis: ayrı bir "tesis" ekranı YOKTUR. Hesap açıldığında
+ * operasyonel kapsamı, varsayılan tanımları ve (istenirse) ilk yöneticisi
+ * tek istekte birlikte oluşturulur.
+ */
 
 const STATUS_LABELS: Record<string, string> = {
   trial: "Deneme",
@@ -58,6 +66,15 @@ export default function PlatformTenants() {
   const [contactName, setContactName] = useState("");
   const [contactEmail, setContactEmail] = useState("");
   const [timezone, setTimezone] = useState("Europe/Istanbul");
+  const [address, setAddress] = useState("");
+  const [bootstrapDefaults, setBootstrapDefaults] = useState(true);
+  const [createAdmin, setCreateAdmin] = useState(true);
+  const [adminName, setAdminName] = useState("");
+  const [adminEmail, setAdminEmail] = useState("");
+  const [createdAdmin, setCreatedAdmin] = useState<{
+    email: string;
+    temporary_password: string;
+  } | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
 
   const planName = (id: string | null) => plans.data?.find((p) => p.id === id)?.name ?? "—";
@@ -81,6 +98,11 @@ export default function PlatformTenants() {
     setContactName("");
     setContactEmail("");
     setTimezone("Europe/Istanbul");
+    setAddress("");
+    setBootstrapDefaults(true);
+    setCreateAdmin(true);
+    setAdminName("");
+    setAdminEmail("");
     setFormError(null);
     setOpen(true);
   }
@@ -95,6 +117,7 @@ export default function PlatformTenants() {
     setContactName(row.primary_contact_name ?? "");
     setContactEmail(row.primary_contact_email ?? "");
     setTimezone(row.default_timezone);
+    setAddress(row.address ?? "");
     setFormError(null);
     setOpen(true);
   }
@@ -105,30 +128,45 @@ export default function PlatformTenants() {
       setFormError("Görünen ad ve slug zorunludur.");
       return;
     }
+    if (!editing && createAdmin && (!adminName.trim() || !adminEmail.trim())) {
+      setFormError("İlk yönetici için ad ve e-posta zorunludur.");
+      return;
+    }
     try {
       if (editing) {
         // Slug/commercial_name oluşturma sonrası değiştirilemez (kimlik alanları).
+        // Ad/adres/durum tesise de yansır (backend senkron tutar).
         await save.mutateAsync({
           id: editing.id,
           body: {
             display_name: displayName,
             status,
+            address: address || null,
             primary_contact_name: contactName || null,
             primary_contact_email: contactEmail || null,
           },
         });
       } else {
-        await save.mutateAsync({
+        const created = await save.mutateAsync({
           body: {
             commercial_name: commercialName || displayName,
             display_name: displayName,
             slug,
             status,
+            address: address || null,
             primary_contact_name: contactName || null,
             primary_contact_email: contactEmail || null,
             default_timezone: timezone,
+            bootstrap_defaults: bootstrapDefaults,
+            initial_admin: createAdmin ? { name: adminName, email: adminEmail } : null,
           },
         });
+        if (created.initial_admin) {
+          setCreatedAdmin({
+            email: created.initial_admin.email,
+            temporary_password: created.initial_admin.temporary_password,
+          });
+        }
       }
       setOpen(false);
     } catch (err) {
@@ -157,12 +195,12 @@ export default function PlatformTenants() {
         ListHeaderComponent={
           <View style={{ gap: spacing.md, marginBottom: spacing.sm }}>
             <Text style={{ color: colors.text, fontSize: 24, fontWeight: "800" }}>
-              Tenant Dizini
+              Müşteri Hesapları
             </Text>
             <Text style={{ color: colors.mutedText, fontSize: 13 }}>
-              {"Tüm müşteri hesapları — operasyonel/PII detay içermez. Plan ataması Genel Bakış'tan yapılır."}
+              {"Her hesap kendi operasyon kapsamıdır; hesap açıldığında rampa/kategori tanımları ve ilk yönetici birlikte oluşturulur."}
             </Text>
-            <Button title="Yeni Tenant" onPress={openCreate} style={{ height: 44 }} />
+            <Button title="Yeni Hesap" onPress={openCreate} style={{ height: 44 }} />
           </View>
         }
         renderItem={({ item }) => (
@@ -197,9 +235,9 @@ export default function PlatformTenants() {
           tenants.isLoading ? (
             <LoadingState />
           ) : tenants.isError ? (
-            <ErrorState message="Tenantlar yüklenemedi." onRetry={() => tenants.refetch()} />
+            <ErrorState message="Müşteri hesapları yüklenemedi." onRetry={() => tenants.refetch()} />
           ) : (
-            <EmptyState title="Tenant yok" />
+            <EmptyState title="Müşteri hesabı yok" />
           )
         }
       />
@@ -207,7 +245,7 @@ export default function PlatformTenants() {
       <AppModal
         visible={open}
         onClose={() => setOpen(false)}
-        title={editing ? "Tenant'ı Düzenle" : "Yeni Tenant"}
+        title={editing ? "Hesabı Düzenle" : "Yeni Müşteri Hesabı"}
       >
         <View style={{ gap: spacing.md }}>
           <Field
@@ -259,7 +297,7 @@ export default function PlatformTenants() {
             </View>
             {status === "archived" && (
               <Text style={{ color: colors.status.cancelled, fontSize: 12 }}>
-                {"Arşivlenmiş tenant'a yeni tesis eklenemez."}
+                {"Arşivlenmiş hesapta operasyon durdurulur."}
               </Text>
             )}
           </View>
@@ -283,6 +321,47 @@ export default function PlatformTenants() {
               />
             </View>
           </View>
+          <Field
+            label="Adres"
+            value={address}
+            onChangeText={setAddress}
+            placeholder="Opsiyonel — operasyon adresi"
+          />
+          {!editing && (
+            <Card style={{ gap: spacing.sm }}>
+              <Text style={{ color: colors.text, fontSize: 14, fontWeight: "600" }}>Kurulum</Text>
+              <SwitchRow
+                label="Varsayılan tanımlar"
+                hint="Araç/ürün kategorileri, örnek rampa ve roller otomatik oluşturulur."
+                value={bootstrapDefaults}
+                onValueChange={setBootstrapDefaults}
+              />
+              <SwitchRow
+                label="İlk yönetici oluştur"
+                hint="Geçici parola üretilir ve yalnızca bir kez gösterilir."
+                value={createAdmin}
+                onValueChange={setCreateAdmin}
+              />
+              {createAdmin && (
+                <>
+                  <Field
+                    label="Yönetici Adı"
+                    value={adminName}
+                    onChangeText={setAdminName}
+                    placeholder="Ad Soyad"
+                  />
+                  <Field
+                    label="Yönetici E-postası"
+                    value={adminEmail}
+                    onChangeText={setAdminEmail}
+                    placeholder="yonetici@firma.com"
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                  />
+                </>
+              )}
+            </Card>
+          )}
           {formError && (
             <Text style={{ color: colors.destructive, fontSize: 13 }}>{formError}</Text>
           )}
@@ -301,6 +380,35 @@ export default function PlatformTenants() {
             />
           </View>
         </View>
+      </AppModal>
+
+      {/* Tek seferlik geçici parola paneli — kapanınca bir daha gösterilmez */}
+      <AppModal
+        visible={createdAdmin !== null}
+        onClose={() => setCreatedAdmin(null)}
+        title="İlk Yönetici Oluşturuldu"
+      >
+        {createdAdmin && (
+          <View style={{ gap: spacing.md }}>
+            <Text style={{ color: colors.status.approved, fontSize: 13 }}>
+              Geçici parola YALNIZCA bir kez gösterilir. Kaydetmeden kapatmayın.
+            </Text>
+            <Card style={{ gap: spacing.sm }}>
+              <KeyValueRow label="E-posta" value={createdAdmin.email} />
+              <KeyValueRow label="Geçici Parola" value={createdAdmin.temporary_password} />
+            </Card>
+            <Button
+              title="Paylaş / Kopyala"
+              variant="secondary"
+              onPress={() =>
+                void Share.share({
+                  message: `LogiSlot giriş bilgileri\nE-posta: ${createdAdmin.email}\nGeçici parola: ${createdAdmin.temporary_password}\nİlk girişte parola değiştirilmelidir.`,
+                })
+              }
+            />
+            <Button title="Kaydettim, kapat" onPress={() => setCreatedAdmin(null)} />
+          </View>
+        )}
       </AppModal>
     </View>
   );

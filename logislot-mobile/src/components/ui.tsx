@@ -401,7 +401,7 @@ export function AppModal({
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
         <Pressable
-          style={[StyleSheet.absoluteFill, { backgroundColor: "#00000088" }]}
+          style={[StyleSheet.absoluteFill, { backgroundColor: "rgba(15,23,42,0.45)" }]}
           onPress={onClose}
           accessibilityLabel="Kapat"
         />

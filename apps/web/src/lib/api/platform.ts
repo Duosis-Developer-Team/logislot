@@ -5,6 +5,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/api/client";
 
+/**
+ * Musteri hesabi — 1 tenant = 1 tesis (urun karari 2026-07).
+ * Operasyonel kapsam (tesis) alanlari bu kaydin icine gomuludur; ayri bir
+ * "tesis" varligi arayuzde YOKTUR.
+ */
 export interface PlatformTenantDto {
   id: string;
   commercial_name: string;
@@ -16,6 +21,25 @@ export interface PlatformTenantDto {
   default_timezone: string;
   assigned_plan_id: string | null;
   created_at: string;
+  /** Operasyonel kapsam kimligi (eski kayitlarda null olabilir). */
+  facility_id: string | null;
+  address: string | null;
+  facility_status: string | null;
+  /** Yalnizca create yanitinda dolu. */
+  bootstrap?: {
+    vehicle_categories: number;
+    product_categories: number;
+    docks: number;
+    roles: number;
+  } | null;
+  /** Gecici parola BIR kez gosterilir. */
+  initial_admin?: {
+    id: string;
+    name: string;
+    email: string;
+    temporary_password: string;
+    must_change_password: boolean;
+  } | null;
 }
 
 export interface PlatformFacilityDto {
@@ -50,7 +74,27 @@ export interface PlanDto {
   billing_unit_label: string;
   measurable_dimensions_json: string[] | null;
   rate_card_json: unknown[] | null;
+  /** Dinamik kotalar: {"max_tenants": 300, ...}. Anahtar yok = sinirsiz. */
+  limits_json: Record<string, number>;
   status: string;
+}
+
+/** Limit editorunun dinamik kurulmasi icin backend katalogu. */
+export interface PlanLimitDimensionDto {
+  key: string;
+  label: string;
+  description: string;
+  unit: string;
+  enforced_at: "assignment" | "usage";
+}
+
+export function usePlanLimitDimensions() {
+  return useQuery({
+    queryKey: ["platform", "plan-limit-dimensions"],
+    queryFn: () =>
+      apiRequest<{ dimensions: PlanLimitDimensionDto[] }>("/platform/plan-limit-dimensions"),
+    staleTime: 600_000,
+  });
 }
 
 export interface TenantUsageRow {

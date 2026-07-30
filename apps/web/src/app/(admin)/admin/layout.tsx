@@ -99,20 +99,29 @@ function AdminShell({ children }: { children: React.ReactNode }) {
     );
   }
 
+  // 1 tenant = 1 tesis (urun karari): tek kapsam varsa SECICI gosterilmez;
+  // yalnizca hangi hesapta calisildigini belirten sade bir etiket kalir.
+  // Coklu kapsam yalnizca eski/istisnai kayitlarda olusabilir; o durumda
+  // secici geri gelir (veri kaybi/kilitlenme riski olmasin diye).
+  const facilities = session.me?.facilities ?? [];
   const facilitySwitcher =
-    session.me && session.me.facilities.length > 0 ? (
+    facilities.length > 1 ? (
       <Select
         className="h-9 w-auto max-w-[13rem] text-sm sm:max-w-72"
         value={session.activeFacilityId ?? ""}
         onChange={(e) => session.setActiveFacilityId(e.target.value)}
-        aria-label="Aktif tesis"
+        aria-label="Aktif kapsam"
       >
-        {session.me.facilities.map((f) => (
+        {facilities.map((f) => (
           <option key={f.id} value={f.id}>
             {f.name}
           </option>
         ))}
       </Select>
+    ) : facilities.length === 1 ? (
+      <span className="max-w-[13rem] truncate text-sm font-medium sm:max-w-72">
+        {facilities[0].name}
+      </span>
     ) : null;
 
   return (

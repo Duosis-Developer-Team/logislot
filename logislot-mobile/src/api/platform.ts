@@ -5,6 +5,7 @@ import { apiRequest } from "./client";
 import type {
   AuditListDto,
   PlanDto,
+  PlanLimitDimensionDto,
   PlanUsageWarningDto,
   PlatformFacilityDto,
   PlatformTenantDto,
@@ -40,6 +41,16 @@ export function usePlatformPlans() {
   return useQuery({
     queryKey: ["platform", "plans"],
     queryFn: () => apiRequest<PlanDto[]>("/platform/plans"),
+  });
+}
+
+/** Plan limit boyutlari — dinamik kota alanlarini backend katalogundan cizmek icin. */
+export function usePlanLimitDimensions() {
+  return useQuery({
+    queryKey: ["platform", "plan-limit-dimensions"],
+    queryFn: () =>
+      apiRequest<{ dimensions: PlanLimitDimensionDto[] }>("/platform/plan-limit-dimensions"),
+    staleTime: 10 * 60 * 1000,
   });
 }
 

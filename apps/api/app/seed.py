@@ -70,7 +70,6 @@ async def seed_data(db) -> dict:
         "active_docks",
         "active_suppliers",
         "active_users",
-        "active_facilities",
     ]
     plan_starter = Plan(
         name="Starter",
@@ -85,6 +84,14 @@ async def seed_data(db) -> dict:
                 "overage_rule": "per_unit",
             }
         ],
+        # Dinamik kotalar (platform panelinden degistirilebilir).
+        limits_json={
+            "max_tenants": 300,
+            "monthly_appointments": 100,
+            "max_docks": 3,
+            "max_suppliers": 10,
+            "max_users": 5,
+        },
         status=PlanStatus.active,
     )
     plan = Plan(  # Professional — BTA'ya atanir
@@ -92,6 +99,13 @@ async def seed_data(db) -> dict:
         scope=PlanScope.tenant,
         billing_unit_label="per_appointment",
         measurable_dimensions_json=dimensions,
+        limits_json={
+            "max_tenants": 500,
+            "monthly_appointments": 500,
+            "max_docks": 10,
+            "max_suppliers": 50,
+            "max_users": 25,
+        },
         rate_card_json=[
             {
                 "dimension": "appointments_created",

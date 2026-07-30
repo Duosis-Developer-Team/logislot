@@ -167,7 +167,7 @@ export default function EmailLogsPage() {
       )}
 
       <p className="text-xs text-muted-foreground">
-        Kartlar tesis genelinin toplamlarını gösterir; tablo seçili filtrelerle
+        Kartlar genel toplamları gösterir; tablo seçili filtrelerle
         sınırlıdır.
       </p>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">

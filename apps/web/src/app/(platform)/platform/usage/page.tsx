@@ -78,7 +78,7 @@ export default function UsagePage() {
 
   const statCards = [
     ["Tenant", totals.tenants],
-    ["Tesis", `${totals.active_facilities}/${totals.facilities}`],
+    ["Aktif Hesap", `${totals.active_facilities}/${totals.facilities}`],
     ["Oluşturulan Randevu", totals.appointments_created],
     ["Tamamlanan", totals.appointments_completed],
     ["Aktif Rampa", totals.active_docks],
@@ -177,7 +177,6 @@ export default function UsagePage() {
                 <TH>Tenant</TH>
                 <TH>Durum</TH>
                 <TH>Plan</TH>
-                <TH className="text-right">Tesis</TH>
                 <TH className="text-right">Randevu</TH>
                 <TH className="text-right">Rampa</TH>
                 <TH className="text-right">Tedarikçi</TH>
@@ -202,7 +201,6 @@ export default function UsagePage() {
                     </Badge>
                   </TD>
                   <TD>{row.assigned_plan ?? "—"}</TD>
-                  <TD className="text-right">{row.facility_count}</TD>
                   <TD className="text-right">
                     {row.appointments_created}
                     <span className="text-xs text-muted-foreground">
@@ -253,14 +251,14 @@ export default function UsagePage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Tesis Kullanımı</CardTitle>
+          <CardTitle>Operasyon Kullanımı</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
           <Table className="border-0 shadow-none">
             <THead>
               <TR>
-                <TH>Tesis</TH>
-                <TH>Tenant</TH>
+                <TH>Kapsam</TH>
+                <TH>Müşteri Hesabı</TH>
                 <TH>Plan</TH>
                 <TH className="text-right">Randevu</TH>
                 <TH className="text-right">Rampa</TH>
@@ -330,8 +328,8 @@ export default function UsagePage() {
         onClose={() => setAssignTarget(null)}
         title={
           assignTarget?.kind === "tenant"
-            ? "Tenant planı ata"
-            : "Tesis override planı ata"
+            ? "Hesap planı ata"
+            : "Operasyon override planı ata"
         }
       >
         <div className="flex flex-col gap-3">

@@ -107,6 +107,7 @@ export default function AdminMenu() {
   const visible = (entries: MenuEntry[]) =>
     entries.filter((e) => !e.permission || session.can(e.permission));
 
+  const facilities = session.me?.facilities ?? [];
   const operations = visible(OPERATION_ENTRIES);
   const configs = visible(CONFIG_ENTRIES);
 
@@ -121,14 +122,19 @@ export default function AdminMenu() {
             {session.me?.name}
           </Text>
           <Text style={{ color: colors.mutedText, fontSize: 13 }}>{session.me?.email}</Text>
+          {facilities.length === 1 && (
+            <Text style={{ color: colors.mutedText, fontSize: 13 }}>{facilities[0].name}</Text>
+          )}
         </Card>
 
-        {(session.me?.facilities.length ?? 0) > 0 && (
+        {/* 1 tenant = 1 tesis: tek kapsamda secim YOK, yalnizca hesap kartinda ad
+            gorunur. Coklu kapsam yalnizca eski kayitlarda olusabilir. */}
+        {facilities.length > 1 && (
           <>
-            <SectionTitle title="Aktif Tesis" />
+            <SectionTitle title="Aktif Kapsam" />
             <Card style={{ gap: spacing.sm }}>
               <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
-                {session.me!.facilities.map((f) => (
+                {facilities.map((f) => (
                   <Chip
                     key={f.id}
                     label={f.name}
@@ -154,7 +160,7 @@ export default function AdminMenu() {
 
         {configs.length > 0 && (
           <>
-            <SectionTitle title="Tesis Konfigürasyonu" />
+            <SectionTitle title="Konfigürasyon" />
             <Card style={{ padding: 0, overflow: "hidden" }}>
               {configs.map((entry, i) => (
                 <MenuRow key={entry.route} entry={entry} showBorder={i > 0} />

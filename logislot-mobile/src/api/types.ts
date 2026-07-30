@@ -475,6 +475,24 @@ export interface PlatformTenantDto {
   default_timezone: string;
   assigned_plan_id: string | null;
   created_at: string;
+  /** 1 tenant = 1 tesis: hesabın operasyonel kapsamı tenant ile birlikte açılır. */
+  facility_id: string | null;
+  address: string | null;
+  facility_status: string | null;
+  bootstrap?: {
+    vehicle_categories: number;
+    product_categories: number;
+    docks: number;
+    roles: number;
+  } | null;
+  // Yalnızca create yanıtında dolu; geçici parola BİR kez gösterilir.
+  initial_admin?: {
+    id: string;
+    name: string;
+    email: string;
+    temporary_password: string;
+    must_change_password: boolean;
+  } | null;
 }
 
 export interface PlatformFacilityDto {
@@ -509,7 +527,18 @@ export interface PlanDto {
   billing_unit_label: string;
   measurable_dimensions_json: string[] | null;
   rate_card_json: unknown[] | null;
+  /** Dinamik kotalar (key -> sayı). Anahtar yoksa o boyut sınırsızdır. */
+  limits_json: Record<string, number>;
   status: string;
+}
+
+/** Plan limit boyutu kataloğu — backend'den gelir, UI'da alanlar buna göre çizilir. */
+export interface PlanLimitDimensionDto {
+  key: string;
+  label: string;
+  description: string;
+  unit: string;
+  enforced_at: "assignment" | "usage";
 }
 
 export interface PlanUsageWarningDto {

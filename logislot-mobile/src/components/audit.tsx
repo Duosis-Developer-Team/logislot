@@ -22,7 +22,7 @@ import { useTheme } from "@/theme/theme";
 import { spacing } from "@/theme/tokens";
 
 const ACTOR_LABELS: Record<string, string> = {
-  tenant_user: "Tesis kullanıcısı",
+  tenant_user: "Hesap kullanıcısı",
   supplier_user: "Tedarikçi",
   platform_user: "Platform",
   system: "Sistem",

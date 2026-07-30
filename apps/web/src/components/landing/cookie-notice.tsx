@@ -45,7 +45,9 @@ export function CookieNotice() {
       aria-label="Çerez bilgilendirmesi"
       // Sarmalayıcı tıklamaları YUTMAZ; yalnızca kartın kendisi etkileşimlidir
       // (altta kalan sayfa butonları banner varken de tıklanabilir kalır).
-      className="pointer-events-none fixed inset-x-0 bottom-0 z-50 p-3 sm:p-4"
+      // z-40: modal perdesi (z-50) DAİMA bu bandın üstünde kalmalı — aksi halde
+      // banner açık modalın üzerine binip "arkada tuhaf katman" izlenimi verir.
+      className="pointer-events-none fixed inset-x-0 bottom-0 z-40 p-3 sm:p-4"
     >
       <div className="pointer-events-auto mx-auto flex max-w-3xl flex-col gap-3 rounded-2xl border border-border bg-card/95 p-4 shadow-card-hover backdrop-blur-xl sm:flex-row sm:items-center sm:gap-4">
         <Cookie className="hidden h-5 w-5 shrink-0 text-primary sm:block" />

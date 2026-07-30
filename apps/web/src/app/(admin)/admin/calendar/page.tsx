@@ -219,7 +219,7 @@ export default function CalendarPage() {
         ) : data.docks.length === 0 ? (
           <EmptyState
             title="Görüntülenecek rampa yok"
-            description="Bu tesiste aktif rampa yok ya da yetkiniz olan rampa bulunmuyor."
+            description="Aktif rampa yok ya da yetkiniz olan rampa bulunmuyor."
           />
         ) : (
           <>

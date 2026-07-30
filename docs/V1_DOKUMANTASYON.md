@@ -46,7 +46,7 @@ Geleneksel mal kabul operasyonunda tedarikçi talepleri e-posta ve telefonla da�
 - **Akıllı rampa yönlendirme:** Rampa atamasını motor yapar; manuel seçimde de tüm kural seti uygulanır.
 - **Tek akışta onay yaşam döngüsü:** Bekliyor → Onaylandı / Reddedildi → Revize Bekliyor → Tamamlandı / İptal; her aksiyon denetim kaydına işlenir, taraflara bildirim gider.
 - **Kargo uyarı katmanı:** Belirsiz varışlı kargolar takvimde ayrı bir farkındalık katmanı olarak görünür; standart randevuları **engellemez**.
-- **Tesis bazlı izolasyon:** Her müşteri ayrı tenant; kategoriler, rampalar, kullanıcılar ve randevular **tesis** seviyesinde izole edilir.
+- **Hesap bazlı izolasyon:** Her müşteri ayrı tenant ve aynı zamanda tek bir operasyonel kapsamdır (1 hesap = 1 tesis); kategoriler, rampalar, kullanıcılar ve randevular bu kapsamda izole edilir.
 
 ---
 
@@ -415,29 +415,35 @@ Ayarlar merkezi tüm konfigürasyon alanlarına açılır (girişler kullanıcı
 
 ## 11. Platform Yönetimi (Hidden) — Kullanım Kılavuzu
 
-Yalnızca `http://84.247.180.172:30086/login` (doğrudan URL). İç ekip; tenant'ları, tesisleri ve planları buradan yönetir. Yalnızca **agregat** metrikler gösterilir (PII yok).
+Yalnızca `http://84.247.180.172:30086/login` (doğrudan URL). İç ekip; müşteri hesaplarını ve planları buradan yönetir. Yalnızca **agregat** metrikler gösterilir (PII yok).
 
-**Kullanım & Sağlık** — 30 günlük toplamlar, tenant/tesis kullanım tabloları, SLA ortalaması, **Plan Ata / Override Ata** aksiyonları ve Usage CSV:
+> **Ürün kararı (2026-07) — 1 müşteri hesabı = 1 tesis.** Ayrı bir "tesis" kavramı
+> kaldırıldı: her tenant aynı zamanda kendi operasyonel kapsamıdır. Kısıt veritabanı
+> seviyesinde zorlanır (`facilities.tenant_id` UNIQUE). Eski `/platform/facilities`
+> rotası müşteri hesaplarına yönlendirir; API alan adları (`facility_id`,
+> `/facilities/...` uçları) **contract kırılmasın diye korunmuştur**.
+
+**Kullanım & Sağlık** — 30 günlük toplamlar, hesap/operasyon kullanım tabloları, SLA ortalaması, **Plan Ata / Override Ata** aksiyonları ve Usage CSV:
 
 ![Platform kullanım](screenshots/v1/44-platform-kullanim.png)
 
-**Tenant Dizini** — müşteri hesapları; oluştur/düzenle (slug otomatik türetilir; kimlik alanları sonradan kilitli):
+**Müşteri Hesapları** — hesap **tek adımda** açılır: kimlik bilgileri + operasyonel kapsam (ad/adres/saat dilimi), **başlangıç konfigürasyonu** (araç/ürün kategorileri, Rampa 1, sistem rolleri) ve **ilk yönetici** hesabı aynı formdadır; geçici parola yalnızca bir kez gösterilir:
 
-![Tenantlar](screenshots/v1/45-platform-tenantlar.png)
+![Müşteri hesapları](screenshots/v1/45-platform-musteri-hesaplari.png)
 
-**Tesisler** — tenant'lar arası tüm tesisler; yeni tesis **bootstrap** varsayılanlarıyla ve **ilk yönetici** hesabıyla açılabilir (geçici parola yalnızca bir kez gösterilir):
-
-![Tesisler](screenshots/v1/46-platform-tesisler.png)
-
-**Planlar** — plan bir *politika kabıdır* (fatura hesaplamaz): kapsam (tenant/tesis), faturalama birimi, ölçülebilir boyutlar ve rate-card JSON'u; emekliye ayrılan plana yeni atama yapılamaz:
+**Planlar** — plan bir *politika kabıdır* (fatura hesaplamaz): kapsam, faturalama birimi, ölçülebilir boyutlar ve rate-card JSON'u; emekliye ayrılan plana yeni atama yapılamaz:
 
 ![Planlar](screenshots/v1/47-platform-planlar.png)
+
+**Plan Limitleri (dinamik kota)** — kota rakamları koda gömülü **değildir**; her plan için buradan değiştirilir ve kaydedildiği anda geçerli olur. Boş bırakılan boyut *sınırsız* sayılır. Boyut listesi backend'den (`GET /platform/plan-limit-dimensions`) gelir; yeni bir limit türü eklemek için **migration gerekmez**. `max_tenants` **atama anında zorlanır** (dolu plana yeni hesap atanamaz, `409 PLAN_TENANT_LIMIT_REACHED`); diğerleri kullanım raporlarında eşik uyarısı üretir:
+
+![Plan limitleri](screenshots/v1/46-platform-plan-limitleri.png)
 
 **Destek Sağlığı** — başarısız/retry e-posta, kritik bildirim, bekleyen randevu sayaçları ve zamanlanmış işlerin son koşum durumu:
 
 ![Destek sağlığı](screenshots/v1/48-platform-destek-sagligi.png)
 
-**Platform Denetim İzleri** — tenant/tesis/plan operasyonlarının kayıtları:
+**Platform Denetim İzleri** — hesap/kapsam/plan operasyonlarının kayıtları:
 
 ![Platform denetim izleri](screenshots/v1/49-platform-denetim-izleri.png)
 

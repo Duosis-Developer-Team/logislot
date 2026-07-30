@@ -25,18 +25,9 @@ export default function PlatformTabs() {
       <Tabs.Screen
         name="tenants"
         options={{
-          title: "Tenantlar",
+          title: "Müşteriler",
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="business-outline" size={size} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="facilities"
-        options={{
-          title: "Tesisler",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="home-outline" size={size} color={color} />
           ),
         }}
       />

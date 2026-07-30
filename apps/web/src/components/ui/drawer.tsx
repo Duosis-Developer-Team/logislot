@@ -1,6 +1,7 @@
 "use client";
 
 import { X } from "lucide-react";
+import { OVERLAY_CLASS, useModalBehavior } from "@/components/ui/overlay";
 import { cn } from "@/lib/utils";
 
 interface DrawerProps {
@@ -14,11 +15,15 @@ interface DrawerProps {
 
 /** Sag drawer — config create/edit formlarinin ortak kabi. */
 export function Drawer({ open, onClose, title, description, children, className }: DrawerProps) {
+  useModalBehavior(open, onClose);
   if (!open) return null;
   return (
     <div
-      className="fixed inset-0 z-50 flex justify-end bg-foreground/40 backdrop-blur-sm animate-fade-in"
+      className={cn(OVERLAY_CLASS, "flex justify-end")}
       onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-label={title}
     >
       <div
         className={cn(
@@ -27,7 +32,9 @@ export function Drawer({ open, onClose, title, description, children, className 
         )}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="sticky top-0 z-10 border-b border-border bg-card/95 px-5 py-4 backdrop-blur">
+        {/* Baslik seridi OPAK: eskiden bg-card/95 + backdrop-blur idi; ic ice
+            backdrop-filter, overlay rengini panele sizdiriyordu. */}
+        <div className="sticky top-0 z-10 border-b border-border bg-card px-5 py-4">
           <div className="flex items-center justify-between gap-4">
             <h2 className="text-lg font-semibold tracking-tight">{title}</h2>
             <button

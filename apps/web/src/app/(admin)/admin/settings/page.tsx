@@ -103,7 +103,7 @@ export default function SettingsPage() {
     {
       icon: ScrollText,
       title: "Denetim İzleri",
-      description: "Tesisteki yönetim işlemlerinin audit kayıtları",
+      description: "Hesabınızdaki yönetim işlemlerinin audit kayıtları",
       stat: "İncele",
       href: "/admin/settings/audit-logs",
       permission: "audit.view",
@@ -123,7 +123,7 @@ export default function SettingsPage() {
       <div>
         <h1 className="text-xl font-bold">Yönetim</h1>
         <p className="text-sm text-muted-foreground">
-          İş Kuralları Motorunu besleyen tesis konfigürasyonları — buradaki her ayar randevu
+          İş Kuralları Motorunu besleyen operasyon konfigürasyonları — buradaki her ayar randevu
           uygunluğunu etkiler.
         </p>
       </div>

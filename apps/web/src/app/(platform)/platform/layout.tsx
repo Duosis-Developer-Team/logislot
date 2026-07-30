@@ -3,7 +3,6 @@
 import {
   Building2,
   CreditCard,
-  Factory,
   Gauge,
   LifeBuoy,
   ScrollText,
@@ -21,8 +20,7 @@ import { SessionProvider, useSession } from "@/lib/auth/session";
  * "Platform" rol rozeti ve platforma ozgu (yalnizca AGREGAT) menudur.
  */
 const NAV: AppNavItem[] = [
-  { href: "/platform/tenants", label: "Tenant Dizini", icon: Building2 },
-  { href: "/platform/facilities", label: "Tesisler", icon: Factory },
+  { href: "/platform/tenants", label: "Müşteri Hesapları", icon: Building2 },
   { href: "/platform/usage", label: "Kullanım & Sağlık", icon: Gauge },
   { href: "/platform/plans", label: "Planlar", icon: CreditCard },
   { href: "/platform/support", label: "Destek", icon: LifeBuoy },

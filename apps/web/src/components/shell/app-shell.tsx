@@ -172,7 +172,7 @@ export function AppShell({
       {mobileOpen && (
         <div className="fixed inset-0 z-50 lg:hidden">
           <div
-            className="absolute inset-0 bg-foreground/40 backdrop-blur-sm"
+            className="absolute inset-0 bg-slate-900/25 backdrop-blur-[2px] dark:bg-slate-950/60"
             onClick={() => setMobileOpen(false)}
           />
           <div

@@ -1,6 +1,7 @@
 "use client";
 
 import { X } from "lucide-react";
+import { OVERLAY_CLASS, useModalBehavior } from "@/components/ui/overlay";
 import { cn } from "@/lib/utils";
 
 interface ModalProps {
@@ -16,11 +17,15 @@ interface ModalProps {
  * Mobilde alttan yükselen sayfa (bottom sheet); sm+ ortalı kart.
  */
 export function Modal({ open, onClose, title, children, className }: ModalProps) {
+  useModalBehavior(open, onClose);
   if (!open) return null;
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-foreground/50 p-0 backdrop-blur-sm animate-fade-in sm:items-center sm:p-4"
+      className={cn(OVERLAY_CLASS, "flex items-end justify-center p-0 sm:items-center sm:p-4")}
       onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-label={title}
     >
       <div
         className={cn(
