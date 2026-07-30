@@ -111,6 +111,34 @@ export default function AdminNewAppointment() {
   const slots = availability.data ?? [];
   const selectedSlotData = slots.find((s) => s.start === selectedSlot) ?? null;
 
+  /**
+   * Manuel secimde listelenecek rampalar (web ile ayni kural).
+   *
+   * Uyumluluk: rampanin kabul ettigi urun kategorileri (BOS liste = hepsi).
+   * Doluluk: secili slotun `candidate_dock_ids` degeri — SUNUCU karari.
+   * Uyumsuz rampa listeye girmez; uyumlu ama dolu olan "dolu" etiketiyle kalir.
+   */
+  const eligibleDocks = useMemo(() => {
+    const all = (dockList.data ?? []).filter((d) => d.is_active);
+    const compatible = categoryId
+      ? all.filter(
+          (d) =>
+            d.accepted_product_category_ids.length === 0 ||
+            d.accepted_product_category_ids.includes(categoryId),
+        )
+      : all;
+    const freeIds = selectedSlotData ? new Set(selectedSlotData.candidate_dock_ids) : null;
+    return compatible.map((d) => ({
+      ...d,
+      available: freeIds === null ? true : freeIds.has(d.id),
+    }));
+  }, [dockList.data, categoryId, selectedSlotData]);
+
+  // Kategori/slot degisince onceki secim gecersizlesebilir. State'i efektle
+  // duzeltmek yerine TURETIYORUZ: bayat bir id hicbir zaman gonderilmez.
+  const effectiveDockId =
+    dockId && eligibleDocks.some((d) => d.id === dockId && d.available) ? dockId : "";
+
   const dayOptions = useMemo(
     () => Array.from({ length: 14 }, (_, i) => addDaysISO(todayISO(), i)),
     [],
@@ -129,7 +157,7 @@ export default function AdminNewAppointment() {
       setFormError("Başlangıç saati seçin.");
       return;
     }
-    if (dockMode === "manual" && !dockId) {
+    if (dockMode === "manual" && !effectiveDockId) {
       setFormError("Manuel modda rampa seçin.");
       return;
     }
@@ -149,7 +177,7 @@ export default function AdminNewAppointment() {
         start_at: isCargo ? null : selectedSlot,
         duration_minutes: isCargo ? null : effectiveDuration,
         auto_assign_dock: dockMode === "auto",
-        dock_id: dockMode === "manual" ? dockId : null,
+        dock_id: dockMode === "manual" ? effectiveDockId : null,
         note: note || null,
         recurring:
           recurringEnabled && !isCargo
@@ -402,16 +430,18 @@ export default function AdminNewAppointment() {
               </View>
               {dockMode === "manual" && (
                 <PickerField
-                  value={dockId || null}
+                  value={effectiveDockId || null}
                   placeholder="— Rampa —"
-                  options={(dockList.data ?? [])
-                    .filter((d) => d.is_active)
+                  options={eligibleDocks
+                    .filter((d) => d.available)
                     .map((d) => ({ value: d.id, label: d.name }))}
                   onChange={setDockId}
                 />
               )}
               <Text style={{ color: colors.faintText, fontSize: 12 }}>
-                Manuel seçimde de uyumluluk ve çakışma kuralları tam uygulanır.
+                {dockMode === "manual"
+                  ? "Yalnızca seçili ürün kategorisiyle uyumlu ve o saatte boş rampalar listelenir."
+                  : "Uygun rampalar arasından o saatte boş ve gün içi en az dolu olan atanır."}
               </Text>
             </View>
 

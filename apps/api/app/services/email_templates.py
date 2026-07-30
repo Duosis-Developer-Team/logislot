@@ -104,6 +104,23 @@ def _revised_team(ctx: EmailContext) -> tuple[str, str]:
     )
 
 
+def _dock_changed(ctx: EmailContext) -> tuple[str, str]:
+    """Rampa degisimi: saat AYNI, gidilecek yer farkli.
+
+    Onay istenmez; amac surucunun yanlis rampaya gitmesini onlemektir.
+    """
+    return (
+        f"Randevunuzun rampası değişti — {ctx.when}",
+        _wrap(
+            ctx.supplier_name,
+            f'"{ctx.product_name}" randevunuzun saati değişmedi; yalnızca rampası '
+            f"güncellendi:\n{ctx.old_when or '-'} → {ctx.new_when or '-'}"
+            + (f"\nNot: {ctx.note}" if ctx.note else ""),
+            ctx,
+        ),
+    )
+
+
 def _cancelled(ctx: EmailContext) -> tuple[str, str]:
     return (
         f"Randevunuz iptal edildi — {ctx.when}",
@@ -149,6 +166,7 @@ TEMPLATES = {
     "appointment_approved": _approved,
     "appointment_rejected": _rejected,
     "appointment_revised": _revised,
+    "appointment_dock_changed": _dock_changed,
     "appointment_revised_team": _revised_team,
     "appointment_cancelled": _cancelled,
     "appointment_series_cancelled": _series_cancelled,

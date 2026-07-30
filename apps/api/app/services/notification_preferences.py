@@ -5,10 +5,10 @@ MVP sekli (rapor karari):
 - global `email_enabled` (tum e-postalar)
 - event bazli YALNIZCA e-posta anahtarlari (`email_events`)
 
-Kritik istisna: `appointment_revised` panel bildirimi KAPATILAMAZ —
-tedarikcinin fiziksel lojistigini etkileyen saat degisikligi mutlaka
-gorunur kalir. E-postalarin tamami kapatilabilir (panel her zaman kaynak
-gercektir).
+Kritik istisna: `appointment_revised` ve `appointment_dock_changed` panel
+bildirimleri KAPATILAMAZ — tedarikcinin fiziksel lojistigini etkileyen
+saat/rampa degisikligi mutlaka gorunur kalir. E-postalarin tamami
+kapatilabilir (panel her zaman kaynak gercektir).
 """
 
 from typing import Any
@@ -18,6 +18,7 @@ EMAIL_EVENT_KEYS = [
     "appointment_approved",
     "appointment_rejected",
     "appointment_revised",
+    "appointment_dock_changed",
     "appointment_cancelled",
     "appointment_revised_team",
     "appointment_series_cancelled",
@@ -25,7 +26,9 @@ EMAIL_EVENT_KEYS = [
 ]
 
 #: in_app_enabled=false olsa bile URETILEN kritik panel bildirimleri.
-CRITICAL_IN_APP_EVENTS = {"appointment_revised"}
+#: Rampa degisimi de buradadir: saat degismese bile surucunun gidecegi
+#: fiziksel yer degisir, sessizce gecistirilemez.
+CRITICAL_IN_APP_EVENTS = {"appointment_revised", "appointment_dock_changed"}
 
 DEFAULT_PREFERENCES: dict[str, Any] = {
     "in_app_enabled": True,

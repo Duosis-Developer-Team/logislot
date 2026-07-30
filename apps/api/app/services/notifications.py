@@ -302,9 +302,41 @@ async def on_lifecycle_action(
     reason: str | None = None,
     old_start: str | None = None,
     new_start: str | None = None,
+    old_dock_name: str | None = None,
+    new_dock_name: str | None = None,
 ) -> None:
-    """approve/reject/revise/complete/cancel olaylarinin bildirim + e-postalari."""
+    """approve/reject/revise/dock_change/complete/cancel bildirim + e-postalari."""
     when = await _facility_when(db, appointment)
+
+    if action == "dock_change":
+        # Urun karari: rampa degisimi REVIZE degildir — randevu onayli kalir,
+        # tedarikciden yeniden onay istenmez. Yine de gidecegi yer degistigi
+        # icin bilgilendirme sarttir (surucu yanlis rampaya gitmesin).
+        await notify_supplier(
+            db, appointment,
+            type_="appointment_dock_changed", severity="info",
+            title="Randevunuzun rampası değişti",
+            body=(
+                f"{when} randevunuz {new_dock_name} rampasına alındı"
+                + (f" (önceki: {old_dock_name})." if old_dock_name else ".")
+            ),
+            extra={
+                "old_dock_name": old_dock_name,
+                "new_dock_name": new_dock_name,
+                "note": reason,
+            },
+        )
+        # old_when/new_when alanlari sablonda "eski -> yeni" satirini besler;
+        # burada tasidiklari deger SAAT degil RAMPA adidir (saat degismiyor).
+        await _email_supplier(
+            db,
+            appointment,
+            template_key="appointment_dock_changed",
+            old_when=old_dock_name,
+            new_when=new_dock_name,
+            note=reason,
+        )
+        return
 
     if action == "approve":
         await notify_supplier(

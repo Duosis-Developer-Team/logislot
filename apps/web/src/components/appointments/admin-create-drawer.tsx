@@ -131,6 +131,38 @@ export function AdminCreateDrawer({ open, onClose, onSuccess, initial }: AdminCr
   const slots = availability.data ?? [];
   const selectedSlotData = slots.find((s) => s.start === selectedSlot) ?? null;
 
+  /**
+   * Manuel secimde listelenecek rampalar.
+   *
+   * Uyumluluk: rampanin kabul ettigi urun kategorileri (BOS liste = hepsini
+   * kabul et — backend ile ayni kural). Uyumsuz rampa listeye HIC girmez.
+   *
+   * Doluluk: secili slotun `candidate_dock_ids` degeri SUNUCUNUN karari —
+   * o aralikta gercekten musait rampalar. Uyumlu ama dolu rampa listede
+   * kalir ama secilemez; kullanici neden secemedigini gorur.
+   */
+  const eligibleDocks = useMemo(() => {
+    const all = (dockList.data ?? []).filter((d) => d.is_active);
+    const compatible = categoryId
+      ? all.filter(
+          (d) =>
+            d.accepted_product_category_ids.length === 0 ||
+            d.accepted_product_category_ids.includes(categoryId),
+        )
+      : all;
+    // Kargo akisinda tek bir aralik yoktur; doluluk slot bazli bilinemez.
+    const freeIds = selectedSlotData ? new Set(selectedSlotData.candidate_dock_ids) : null;
+    return compatible.map((d) => ({
+      ...d,
+      available: freeIds === null ? true : freeIds.has(d.id),
+    }));
+  }, [dockList.data, categoryId, selectedSlotData]);
+
+  // Kategori/slot degisince onceki secim gecersizlesebilir. State'i efektle
+  // duzeltmek yerine TURETIYORUZ: bayat bir id hicbir zaman gonderilmez.
+  const effectiveDockId =
+    dockId && eligibleDocks.some((d) => d.id === dockId && d.available) ? dockId : "";
+
   const slotLabel = (iso: string) =>
     new Date(iso).toLocaleTimeString("tr-TR", {
       hour: "2-digit",
@@ -180,7 +212,7 @@ export function AdminCreateDrawer({ open, onClose, onSuccess, initial }: AdminCr
       setFormError("Başlangıç saati seçin.");
       return;
     }
-    if (dockMode === "manual" && !dockId) {
+    if (dockMode === "manual" && !effectiveDockId) {
       setFormError("Manuel modda rampa seçin.");
       return;
     }
@@ -200,7 +232,7 @@ export function AdminCreateDrawer({ open, onClose, onSuccess, initial }: AdminCr
         start_at: isCargo ? null : selectedSlot,
         duration_minutes: isCargo ? null : effectiveDuration,
         auto_assign_dock: dockMode === "auto",
-        dock_id: dockMode === "manual" ? dockId : null,
+        dock_id: dockMode === "manual" ? effectiveDockId : null,
         note: note || null,
         recurring:
           recurringEnabled && !isCargo
@@ -487,15 +519,14 @@ export function AdminCreateDrawer({ open, onClose, onSuccess, initial }: AdminCr
                     <option value="manual">Manuel seç</option>
                   </Select>
                   {dockMode === "manual" && (
-                    <Select value={dockId} onChange={(e) => setDockId(e.target.value)}>
+                    <Select value={effectiveDockId} onChange={(e) => setDockId(e.target.value)}>
                       <option value="">— Rampa —</option>
-                      {(dockList.data ?? [])
-                        .filter((d) => d.is_active)
-                        .map((d) => (
-                          <option key={d.id} value={d.id}>
-                            {d.name}
-                          </option>
-                        ))}
+                      {eligibleDocks.map((d) => (
+                        <option key={d.id} value={d.id} disabled={!d.available}>
+                          {d.name}
+                          {d.available ? "" : " — dolu"}
+                        </option>
+                      ))}
                     </Select>
                   )}
                 </div>

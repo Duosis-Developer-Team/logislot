@@ -28,6 +28,7 @@ from app.schemas.appointment import (
     AvailabilityRequest,
     CancelRequest,
     CompleteRequest,
+    DockChangeRequest,
     RejectRequest,
     ReviseRequest,
     RevisionOut,
@@ -559,6 +560,51 @@ async def revise(
         note=body.note,
         actor_type=ActorType.tenant_user, actor_id=ctx.identity.id,
         # Hedef rampa da kullanicinin scope'unda olmali (rampa yoneticisi).
+        allowed_dock_ids=ctx.assigned_dock_ids,
+    )
+    return ok(_appointment_out(appointment))
+
+
+@router.get("/appointments/{appointment_id}/dock-options")
+async def dock_options(
+    appointment_id: uuid.UUID,
+    ctx: FacilityContext = Depends(require_facility_permissions(TenantPermission.APPT_VIEW)),
+    db: AsyncSession = Depends(get_db),
+):
+    """Bu randevunun tasinabilecegi rampalar (uyumlu olanlar + doluluk durumu).
+
+    UI listeyi buradan cizer; uyumluluk/doluluk mantigi istemciye KOPYALANMAZ.
+    """
+    _check_dock_scope(ctx, await _load(db, ctx, appointment_id))
+    return ok(
+        {
+            "options": await svc.list_dock_options(
+                db, ctx.facility_id, appointment_id,
+                allowed_dock_ids=ctx.assigned_dock_ids,
+            )
+        }
+    )
+
+
+@router.post("/appointments/{appointment_id}/dock-change")
+async def change_dock(
+    appointment_id: uuid.UUID,
+    body: DockChangeRequest | None = None,
+    ctx: FacilityContext = Depends(require_facility_permissions(TenantPermission.APPT_REVISE)),
+    db: AsyncSession = Depends(get_db),
+):
+    """Randevunun rampasini degistirir; saat/sure ve DURUM degismez.
+
+    Revize ucundan ayri tutulmasinin sebebi: saat degismedigi icin tedarikciden
+    yeniden onay istemek gereksiz. Tedarikci yalnizca bilgilendirilir.
+    Yetki olarak APPT_REVISE istenir (randevuyu degistiren bir islemdir).
+    """
+    _check_dock_scope(ctx, await _load(db, ctx, appointment_id))
+    appointment = await svc.change_appointment_dock(
+        db, ctx.facility_id, appointment_id,
+        dock_id=body.dock_id if body else None,
+        note=body.note if body else None,
+        actor_type=ActorType.tenant_user, actor_id=ctx.identity.id,
         allowed_dock_ids=ctx.assigned_dock_ids,
     )
     return ok(_appointment_out(appointment))

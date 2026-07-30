@@ -1,7 +1,7 @@
 import { router, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
 import { Alert, Text, View } from "react-native";
-import { useAppointmentActions, useAppointmentDetail } from "@/api/admin";
+import { useAppointmentActions, useAppointmentDetail, useDockOptions } from "@/api/admin";
 import { ApiError } from "@/api/client";
 import { QUANTITY_UNIT_LABELS, type QuantityUnit } from "@/api/shared";
 import { useSession } from "@/auth/session";
@@ -19,7 +19,7 @@ import { addDaysISO, dayLabel, formatDate, isoFromWallClock, timeInTz, todayISO 
 
 const DURATIONS = [30, 45, 60, 90, 120, 150, 180, 240];
 
-type ActionKind = "reject" | "complete" | "cancel" | "revise" | null;
+type ActionKind = "reject" | "complete" | "cancel" | "revise" | "dock-change" | null;
 
 export default function AdminAppointmentDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -39,6 +39,13 @@ export default function AdminAppointmentDetail() {
   const [reviseTime, setReviseTime] = useState("09:00");
   const [reviseDuration, setReviseDuration] = useState(60);
 
+  // Rampa degisimi (saat degismez) — secenekler yalnizca form acikken cekilir.
+  const [dockTarget, setDockTarget] = useState<string>("auto");
+  const dockOptions = useDockOptions(
+    activeFacilityId,
+    openForm === "dock-change" ? (id ?? null) : null,
+  );
+
   if (detail.isLoading) return <Screen scroll={false}><LoadingState /></Screen>;
   if (detail.isError || !detail.data)
     return (
@@ -54,7 +61,8 @@ export default function AdminAppointmentDetail() {
     actions.reject.isPending ||
     actions.complete.isPending ||
     actions.cancel.isPending ||
-    actions.revise.isPending;
+    actions.revise.isPending ||
+    actions.changeDock.isPending;
 
   async function run(fn: () => Promise<unknown>, successMessage: string) {
     setActionError(null);
@@ -167,6 +175,21 @@ export default function AdminAppointmentDetail() {
             <View style={{ flexDirection: "row", gap: spacing.sm }}>
               {allowed.revise && (
                 <Button title="Revize Et" variant="secondary" onPress={openRevise} style={{ flex: 1 }} />
+              )}
+              {/* Revizeyle ayni yetki, ayri aksiyon: saat degismedigi icin
+                  randevu durumu korunur. */}
+              {allowed.revise && (
+                <Button
+                  title="Rampa Değiştir"
+                  variant="secondary"
+                  onPress={() => {
+                    setActionError(null);
+                    setDockTarget("auto");
+                    setNote("");
+                    setOpenForm("dock-change");
+                  }}
+                  style={{ flex: 1 }}
+                />
               )}
               {allowed.complete && (
                 <Button
@@ -282,6 +305,70 @@ export default function AdminAppointmentDetail() {
               value={reason}
               onChangeText={setReason}
               placeholder="Örn. Operasyon iptali"
+            />
+          </ActionForm>
+        )}
+
+        {openForm === "dock-change" && (
+          <ActionForm
+            title="Rampa değiştir"
+            error={actionError}
+            onCancel={() => setOpenForm(null)}
+            confirmTitle="Rampayı Değiştir"
+            busy={isBusy}
+            onConfirm={() =>
+              void run(
+                () =>
+                  actions.changeDock.mutateAsync({
+                    id: a.id,
+                    dock_id: dockTarget === "auto" ? null : dockTarget,
+                    note: note || null,
+                  }),
+                "Rampa değiştirildi; tedarikçi bilgilendirildi.",
+              )
+            }
+          >
+            <Text style={{ color: colors.mutedText, fontSize: 13 }}>
+              Saat ve süre değişmez, randevu durumu korunur. Tedarikçiden yeniden
+              onay istenmez; yalnızca yeni rampa bildirilir.
+            </Text>
+            <View style={{ gap: 8 }}>
+              <Text style={{ color: colors.text, fontSize: 14, fontWeight: "500" }}>Rampa</Text>
+              {dockOptions.isLoading ? (
+                <Text style={{ color: colors.faintText, fontSize: 12 }}>
+                  Uygun rampalar yükleniyor…
+                </Text>
+              ) : (
+                <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
+                  <Chip
+                    label="Otomatik ata"
+                    selected={dockTarget === "auto"}
+                    onPress={() => setDockTarget("auto")}
+                  />
+                  {(dockOptions.data?.options ?? []).map((o) => (
+                    <Chip
+                      key={o.dock_id}
+                      label={
+                        o.name +
+                        (o.is_current ? " (mevcut)" : "") +
+                        (o.available ? "" : " · dolu")
+                      }
+                      selected={dockTarget === o.dock_id}
+                      onPress={() => o.available && setDockTarget(o.dock_id)}
+                    />
+                  ))}
+                </View>
+              )}
+              <Text style={{ color: colors.faintText, fontSize: 11 }}>
+                Yalnızca bu randevunun ürün/araç kategorisiyle uyumlu rampalar
+                listelenir; o saatte dolu olanlar seçilemez.
+              </Text>
+            </View>
+            <Field
+              label="Not (opsiyonel)"
+              value={note}
+              onChangeText={setNote}
+              placeholder="Tedarikçiye iletilir"
             />
           </ActionForm>
         )}
