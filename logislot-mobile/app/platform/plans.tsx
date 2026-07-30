@@ -4,7 +4,8 @@
 import { useState } from "react";
 import { Alert, FlatList, RefreshControl, Text, View } from "react-native";
 import { ApiError } from "@/api/client";
-import { usePlanMutations, usePlatformPlans } from "@/api/platform";
+import { usePlanLimitDimensions,
+  usePlanMutations, usePlatformPlans } from "@/api/platform";
 import type { PlanDto } from "@/api/types";
 import { MultiSelectChips } from "@/components/config";
 import {
@@ -27,7 +28,6 @@ const DIMENSIONS = [
   "active_docks",
   "active_suppliers",
   "active_users",
-  "active_facilities",
 ];
 
 const BILLING_UNITS = ["fixed", "per_appointment", "per_active_dock", "per_facility", "hybrid"];
@@ -37,6 +37,7 @@ export default function PlatformPlans() {
   const { colors } = useTheme();
   const plans = usePlatformPlans();
   const mutations = usePlanMutations();
+  const limitDimensions = usePlanLimitDimensions();
 
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<PlanDto | null>(null);
@@ -46,6 +47,8 @@ export default function PlatformPlans() {
   const [status, setStatus] = useState("draft");
   const [dimensions, setDimensions] = useState<string[]>([]);
   const [rateCardText, setRateCardText] = useState("[]");
+  // Dinamik kotalar: bos string = sinirsiz. Anahtarlar backend katalogundan gelir.
+  const [limits, setLimits] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string | null>(null);
 
   const statusColor = (s: string) =>
@@ -62,6 +65,7 @@ export default function PlatformPlans() {
     setBillingUnit("fixed");
     setStatus("draft");
     setDimensions([...DIMENSIONS.slice(0, 2)]);
+    setLimits({});
     setRateCardText(
       JSON.stringify(
         [
@@ -88,6 +92,11 @@ export default function PlatformPlans() {
     setStatus(plan.status);
     setDimensions(plan.measurable_dimensions_json ?? []);
     setRateCardText(JSON.stringify(plan.rate_card_json ?? [], null, 2));
+    setLimits(
+      Object.fromEntries(
+        Object.entries(plan.limits_json ?? {}).map(([k, v]) => [k, String(v)]),
+      ),
+    );
     setFormError(null);
     setOpen(true);
   }
@@ -112,6 +121,13 @@ export default function PlatformPlans() {
           status,
           measurable_dimensions_json: dimensions,
           rate_card_json: rateCard,
+          // Bos birakilan / 0 girilen boyut = sinirsiz; backend ayni
+          // normalizasyonu uygular (app/core/plan_limits.py).
+          limits_json: Object.fromEntries(
+            Object.entries(limits)
+              .map(([key, raw]) => [key, Number.parseInt(raw, 10)] as const)
+              .filter(([, value]) => Number.isFinite(value) && value > 0),
+          ),
         },
       });
       setOpen(false);
@@ -279,6 +295,39 @@ export default function PlatformPlans() {
               onChange={setDimensions}
             />
           </View>
+          <Card style={{ gap: spacing.sm }}>
+            <View style={{ flexDirection: "row", justifyContent: "space-between", gap: 8 }}>
+              <Text style={{ color: colors.text, fontSize: 14, fontWeight: "600" }}>
+                Plan Limitleri
+              </Text>
+              <Text style={{ color: colors.faintText, fontSize: 12 }}>
+                Boş bırakılan = sınırsız
+              </Text>
+            </View>
+            <Text style={{ color: colors.mutedText, fontSize: 12 }}>
+              Rakamlar sabit değildir; her sınırı istediğiniz zaman buradan
+              değiştirebilirsiniz.
+            </Text>
+            {(limitDimensions.data?.dimensions ?? []).map((dim) => {
+              const raw = limits[dim.key] ?? "";
+              const unlimited = raw.trim() === "" || Number.parseInt(raw, 10) <= 0;
+              return (
+                <View key={dim.key} style={{ gap: 4 }}>
+                  <Field
+                    label={dim.label}
+                    value={raw}
+                    onChangeText={(t) => setLimits((prev) => ({ ...prev, [dim.key]: t }))}
+                    placeholder="Sınırsız"
+                    keyboardType="number-pad"
+                  />
+                  <Text style={{ color: colors.faintText, fontSize: 12 }}>
+                    {unlimited ? "Sınırsız" : `${raw} ${dim.unit}`}
+                    {dim.enforced_at === "assignment" ? " · atamada engellenir" : ""}
+                  </Text>
+                </View>
+              );
+            })}
+          </Card>
           <View style={{ gap: 6 }}>
             <Text style={{ color: colors.text, fontSize: 14, fontWeight: "500" }}>
               Rate Card (JSON)
