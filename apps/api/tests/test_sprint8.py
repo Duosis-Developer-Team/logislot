@@ -758,6 +758,65 @@ async def test_plan_limits_are_dynamic_and_enforced(client, seeded):
     assert retry.status_code == 200, retry.text
 
 
+async def test_plan_limit_cannot_be_bypassed_via_tenant_patch(client, seeded):
+    """Kota, PATCH /platform/tenants ile de asilamaz.
+
+    assigned_plan_id iki uctan da yazilabiliyor; ozel atama ucu korunup PATCH
+    korunmasaydi limit yalnizca gorunuste calisirdi.
+    """
+    headers = await platform(client)
+    created = await client.post(
+        "/platform/plans",
+        headers=headers,
+        json={
+            "name": "Patch Kota Plani",
+            "status": "active",
+            "limits_json": {"max_tenants": 1},
+        },
+    )
+    plan_id = created.json()["data"]["id"]
+
+    first = await client.post(
+        "/platform/tenants", headers=headers,
+        json={"commercial_name": "Patch Bir", "display_name": "Patch Bir", "slug": "patch-bir"},
+    )
+    second = await client.post(
+        "/platform/tenants", headers=headers,
+        json={"commercial_name": "Patch Iki", "display_name": "Patch Iki", "slug": "patch-iki"},
+    )
+    assigned = await client.patch(
+        f"/platform/tenants/{first.json()['data']['id']}",
+        headers=headers, json={"assigned_plan_id": plan_id},
+    )
+    assert assigned.status_code == 200, assigned.text
+
+    blocked = await client.patch(
+        f"/platform/tenants/{second.json()['data']['id']}",
+        headers=headers, json={"assigned_plan_id": plan_id},
+    )
+    assert blocked.status_code == 409
+    assert blocked.json()["error"]["code"] == "PLAN_TENANT_LIMIT_REACHED"
+
+
+async def test_tenant_patch_rejects_non_assignable_plan(client, seeded):
+    """Taslak/emekli plan PATCH uzerinden de atanamaz (atama ucuyla ayni kural)."""
+    headers = await platform(client)
+    draft = await client.post(
+        "/platform/plans", headers=headers,
+        json={"name": "Taslak Plan", "status": "draft"},
+    )
+    tenant = await client.post(
+        "/platform/tenants", headers=headers,
+        json={"commercial_name": "Taslak AS", "display_name": "Taslak AS", "slug": "taslak-as"},
+    )
+    response = await client.patch(
+        f"/platform/tenants/{tenant.json()['data']['id']}",
+        headers=headers, json={"assigned_plan_id": draft.json()["data"]["id"]},
+    )
+    assert response.status_code == 409
+    assert response.json()["error"]["code"] == "PLAN_NOT_ASSIGNABLE"
+
+
 async def test_plan_limit_dimensions_catalog(client, seeded):
     """UI limit editorunu dinamik kurar; katalog uctan gelir."""
     headers = await platform(client)

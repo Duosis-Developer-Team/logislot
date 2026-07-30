@@ -284,6 +284,14 @@ async def patch_tenant(
         raise NotFoundError("Tenant bulunamadi")
     changes = body.model_dump(exclude_unset=True)
     address = changes.pop("address", None) if "address" in changes else _UNSET
+
+    # Plan bu uctan da degistirilebiliyor; ozel atama ucuyla AYNI kurallardan
+    # gecmeli. Aksi halde hem "yalnizca aktif plan atanir" hem de max_tenants
+    # kotasi PATCH ile sessizce asilir.
+    if changes.get("assigned_plan_id") is not None:
+        plan = await _get_assignable_plan(db, changes["assigned_plan_id"])
+        await _assert_tenant_quota(db, plan, tenant_id)
+
     for key, value in changes.items():
         setattr(tenant, key, value)
 
