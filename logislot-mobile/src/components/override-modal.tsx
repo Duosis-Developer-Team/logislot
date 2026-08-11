@@ -12,7 +12,7 @@ import { ApiError } from "@/api/client";
 import { dockOverrides, docks } from "@/api/resources";
 import type { OverrideDto, OverrideType } from "@/api/types";
 import { useSession } from "@/auth/session";
-import { MultiSelectChips } from "@/components/config";
+import { MultiSelectField } from "@/components/config";
 import { AppModal, Button, Chip, Field } from "@/components/ui";
 import { useTheme } from "@/theme/theme";
 import { spacing } from "@/theme/tokens";
@@ -168,29 +168,15 @@ function OverrideForm({
           </Text>
         ) : (
           <>
-            <MultiSelectChips
+            {/* Toplu seç/temizle artık MultiSelectField başlığında; ayrı buton
+                kaldırıldı (aynı işlev için iki kontrol olmasın). */}
+            <MultiSelectField
               options={options}
               value={selected}
               onChange={setDockIds}
+              searchPlaceholder="Rampa ara…"
               emptyHint="İstisnanın uygulanacağı rampaları seçin."
             />
-            {options.length > 1 && (
-              <View style={{ flexDirection: "row" }}>
-                <Chip
-                  label={
-                    selected.length === options.length
-                      ? "Seçimi temizle"
-                      : `Tümünü seç (${options.length} rampa)`
-                  }
-                  selected={false}
-                  onPress={() =>
-                    setDockIds(
-                      selected.length === options.length ? [] : options.map((o) => o.value),
-                    )
-                  }
-                />
-              </View>
-            )}
             {takenNames.length > 0 && (
               <Text style={{ color: colors.faintText, fontSize: 12 }}>
                 Bu tarihte zaten istisnası olan rampalar listede yok: {takenNames.join(", ")}.

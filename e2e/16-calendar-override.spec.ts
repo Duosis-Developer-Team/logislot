@@ -71,10 +71,10 @@ test("takvimden acilan istisna modali secilen gunu ve coklu rampayi kaydeder", a
   // Gun on-secili gelmeli
   await expect(drawer.locator('input[type="date"]')).toHaveValue(day);
 
-  // Coklu rampa secimi: ilk iki rampa
+  // Coklu rampa secimi: ilk iki rampa (aranabilir liste; satirlar checkbox)
   const [first, second] = docks;
-  await drawer.getByRole("button", { name: first.name, exact: true }).click();
-  await drawer.getByRole("button", { name: second.name, exact: true }).click();
+  await drawer.getByRole("checkbox", { name: first.name, exact: true }).click();
+  await drawer.getByRole("checkbox", { name: second.name, exact: true }).click();
   await drawer.getByRole("button", { name: "Kaydet" }).click();
   await expect(drawer).toBeHidden();
 

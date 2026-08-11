@@ -2,7 +2,7 @@
 
 import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { MultiSelectChips } from "@/components/config/multi-select";
+import { MultiSelectField } from "@/components/config/multi-select";
 import { Button } from "@/components/ui/button";
 import { Drawer } from "@/components/ui/drawer";
 import { Input, Label, Select } from "@/components/ui/input";
@@ -167,27 +167,15 @@ function OverrideForm({
           </p>
         ) : (
           <>
-            <MultiSelectChips
+            {/* Toplu sec/temizle artik MultiSelectField basliginda; ayri buton
+                kaldirildi (ayni islev icin iki kontrol olmasin). */}
+            <MultiSelectField
               options={options}
               value={selected}
               onChange={setDockIds}
+              searchPlaceholder="Rampa ara…"
               emptyHint="İstisnanın uygulanacağı rampaları seçin."
             />
-            {options.length > 1 && (
-              <button
-                type="button"
-                className="mt-2 text-xs text-primary underline"
-                onClick={() =>
-                  setDockIds(
-                    selected.length === options.length ? [] : options.map((o) => o.value),
-                  )
-                }
-              >
-                {selected.length === options.length
-                  ? "Seçimi temizle"
-                  : `Tümünü seç (${options.length} rampa)`}
-              </button>
-            )}
             {takenNames.length > 0 && (
               <p className="mt-2 text-xs text-muted-foreground">
                 Bu tarihte zaten istisnası olan rampalar listede yok: {takenNames.join(", ")}.
