@@ -553,13 +553,113 @@ async def test_notification_preferences_endpoints(client, seeded):
     assert (await client.get("/auth/notification-preferences", headers=p)).status_code == 403
 
 
-async def test_supplier_email_preference_disables_email(client, seeded):
-    # Tedarikci e-postayi kapatir
+async def test_tenant_prefs_ignore_supplier_event_keys(client, seeded):
+    """Eski/onbellekli istemci tedarikci anahtarlarini gonderse de saklanmaz.
+
+    Bu anahtarlar artik tesis politikasina aittir; 422 vermek eski web
+    surumunun kaydet butonunu kirardi, bu yuzden sessizce dusurulur.
+    """
+    headers = await admin(client)
+    response = await client.patch(
+        "/auth/notification-preferences",
+        headers=headers,
+        json={
+            "email_events": {
+                "appointment_revised_team": False,
+                "appointment_approved": False,  # tedarikci anahtari
+            }
+        },
+    )
+    assert response.status_code == 200
+    events = response.json()["data"]["email_events"]
+    assert events == {"appointment_revised_team": False}
+
+
+async def test_supplier_cannot_read_or_write_own_preferences(client, seeded):
+    """Tedarikci kendi tercihini ne gorur ne degistirir (yonetim belirler)."""
+    supplier = auth_headers(
+        await login(client, "/auth/supplier-login", "tedarikci@marmarasoguk.com")
+    )
+    assert (
+        await client.get("/auth/notification-preferences", headers=supplier)
+    ).status_code == 403
+    assert (
+        await client.patch(
+            "/auth/notification-preferences",
+            headers=supplier,
+            json={"email_enabled": False},
+        )
+    ).status_code == 403
+
+
+async def test_supplier_notification_policy_endpoints(client, seeded):
+    headers = await admin(client)
+    fid = seeded["facility"].id
+    url = f"/facilities/{fid}/supplier-notification-policy"
+
+    response = await client.get(url, headers=headers)
+    assert response.status_code == 200
+    policy = response.json()["data"]
+    assert policy["in_app_enabled"] is True
+    assert policy["email_events"]["appointment_approved"] is True
+    assert policy["is_customized"] is False
+    # Ekip sablonu tedarikci politikasinda YER ALMAZ
+    assert "appointment_revised_team" not in policy["email_events"]
+
+    response = await client.patch(
+        url,
+        headers=headers,
+        json={"email_events": {"appointment_approved": False}},
+    )
+    assert response.status_code == 200
+    data = response.json()["data"]
+    assert data["email_events"]["appointment_approved"] is False
+    assert data["email_events"]["appointment_rejected"] is True
+    assert data["is_customized"] is True
+
+    # Bilinmeyen / tenant'a ait anahtar reddedilir
+    for bad_key in ("platform.hack", "appointment_revised_team"):
+        response = await client.patch(
+            url, headers=headers, json={"email_events": {bad_key: True}}
+        )
+        assert response.status_code == 422, bad_key
+        assert response.json()["error"]["code"] == "INVALID_PREFERENCE_EVENT"
+
+    # Degisiklik denetim izine dusmeli
+    logs = (
+        await client.get(
+            f"/facilities/{fid}/audit-logs?action=supplier_notification_policy.update",
+            headers=headers,
+        )
+    ).json()["data"]["items"]
+    assert logs, "politika degisikligi audit'e yazilmali"
+
+
+async def test_supplier_cannot_reach_notification_policy(client, seeded):
+    """Politika ucu tedarikciye ve platform kullanicisina kapalidir."""
+    fid = seeded["facility"].id
+    url = f"/facilities/{fid}/supplier-notification-policy"
+    supplier = auth_headers(
+        await login(client, "/auth/supplier-login", "tedarikci@marmarasoguk.com")
+    )
+    assert (await client.get(url, headers=supplier)).status_code == 403
+    assert (
+        await client.patch(url, headers=supplier, json={"email_enabled": False})
+    ).status_code == 403
+
+    p = await platform(client)
+    assert (await client.get(url, headers=p)).status_code == 403
+
+
+async def test_supplier_email_policy_disables_email(client, seeded):
+    # YONETIM tedarikci e-postalarini kapatir
     supplier = auth_headers(
         await login(client, "/auth/supplier-login", "tedarikci@marmarasoguk.com")
     )
     response = await client.patch(
-        "/auth/notification-preferences", headers=supplier, json={"email_enabled": False}
+        f"/facilities/{seeded['facility'].id}/supplier-notification-policy",
+        headers=await admin(client),
+        json={"email_enabled": False},
     )
     assert response.status_code == 200
 
@@ -601,12 +701,14 @@ async def test_supplier_email_preference_disables_email(client, seeded):
     assert len(approved) == 1  # panel bildirimi calisir
 
 
-async def test_supplier_in_app_preference_and_critical_exception(client, seeded):
+async def test_supplier_in_app_policy_and_critical_exception(client, seeded):
     supplier = auth_headers(
         await login(client, "/auth/supplier-login", "tedarikci@marmarasoguk.com")
     )
     response = await client.patch(
-        "/auth/notification-preferences", headers=supplier, json={"in_app_enabled": False}
+        f"/facilities/{seeded['facility'].id}/supplier-notification-policy",
+        headers=await admin(client),
+        json={"in_app_enabled": False},
     )
     assert response.status_code == 200
 
@@ -649,6 +751,45 @@ async def test_supplier_in_app_preference_and_critical_exception(client, seeded)
     assert any(
         n["metadata_json"].get("appointment_id") == appointment_id
         and n["type"] == "appointment_revised"
+        for n in notes
+    )
+
+
+async def test_series_emails_respect_supplier_policy(client, seeded):
+    """Seri e-postalari da politikaya uyar (once HICBIR kontrol yoktu)."""
+    series = await _series(client, seeded)
+    headers = await admin(client)
+    fid = seeded["facility"].id
+
+    response = await client.patch(
+        f"/facilities/{fid}/supplier-notification-policy",
+        headers=headers,
+        json={"email_events": {"appointment_series_cancelled": False}},
+    )
+    assert response.status_code == 200
+
+    response = await client.post(
+        f"/facilities/{fid}/appointment-series/{series['series_id']}/cancel",
+        headers=headers,
+        json={"scope": "future_only", "reason": "Politika testi"},
+    )
+    assert response.status_code == 200, response.text
+
+    logs = (
+        await client.get(f"/facilities/{fid}/email-logs?limit=200", headers=headers)
+    ).json()["data"]["items"]
+    assert not [
+        log for log in logs if log["template_key"] == "appointment_series_cancelled"
+    ]
+
+    # Panel bildirimi politikadan bagimsiz degil ama acik: tedarikci haberdar olur
+    supplier = auth_headers(
+        await login(client, "/auth/supplier-login", "tedarikci@anadoluun.com")
+    )
+    notes = (await client.get("/supplier/notifications", headers=supplier)).json()["data"]
+    assert any(
+        n["type"] == "appointment_cancelled"
+        and n["metadata_json"].get("series_id") == series["series_id"]
         for n in notes
     )
 

@@ -70,7 +70,6 @@ async def seed_data(db) -> dict:
         "active_docks",
         "active_suppliers",
         "active_users",
-        "active_facilities",
     ]
     plan_starter = Plan(
         name="Starter",
@@ -85,6 +84,14 @@ async def seed_data(db) -> dict:
                 "overage_rule": "per_unit",
             }
         ],
+        # Dinamik kotalar (platform panelinden degistirilebilir).
+        limits_json={
+            "max_tenants": 300,
+            "monthly_appointments": 100,
+            "max_docks": 3,
+            "max_suppliers": 10,
+            "max_users": 5,
+        },
         status=PlanStatus.active,
     )
     plan = Plan(  # Professional — BTA'ya atanir
@@ -92,6 +99,13 @@ async def seed_data(db) -> dict:
         scope=PlanScope.tenant,
         billing_unit_label="per_appointment",
         measurable_dimensions_json=dimensions,
+        limits_json={
+            "max_tenants": 500,
+            "monthly_appointments": 500,
+            "max_docks": 10,
+            "max_suppliers": 50,
+            "max_users": 25,
+        },
         rate_card_json=[
             {
                 "dimension": "appointments_created",
@@ -293,19 +307,20 @@ async def seed_data(db) -> dict:
         company_name="Anadolu Un A.S.", code="SUP-001",
         category_label="Hammadde",
         contact_name="Ali Kaya", contact_email="tedarik@anadoluun.example.com",
-        auto_approval_enabled=True,
+        auto_approval_enabled=False,
         min_block_minutes=30, max_block_minutes=120, weekly_quota=10,
         allowed_product_categories=[pc_unlu, pc_genel],
-        notes="Uzun sureli anlasmali hammadde tedarikcisi; otomatik onayli.",
+        notes="Uzun sureli anlasmali hammadde tedarikcisi; talepler yonetim onayina duser.",
     )
     sup_soguk = Supplier(
         tenant_id=tenant.id, facility_id=facility.id,
         company_name="Marmara Soguk Zincir Ltd.", code="SUP-002",
         category_label="Soguk Zincir",
         contact_name="Ayse Demir", contact_email="ops@marmarasoguk.example.com",
-        auto_approval_enabled=False,
+        auto_approval_enabled=True,
         min_block_minutes=60, max_block_minutes=180, weekly_quota=5,
         allowed_product_categories=[pc_soguk],
+        notes="Anlasmali sogutmali tasima; otomatik onay ozelligi bu hesapta ornekli.",
     )
     sup_kargo = Supplier(
         tenant_id=tenant.id, facility_id=facility.id,
@@ -639,8 +654,8 @@ async def seed() -> None:
         print(f"  Tenant   : admin@cakesbakes.com / {DEMO_PASSWORD}")
         print(f"             rampa@cakesbakes.com / {DEMO_PASSWORD}")
         print(f"             izleyici@cakesbakes.com / {DEMO_PASSWORD}")
-        print(f"  Supplier : tedarikci@anadoluun.com / {DEMO_PASSWORD} (otomatik onayli)")
-        print(f"             tedarikci@marmarasoguk.com / {DEMO_PASSWORD} (manuel onay)")
+        print(f"  Supplier : tedarikci@anadoluun.com / {DEMO_PASSWORD} (manuel onay)")
+        print(f"             tedarikci@marmarasoguk.com / {DEMO_PASSWORD} (otomatik onayli)")
         print(f"             tedarikci@hizlikargo.com / {DEMO_PASSWORD}")
 
 

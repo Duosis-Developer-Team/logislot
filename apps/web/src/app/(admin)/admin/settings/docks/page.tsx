@@ -299,7 +299,7 @@ export default function DocksPage() {
               <WorkingHoursEditor value={hours} onChange={setHours} />
             ) : (
               <p className="text-xs text-muted-foreground">
-                Tesisin varsayılan çalışma profili uygulanır.
+                Varsayılan çalışma profili uygulanır.
               </p>
             )}
           </div>

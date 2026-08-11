@@ -19,7 +19,7 @@ test("tedarikçi seri bölümü mobil görünümde çalışır", async ({ page, 
       quantity: 1,
       target_date: day,
       start_at: `${day}T15:00:00+03:00`,
-      duration_minutes: 45,
+      duration_minutes: 60, // supplierAuto (Marmara) kategorisi min 60 dk
       recurring: { frequency: "weekly", occurrence_count: 2 },
     },
   });
@@ -34,10 +34,9 @@ test("tedarikçi seri bölümü mobil görünümde çalışır", async ({ page, 
   }
 
   try {
-    await page.goto("/login");
-    await page.getByRole("button", { name: "Tedarikçi Portalı" }).first().click();
+    await page.goto("/login/supplier");
     await page.getByLabel("E-posta").fill(ACCOUNTS.supplierAuto);
-    await page.getByLabel("Parola").fill("Demo123!");
+    await page.getByLabel("Parola", { exact: true }).fill("Demo123!");
     await page.getByRole("button", { name: /Giriş$/ }).click();
     await expect(page).toHaveURL(/\/supplier\/appointments/);
 

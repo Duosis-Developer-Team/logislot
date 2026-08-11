@@ -74,7 +74,9 @@ class SupplierUser(Base, UUIDPkMixin, TimestampMixin):
         sa.Boolean, default=False, server_default=sa.false()
     )
     password_changed_at: Mapped[datetime | None] = mapped_column(sa.DateTime(timezone=True))
-    # Bildirim tercihleri (Sprint 10): None = tum varsayilanlar acik.
+    # DEPRECATED (2026-08): tedarikci bildirim tercihi artik TESIS politikasidir
+    # (facilities.supplier_notification_policy_json) ve yalnizca yonetim belirler.
+    # Kolon OKUNMAZ/YAZILMAZ; canli veriyi kaybetmemek icin drop edilmedi.
     notification_preferences_json: Mapped[dict | None] = mapped_column(JsonVariant)
     status: Mapped[UserStatus] = mapped_column(str_enum(UserStatus), default=UserStatus.active)
 

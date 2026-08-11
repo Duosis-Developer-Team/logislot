@@ -19,6 +19,12 @@ class Plan(Base, UUIDPkMixin, TimestampMixin):
     billing_unit_label: Mapped[str] = mapped_column(sa.String(50), default="fixed")
     measurable_dimensions_json: Mapped[list[Any] | None] = mapped_column(JsonVariant)
     rate_card_json: Mapped[list[Any] | None] = mapped_column(JsonVariant)
+    #: Dinamik plan limitleri — sabit kolon degil, key->sayi haritasi:
+    #: {"max_tenants": 300, "monthly_appointments": 5000, ...}
+    #: Deger yoksa veya null ise o boyut SINIRSIZ sayilir. Boyut listesi
+    #: app/core/plan_limits.py'de tanimlidir; yeni limit eklemek icin
+    #: migration GEREKMEZ (bu yuzden JSON secildi).
+    limits_json: Mapped[dict[str, Any] | None] = mapped_column(JsonVariant)
     valid_from: Mapped[date | None] = mapped_column(sa.Date)
     valid_until: Mapped[date | None] = mapped_column(sa.Date)
     status: Mapped[PlanStatus] = mapped_column(str_enum(PlanStatus), default=PlanStatus.draft)
@@ -53,10 +59,24 @@ class Tenant(Base, UUIDPkMixin, TimestampMixin):
 
 
 class Facility(Base, UUIDPkMixin, TimestampMixin):
-    """Fiziksel mal kabul lokasyonu. Tum operasyonel konfigurasyonun kapsamidir."""
+    """Musterinin operasyonel kapsami — TENANT ILE 1-1.
+
+    Urun karari (2026-07): "1 tenant = 1 tesis". Tenant, kimlik/faturalama
+    sarmalayicisi; Facility ise ayni musterinin operasyonel kapsamidir
+    (rampalar, kategoriler, randevular, uyelikler hep buna baglidir).
+    Kullanici arayuzunde AYRI bir "tesis" kavrami YOKTUR: tenant olusturulunca
+    tesisi de otomatik acilir ve ad/saat dilimi/durum senkron tutulur.
+
+    Tablo korunur cunku tum operasyonel FK zinciri (38 dosya) buna bagli;
+    tenant_id UNIQUE ile 1-1 kisiti veritabani seviyesinde zorlanir.
+    """
 
     __tablename__ = "facilities"
-    __table_args__ = (sa.UniqueConstraint("tenant_id", "name"),)
+    __table_args__ = (
+        sa.UniqueConstraint("tenant_id", "name"),
+        # 1 tenant = 1 tesis (urun karari)
+        sa.UniqueConstraint("tenant_id", name="uq_facilities_tenant_single"),
+    )
 
     tenant_id: Mapped[uuid.UUID] = mapped_column(
         sa.Uuid, sa.ForeignKey("tenants.id", ondelete="CASCADE"), index=True
@@ -77,6 +97,13 @@ class Facility(Base, UUIDPkMixin, TimestampMixin):
         sa.Uuid, sa.ForeignKey("plans.id", ondelete="SET NULL")
     )
     branding_json: Mapped[dict[str, Any] | None] = mapped_column(JsonVariant)
+    # Tedarikcilere gidecek bildirim/e-posta politikasi — YONETIM belirler,
+    # tedarikci goremez/degistiremez. None = tum varsayilanlar acik.
+    # Sekil: {"in_app_enabled": bool, "email_enabled": bool,
+    #         "email_events": {<supplier event key>: bool}}
+    supplier_notification_policy_json: Mapped[dict[str, Any] | None] = mapped_column(
+        JsonVariant
+    )
 
     tenant: Mapped[Tenant] = relationship(back_populates="facilities")
     plan_override: Mapped[Plan | None] = relationship()

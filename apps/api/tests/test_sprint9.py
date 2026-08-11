@@ -326,25 +326,18 @@ async def test_password_policy_production_blocks_common(client, seeded, monkeypa
 
 async def test_first_admin_onboarding_flow(client, seeded):
     headers = await platform(client)
+    # tenant=tesis: hesap, kapsami ve ilk yoneticisi TEK istekte acilir.
     response = await client.post(
         "/platform/tenants", headers=headers,
         json={"commercial_name": "Onboard A.S.", "display_name": "Onboard",
-              "slug": "onboard"},
-    )
-    tenant_id = response.json()["data"]["id"]
-
-    response = await client.post(
-        f"/platform/tenants/{tenant_id}/facilities",
-        headers=headers,
-        json={
-            "name": "Onboard Tesisi",
-            "bootstrap_defaults": True,
-            "initial_admin": {"name": "Onboard Yonetici", "email": "yonetici@onboard.com"},
-        },
+              "slug": "onboard", "bootstrap_defaults": True,
+              "initial_admin": {"name": "Onboard Yonetici",
+                                "email": "yonetici@onboard.com"}},
     )
     assert response.status_code == 200, response.text
     data = response.json()["data"]
-    fid = data["id"]
+    tenant_id = data["id"]
+    fid = data["facility_id"]
     initial = data["initial_admin"]
     # Gecici parola verilmedi -> guclu random uretildi; yanitta BIR kez doner
     assert len(initial["temporary_password"]) >= 12
@@ -387,18 +380,20 @@ async def test_first_admin_onboarding_flow(client, seeded):
 
 async def test_first_admin_duplicate_email_rolls_back(client, seeded):
     headers = await platform(client)
-    tenant_id = str(seeded["tenant"].id)
     response = await client.post(
-        f"/platform/tenants/{tenant_id}/facilities",
+        "/platform/tenants",
         headers=headers,
         json={
-            "name": "Cakisan Tesis",
+            "commercial_name": "Cakisan A.S.", "display_name": "Cakisan Tesis",
+            "slug": "cakisan-tesis",
             "initial_admin": {"name": "Kopya", "email": "admin@cakesbakes.com"},
         },
     )
     assert response.status_code == 409
     assert response.json()["error"]["code"] == "DUPLICATE_EMAIL"
-    # ALL-OR-NOTHING: tesis de olusmadi
+    # ALL-OR-NOTHING: tenant da tesis de olusmadi
+    tenants = (await client.get("/platform/tenants", headers=headers)).json()["data"]
+    assert all(t["slug"] != "cakisan-tesis" for t in tenants)
     facilities = (await client.get("/platform/facilities", headers=headers)).json()["data"]
     assert all(f["name"] != "Cakisan Tesis" for f in facilities)
 
@@ -408,14 +403,8 @@ async def test_first_admin_without_bootstrap_gets_sysadmin_role(client, seeded):
     headers = await platform(client)
     response = await client.post(
         "/platform/tenants", headers=headers,
-        json={"commercial_name": "Rolsuz A.S.", "display_name": "Rolsuz", "slug": "rolsuz"},
-    )
-    tenant_id = response.json()["data"]["id"]
-    response = await client.post(
-        f"/platform/tenants/{tenant_id}/facilities",
-        headers=headers,
         json={
-            "name": "Rolsuz Tesis",
+            "commercial_name": "Rolsuz A.S.", "display_name": "Rolsuz", "slug": "rolsuz",
             "bootstrap_defaults": False,
             "initial_admin": {
                 "name": "Tek Yonetici", "email": "tek@rolsuz.com",
@@ -424,7 +413,7 @@ async def test_first_admin_without_bootstrap_gets_sysadmin_role(client, seeded):
         },
     )
     assert response.status_code == 200, response.text
-    fid = response.json()["data"]["id"]
+    fid = response.json()["data"]["facility_id"]
 
     login_response = await client.post(
         "/auth/login", json={"email": "tek@rolsuz.com", "password": "RolsuzGecici1!"}

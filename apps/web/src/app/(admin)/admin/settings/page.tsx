@@ -1,16 +1,17 @@
 "use client";
 
 import {
+  BellRing,
   Boxes,
   CalendarOff,
   GitFork,
   Handshake,
-  Palette,
   Truck,
   Users2,
   Warehouse,
   MailWarning,
   ScrollText,
+  type LucideIcon,
 } from "lucide-react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
@@ -85,19 +86,19 @@ export default function SettingsPage() {
       permission: "supplier.manage",
     },
     {
+      icon: BellRing,
+      title: "Tedarikçi Bildirimleri",
+      description: "Tedarikçilere hangi panel/e-posta bildirimlerinin gideceği",
+      stat: "Politika",
+      href: "/admin/settings/supplier-notifications",
+      permission: "supplier.manage",
+    },
+    {
       icon: Users2,
       title: "Kullanıcılar & Roller",
       description: "RBAC görünümü — rol izinleri ve rampa bazlı kısıtlama",
       stat: "Görüntüle",
       href: "/admin/settings/users",
-      permission: "user.manage",
-    },
-    {
-      icon: Palette,
-      title: "Marka / White-Label",
-      description: "Logo, renk paleti ve portal başlığı — tesis bazlı",
-      stat: "Özelleştir",
-      href: "/admin/settings/branding",
       permission: "user.manage",
     },
     {
@@ -111,7 +112,7 @@ export default function SettingsPage() {
     {
       icon: ScrollText,
       title: "Denetim İzleri",
-      description: "Tesisteki yönetim işlemlerinin audit kayıtları",
+      description: "Hesabınızdaki yönetim işlemlerinin audit kayıtları",
       stat: "İncele",
       href: "/admin/settings/audit-logs",
       permission: "audit.view",
@@ -120,7 +121,7 @@ export default function SettingsPage() {
   ].filter((s) => can(s.permission));
 
   const upcoming: {
-    icon: typeof Palette;
+    icon: LucideIcon;
     title: string;
     description: string;
     sprint: string;
@@ -131,7 +132,7 @@ export default function SettingsPage() {
       <div>
         <h1 className="text-xl font-bold">Yönetim</h1>
         <p className="text-sm text-muted-foreground">
-          İş Kuralları Motorunu besleyen tesis konfigürasyonları — buradaki her ayar randevu
+          İş Kuralları Motorunu besleyen operasyon konfigürasyonları — buradaki her ayar randevu
           uygunluğunu etkiler.
         </p>
       </div>

@@ -7,7 +7,7 @@
  */
 
 import { ArrowRight, Mail, Package, Phone, Repeat } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   APPOINTMENT_STATUS_LABELS,
   QUANTITY_UNIT_LABELS,
@@ -19,16 +19,18 @@ import { CargoBadge } from "@/components/domain/cargo-badge";
 import { StatusBadge } from "@/components/domain/status-badge";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
-import { Drawer } from "@/components/ui/drawer";
+import { Modal } from "@/components/ui/modal";
 import { Input, Label, Select } from "@/components/ui/input";
 import {
   useAdminAvailability,
   useAppointmentActions,
   useAppointmentDetail,
+  useDockOptions,
   useEmailResend,
   useSeriesCancel,
 } from "@/lib/api/appointments";
 import { ApiError } from "@/lib/api/client";
+import { emailProviderLabel, emailStatusLabel, emailTemplateLabel } from "@/lib/email-labels";
 import { useEmailLogs } from "@/lib/api/reports";
 import { docks as dockResource } from "@/lib/api/resources";
 import { useSession } from "@/lib/auth/session";
@@ -55,7 +57,14 @@ export function AppointmentDrawer({
   const tz = activeFacility?.timezone ?? "Europe/Istanbul";
 
   const [dialog, setDialog] = useState<
-    null | "approve" | "reject" | "complete" | "cancel" | "revise" | "cancel-series"
+    | null
+    | "approve"
+    | "reject"
+    | "complete"
+    | "cancel"
+    | "revise"
+    | "dock-change"
+    | "cancel-series"
   >(null);
   const seriesCancel = useSeriesCancel(activeFacilityId);
   const [reason, setReason] = useState("");
@@ -68,6 +77,15 @@ export function AppointmentDrawer({
   const [reviseDuration, setReviseDuration] = useState(60);
   const [reviseDock, setReviseDock] = useState<string>("auto");
   const [reviseNote, setReviseNote] = useState("");
+
+  // Rampa degisimi (saat degismez) — secenekler sunucudan gelir.
+  const [dockTarget, setDockTarget] = useState<string>("auto");
+  const [dockNote, setDockNote] = useState("");
+  // Secenekler yalnizca diyalog acikken cekilir (gereksiz istek uretme).
+  const dockOptions = useDockOptions(
+    activeFacilityId,
+    dialog === "dock-change" ? appointmentId : null,
+  );
 
   const a = detail.data ?? null;
   const allowed = a?.allowed_actions;
@@ -109,6 +127,29 @@ export function AppointmentDrawer({
       : null;
   const reviseAdvisories = reviseTargetSlot?.advisory_warnings ?? [];
 
+  /**
+   * Revize hedefinde secilebilir rampalar.
+   *
+   * Uyumluluk rampanin kabul ettigi urun kategorilerinden (bos liste = hepsi),
+   * doluluk ise hedef slotun `candidate_dock_ids` degerinden gelir — ikincisi
+   * SUNUCU kararidir, istemci yeniden hesaplamaz.
+   */
+  const reviseEligibleDocks = useMemo(() => {
+    const all = (dockList.data ?? []).filter((d) => d.is_active);
+    const compatible = a?.product_category_id
+      ? all.filter(
+          (d) =>
+            d.accepted_product_category_ids.length === 0 ||
+            d.accepted_product_category_ids.includes(a.product_category_id),
+        )
+      : all;
+    const freeIds = reviseTargetSlot ? new Set(reviseTargetSlot.candidate_dock_ids) : null;
+    return compatible.map((d) => ({
+      ...d,
+      available: freeIds === null ? true : freeIds.has(d.id),
+    }));
+  }, [dockList.data, a?.product_category_id, reviseTargetSlot]);
+
   function openDialog(kind: NonNullable<typeof dialog>) {
     setActionError(null);
     setReason("");
@@ -122,6 +163,10 @@ export function AppointmentDrawer({
       setReviseDuration(a.duration_minutes);
       setReviseDock(a.dock_id ?? "auto");
       setReviseNote("");
+    }
+    if (kind === "dock-change") {
+      setDockTarget("auto");
+      setDockNote("");
     }
     setDialog(kind);
   }
@@ -145,12 +190,7 @@ export function AppointmentDrawer({
     actions.revise.isPending;
 
   return (
-    <Drawer
-      open={appointmentId !== null}
-      onClose={onClose}
-      title="Randevu Detayı"
-      className="max-w-xl"
-    >
+    <Modal open={appointmentId !== null} onClose={onClose} title="Randevu Detayı">
       {detail.isLoading ? (
         <LoadingState />
       ) : detail.isError || !a ? (
@@ -308,8 +348,7 @@ export function AppointmentDrawer({
                   <div className="min-w-0 flex-1">
                     <div className="truncate font-medium">{log.subject}</div>
                     <div className="text-muted-foreground">
-                      {log.recipient_email} ·{" "}
-                      <span className="font-mono">{log.template_key}</span>
+                      {log.recipient_email} · {emailTemplateLabel(log.template_key)}
                     </div>
                     <div className="mt-0.5 flex items-center gap-2 text-[10px] text-muted-foreground">
                       <span
@@ -321,9 +360,9 @@ export function AppointmentDrawer({
                               : ""
                         }
                       >
-                        {log.status}
+                        {emailStatusLabel(log.status)}
                       </span>
-                      <span>provider: {log.provider}</span>
+                      <span>{emailProviderLabel(log.provider)}</span>
                       {log.retry_count > 0 && (
                         <span>deneme: {log.retry_count}/{log.max_attempts}</span>
                       )}
@@ -381,6 +420,17 @@ export function AppointmentDrawer({
               {allowed.revise && (
                 <Button size="sm" variant="secondary" onClick={() => openDialog("revise")}>
                   Revize Et
+                </Button>
+              )}
+              {/* Rampa degisimi revizeyle AYNI yetkiye baglidir ama ayri bir
+                  aksiyondur: saat degismedigi icin randevu durumu korunur. */}
+              {allowed.revise && (
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => openDialog("dock-change")}
+                >
+                  Rampa Değiştir
                 </Button>
               )}
               {allowed.complete && (
@@ -572,6 +622,71 @@ export function AppointmentDrawer({
         </div>
       </Dialog>
 
+      {/* Rampa degisimi — saat/sure ve durum DEGISMEZ */}
+      <Dialog
+        open={dialog === "dock-change"}
+        onClose={() => setDialog(null)}
+        title="Rampa değiştir"
+      >
+        <div className="flex flex-col gap-3">
+          <p className="text-sm text-muted-foreground">
+            Saat ve süre değişmez, randevu durumu korunur. Tedarikçiden yeniden
+            onay istenmez; yalnızca yeni rampa bildirilir.
+          </p>
+          <div>
+            <Label>Rampa</Label>
+            {dockOptions.isLoading ? (
+              <p className="text-xs text-muted-foreground">Uygun rampalar yükleniyor…</p>
+            ) : (
+              <Select value={dockTarget} onChange={(e) => setDockTarget(e.target.value)}>
+                <option value="auto">Otomatik ata (en az dolu uygun rampa)</option>
+                {(dockOptions.data?.options ?? []).map((o) => (
+                  <option key={o.dock_id} value={o.dock_id} disabled={!o.available}>
+                    {o.name}
+                    {o.is_current ? " (mevcut)" : ""}
+                    {o.available ? "" : ` — ${o.reason ?? "uygun değil"}`}
+                  </option>
+                ))}
+              </Select>
+            )}
+            <p className="mt-1 text-xs text-muted-foreground">
+              Yalnızca bu randevunun ürün/araç kategorisiyle uyumlu rampalar
+              listelenir; o saatte dolu olanlar seçilemez.
+            </p>
+          </div>
+          <div>
+            <Label>Not</Label>
+            <Input
+              value={dockNote}
+              onChange={(e) => setDockNote(e.target.value)}
+              placeholder="Tedarikçiye iletilir (opsiyonel)"
+            />
+          </div>
+          {actionError && <p className="text-sm text-destructive">{actionError}</p>}
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" onClick={() => setDialog(null)}>
+              Vazgeç
+            </Button>
+            <Button
+              disabled={isBusy}
+              onClick={() =>
+                run(
+                  () =>
+                    actions.changeDock.mutateAsync({
+                      id: a!.id,
+                      dock_id: dockTarget === "auto" ? null : dockTarget,
+                      note: dockNote || null,
+                    }),
+                  "Rampa değiştirildi; tedarikçi bilgilendirildi.",
+                )
+              }
+            >
+              {actions.changeDock.isPending ? "Kaydediliyor…" : "Rampayı Değiştir"}
+            </Button>
+          </div>
+        </div>
+      </Dialog>
+
       {/* Revize */}
       <Dialog open={dialog === "revise"} onClose={() => setDialog(null)} title="Randevuyu revize et">
         <div className="flex flex-col gap-3">
@@ -615,14 +730,17 @@ export function AppointmentDrawer({
               <Label>Rampa</Label>
               <Select value={reviseDock} onChange={(e) => setReviseDock(e.target.value)}>
                 <option value="auto">Otomatik ata (en az dolu uygun rampa)</option>
-                {(dockList.data ?? [])
-                  .filter((d) => d.is_active)
-                  .map((d) => (
-                    <option key={d.id} value={d.id}>
-                      {d.name}
-                    </option>
-                  ))}
+                {reviseEligibleDocks.map((d) => (
+                  <option key={d.id} value={d.id} disabled={!d.available}>
+                    {d.name}
+                    {d.available ? "" : " — hedef saatte dolu"}
+                  </option>
+                ))}
               </Select>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Yalnızca bu randevunun ürün/araç kategorisiyle uyumlu rampalar
+                listelenir.
+              </p>
             </div>
           </div>
           <div>
@@ -673,6 +791,6 @@ export function AppointmentDrawer({
           </div>
         </div>
       </Dialog>
-    </Drawer>
+    </Modal>
   );
 }

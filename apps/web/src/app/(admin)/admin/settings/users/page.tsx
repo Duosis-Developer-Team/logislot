@@ -297,7 +297,7 @@ export default function UsersPage() {
         <div>
           <h1 className="text-xl font-bold">Kullanıcılar &amp; Roller</h1>
           <p className="text-sm text-muted-foreground">
-            Tesis kullanıcılarını ve rol/izin setlerini yönetin. Sistem rollerinin izinleri
+            Hesap kullanıcılarını ve rol/izin setlerini yönetin. Sistem rollerinin izinleri
             kilitlidir.
           </p>
         </div>
@@ -346,7 +346,7 @@ export default function UsersPage() {
         (users.data ?? []).length === 0 ? (
           <EmptyState
             title="Kullanıcı yok"
-            description="Tesise ilk kullanıcıyı ekleyin."
+            description="İlk kullanıcıyı ekleyin."
             actionLabel="Yeni Kullanıcı"
             onAction={openUserCreate}
           />

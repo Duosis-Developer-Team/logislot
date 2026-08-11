@@ -31,3 +31,6 @@ kubeconfig*
 .env.staging
 k8s/**/secret.yaml
 *.dump
+
+# E2E uretilen artifact'lar (global-setup storageState)
+e2e/.artifacts/

@@ -3,56 +3,128 @@
 @tailwind utilities;
 
 /*
- * LogiSlot tema tokenlari.
- * White-label: tenant/facility markasi bu degiskenleri override eder.
+ * LogiSlot tasarim sistemi — logo-uyumlu premium logistics SaaS teması.
+ * Marka: derin navy (logo #00183C) + logistics mavi accent (logo #4884CC).
+ * Renkler HSL degiskenleridir; white-label yalnizca --primary/--primary-hover/--accent
+ * override eder. Light + dark mode (class stratejisi, next-themes).
  */
 :root {
-  --background: 220 25% 97%;
-  --foreground: 224 40% 12%;
-  --card: 0 0% 100%;
-  --card-foreground: 224 40% 12%;
-  --muted: 220 16% 93%;
-  --muted-foreground: 224 12% 45%;
-  --border: 220 16% 88%;
+  color-scheme: light;
 
-  /* Marka: LogiSlot indigo */
-  --primary: 243 70% 55%;
-  --primary-hover: 243 70% 48%;
+  /* Notr yuzeyler — soguk premium slate */
+  --background: 214 40% 97%;
+  --foreground: 217 40% 12%;
+  --card: 0 0% 100%;
+  --card-foreground: 217 40% 12%;
+  --muted: 214 30% 93%;
+  --muted-foreground: 216 14% 44%;
+  --border: 214 28% 88%;
+  --ring: 212 74% 50%;
+
+  /* Marka — derin navy (logo) */
+  --primary: 214 78% 19%;
+  --primary-hover: 214 82% 14%;
   --primary-foreground: 0 0% 100%;
 
-  --accent: 32 95% 52%;
-  --accent-foreground: 24 60% 15%;
+  /* Vurgu — logistics mavi (logo yol rengi) */
+  --accent: 212 74% 50%;
+  --accent-foreground: 0 0% 100%;
+
+  /* Marka navy — login hero / koyu vurgu yüzeyleri (her iki modda sabit) */
+  --brand-navy: 214 80% 12%;
 
   --destructive: 0 72% 51%;
 
-  /* Randevu statu renkleri (v2.0 — 6 statu) */
-  --status-pending: 38 92% 50%;
-  --status-approved: 152 60% 40%;
-  --status-revision: 262 72% 58%;
+  /* Randevu statu renkleri (6 statu) — erisilebilir */
+  --status-pending: 38 92% 46%;
+  --status-approved: 158 64% 36%;
+  --status-revision: 262 60% 56%;
   --status-rejected: 0 72% 51%;
-  --status-completed: 205 80% 45%;
-  --status-cancelled: 220 10% 55%;
+  --status-completed: 210 82% 44%;
+  --status-cancelled: 216 14% 50%;
 
-  /* Kargo uyari katmani — statu renginden ayri */
-  --cargo: 22 95% 55%;
+  --cargo: 24 92% 52%;
+
+  --radius: 0.75rem;
 }
 
-body {
-  background-color: hsl(var(--background));
-  color: hsl(var(--foreground));
-  font-family:
-    ui-sans-serif,
-    system-ui,
-    -apple-system,
-    "Segoe UI",
-    Roboto,
-    "Helvetica Neue",
-    Arial,
-    sans-serif;
-  -webkit-font-smoothing: antialiased;
+.dark {
+  color-scheme: dark;
+
+  /* Notr yuzeyler — near-black navy (logo dark zeminiyle uyumlu) */
+  --background: 218 44% 6%;
+  --foreground: 214 32% 96%;
+  --card: 218 38% 9%;
+  --card-foreground: 214 32% 96%;
+  --muted: 217 30% 15%;
+  --muted-foreground: 215 22% 66%;
+  --border: 216 26% 18%;
+  --ring: 212 84% 60%;
+
+  /* Marka — dark'ta parlak mavi (navy buton dark zeminde görünmez) */
+  --primary: 212 84% 56%;
+  --primary-hover: 212 84% 62%;
+  --primary-foreground: 218 45% 8%;
+
+  --accent: 212 84% 60%;
+  --accent-foreground: 218 45% 8%;
+
+  --destructive: 0 74% 58%;
+
+  /* Statu renkleri — dark'ta daha parlak/okunaklı */
+  --status-pending: 38 94% 56%;
+  --status-approved: 158 64% 48%;
+  --status-revision: 262 72% 70%;
+  --status-rejected: 0 78% 66%;
+  --status-completed: 205 90% 60%;
+  --status-cancelled: 215 16% 60%;
+
+  --cargo: 24 92% 60%;
 }
 
-/* Takvimde kargo overlay deseni: statu renginin ustune cizgili doku */
+@layer base {
+  * {
+    border-color: hsl(var(--border));
+  }
+
+  body {
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+    font-feature-settings: "cv02", "cv03", "cv04", "ss01";
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  h1, h2, h3, h4 {
+    letter-spacing: -0.018em;
+  }
+
+  ::selection {
+    background-color: hsl(var(--primary) / 0.18);
+    color: hsl(var(--foreground));
+  }
+
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--muted-foreground) / 0.28) transparent;
+  }
+  *::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  *::-webkit-scrollbar-thumb {
+    background-color: hsl(var(--muted-foreground) / 0.24);
+    border: 3px solid transparent;
+    background-clip: content-box;
+    border-radius: 9999px;
+  }
+  *::-webkit-scrollbar-thumb:hover {
+    background-color: hsl(var(--muted-foreground) / 0.4);
+  }
+}
+
+/* Tema geçişinde renk yumuşaması (next-themes disableTransitionOnChange ile kapatılır anlık) */
 .cargo-overlay {
   background-image: repeating-linear-gradient(
     45deg,
@@ -61,4 +133,39 @@ body {
     hsl(var(--cargo) / 0.25) 6px,
     hsl(var(--cargo) / 0.25) 10px
   );
+}
+
+.surface-sheen {
+  background-image: linear-gradient(
+    180deg,
+    hsl(0 0% 100% / 0.06),
+    hsl(0 0% 100% / 0) 120px
+  );
+}
+
+/* Sıralı giriş animasyonları için gecikme yardımcıları (login sahnesi) */
+.stagger > * {
+  opacity: 0;
+  animation: fade-up 0.55s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+.stagger > *:nth-child(1) { animation-delay: 0.05s; }
+.stagger > *:nth-child(2) { animation-delay: 0.13s; }
+.stagger > *:nth-child(3) { animation-delay: 0.21s; }
+.stagger > *:nth-child(4) { animation-delay: 0.29s; }
+.stagger > *:nth-child(5) { animation-delay: 0.37s; }
+.stagger > *:nth-child(6) { animation-delay: 0.45s; }
+
+/* Erişilebilirlik: hareketi azalt tercihine saygı */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+  .stagger > * {
+    opacity: 1;
+  }
 }

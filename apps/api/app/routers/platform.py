@@ -25,6 +25,11 @@ from app.core.enums import (
 )
 from app.core.errors import ApiError, NotFoundError
 from app.core.permissions import PlatformPermission
+from app.core.plan_limits import (
+    PLAN_LIMIT_DIMENSIONS,
+    limit_of,
+    normalize_limits,
+)
 from app.core.responses import ok
 from app.models import Appointment, Dock, Facility, Plan, Supplier, Tenant
 from app.services.audit import record_audit
@@ -33,11 +38,21 @@ from app.services.plan_warnings import evaluate_rate_card
 
 router = APIRouter(prefix="/platform", tags=["platform"])
 
+#: PATCH'te "alan gonderilmedi" ile "null gonderildi"yi ayirmak icin sentinel.
+_UNSET = object()
+
 
 # ---------- semalar ----------
 
 
 class TenantCreate(BaseModel):
+    """Musteri hesabi = tenant + (otomatik) tesis.
+
+    Urun karari: 1 tenant = 1 tesis. Tesis ayri bir adim degildir; bu
+    istekle birlikte ayni transaction'da acilir (istege bagli bootstrap
+    konfigurasyonu ve ilk yonetici hesabiyla).
+    """
+
     commercial_name: str = Field(min_length=1)
     display_name: str = Field(min_length=1)
     slug: str = Field(min_length=1, max_length=100)
@@ -47,6 +62,14 @@ class TenantCreate(BaseModel):
     primary_contact_phone: str | None = None
     default_timezone: str = "Europe/Istanbul"
     notes: str | None = None
+    # --- operasyonel kapsam (tesis) ---
+    address: str | None = None
+    #: Varsayilan konfigurasyonu (arac/urun kategorisi, Rampa 1, sistem
+    #: rolleri) otomatik kur.
+    bootstrap_defaults: bool = True
+    #: Ayni istekte ilk yonetici hesabi; gecici parola yanitta BIR kez doner.
+    initial_admin: "InitialAdmin | None" = None
+    plan_override_id: uuid.UUID | None = None
 
 
 class TenantPatch(BaseModel):
@@ -57,6 +80,9 @@ class TenantPatch(BaseModel):
     primary_contact_phone: str | None = None
     assigned_plan_id: uuid.UUID | None = None
     notes: str | None = None
+    # Tesis alanlari — tenant=tesis oldugu icin ayni formdan guncellenir.
+    address: str | None = None
+    default_timezone: str | None = None
 
 
 class InitialAdmin(BaseModel):
@@ -96,6 +122,8 @@ class PlanCreate(BaseModel):
     billing_unit_label: str = "fixed"
     measurable_dimensions_json: list | None = None
     rate_card_json: list | None = None
+    #: Dinamik kotalar (bkz. app/core/plan_limits.py). Deger yok = sinirsiz.
+    limits_json: dict | None = None
     status: PlanStatus = PlanStatus.draft
 
 
@@ -105,7 +133,8 @@ class PlanAssignment(BaseModel):
     facility_id: uuid.UUID | None = None
 
 
-def _tenant_out(t: Tenant) -> dict:
+def _tenant_out(t: Tenant, facility: "Facility | None" = None) -> dict:
+    """Musteri hesabi ciktisi; tenant=tesis oldugu icin tesis ozeti gomulur."""
     return {
         "id": str(t.id),
         "commercial_name": t.commercial_name,
@@ -117,6 +146,10 @@ def _tenant_out(t: Tenant) -> dict:
         "default_timezone": t.default_timezone,
         "assigned_plan_id": str(t.assigned_plan_id) if t.assigned_plan_id else None,
         "created_at": t.created_at.isoformat(),
+        # Operasyonel kapsam (1-1). Eski kayitlarda tesis yoksa None kalir.
+        "facility_id": str(facility.id) if facility else None,
+        "address": facility.address if facility else None,
+        "facility_status": facility.status.value if facility else None,
     }
 
 
@@ -141,6 +174,7 @@ def _plan_out(p: Plan) -> dict:
         "billing_unit_label": p.billing_unit_label,
         "measurable_dimensions_json": p.measurable_dimensions_json,
         "rate_card_json": p.rate_card_json,
+        "limits_json": normalize_limits(p.limits_json),
         "status": p.status.value,
     }
 
@@ -154,7 +188,10 @@ async def list_tenants(
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(select(Tenant).order_by(Tenant.display_name))
-    return ok([_tenant_out(t) for t in result.scalars()])
+    tenants = list(result.scalars())
+    facilities = (await db.execute(select(Facility))).scalars()
+    by_tenant = {f.tenant_id: f for f in facilities}
+    return ok([_tenant_out(t, by_tenant.get(t.id)) for t in tenants])
 
 
 @router.post("/tenants")
@@ -163,22 +200,58 @@ async def create_tenant(
     identity: Identity = Depends(require_platform_permissions(PlatformPermission.TENANT_MANAGE)),
     db: AsyncSession = Depends(get_db),
 ):
-    tenant = Tenant(**body.model_dump())
+    payload = body.model_dump()
+    # Tesis alanlari tenant kolonlari degil; ayirip Facility'ye gecirilir.
+    address = payload.pop("address", None)
+    bootstrap_defaults = payload.pop("bootstrap_defaults", True)
+    initial_admin_spec = payload.pop("initial_admin", None)
+    plan_override_id = payload.pop("plan_override_id", None)
+    if plan_override_id is not None:
+        await _get_assignable_plan(db, plan_override_id)
+
+    tenant = Tenant(**payload)
     db.add(tenant)
     await db.flush()
+
+    # 1 tenant = 1 tesis: operasyonel kapsam ayni istekte acilir.
+    facility = Facility(
+        tenant_id=tenant.id,
+        name=tenant.display_name,
+        address=address,
+        timezone=tenant.default_timezone,
+        plan_override_id=plan_override_id,
+    )
+    db.add(facility)
+    await db.flush()
+
+    bootstrap_summary = None
+    if bootstrap_defaults:
+        bootstrap_summary = await bootstrap_facility_defaults(db, facility)
+    initial_admin_out = None
+    if initial_admin_spec is not None:
+        initial_admin_out = await _create_initial_admin(
+            db, facility, InitialAdmin(**initial_admin_spec), actor_id=identity.id
+        )
+
     record_audit(
         db,
         actor_type=ActorType.platform_user,
         actor_id=identity.id,
         action="tenant.create",
         tenant_id=tenant.id,
+        facility_id=facility.id,
         entity_type="tenant",
         entity_id=tenant.id,
-        after={"slug": tenant.slug},
+        after={"slug": tenant.slug, "bootstrap": bootstrap_summary},
     )
     await db.commit()
     await db.refresh(tenant)
-    return ok(_tenant_out(tenant))
+    await db.refresh(facility)
+    data = _tenant_out(tenant, facility)
+    data["bootstrap"] = bootstrap_summary
+    # Gecici parola YALNIZCA bu yanitta gosterilir; sonradan okunamaz.
+    data["initial_admin"] = initial_admin_out
+    return ok(data)
 
 
 @router.get("/tenants/{tenant_id}")
@@ -190,11 +263,12 @@ async def get_tenant(
     tenant = (await db.execute(select(Tenant).where(Tenant.id == tenant_id))).scalar_one_or_none()
     if tenant is None:
         raise NotFoundError("Tenant bulunamadi")
-    facilities = (
+    facility = (
         await db.execute(select(Facility).where(Facility.tenant_id == tenant_id))
-    ).scalars()
-    data = _tenant_out(tenant)
-    data["facilities"] = [_facility_out(f) for f in facilities]
+    ).scalar_one_or_none()
+    data = _tenant_out(tenant, facility)
+    # Geriye uyumluluk: eski istemciler `facilities` listesini bekliyor olabilir.
+    data["facilities"] = [_facility_out(facility)] if facility else []
     return ok(data)
 
 
@@ -209,21 +283,52 @@ async def patch_tenant(
     if tenant is None:
         raise NotFoundError("Tenant bulunamadi")
     changes = body.model_dump(exclude_unset=True)
+    address = changes.pop("address", None) if "address" in changes else _UNSET
+
+    # Plan bu uctan da degistirilebiliyor; ozel atama ucuyla AYNI kurallardan
+    # gecmeli. Aksi halde hem "yalnizca aktif plan atanir" hem de max_tenants
+    # kotasi PATCH ile sessizce asilir.
+    if changes.get("assigned_plan_id") is not None:
+        plan = await _get_assignable_plan(db, changes["assigned_plan_id"])
+        await _assert_tenant_quota(db, plan, tenant_id)
+
     for key, value in changes.items():
         setattr(tenant, key, value)
+
+    # tenant=tesis: ad/saat dilimi/durum ve adres tek kayitmis gibi senkronlanir.
+    facility = (
+        await db.execute(select(Facility).where(Facility.tenant_id == tenant_id))
+    ).scalar_one_or_none()
+    if facility is not None:
+        if "display_name" in changes:
+            facility.name = tenant.display_name
+        if "default_timezone" in changes:
+            facility.timezone = tenant.default_timezone
+        if address is not _UNSET:
+            facility.address = address
+        if "status" in changes:
+            facility.status = (
+                FacilityStatus.inactive
+                if tenant.status in (TenantStatus.suspended, TenantStatus.archived)
+                else FacilityStatus.active
+            )
+
     record_audit(
         db,
         actor_type=ActorType.platform_user,
         actor_id=identity.id,
         action="tenant.update",
         tenant_id=tenant.id,
+        facility_id=facility.id if facility else None,
         entity_type="tenant",
         entity_id=tenant.id,
         after={k: str(v) for k, v in changes.items()},
     )
     await db.commit()
     await db.refresh(tenant)
-    return ok(_tenant_out(tenant))
+    if facility is not None:
+        await db.refresh(facility)
+    return ok(_tenant_out(tenant, facility))
 
 
 # ---------- facilities ----------
@@ -251,6 +356,17 @@ async def create_facility(
     if tenant.status == TenantStatus.archived:
         raise ApiError(
             "TENANT_ARCHIVED", "Arsivlenmis tenant'a yeni tesis eklenemez", 409
+        )
+    # Urun karari: 1 tenant = 1 tesis. Tesis artik tenant ile birlikte acilir;
+    # bu uc yalnizca tesisi olmayan ESKI kayitlar icin telafi yolu olarak kalir.
+    existing = (
+        await db.execute(select(Facility).where(Facility.tenant_id == tenant_id))
+    ).scalar_one_or_none()
+    if existing is not None:
+        raise ApiError(
+            "TENANT_FACILITY_EXISTS",
+            "Bir musteri hesabinin tek operasyonel kapsami olur; mevcut kaydi guncelleyin",
+            409,
         )
     if body.plan_override_id is not None:
         await _get_assignable_plan(db, body.plan_override_id)
@@ -581,7 +697,9 @@ async def create_plan(
     identity: Identity = Depends(require_platform_permissions(PlatformPermission.PLAN_MANAGE)),
     db: AsyncSession = Depends(get_db),
 ):
-    plan = Plan(**body.model_dump())
+    payload = body.model_dump()
+    payload["limits_json"] = normalize_limits(payload.get("limits_json"))
+    plan = Plan(**payload)
     db.add(plan)
     await db.flush()
     record_audit(
@@ -616,6 +734,7 @@ class PlanPatch(BaseModel):
     billing_unit_label: str | None = None
     measurable_dimensions_json: list | None = None
     rate_card_json: list | None = None
+    limits_json: dict | None = None
     status: PlanStatus | None = None
 
 
@@ -630,7 +749,13 @@ async def patch_plan(
     if plan is None:
         raise NotFoundError("Plan bulunamadi")
     changes = body.model_dump(exclude_unset=True)
-    before = {"name": plan.name, "status": plan.status.value}
+    if "limits_json" in changes:
+        changes["limits_json"] = normalize_limits(changes["limits_json"])
+    before = {
+        "name": plan.name,
+        "status": plan.status.value,
+        "limits": normalize_limits(plan.limits_json),
+    }
     for key, value in changes.items():
         setattr(plan, key, value)
     record_audit(
@@ -641,7 +766,11 @@ async def patch_plan(
         entity_type="plan",
         entity_id=plan.id,
         before=before,
-        after={"name": plan.name, "status": plan.status.value},
+        after={
+            "name": plan.name,
+            "status": plan.status.value,
+            "limits": normalize_limits(plan.limits_json),
+        },
     )
     await db.commit()
     await db.refresh(plan)
@@ -669,6 +798,38 @@ async def retire_plan(
     )
     await db.commit()
     return ok(_plan_out(plan))
+
+
+@router.get("/plan-limit-dimensions")
+async def plan_limit_dimensions(
+    identity: Identity = Depends(require_platform_permissions(PlatformPermission.PLAN_VIEW)),
+):
+    """Platform UI'in limit editorunu dinamik kurmasi icin boyut katalogu."""
+    return ok({"dimensions": PLAN_LIMIT_DIMENSIONS})
+
+
+async def _assert_tenant_quota(db: AsyncSession, plan: Plan, tenant_id: uuid.UUID) -> None:
+    """max_tenants limiti: plana atanabilecek musteri hesabi sayisi.
+
+    Zaten bu plana atanmis bir tenant tekrar atanirsa sayim artmaz.
+    """
+    max_tenants = limit_of(plan.limits_json, "max_tenants")
+    if max_tenants is None:
+        return
+    current = (
+        await db.execute(
+            select(func.count())
+            .select_from(Tenant)
+            .where(Tenant.assigned_plan_id == plan.id, Tenant.id != tenant_id)
+        )
+    ).scalar_one()
+    if current >= max_tenants:
+        raise ApiError(
+            "PLAN_TENANT_LIMIT_REACHED",
+            f"'{plan.name}' plani en fazla {max_tenants} musteri hesabi destekler "
+            f"(su an {current}). Limiti yukseltin veya baska plan secin.",
+            409,
+        )
 
 
 async def _get_assignable_plan(db: AsyncSession, plan_id: uuid.UUID) -> Plan:
@@ -702,6 +863,7 @@ async def assign_tenant_plan(
     if tenant is None:
         raise NotFoundError("Tenant bulunamadi")
     plan = await _get_assignable_plan(db, body.plan_id)
+    await _assert_tenant_quota(db, plan, tenant_id)
     before = str(tenant.assigned_plan_id) if tenant.assigned_plan_id else None
     tenant.assigned_plan_id = plan.id
     record_audit(

@@ -1,7 +1,7 @@
 "use client";
 
-import { CalendarOff, Package } from "lucide-react";
-import { useState } from "react";
+import { CalendarOff, ChevronLeft, ChevronRight, Package } from "lucide-react";
+import { useEffect, useState } from "react";
 import type { AppointmentStatus } from "@logislot/shared";
 import { APPOINTMENT_STATUS_LABELS } from "@logislot/shared";
 import {
@@ -21,12 +21,20 @@ import { useSession } from "@/lib/auth/session";
 import { cn, hhmmToMinutes, minutesOfDayInTz, timeInTz } from "@/lib/utils";
 
 /**
- * Gunluk operasyon takvimi — rampalar sutun, saat cetveli satir; tamamen
- * gercek veriden. Iki gorsel sinyal birlikte: blok rengi = statu (ana),
- * cizgili doku + rozet = kargo uyari katmani (statuyu degistirmez).
+ * Günlük operasyon takvimi — YATAY ZAMAN ÇİZELGESİ (timeline):
+ * her RAMPA bir SATIR, saat ekseni yataydır. Böylece rampa sayısı arttıkça
+ * yalnızca satır eklenir (satır başına 64px) ve görünüm kompakt/ölçeklenebilir
+ * kalır — eski rampa-sütunlu ızgaranın iki eksende büyüme sorunu giderildi.
+ *
+ * Görsel sinyaller korunur: blok rengi = statü (ana), çizgili doku + rozet =
+ * kargo uyarı katmanı, kesikli bant = kapalı/override, gri bant = pencere dışı.
+ * Boş alana tıklamak o rampa+saate (30 dk hassasiyet) ön-dolu "Yeni Randevu"
+ * drawer'ını açar; bloğa tıklamak randevu detayını açar.
  */
 
-const HOUR_PX = 64;
+const HOUR_W = 110; // px / saat (30 dk = 55px)
+const ROW_H = 64; // rampa satırı yüksekliği
+const LEFT_W = 176; // sticky rampa kolonu genişliği
 
 const STATUS_BLOCK: Record<AppointmentStatus, string> = {
   pending: "bg-status-pending/20 border-status-pending text-status-pending",
@@ -53,6 +61,11 @@ function mondayOf(dateStr: string): string {
   return d.toLocaleDateString("sv-SE");
 }
 
+/** Dakikayı "HH:MM" yazar. */
+function fmtMin(m: number): string {
+  return `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+}
+
 export default function CalendarPage() {
   const { activeFacilityId, can } = useSession();
   const [view, setView] = useState<"day" | "week">("day");
@@ -66,23 +79,38 @@ export default function CalendarPage() {
   const tz = data?.facility.timezone ?? "Europe/Istanbul";
   const gridStart = data ? hhmmToMinutes(data.working_window.start) : 480;
   const gridEnd = data ? hhmmToMinutes(data.working_window.end) : 1080;
+  const totalMin = gridEnd - gridStart;
+  const bodyW = (totalMin / 60) * HOUR_W;
   const hours: number[] = [];
   for (let m = gridStart; m < gridEnd; m += 60) hours.push(m);
 
-  // Sprint 12 micro UX: bos slota tiklayinca on-dolu "Yeni Randevu" drawer'i
+  const minToX = (m: number) => ((m - gridStart) / 60) * HOUR_W;
+
+  // "Şimdi" çizgisi — yalnızca bugün ve pencere içindeyken; dakikada bir tazelenir.
+  const [nowTick, setNowTick] = useState(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNowTick(Date.now()), 60_000);
+    return () => clearInterval(t);
+  }, []);
+  const nowMin = minutesOfDayInTz(new Date(nowTick).toISOString(), tz);
+  const showNow = date === todayISO() && nowMin >= gridStart && nowMin <= gridEnd;
+
+  // Boş slota tıklayınca ön-dolu "Yeni Randevu" drawer'ı (30 dk hassasiyet).
   const [createInitial, setCreateInitial] = useState<AdminCreateInitialValues | null>(null);
 
-  function openCreateAt(dockId: string, minutes: number) {
+  function rowClick(dockId: string, e: React.MouseEvent<HTMLDivElement>) {
     if (!can("appt.create")) return;
-    const hh = String(Math.floor(minutes / 60)).padStart(2, "0");
-    setCreateInitial({ date, time: `${hh}:00`, dockId });
+    const rect = e.currentTarget.getBoundingClientRect();
+    const minutes = gridStart + Math.floor((e.clientX - rect.left) / (HOUR_W / 60));
+    const snapped = Math.max(gridStart, Math.min(gridEnd - 30, Math.floor(minutes / 30) * 30));
+    setCreateInitial({ date, time: fmtMin(snapped), dockId });
   }
 
-  function blockPosition(a: AppointmentDto) {
+  function blockGeom(a: AppointmentDto) {
     const startMin = minutesOfDayInTz(a.scheduled_start_at, tz);
-    const top = ((startMin - gridStart) / 60) * HOUR_PX;
-    const height = Math.max((a.duration_minutes / 60) * HOUR_PX, 28);
-    return { top, height };
+    const left = minToX(Math.max(startMin, gridStart));
+    const width = Math.max((a.duration_minutes / 60) * HOUR_W - 2, 34);
+    return { left, width };
   }
 
   const dateLabel = new Date(`${date}T12:00:00`).toLocaleDateString("tr-TR", {
@@ -106,7 +134,6 @@ export default function CalendarPage() {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          {/* Gunluk / haftalik gecis */}
           <div className="flex rounded-lg bg-muted p-0.5">
             {(
               [
@@ -126,28 +153,36 @@ export default function CalendarPage() {
               </button>
             ))}
           </div>
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => setDate(shiftDate(date, view === "day" ? -1 : -7))}
-          >
-            ← Önceki
-          </Button>
-          <Input
-            type="date"
-            className="h-8 w-40 text-sm"
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
-          />
+          <div className="flex items-center gap-1.5">
+            <Button
+              variant="secondary"
+              size="icon"
+              className="h-9 w-9"
+              aria-label={view === "day" ? "Önceki gün" : "Önceki hafta"}
+              title={view === "day" ? "Önceki gün" : "Önceki hafta"}
+              onClick={() => setDate(shiftDate(date, view === "day" ? -1 : -7))}
+            >
+              <ChevronLeft />
+            </Button>
+            <Input
+              type="date"
+              className="h-9 w-40 text-sm"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+            />
+            <Button
+              variant="secondary"
+              size="icon"
+              className="h-9 w-9"
+              aria-label={view === "day" ? "Sonraki gün" : "Sonraki hafta"}
+              title={view === "day" ? "Sonraki gün" : "Sonraki hafta"}
+              onClick={() => setDate(shiftDate(date, view === "day" ? 1 : 7))}
+            >
+              <ChevronRight />
+            </Button>
+          </div>
           <Button variant="secondary" size="sm" onClick={() => setDate(todayISO())}>
             Bugün
-          </Button>
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => setDate(shiftDate(date, view === "day" ? 1 : 7))}
-          >
-            Sonraki →
           </Button>
         </div>
       </div>
@@ -178,207 +213,231 @@ export default function CalendarPage() {
 
       {view === "day" &&
         (day.isLoading ? (
-        <LoadingState label="Takvim yükleniyor…" />
-      ) : day.isError || !data ? (
-        <ErrorState message="Takvim yüklenemedi." onRetry={() => day.refetch()} />
-      ) : data.docks.length === 0 ? (
-        <EmptyState
-          title="Görüntülenecek rampa yok"
-          description="Bu tesiste aktif rampa yok ya da yetkiniz olan rampa bulunmuyor."
-        />
-      ) : (
-        <>
-          {/* Kargo uyari seridi — statuden bagimsiz tavsiye katmani */}
-          {data.cargo_advisories.length > 0 && (
-            <div className="flex flex-col gap-1 rounded-lg border border-cargo/40 bg-cargo/10 px-3 py-2 text-sm text-cargo">
-              {data.cargo_advisories.map((advisory) => (
-                <span key={advisory.appointment_id} className="flex items-center gap-2">
-                  <Package className="h-4 w-4 shrink-0" />
-                  {advisory.message}
-                </span>
-              ))}
-            </div>
-          )}
+          <LoadingState label="Takvim yükleniyor…" />
+        ) : day.isError || !data ? (
+          <ErrorState message="Takvim yüklenemedi." onRetry={() => day.refetch()} />
+        ) : data.docks.length === 0 ? (
+          <EmptyState
+            title="Görüntülenecek rampa yok"
+            description="Aktif rampa yok ya da yetkiniz olan rampa bulunmuyor."
+          />
+        ) : (
+          <>
+            {/* Kargo uyarı şeridi — statüden bağımsız tavsiye katmanı */}
+            {data.cargo_advisories.length > 0 && (
+              <div className="flex flex-col gap-1 rounded-lg border border-cargo/40 bg-cargo/10 px-3 py-2 text-sm text-cargo">
+                {data.cargo_advisories.map((advisory) => (
+                  <span key={advisory.appointment_id} className="flex items-center gap-2">
+                    <Package className="h-4 w-4 shrink-0" />
+                    {advisory.message}
+                  </span>
+                ))}
+              </div>
+            )}
 
-          <Card>
-            <CardContent className="overflow-x-auto p-0">
-              <div style={{ minWidth: 160 + data.docks.length * 180 }}>
-                {/* Baslik: rampa sutunlari */}
-                <div
-                  className="sticky top-0 z-10 grid border-b border-border bg-muted/60 backdrop-blur"
-                  style={{
-                    gridTemplateColumns: `64px repeat(${data.docks.length}, 1fr)`,
-                  }}
-                >
-                  <div />
-                  {data.docks.map((dock) => (
-                    <div key={dock.id} className="border-l border-border px-3 py-2">
-                      <div className="flex items-center gap-1.5 text-sm font-semibold">
-                        {dock.name}
-                        {dock.has_cargo_warning && (
-                          <Package className="h-3.5 w-3.5 text-cargo" />
-                        )}
-                        {dock.day_window === null && (
-                          <CalendarOff className="h-3.5 w-3.5 text-status-cancelled" />
-                        )}
-                      </div>
-                      <div className="truncate text-xs text-muted-foreground">
-                        {dock.day_window
-                          ? `${dock.day_window.start}–${dock.day_window.end}`
-                          : "Bugün kapalı"}
-                      </div>
+            <Card>
+              <CardContent className="relative overflow-x-auto p-0">
+                <div style={{ width: LEFT_W + bodyW }} className="relative">
+                  {/* Saat cetveli */}
+                  <div className="sticky top-0 z-20 flex border-b border-border bg-muted/70 backdrop-blur">
+                    <div
+                      className="sticky left-0 z-10 shrink-0 border-r border-border bg-muted/90 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground backdrop-blur"
+                      style={{ width: LEFT_W }}
+                    >
+                      Rampalar ({data.docks.length})
                     </div>
-                  ))}
-                </div>
-
-                {/* Izgara */}
-                <div
-                  className="relative grid"
-                  style={{
-                    gridTemplateColumns: `64px repeat(${data.docks.length}, 1fr)`,
-                  }}
-                >
-                  <div>
-                    {hours.map((m) => (
-                      <div
-                        key={m}
-                        className="border-b border-border pr-2 text-right text-xs text-muted-foreground"
-                        style={{ height: HOUR_PX }}
-                      >
-                        <span className="relative -top-2">
-                          {`${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`}
+                    <div className="relative" style={{ width: bodyW, height: 34 }}>
+                      {hours.map((m) => (
+                        <span
+                          key={m}
+                          className="absolute top-2 -translate-x-1/2 text-xs text-muted-foreground first:translate-x-0"
+                          style={{ left: minToX(m) }}
+                        >
+                          {fmtMin(m)}
                         </span>
-                      </div>
-                    ))}
+                      ))}
+                      {/* Pencere bitişi etiketi */}
+                      <span
+                        className="absolute right-0 top-2 text-xs text-muted-foreground"
+                        style={{ left: undefined }}
+                      >
+                        {fmtMin(gridEnd)}
+                      </span>
+                    </div>
                   </div>
 
+                  {/* Rampa satırları */}
                   {data.docks.map((dock) => {
                     const window = dock.day_window;
-                    const blocked = data.blocked_slots.filter(
-                      (b) => b.dock_id === dock.id,
-                    );
+                    const blocked = data.blocked_slots.filter((b) => b.dock_id === dock.id);
+                    const appts = data.appointments.filter((a) => a.dock_id === dock.id);
                     return (
-                      <div key={dock.id} className="relative border-l border-border">
-                        {hours.map((m) => (
-                          <div
-                            key={m}
-                            className={cn(
-                              "border-b border-border/60",
-                              can("appt.create") &&
-                                "cursor-pointer transition-colors hover:bg-primary/5",
+                      <div key={dock.id} className="flex border-b border-border/70 last:border-b-0">
+                        {/* Sol sabit rampa hücresi */}
+                        <div
+                          className="sticky left-0 z-10 flex shrink-0 flex-col justify-center gap-0.5 border-r border-border bg-card px-3"
+                          style={{ width: LEFT_W, height: ROW_H }}
+                        >
+                          <div className="flex items-center gap-1.5 truncate text-sm font-semibold">
+                            <span className="truncate">{dock.name}</span>
+                            {dock.has_cargo_warning && (
+                              <Package className="h-3.5 w-3.5 shrink-0 text-cargo" />
                             )}
-                            style={{ height: HOUR_PX }}
-                            title={can("appt.create") ? "Bu saate randevu oluştur" : undefined}
-                            onClick={() => openCreateAt(dock.id, m)}
-                          />
-                        ))}
-
-                        {/* Calisma penceresi disi golgeleme */}
-                        {window === null ? (
-                          <div className="absolute inset-0 bg-muted/70" />
-                        ) : (
-                          <>
-                            {hhmmToMinutes(window.start) > gridStart && (
-                              <div
-                                className="absolute inset-x-0 top-0 bg-muted/70"
-                                style={{
-                                  height:
-                                    ((hhmmToMinutes(window.start) - gridStart) / 60) *
-                                    HOUR_PX,
-                                }}
-                              />
+                            {window === null && (
+                              <CalendarOff className="h-3.5 w-3.5 shrink-0 text-status-cancelled" />
                             )}
-                            {hhmmToMinutes(window.end) < gridEnd && (
-                              <div
-                                className="absolute inset-x-0 bottom-0 bg-muted/70"
-                                style={{
-                                  height:
-                                    ((gridEnd - hhmmToMinutes(window.end)) / 60) * HOUR_PX,
-                                }}
-                              />
-                            )}
-                          </>
-                        )}
-
-                        {/* Closed override bloklari */}
-                        {blocked.map((b, i) => (
-                          <div
-                            key={i}
-                            className="absolute inset-x-1 flex items-center justify-center rounded-md border border-dashed border-status-cancelled/50 bg-status-cancelled/10 text-[10px] font-medium text-status-cancelled"
-                            style={{
-                              top:
-                                ((hhmmToMinutes(b.start) - gridStart) / 60) * HOUR_PX,
-                              height:
-                                ((hhmmToMinutes(b.end) - hhmmToMinutes(b.start)) / 60) *
-                                HOUR_PX,
-                            }}
-                            title={b.note ?? "Kapalı"}
-                          >
-                            <CalendarOff className="mr-1 h-3 w-3" />
-                            {b.note ?? "Kapalı"}
                           </div>
-                        ))}
+                          <div className="truncate text-[11px] text-muted-foreground">
+                            {window ? `${window.start}–${window.end}` : "Bugün kapalı"}
+                          </div>
+                        </div>
 
-                        {/* Randevu bloklari */}
-                        {data.appointments
-                          .filter((a) => a.dock_id === dock.id)
-                          .map((a) => {
-                            const { top, height } = blockPosition(a);
+                        {/* Zaman şeridi */}
+                        <div
+                          className={cn(
+                            "relative",
+                            can("appt.create") && window !== null && "cursor-pointer",
+                          )}
+                          style={{
+                            width: bodyW,
+                            height: ROW_H,
+                            // 30dk (ince) + saat başı (belirgin) dikey kılavuzlar
+                            backgroundImage:
+                              "repeating-linear-gradient(to right, hsl(var(--border)/0.45) 0 1px, transparent 1px " +
+                              HOUR_W / 2 +
+                              "px), repeating-linear-gradient(to right, hsl(var(--border)) 0 1px, transparent 1px " +
+                              HOUR_W +
+                              "px)",
+                          }}
+                          title={
+                            can("appt.create") && window !== null
+                              ? "Boş alana tıklayın: bu rampa ve saate randevu oluştur"
+                              : undefined
+                          }
+                          onClick={(e) => window !== null && rowClick(dock.id, e)}
+                        >
+                          {/* Pencere dışı gölgeleme / kapalı gün */}
+                          {window === null ? (
+                            <div className="absolute inset-0 z-[1] bg-muted/80" />
+                          ) : (
+                            <>
+                              {hhmmToMinutes(window.start) > gridStart && (
+                                <div
+                                  className="absolute inset-y-0 left-0 z-[1] bg-muted/80"
+                                  style={{ width: minToX(hhmmToMinutes(window.start)) }}
+                                />
+                              )}
+                              {hhmmToMinutes(window.end) < gridEnd && (
+                                <div
+                                  className="absolute inset-y-0 right-0 z-[1] bg-muted/80"
+                                  style={{ width: bodyW - minToX(hhmmToMinutes(window.end)) }}
+                                />
+                              )}
+                            </>
+                          )}
+
+                          {/* Kapalı override bantları */}
+                          {blocked.map((b, i) => (
+                            <div
+                              key={i}
+                              className="absolute inset-y-1.5 z-[2] flex items-center justify-center gap-1 overflow-hidden rounded-md border border-dashed border-status-cancelled/50 bg-status-cancelled/10 px-1 text-[10px] font-medium text-status-cancelled"
+                              style={{
+                                left: minToX(hhmmToMinutes(b.start)),
+                                width:
+                                  minToX(hhmmToMinutes(b.end)) - minToX(hhmmToMinutes(b.start)),
+                              }}
+                              title={b.note ?? "Kapalı"}
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <CalendarOff className="h-3 w-3 shrink-0" />
+                              <span className="truncate">{b.note ?? "Kapalı"}</span>
+                            </div>
+                          ))}
+
+                          {/* Randevu blokları */}
+                          {appts.map((a) => {
+                            const { left, width } = blockGeom(a);
                             return (
                               <button
                                 key={a.id}
-                                onClick={() => setSelectedId(a.id)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedId(a.id);
+                                }}
                                 className={cn(
-                                  "absolute inset-x-1 rounded-md border-l-4 p-1.5 text-left text-xs shadow-sm transition-transform hover:scale-[1.01]",
+                                  "absolute inset-y-1.5 z-[3] overflow-hidden rounded-md border-l-4 px-1.5 py-1 text-left text-xs shadow-sm transition-transform hover:z-[4] hover:scale-[1.02]",
                                   STATUS_BLOCK[a.status as AppointmentStatus],
                                   a.delivery_type === "cargo" && "cargo-overlay",
                                 )}
-                                style={{ top, height }}
+                                style={{ left, width }}
+                                title={`${timeInTz(a.scheduled_start_at, tz)} · ${a.supplier_name ?? ""} · ${a.product_name}`}
                               >
-                                <div className="flex items-center gap-1 truncate font-semibold">
+                                <div className="flex items-center gap-1 truncate font-semibold leading-tight">
                                   {a.delivery_type === "cargo" && (
                                     <Package className="h-3 w-3 shrink-0 text-cargo" />
                                   )}
-                                  {timeInTz(a.scheduled_start_at, tz)} {a.supplier_name}
+                                  <span className="truncate">
+                                    {timeInTz(a.scheduled_start_at, tz)} {a.supplier_name}
+                                  </span>
                                 </div>
-                                <div className="truncate opacity-80">{a.product_name}</div>
+                                <div className="truncate leading-tight opacity-80">
+                                  {a.product_name}
+                                </div>
                               </button>
                             );
                           })}
+                        </div>
                       </div>
                     );
                   })}
+
+                  {/* Şimdi çizgisi — tüm satırları keser */}
+                  {showNow && (
+                    <div
+                      aria-hidden
+                      className="pointer-events-none absolute bottom-0 top-[34px] z-[5]"
+                      style={{ left: LEFT_W + minToX(nowMin) }}
+                    >
+                      <div className="h-full w-px bg-primary" />
+                      <div className="absolute -left-[3px] -top-1 h-2 w-2 rounded-full bg-primary" />
+                    </div>
+                  )}
                 </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
 
-          {data.appointments.length === 0 && (
-            <EmptyState
-              title="Bu gün randevu yok"
-              description="Farklı bir gün seçin ya da tedarikçi portalından talep bekleyin."
-            />
-          )}
+            {data.appointments.length === 0 && (
+              <EmptyState
+                title="Bu gün randevu yok"
+                description="Farklı bir gün seçin ya da tedarikçi portalından talep bekleyin."
+              />
+            )}
 
-          {/* Lejant */}
-          <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-            {(Object.keys(APPOINTMENT_STATUS_LABELS) as AppointmentStatus[]).map((s) => (
-              <span key={s} className="flex items-center gap-1">
-                <span className={cn("h-2.5 w-2.5 rounded-sm border-l-2", STATUS_BLOCK[s])} />
-                {APPOINTMENT_STATUS_LABELS[s]}
+            {/* Lejant */}
+            <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+              {(Object.keys(APPOINTMENT_STATUS_LABELS) as AppointmentStatus[]).map((s) => (
+                <span key={s} className="flex items-center gap-1">
+                  <span className={cn("h-2.5 w-2.5 rounded-sm border-l-2", STATUS_BLOCK[s])} />
+                  {APPOINTMENT_STATUS_LABELS[s]}
+                </span>
+              ))}
+              <span className="flex items-center gap-1">
+                <span className="cargo-overlay h-2.5 w-2.5 rounded-sm border border-cargo/50" />
+                Kargo uyarısı (statüden bağımsız)
               </span>
-            ))}
-            <span className="flex items-center gap-1">
-              <span className="cargo-overlay h-2.5 w-2.5 rounded-sm border border-cargo/50" />
-              Kargo uyarısı (statüden bağımsız)
-            </span>
-            <span className="flex items-center gap-1">
-              <span className="h-2.5 w-2.5 rounded-sm border border-dashed border-status-cancelled/60 bg-status-cancelled/10" />
-              Kapalı (override)
-            </span>
-          </div>
-        </>
-      ))}
+              <span className="flex items-center gap-1">
+                <span className="h-2.5 w-2.5 rounded-sm border border-dashed border-status-cancelled/60 bg-status-cancelled/10" />
+                Kapalı (override)
+              </span>
+              {showNow && (
+                <span className="flex items-center gap-1">
+                  <span className="h-2.5 w-0.5 rounded bg-primary" />
+                  Şu an
+                </span>
+              )}
+            </div>
+          </>
+        ))}
 
       <AdminCreateDrawer
         open={createInitial !== null}

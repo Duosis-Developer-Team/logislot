@@ -580,32 +580,65 @@ async def test_admin_create_single_and_recurring(client, seeded):
 
 
 async def test_platform_onboarding_tenant_and_facility_bootstrap(client, seeded):
+    """1 tenant = 1 tesis: musteri hesabi acilirken kapsami da otomatik kurulur."""
     headers = await platform(client)
 
     response = await client.post(
         "/platform/tenants",
         headers=headers,
         json={"commercial_name": "Pilot Gida A.S.", "display_name": "Pilot Gida",
-              "slug": "pilot-gida", "status": "trial"},
-    )
-    assert response.status_code == 200, response.text
-    tenant_id = response.json()["data"]["id"]
-
-    response = await client.post(
-        f"/platform/tenants/{tenant_id}/facilities",
-        headers=headers,
-        json={"name": "Pilot Tesis", "timezone": "Europe/Istanbul",
+              "slug": "pilot-gida", "status": "trial", "address": "OSB 3. Cadde",
               "bootstrap_defaults": True},
     )
     assert response.status_code == 200, response.text
     data = response.json()["data"]
+    tenant_id = data["id"]
+
+    # Tesis ayri adim DEGIL: ayni yanitta kapsam ve bootstrap ozeti gelir.
+    assert data["facility_id"] is not None
+    assert data["address"] == "OSB 3. Cadde"
     assert data["bootstrap"] == {
         "vehicle_categories": 3, "product_categories": 1, "docks": 1, "roles": 3,
     }
 
-    # Tesis listede gorunur
+    # Operasyonel kapsam listede gorunur ve tenant adiyla acilmistir.
     response = await client.get("/platform/facilities", headers=headers)
-    assert any(f["id"] == data["id"] for f in response.json()["data"])
+    facility = next(f for f in response.json()["data"] if f["id"] == data["facility_id"])
+    assert facility["name"] == "Pilot Gida"
+
+    # Ikinci tesis eklenemez (1-1 kisiti).
+    response = await client.post(
+        f"/platform/tenants/{tenant_id}/facilities",
+        headers=headers,
+        json={"name": "Ikinci Tesis", "timezone": "Europe/Istanbul"},
+    )
+    assert response.status_code == 409
+    assert response.json()["error"]["code"] == "TENANT_FACILITY_EXISTS"
+
+
+async def test_tenant_patch_syncs_facility(client, seeded):
+    """tenant=tesis: ad/adres/durum tek kayitmis gibi senkron guncellenir."""
+    headers = await platform(client)
+    created = await client.post(
+        "/platform/tenants",
+        headers=headers,
+        json={"commercial_name": "Senkron A.S.", "display_name": "Senkron",
+              "slug": "senkron", "status": "trial"},
+    )
+    tenant_id = created.json()["data"]["id"]
+
+    response = await client.patch(
+        f"/platform/tenants/{tenant_id}",
+        headers=headers,
+        json={"display_name": "Senkron Gida", "address": "Yeni Adres"},
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["data"]["address"] == "Yeni Adres"
+
+    facilities = (await client.get("/platform/facilities", headers=headers)).json()["data"]
+    facility = next(f for f in facilities if f["tenant_id"] == tenant_id)
+    assert facility["name"] == "Senkron Gida"
+    assert facility["address"] == "Yeni Adres"
 
 
 async def test_archived_tenant_cannot_get_new_facility(client, seeded):
@@ -632,7 +665,8 @@ async def test_archived_tenant_cannot_get_new_facility(client, seeded):
     assert response.json()["error"]["code"] == "TENANT_ARCHIVED"
 
 
-async def test_facility_create_plan_override_must_be_assignable(client, seeded):
+async def test_tenant_create_plan_override_must_be_assignable(client, seeded):
+    """Plan override artik musteri hesabi acilirken verilir (tenant=tesis)."""
     headers = await platform(client)
 
     # Draft plan atanamaz
@@ -642,11 +676,10 @@ async def test_facility_create_plan_override_must_be_assignable(client, seeded):
     )
     draft_plan_id = response.json()["data"]["id"]
 
-    tenant_id = str(seeded["tenant"].id)
     response = await client.post(
-        f"/platform/tenants/{tenant_id}/facilities",
-        headers=headers,
-        json={"name": "Plan Denemesi", "plan_override_id": draft_plan_id},
+        "/platform/tenants", headers=headers,
+        json={"commercial_name": "Plan Denemesi A.S.", "display_name": "Plan Denemesi",
+              "slug": "plan-denemesi", "plan_override_id": draft_plan_id},
     )
     assert response.status_code == 409
     assert response.json()["error"]["code"] == "PLAN_NOT_ASSIGNABLE"
@@ -654,9 +687,140 @@ async def test_facility_create_plan_override_must_be_assignable(client, seeded):
     # Aktif plan override calisir
     active_plan_id = str(seeded["plan"].id)
     response = await client.post(
-        f"/platform/tenants/{tenant_id}/facilities",
-        headers=headers,
-        json={"name": "Plan Denemesi 2", "plan_override_id": active_plan_id},
+        "/platform/tenants", headers=headers,
+        json={"commercial_name": "Plan Denemesi 2 A.S.", "display_name": "Plan Denemesi 2",
+              "slug": "plan-denemesi-2", "plan_override_id": active_plan_id},
     )
     assert response.status_code == 200, response.text
-    assert response.json()["data"]["plan_override_id"] == active_plan_id
+    facility_id = response.json()["data"]["facility_id"]
+    facilities = (await client.get("/platform/facilities", headers=headers)).json()["data"]
+    facility = next(f for f in facilities if f["id"] == facility_id)
+    assert facility["plan_override_id"] == active_plan_id
+
+
+async def test_plan_limits_are_dynamic_and_enforced(client, seeded):
+    """Plan kotalari dinamiktir; max_tenants atama aninda ZORLANIR."""
+    headers = await platform(client)
+
+    # 1 musteri hesabi limitli plan
+    created = await client.post(
+        "/platform/plans", headers=headers,
+        json={"name": "Limitli Plan", "status": "active",
+              "limits_json": {"max_tenants": 1, "monthly_appointments": 250,
+                              "bilinmeyen_anahtar": 5, "max_docks": 0}},
+    )
+    assert created.status_code == 200, created.text
+    plan = created.json()["data"]
+    plan_id = plan["id"]
+    # Bilinmeyen anahtar elenir; 0/negatif = sinirsiz kabul edilip cikarilir.
+    assert plan["limits_json"] == {"max_tenants": 1, "monthly_appointments": 250}
+
+    # Limit dinamik olarak degistirilebilir
+    patched = await client.patch(
+        f"/platform/plans/{plan_id}", headers=headers,
+        json={"limits_json": {"max_tenants": 2, "max_users": 10}},
+    )
+    assert patched.json()["data"]["limits_json"] == {"max_tenants": 2, "max_users": 10}
+
+    # Limiti 1'e cek ve iki tenant atamayi dene
+    await client.patch(
+        f"/platform/plans/{plan_id}", headers=headers, json={"limits_json": {"max_tenants": 1}}
+    )
+    first = await client.post(
+        "/platform/tenants", headers=headers,
+        json={"commercial_name": "Kota Bir", "display_name": "Kota Bir", "slug": "kota-bir"},
+    )
+    second = await client.post(
+        "/platform/tenants", headers=headers,
+        json={"commercial_name": "Kota Iki", "display_name": "Kota Iki", "slug": "kota-iki"},
+    )
+    ok_assign = await client.post(
+        f"/platform/tenants/{first.json()['data']['id']}/plan-assignment",
+        headers=headers, json={"plan_id": plan_id},
+    )
+    assert ok_assign.status_code == 200, ok_assign.text
+
+    blocked = await client.post(
+        f"/platform/tenants/{second.json()['data']['id']}/plan-assignment",
+        headers=headers, json={"plan_id": plan_id},
+    )
+    assert blocked.status_code == 409
+    assert blocked.json()["error"]["code"] == "PLAN_TENANT_LIMIT_REACHED"
+
+    # Limit yukseltilince atama gecer (dinamiklik kaniti)
+    await client.patch(
+        f"/platform/plans/{plan_id}", headers=headers, json={"limits_json": {"max_tenants": 5}}
+    )
+    retry = await client.post(
+        f"/platform/tenants/{second.json()['data']['id']}/plan-assignment",
+        headers=headers, json={"plan_id": plan_id},
+    )
+    assert retry.status_code == 200, retry.text
+
+
+async def test_plan_limit_cannot_be_bypassed_via_tenant_patch(client, seeded):
+    """Kota, PATCH /platform/tenants ile de asilamaz.
+
+    assigned_plan_id iki uctan da yazilabiliyor; ozel atama ucu korunup PATCH
+    korunmasaydi limit yalnizca gorunuste calisirdi.
+    """
+    headers = await platform(client)
+    created = await client.post(
+        "/platform/plans",
+        headers=headers,
+        json={
+            "name": "Patch Kota Plani",
+            "status": "active",
+            "limits_json": {"max_tenants": 1},
+        },
+    )
+    plan_id = created.json()["data"]["id"]
+
+    first = await client.post(
+        "/platform/tenants", headers=headers,
+        json={"commercial_name": "Patch Bir", "display_name": "Patch Bir", "slug": "patch-bir"},
+    )
+    second = await client.post(
+        "/platform/tenants", headers=headers,
+        json={"commercial_name": "Patch Iki", "display_name": "Patch Iki", "slug": "patch-iki"},
+    )
+    assigned = await client.patch(
+        f"/platform/tenants/{first.json()['data']['id']}",
+        headers=headers, json={"assigned_plan_id": plan_id},
+    )
+    assert assigned.status_code == 200, assigned.text
+
+    blocked = await client.patch(
+        f"/platform/tenants/{second.json()['data']['id']}",
+        headers=headers, json={"assigned_plan_id": plan_id},
+    )
+    assert blocked.status_code == 409
+    assert blocked.json()["error"]["code"] == "PLAN_TENANT_LIMIT_REACHED"
+
+
+async def test_tenant_patch_rejects_non_assignable_plan(client, seeded):
+    """Taslak/emekli plan PATCH uzerinden de atanamaz (atama ucuyla ayni kural)."""
+    headers = await platform(client)
+    draft = await client.post(
+        "/platform/plans", headers=headers,
+        json={"name": "Taslak Plan", "status": "draft"},
+    )
+    tenant = await client.post(
+        "/platform/tenants", headers=headers,
+        json={"commercial_name": "Taslak AS", "display_name": "Taslak AS", "slug": "taslak-as"},
+    )
+    response = await client.patch(
+        f"/platform/tenants/{tenant.json()['data']['id']}",
+        headers=headers, json={"assigned_plan_id": draft.json()["data"]["id"]},
+    )
+    assert response.status_code == 409
+    assert response.json()["error"]["code"] == "PLAN_NOT_ASSIGNABLE"
+
+
+async def test_plan_limit_dimensions_catalog(client, seeded):
+    """UI limit editorunu dinamik kurar; katalog uctan gelir."""
+    headers = await platform(client)
+    response = await client.get("/platform/plan-limit-dimensions", headers=headers)
+    assert response.status_code == 200
+    keys = [d["key"] for d in response.json()["data"]["dimensions"]]
+    assert "max_tenants" in keys and "monthly_appointments" in keys

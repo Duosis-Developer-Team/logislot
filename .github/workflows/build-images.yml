@@ -5,6 +5,7 @@
 # web image'i ortamin GERCEK API adresiyle build edilir —
 # vars.DEV_NEXT_PUBLIC_API_URL / vars.PROD_NEXT_PUBLIC_API_URL
 # (tanimli degilse NodePort varsayilanlari kullanilir).
+# NOT: workflow yeniden indeksleme (Actions kayit) tetiklemesi.
 name: Build Images
 
 on:

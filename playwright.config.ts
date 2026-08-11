@@ -16,8 +16,12 @@ export default defineConfig({
   retries: 0,
   reporter: [["list"]],
   outputDir: "e2e/test-results",
+  // Cerez bilgilendirme banner'i onceden ack'lenir (bkz. e2e/global-setup.ts);
+  // banner'in kendisi 13-landing-marketing'de storageState override ile test edilir.
+  globalSetup: "./e2e/global-setup.ts",
   use: {
     baseURL: process.env.E2E_BASE_URL ?? "http://localhost:3010",
+    storageState: "./e2e/.artifacts/storage-state.json",
     screenshot: "only-on-failure",
     trace: "retain-on-failure",
     locale: "tr-TR",

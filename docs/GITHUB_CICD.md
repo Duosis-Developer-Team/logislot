@@ -89,7 +89,12 @@ Package settings → **public** yapın ya da cluster'a pull secret ekleyin.
    rollout + `/health` doğrulaması.
 3. İlk kurulumda demo verisi için: Actions → Deploy → **Run workflow** →
    environment `dev`, `run_seed=true`.
-4. Erişim: `http://84.247.180.172:30080` (web) / `:30081` (api).
+4. Erişim (portal izolasyonu — bkz. `docs/PORTAL_ISOLATION_AND_ROUTING.md`):
+   `:30080` public entry (portal seçici) · `:30084` tedarikçi · `:30085` yönetim ·
+   `:30086` **hidden** platform · `:30081` api.
+   Not: 4 web deployment'ı da **aynı** `logislot-web` image'ını kullanır; portal
+   davranışı runtime `LOGISLOT_PORTAL_MODE` env'i ile ayrışır (ekstra image
+   build'i GEREKMEZ — `kustomize edit set image` tek tag'i hepsine uygular).
 
 ## 7. Prod Deploy Akışı
 

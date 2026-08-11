@@ -143,7 +143,47 @@ export function useAppointmentActions(facilityId: string | null) {
     mutationFn: ({ id, ...body }: ReviseInput) => post(facilityId, id, "revise", body),
     onSuccess: invalidate,
   });
-  return { approve, reject, complete, cancel, revise };
+  // Rampa degisimi REVIZE DEGILDIR: saat/sure ve randevu durumu korunur,
+  // tedarikciden yeniden onay istenmez (yalnizca bilgilendirilir).
+  const changeDock = useMutation({
+    mutationFn: ({ id, dock_id, note }: { id: string; dock_id: string | null; note?: string | null }) =>
+      post(facilityId, id, "dock-change", { dock_id, note: note || null }),
+    onSuccess: (_data, vars) => {
+      invalidate();
+      queryClient.invalidateQueries({
+        queryKey: ["dock-options", facilityId ?? "none", vars.id],
+      });
+    },
+  });
+  return { approve, reject, complete, cancel, revise, changeDock };
+}
+
+export interface DockOptionDto {
+  dock_id: string;
+  name: string;
+  is_current: boolean;
+  available: boolean;
+  reason_code: string | null;
+  reason: string | null;
+  booked_minutes_today: number;
+}
+
+/**
+ * Randevunun tasinabilecegi rampalar — uyumluluk ve doluluk SUNUCU kararidir.
+ *
+ * Istemci bu mantigi kopyalamaz; yalnizca listeyi cizer. Boylece kural
+ * degisikligi tek yerden (AvailabilityService) yayilir.
+ */
+export function useDockOptions(facilityId: string | null, appointmentId: string | null) {
+  return useQuery({
+    queryKey: ["dock-options", facilityId ?? "none", appointmentId],
+    queryFn: () =>
+      apiRequest<{ options: DockOptionDto[] }>(
+        `/facilities/${facilityId}/appointments/${appointmentId}/dock-options`,
+      ),
+    enabled: facilityId !== null && appointmentId !== null,
+    staleTime: 10_000,
+  });
 }
 
 // ---------------------------------------------------------- seriler (Sprint 9)

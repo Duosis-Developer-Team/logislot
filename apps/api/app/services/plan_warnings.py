@@ -14,7 +14,7 @@ DIMENSION_LABELS = {
     "active_docks": "aktif rampa sayısı",
     "active_suppliers": "aktif tedarikçi sayısı",
     "active_users": "aktif kullanıcı sayısı",
-    "active_facilities": "tesis sayısı",
+    "active_facilities": "aktif hesap sayısı",
 }
 
 

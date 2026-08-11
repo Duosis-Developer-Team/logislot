@@ -219,7 +219,7 @@ export default function NewAppointmentWizard() {
     const first = seriesResult.appointments[0];
     const approved = first?.status === "approved";
     return (
-      <Card>
+      <Card className="mx-auto w-full max-w-2xl">
         <CardContent className="flex flex-col items-center gap-3 py-10 text-center">
           <span
             className={cn(
@@ -270,7 +270,7 @@ export default function NewAppointmentWizard() {
   if (result) {
     const approved = result.status === "approved";
     return (
-      <Card>
+      <Card className="mx-auto w-full max-w-2xl">
         <CardContent className="flex flex-col items-center gap-3 py-10 text-center">
           <span
             className={cn(
@@ -312,7 +312,7 @@ export default function NewAppointmentWizard() {
   }
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="mx-auto flex w-full max-w-2xl flex-col gap-4">
       <div className="flex items-center gap-2">
         {STEPS.map((label, i) => (
           <div key={label} className="flex flex-1 flex-col gap-1">

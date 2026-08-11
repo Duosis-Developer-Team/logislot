@@ -40,7 +40,7 @@ interface AuditListDto {
 }
 
 const ACTOR_LABELS: Record<string, string> = {
-  tenant_user: "Tesis kullanıcısı",
+  tenant_user: "Hesap kullanıcısı",
   supplier_user: "Tedarikçi",
   platform_user: "Platform",
   system: "Sistem",
@@ -117,7 +117,7 @@ export default function AuditLogsPage() {
       <div>
         <h1 className="text-xl font-bold">Denetim İzleri</h1>
         <p className="text-sm text-muted-foreground">
-          Bu ekran tesis içindeki yönetim işlemlerinin denetim izlerini gösterir. Parola,
+          Bu ekran hesabınızdaki yönetim işlemlerinin denetim izlerini gösterir. Parola,
           token gibi hassas alanlar otomatik maskelenir.
         </p>
       </div>

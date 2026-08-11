@@ -9,6 +9,8 @@ import { SupplierSeriesSection } from "@/components/domain/supplier-series-secti
 import { EmptyState, ErrorState, LoadingState } from "@/components/config/states";
 import { CargoBadge } from "@/components/domain/cargo-badge";
 import { StatusBadge } from "@/components/domain/status-badge";
+import { MetricCard } from "@/components/shell/metric-card";
+import { PageContainer, PageHeader } from "@/components/shell/page";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { ApiError } from "@/lib/api/client";
@@ -54,13 +56,24 @@ export default function SupplierAppointmentsPage() {
   const past = all.filter((a) => !upcoming.includes(a));
   const shown = activeTab === "upcoming" ? upcoming : past;
 
-  const counters = [
-    { label: "Yaklaşan", value: upcoming.length, icon: Clock3 },
-    { label: "Bekleyen", value: all.filter((a) => a.status === "pending").length, icon: Boxes },
+  const counters: {
+    label: string;
+    value: number;
+    icon: typeof Clock3;
+    tone: "primary" | "pending" | "completed";
+  }[] = [
+    { label: "Yaklaşan", value: upcoming.length, icon: Clock3, tone: "primary" },
+    {
+      label: "Bekleyen",
+      value: all.filter((a) => a.status === "pending").length,
+      icon: Boxes,
+      tone: "pending",
+    },
     {
       label: "Tamamlanan",
       value: all.filter((a) => a.status === "completed").length,
       icon: Truck,
+      tone: "completed",
     },
   ];
 
@@ -77,23 +90,22 @@ export default function SupplierAppointmentsPage() {
   }
 
   return (
-    <div className="flex flex-col gap-4">
-      <div>
-        <h1 className="text-lg font-bold">
-          {profile.data?.company_name ?? "Randevularım"}
-        </h1>
-        {profile.data && (
-          <p className="text-xs text-muted-foreground">
-            Kod: {profile.data.code}
-            {profile.data.category_label ? ` · ${profile.data.category_label}` : ""}
-          </p>
-        )}
-      </div>
+    <PageContainer className="mx-auto max-w-5xl">
+      <PageHeader
+        title={profile.data?.company_name ?? "Randevularım"}
+        description={
+          profile.data
+            ? `Kod: ${profile.data.code}${
+                profile.data.category_label ? ` · ${profile.data.category_label}` : ""
+              }`
+            : undefined
+        }
+      />
 
       {flash && (
         <div
           className={cn(
-            "rounded-lg border px-3 py-2 text-sm",
+            "rounded-xl border px-3.5 py-2.5 text-sm",
             flash.kind === "success"
               ? "border-status-approved/40 bg-status-approved/10 text-status-approved"
               : "border-destructive/40 bg-destructive/10 text-destructive",
@@ -105,22 +117,19 @@ export default function SupplierAppointmentsPage() {
 
       <SupplierSeriesSection onFlash={showFlash} />
 
-      <div className="grid grid-cols-3 gap-2">
-        {counters.map((c) => {
-          const Icon = c.icon;
-          return (
-            <Card key={c.label}>
-              <CardContent className="flex flex-col items-center gap-1 p-3">
-                <Icon className="h-4 w-4 text-primary" />
-                <span className="text-xl font-bold">{c.value}</span>
-                <span className="text-[11px] text-muted-foreground">{c.label}</span>
-              </CardContent>
-            </Card>
-          );
-        })}
+      <div className="grid grid-cols-3 gap-3">
+        {counters.map((c) => (
+          <MetricCard
+            key={c.label}
+            icon={c.icon}
+            label={c.label}
+            value={c.value}
+            tone={c.tone}
+          />
+        ))}
       </div>
 
-      <div className="flex rounded-lg bg-muted p-1">
+      <div className="flex rounded-xl bg-muted p-1">
         {(
           [
             ["upcoming", "Yaklaşan"],
@@ -140,19 +149,19 @@ export default function SupplierAppointmentsPage() {
         ))}
       </div>
 
-      <div className="flex flex-col gap-3">
-        {shown.length === 0 && (
-          <EmptyState
-            title="Randevu yok"
-            description={
-              activeTab === "upcoming"
-                ? "Yeni Randevu sekmesinden 3 adımda talep oluşturabilirsiniz."
-                : "Geçmiş randevunuz bulunmuyor."
-            }
-          />
-        )}
-        {shown.map((a) => (
-          <Card key={a.id}>
+      {shown.length === 0 ? (
+        <EmptyState
+          title="Randevu yok"
+          description={
+            activeTab === "upcoming"
+              ? "Yeni Randevu sekmesinden 3 adımda talep oluşturabilirsiniz."
+              : "Geçmiş randevunuz bulunmuyor."
+          }
+        />
+      ) : (
+        <div className="grid gap-3 md:grid-cols-2">
+          {shown.map((a) => (
+            <Card key={a.id}>
             <CardContent className="flex flex-col gap-2 p-4">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
@@ -215,8 +224,9 @@ export default function SupplierAppointmentsPage() {
               )}
             </CardContent>
           </Card>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
 
       <ConfirmDialog
         open={confirmTarget !== null}
@@ -227,6 +237,6 @@ export default function SupplierAppointmentsPage() {
         onConfirm={onCancel}
         onClose={() => setConfirmTarget(null)}
       />
-    </div>
+    </PageContainer>
   );
 }

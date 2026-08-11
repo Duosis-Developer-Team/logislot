@@ -50,6 +50,55 @@ _ACTOR_TYPES = {
     "supplier": ActorType.supplier_user,
 }
 
+#: Login endpointi -> kabul ettigi portal degeri. Endpoint ayrimi zaten
+#: cross-portal login'i tablo bazinda engeller; opsiyonel `portal` alani
+#: portal-specific client'lar icin ek/dogrudan bir sozlesme saglar.
+_PORTAL_ERRORS = {
+    "supplier": (
+        "Bu hesap Tedarikci Portali icin yetkili degil. "
+        "Lutfen dogru portal uzerinden giris yapin."
+    ),
+    "admin": (
+        "Bu hesap Yonetim Paneli icin yetkili degil. "
+        "Lutfen dogru portal uzerinden giris yapin."
+    ),
+    "platform": "Bu hesap Platform Yonetimi icin yetkili degil.",
+}
+
+
+def _enforce_portal(body: LoginRequest, expected: str) -> None:
+    """Opsiyonel portal parametresi endpoint'in portali ile uyusmali.
+
+    portal gonderilmediyse (eski payload) hicbir sey degismez —
+    backward-compatible.
+    """
+    if body.portal is not None and body.portal != expected:
+        raise UnauthorizedError(_PORTAL_ERRORS[body.portal])
+
+
+async def _wrong_portal_error(
+    db: AsyncSession, email: str, password: str, current_portal: str
+) -> str | None:
+    """Yanlis portalda DOGRULANMIS kimlik icin net hata uretir.
+
+    Kullanici parolasini dogru girdiyse ama hesabi BASKA bir portala aitse
+    genel "e-posta veya parola hatali" yerine dogru yonlendiren mesaj doner.
+    Parola dogrulanmadan hicbir sey soylenmez — hesap kesfi (enumeration)
+    sizdirmaz. Yalnizca basarisiz login dalinda calisir (2 ek sorgu).
+    """
+    others: dict[str, type] = {
+        "admin": TenantUser,
+        "supplier": SupplierUser,
+        "platform": PlatformUser,
+    }
+    others.pop(current_portal)
+    for model in others.values():
+        result = await db.execute(select(model).where(model.email == email))
+        candidate = result.scalar_one_or_none()
+        if candidate is not None and verify_password(password, candidate.password_hash):
+            return _PORTAL_ERRORS[current_portal]
+    return None
+
 
 async def _audit_login(
     db: AsyncSession,
@@ -85,6 +134,7 @@ async def _token_pair(
 async def tenant_login(
     body: LoginRequest, request: Request, db: AsyncSession = Depends(get_db)
 ):
+    _enforce_portal(body, "admin")
     enforce_rate_limit(
         request, "login", body.email,
         times=get_settings().login_rate_limit_attempts,
@@ -93,7 +143,8 @@ async def tenant_login(
     user = result.scalar_one_or_none()
     if user is None or not verify_password(body.password, user.password_hash):
         await _audit_login(db, "tenant", None, False, body.email)
-        raise UnauthorizedError("E-posta veya parola hatali")
+        hint = await _wrong_portal_error(db, body.email, body.password, "admin")
+        raise UnauthorizedError(hint or "E-posta veya parola hatali")
     if user.status != UserStatus.active:
         raise UnauthorizedError("Hesap pasif durumda")
     await _audit_login(db, "tenant", user.id, True, body.email)
@@ -106,6 +157,7 @@ async def tenant_login(
 async def supplier_login(
     body: LoginRequest, request: Request, db: AsyncSession = Depends(get_db)
 ):
+    _enforce_portal(body, "supplier")
     enforce_rate_limit(
         request, "login", body.email,
         times=get_settings().login_rate_limit_attempts,
@@ -118,7 +170,8 @@ async def supplier_login(
     user = result.scalar_one_or_none()
     if user is None or not verify_password(body.password, user.password_hash):
         await _audit_login(db, "supplier", None, False, body.email)
-        raise UnauthorizedError("E-posta veya parola hatali")
+        hint = await _wrong_portal_error(db, body.email, body.password, "supplier")
+        raise UnauthorizedError(hint or "E-posta veya parola hatali")
     if user.status != UserStatus.active:
         raise UnauthorizedError("Hesap pasif durumda")
     # Pasif tedarikci firmasi portala giris yapamaz (karar: login'de engelle).
@@ -135,6 +188,7 @@ async def supplier_login(
 async def platform_login(
     body: LoginRequest, request: Request, db: AsyncSession = Depends(get_db)
 ):
+    _enforce_portal(body, "platform")
     enforce_rate_limit(
         request, "login", body.email,
         times=get_settings().login_rate_limit_attempts,
@@ -143,7 +197,8 @@ async def platform_login(
     user = result.scalar_one_or_none()
     if user is None or not verify_password(body.password, user.password_hash):
         await _audit_login(db, "platform", None, False, body.email)
-        raise UnauthorizedError("E-posta veya parola hatali")
+        hint = await _wrong_portal_error(db, body.email, body.password, "platform")
+        raise UnauthorizedError(hint or "E-posta veya parola hatali")
     if user.status != UserStatus.active:
         raise UnauthorizedError("Hesap pasif durumda")
     await _audit_login(db, "platform", user.id, True, body.email)
@@ -264,16 +319,35 @@ async def logout(identity: Identity = Depends(get_identity), db: AsyncSession = 
     return ok({"logged_out": True, "revoked_sessions": revoked})
 
 
+def _require_tenant_user(identity: Identity) -> None:
+    """Bildirim tercihi YALNIZCA tenant kullanicisinindir.
+
+    - platform: operasyonel bildirim almaz, tercihi de yoktur.
+    - supplier: tercihini yonetim belirler; kendi goremez/degistiremez.
+    """
+    from app.core.errors import ForbiddenError
+
+    if identity.user_type == "supplier":
+        raise ForbiddenError(
+            "Tedarikci bildirim tercihleri tesis yonetimi tarafindan belirlenir"
+        )
+    if identity.user_type != "tenant":
+        raise ForbiddenError("Bu kullanici turu icin bildirim tercihi yoktur")
+
+
 @router.get("/notification-preferences")
 async def get_notification_preferences(
     identity: Identity = Depends(get_identity),
 ):
-    """Kullanicinin kendi bildirim tercihleri (tenant + supplier)."""
-    from app.core.errors import ForbiddenError
+    """TENANT kullanicisinin kendi bildirim tercihleri.
+
+    Tedarikci bu uca erisemez: tedarikciye hangi bildirimin gidecegine yonetim
+    karar verir (facilities.supplier_notification_policy_json) ve tedarikci bu
+    politikayi ne gorur ne degistirir.
+    """
     from app.services.notification_preferences import resolve_preferences
 
-    if identity.user_type == "platform":
-        raise ForbiddenError("Platform kullanicilari icin bildirim tercihi yoktur")
+    _require_tenant_user(identity)
     return ok(resolve_preferences(identity.user))
 
 
@@ -283,19 +357,19 @@ async def patch_notification_preferences(
     identity: Identity = Depends(get_identity),
     db: AsyncSession = Depends(get_db),
 ):
-    """Kullanici YALNIZCA kendi tercihini gunceller (baskasininkini degil).
+    """TENANT kullanicisi YALNIZCA kendi tercihini gunceller.
 
-    Kritik istisna: appointment_revised panel bildirimi kapatilamaz
-    (servis katmaninda zorlanir); e-postalarin tumu kapatilabilir.
+    Tedarikci bu uca erisemez (yonetim politikasi gecerlidir). Kritik istisna:
+    appointment_revised panel bildirimi kapatilamaz (servis katmaninda
+    zorlanir); e-postalarin tumu kapatilabilir.
     """
-    from app.core.errors import ForbiddenError
     from app.services.notification_preferences import (
         EMAIL_EVENT_KEYS,
+        TENANT_EMAIL_EVENT_KEYS,
         resolve_preferences,
     )
 
-    if identity.user_type == "platform":
-        raise ForbiddenError("Platform kullanicilari icin bildirim tercihi yoktur")
+    _require_tenant_user(identity)
 
     user = identity.user
     current = resolve_preferences(user)
@@ -312,7 +386,16 @@ async def patch_notification_preferences(
                 f"Bilinmeyen event anahtarlari: {', '.join(sorted(unknown))}",
                 422,
             )
-        current["email_events"].update(changes["email_events"])
+        # Tedarikciye giden sablon anahtarlari burada YOK SAYILIR: onlar tesis
+        # politikasina aittir. (Eski/onbellekli istemciler tumunu gonderebilir;
+        # 422 vermek yerine ilgisiz anahtarlar sessizce dusurulur.)
+        current["email_events"].update(
+            {
+                key: value
+                for key, value in changes["email_events"].items()
+                if key in TENANT_EMAIL_EVENT_KEYS
+            }
+        )
     user.notification_preferences_json = current
     record_audit(
         db,

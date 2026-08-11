@@ -1,0 +1,31 @@
+# Mevcut `logislot-web` (30080) dev'de PUBLIC ENTRY moduna alinir:
+# yalnizca portal secici servis eder (Tedarikci + Yonetim; platform YOK).
+# Probe'lar /'a alinir cunku entry modda /login -> / redirect'tir.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: logislot-web
+spec:
+  template:
+    spec:
+      containers:
+        - name: web
+          env:
+            - name: LOGISLOT_PORTAL_MODE
+              value: "entry"
+            - name: LOGISLOT_SUPPLIER_URL
+              value: "http://84.247.180.172:30084/login"
+            - name: LOGISLOT_ADMIN_URL
+              value: "http://84.247.180.172:30085/login"
+          startupProbe:
+            httpGet: { path: /, port: http }
+            failureThreshold: 30
+            periodSeconds: 2
+          readinessProbe:
+            httpGet: { path: /, port: http }
+            periodSeconds: 10
+            timeoutSeconds: 3
+          livenessProbe:
+            httpGet: { path: /, port: http }
+            periodSeconds: 20
+            timeoutSeconds: 3

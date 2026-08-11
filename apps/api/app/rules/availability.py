@@ -310,7 +310,7 @@ class AvailabilityService:
 
     # ---------- akilli rampa atamasi ----------
 
-    def _booked_minutes_on_target_day(self, dock_id: uuid.UUID) -> int:
+    def booked_minutes_on_target_day(self, dock_id: uuid.UUID) -> int:
         """Rampanin HEDEF gundeki dolulugu (en-az-dolu secimi icin).
 
         Yuklenen pencere +-1 gunu kapsar; secim yalnizca hedef gune bakmali.
@@ -333,7 +333,7 @@ class AvailabilityService:
         if not candidates:
             return None
         return min(
-            candidates, key=lambda d: (self._booked_minutes_on_target_day(d.id), d.name)
+            candidates, key=lambda d: (self.booked_minutes_on_target_day(d.id), d.name)
         )
 
     def choose_dock_for_cargo(self) -> Dock | None:
@@ -345,7 +345,7 @@ class AvailabilityService:
         if not open_docks:
             return None
         return min(
-            open_docks, key=lambda d: (self._booked_minutes_on_target_day(d.id), d.name)
+            open_docks, key=lambda d: (self.booked_minutes_on_target_day(d.id), d.name)
         )
 
     # ---------- kargo penceresi ----------

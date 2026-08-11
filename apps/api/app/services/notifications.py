@@ -11,15 +11,50 @@ REVISE hem tedarikciye hem ilgili ekibe gider (v1.0 saha davranisi).
 
 import uuid
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.core.permissions import TenantPermission
-from app.models import Appointment, Dock, FacilityMembership, Notification, Supplier
+from app.models import Appointment, Dock, Facility, FacilityMembership, Notification, Supplier
 from app.services.email import EmailMessage, send_email
 from app.services.email_templates import EmailContext, render_email
+
+
+async def _facility_when(
+    db: AsyncSession, appointment: Appointment, fmt: str = "%d.%m %H:%M"
+) -> str:
+    """Randevu saatini TESIS saat diliminde formatlar.
+
+    scheduled_start_at UTC(aware) saklanir; bildirim/e-posta metinlerinde
+    kullaniciya ham UTC gostermek yanlis saate yol acar (or. 08:00 yerine
+    05:00). Facility.timezone'a cevrilerek yazilir.
+    """
+    tz_name = (
+        await db.execute(
+            select(Facility.timezone).where(Facility.id == appointment.facility_id)
+        )
+    ).scalar_one_or_none() or "Europe/Istanbul"
+    return appointment.scheduled_start_at.astimezone(ZoneInfo(tz_name)).strftime(fmt)
+
+
+async def _supplier_policy(db: AsyncSession, facility_id: uuid.UUID) -> dict:
+    """Tesisin tedarikci bildirim politikasi (yonetim belirler).
+
+    db.get identity map uzerinden calisir; ayni istekte tekrar tekrar
+    cagrilmasi ek sorgu uretmez.
+    """
+    from app.services.notification_preferences import (
+        DEFAULT_SUPPLIER_POLICY,
+        resolve_supplier_policy,
+    )
+
+    facility = await db.get(Facility, facility_id)
+    if facility is None:
+        return dict(DEFAULT_SUPPLIER_POLICY)
+    return resolve_supplier_policy(facility)
 
 
 def _route_hint(appointment: Appointment) -> str:
@@ -132,7 +167,7 @@ async def _email_context(
     ctx = EmailContext(
         supplier_name=name or "Tedarikçi",
         product_name=appointment.product_name,
-        when=appointment.scheduled_start_at.strftime("%d.%m.%Y %H:%M"),
+        when=await _facility_when(db, appointment, "%d.%m.%Y %H:%M"),
         dock_name=await _dock_name(db, appointment.dock_id),
         status=appointment.status.value,
         **extra,
@@ -147,11 +182,11 @@ async def _email_supplier(
     template_key: str,
     **ctx_extra,
 ) -> None:
-    from app.services.notification_preferences import email_allowed
+    from app.services.notification_preferences import prefs_email_allowed
 
-    _, account = await _supplier_account(db, appointment.supplier_id)
-    if account is not None and not email_allowed(account, template_key):
-        return  # tercih kapali: e-posta ve EmailLog uretilmez (MVP karari)
+    policy = await _supplier_policy(db, appointment.facility_id)
+    if not prefs_email_allowed(policy, template_key):
+        return  # politika kapali: e-posta ve EmailLog uretilmez (MVP karari)
     email, ctx = await _email_context(db, appointment, **ctx_extra)
     if not email:
         return
@@ -203,11 +238,11 @@ async def notify_supplier(
     body: str | None,
     extra: dict[str, Any] | None = None,
 ) -> None:
-    from app.services.notification_preferences import in_app_allowed
+    from app.services.notification_preferences import prefs_in_app_allowed
 
-    _, account = await _supplier_account(db, appointment.supplier_id)
-    if account is not None and not in_app_allowed(account, type_):
-        return  # tercih kapali: satir uretilmez (kritik eventler haric)
+    policy = await _supplier_policy(db, appointment.facility_id)
+    if not prefs_in_app_allowed(policy, type_):
+        return  # politika kapali: satir uretilmez (kritik eventler haric)
     _add(
         db, appointment,
         type_=type_, severity=severity, title=title, body=body,
@@ -221,7 +256,7 @@ async def on_appointment_created(
     from app.core.enums import AppointmentStatus, DeliveryType
 
     auto_approved = appointment.status == AppointmentStatus.approved
-    when = appointment.scheduled_start_at.strftime("%d.%m %H:%M")
+    when = await _facility_when(db, appointment)
     if by_admin:
         # Admin tedarikci adina acti: tedarikciye haber ver (onayli dogar),
         # diger yoneticilere olagan olusturma bildirimi.
@@ -284,9 +319,41 @@ async def on_lifecycle_action(
     reason: str | None = None,
     old_start: str | None = None,
     new_start: str | None = None,
+    old_dock_name: str | None = None,
+    new_dock_name: str | None = None,
 ) -> None:
-    """approve/reject/revise/complete/cancel olaylarinin bildirim + e-postalari."""
-    when = appointment.scheduled_start_at.strftime("%d.%m %H:%M")
+    """approve/reject/revise/dock_change/complete/cancel bildirim + e-postalari."""
+    when = await _facility_when(db, appointment)
+
+    if action == "dock_change":
+        # Urun karari: rampa degisimi REVIZE degildir — randevu onayli kalir,
+        # tedarikciden yeniden onay istenmez. Yine de gidecegi yer degistigi
+        # icin bilgilendirme sarttir (surucu yanlis rampaya gitmesin).
+        await notify_supplier(
+            db, appointment,
+            type_="appointment_dock_changed", severity="info",
+            title="Randevunuzun rampası değişti",
+            body=(
+                f"{when} randevunuz {new_dock_name} rampasına alındı"
+                + (f" (önceki: {old_dock_name})." if old_dock_name else ".")
+            ),
+            extra={
+                "old_dock_name": old_dock_name,
+                "new_dock_name": new_dock_name,
+                "note": reason,
+            },
+        )
+        # old_when/new_when alanlari sablonda "eski -> yeni" satirini besler;
+        # burada tasidiklari deger SAAT degil RAMPA adidir (saat degismiyor).
+        await _email_supplier(
+            db,
+            appointment,
+            template_key="appointment_dock_changed",
+            old_when=old_dock_name,
+            new_when=new_dock_name,
+            note=reason,
+        )
+        return
 
     if action == "approve":
         await notify_supplier(

@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(docker version *)",
+      "Bash(docker buildx *)",
+      "Bash(docker login *)",
+      "Bash(kubectl --kubeconfig /private/tmp/claude-501/-Users-camoka-LogiSlot/d0bc42e1-75b4-45c2-a528-b8e24fefe821/scratchpad/kc get ns logislot-dev)",
+      "Bash(kubectl --kubeconfig /private/tmp/claude-501/-Users-camoka-LogiSlot/d0bc42e1-75b4-45c2-a528-b8e24fefe821/scratchpad/kc apply -k k8s/overlays/dev)",
+      "Bash(kubectl --kubeconfig /private/tmp/claude-501/-Users-camoka-LogiSlot/d0bc42e1-75b4-45c2-a528-b8e24fefe821/scratchpad/kc -n logislot-dev rollout status statefulset/logislot-postgres --timeout=180s)",
+      "Bash(kubectl --kubeconfig /private/tmp/claude-501/-Users-camoka-LogiSlot/d0bc42e1-75b4-45c2-a528-b8e24fefe821/scratchpad/kc -n logislot-dev delete job -l app.kubernetes.io/name=logislot-migration --ignore-not-found)",
+      "Bash(python3 -c \"import urllib.request; print\\('login sayfasi HTTP', urllib.request.urlopen\\('http://84.247.180.172:30080/login', timeout=10\\).status\\)\")",
+      "Bash(kubectl --kubeconfig /private/tmp/claude-501/-Users-camoka-LogiSlot/d0bc42e1-75b4-45c2-a528-b8e24fefe821/scratchpad/kc -n logislot-dev logs deploy/logislot-scheduler --tail 4)",
+      "Bash(LOGISLOT_BASE_URL=http://84.247.180.172:30081 LOGISLOT_WEB_URL=http://84.247.180.172:30080 PLATFORM_EMAIL=admin@logislot.com PLATFORM_PASSWORD=Demo123! python3 scripts/pilot_readiness.py)",
+      "Bash(kubectl --kubeconfig /private/tmp/claude-501/-Users-camoka-LogiSlot/d0bc42e1-75b4-45c2-a528-b8e24fefe821/scratchpad/kc -n logislot-dev delete job logislot-seed --ignore-not-found)",
+      "Bash(kubectl --kubeconfig /private/tmp/claude-501/-Users-camoka-LogiSlot/d0bc42e1-75b4-45c2-a528-b8e24fefe821/scratchpad/kc -n logislot-dev get deploy,statefulset,svc,pvc,ingress)",
+      "Bash(git -c user.email=akadir1256@gmail.com -c user.name=LogiSlot commit -q -m 'docs: secrets + CI/CD activation + dev deploy raporu *)",
+      "Bash(rm -f /private/tmp/claude-501/-Users-camoka-LogiSlot/d0bc42e1-75b4-45c2-a528-b8e24fefe821/scratchpad/*.log /private/tmp/claude-501/-Users-camoka-LogiSlot/d0bc42e1-75b4-45c2-a528-b8e24fefe821/scratchpad/kc*)",
+      "Bash(git -c user.email=akadir1256@gmail.com -c user.name=LogiSlot commit -q -m 'docs: dev demo rol hesaplari dogrulama raporu *)"
+    ]
+  }
+}

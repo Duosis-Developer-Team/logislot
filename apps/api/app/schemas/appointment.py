@@ -121,6 +121,17 @@ class ReviseRequest(BaseModel):
     acknowledged_warning_codes: list[str] = []
 
 
+class DockChangeRequest(BaseModel):
+    """Saat/sure AYNI kalarak yalnizca rampa degisimi.
+
+    `dock_id=None` => otomatik: uyumlu ve o aralikta bos rampalar arasindan
+    gun ici en az dolu olani secilir. Revize DEGILDIR: randevu durumu korunur.
+    """
+
+    dock_id: uuid.UUID | None = None
+    note: str | None = None
+
+
 class CompleteRequest(BaseModel):
     note: str | None = None
 

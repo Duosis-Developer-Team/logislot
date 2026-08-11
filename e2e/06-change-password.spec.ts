@@ -37,10 +37,9 @@ test("geçici parolalı kullanıcı ilk girişte parola değiştirir", async ({ 
 
   try {
     // UI login -> must_change_password -> /change-password'a duser
-    await page.goto("/login");
-    await page.getByRole("button", { name: "Yönetim Paneli" }).first().click();
+    await page.goto("/login/admin");
     await page.getByLabel("E-posta").fill(email);
-    await page.getByLabel("Parola").fill(tempPassword);
+    await page.getByLabel("Parola", { exact: true }).fill(tempPassword);
     await page.getByRole("button", { name: /Giriş$/ }).click();
     await expect(page).toHaveURL(/\/change-password/);
     await expect(page.getByRole("heading", { name: "Parola Değiştir" })).toBeVisible();

@@ -624,6 +624,205 @@ async def revise_appointment(
     )
 
 
+async def _dock_change_engine(
+    db: AsyncSession,
+    facility_id: uuid.UUID,
+    appointment: Appointment,
+):
+    """Randevunun MEVCUT araligi icin taze kural motoru (kendisi haric).
+
+    Rampa degisiminde saat/sure degismedigi icin hedef aralik randevunun
+    kendi araligidir; kendisi disarida birakilmazsa rampa "dolu" gorunur.
+    """
+    from zoneinfo import ZoneInfo
+
+    facility = (
+        await db.execute(select(Facility).where(Facility.id == facility_id))
+    ).scalar_one()
+    supplier = (
+        await db.execute(
+            select(Supplier)
+            .options(selectinload(Supplier.allowed_product_categories))
+            .where(Supplier.id == appointment.supplier_id)
+        )
+    ).scalar_one()
+    category = (
+        await db.execute(
+            select(ProductCategory).where(
+                ProductCategory.id == appointment.product_category_id
+            )
+        )
+    ).scalar_one()
+    start = to_utc(appointment.scheduled_start_at)
+    end = to_utc(appointment.scheduled_end_at)
+    target_date = start.astimezone(ZoneInfo(facility.timezone)).date()
+    ctx = await build_rule_context(
+        db,
+        facility=facility,
+        supplier=supplier,
+        product_category=category,
+        vehicle_category_id=appointment.vehicle_category_id,
+        delivery_type=appointment.delivery_type,
+        target_date=target_date,
+        duration_minutes=appointment.duration_minutes,
+        cargo_window=appointment.cargo_window,
+    )
+    ctx.existing_appointments = [
+        a for a in ctx.existing_appointments if a.id != appointment.id
+    ]
+    return AvailabilityService(ctx), start, end
+
+
+async def list_dock_options(
+    db: AsyncSession,
+    facility_id: uuid.UUID,
+    appointment_id: uuid.UUID,
+    *,
+    allowed_dock_ids: list[uuid.UUID] | None = None,
+) -> list[dict]:
+    """Bu randevunun tasinabilecegi rampalar — her biri icin sebepli durum.
+
+    UI'in "uygun rampalar" listesini SUNUCU kararindan cizmesi icin var:
+    istemci uyumluluk/doluluk mantigini kopyalamaz, yalnizca gosterir.
+    Uyumsuz rampalar listeye HIC girmez; uyumlu ama dolu olanlar
+    `available=false` + sebep ile doner ki kullanici neden secemedigini gorsun.
+    """
+    appointment = (
+        await db.execute(
+            select(Appointment).where(
+                Appointment.facility_id == facility_id, Appointment.id == appointment_id
+            )
+        )
+    ).scalar_one_or_none()
+    if appointment is None:
+        raise NotFoundError("Randevu bulunamadi")
+
+    engine, start, end = await _dock_change_engine(db, facility_id, appointment)
+    options: list[dict] = []
+    for dock in engine.compatible_docks():
+        if allowed_dock_ids is not None and dock.id not in allowed_dock_ids:
+            continue
+        status = engine.interval_status(dock, start, end)
+        options.append(
+            {
+                "dock_id": str(dock.id),
+                "name": dock.name,
+                "is_current": dock.id == appointment.dock_id,
+                "available": bool(status.ok),
+                # HardRuleResult.code zaten duz string (HardRuleCode str-enum'un
+                # degeri); .value cagrilmaz.
+                "reason_code": status.code,
+                "reason": status.message,
+                # Gun ici doluluk: "en az dolu" siralamasinin kullaniciya
+                # gorunen karsiligi.
+                "booked_minutes_today": engine.booked_minutes_on_target_day(dock.id),
+            }
+        )
+    return sorted(options, key=lambda o: (not o["available"], o["booked_minutes_today"], o["name"]))
+
+
+async def change_appointment_dock(
+    db: AsyncSession,
+    facility_id: uuid.UUID,
+    appointment_id: uuid.UUID,
+    *,
+    dock_id: uuid.UUID | None,
+    actor_type: ActorType,
+    actor_id: uuid.UUID | None,
+    note: str | None = None,
+    allowed_dock_ids: list[uuid.UUID] | None = None,
+) -> Appointment:
+    """Saat/sure AYNI kalarak yalnizca rampayi degistirir.
+
+    Urun karari: rampa degisimi revize DEGILDIR — randevu durumu korunur ve
+    tedarikciden yeniden onay istenmez; tedarikci yalnizca bilgilendirilir.
+    Gerekce: tedarikcinin taahhut ettigi saat degismiyor, yalnizca tesis ici
+    yerlesim degisiyor.
+
+    `dock_id=None` => otomatik: uyumlu ve o aralikta BOS rampalar arasindan
+    gun ici en az dolu olani secilir (olusturma akisiyla ayni kural).
+    Hedef aralik kilit altinda yeniden dogrulanir.
+    """
+    appointment = await _get_for_update(db, facility_id, appointment_id)
+    before = appointment.status
+    # Kapanmis/iptal randevunun rampasi degistirilemez (gecmis kayit bozulmaz).
+    if before not in (
+        AppointmentStatus.pending,
+        AppointmentStatus.approved,
+        AppointmentStatus.revision_pending,
+    ):
+        raise InvalidTransitionError(before, "change_dock")
+
+    await acquire_facility_lock(db, facility_id)
+    engine, start, end = await _dock_change_engine(db, facility_id, appointment)
+    compatible = {d.id: d for d in engine.compatible_docks()}
+
+    if dock_id is None:
+        candidates = [
+            d
+            for d in compatible.values()
+            if engine.interval_status(d, start, end).ok
+            and (allowed_dock_ids is None or d.id in allowed_dock_ids)
+        ]
+        if not candidates:
+            raise RuleViolationError(
+                HardRuleCode.DOCK_TIME_CONFLICT,
+                "Bu saatte uygun ve bos baska rampa yok",
+            )
+        target = min(
+            candidates, key=lambda d: (engine.booked_minutes_on_target_day(d.id), d.name)
+        )
+    else:
+        target = compatible.get(dock_id)
+        if target is None or (allowed_dock_ids is not None and dock_id not in allowed_dock_ids):
+            raise RuleViolationError(
+                HardRuleCode.NO_COMPATIBLE_DOCK,
+                "Secilen rampa bu randevunun urun/arac kategorisiyle uyumlu degil "
+                "veya yetkili rampalarinizin disinda",
+            )
+        status_check = engine.interval_status(target, start, end)
+        if not status_check.ok:
+            code = status_check.code or HardRuleCode.DOCK_TIME_CONFLICT
+            raise RuleViolationError(code, HardRuleResult.failed(code).message or "")
+
+    old_dock_id = appointment.dock_id
+    if old_dock_id == target.id:
+        # Degisiklik yok: bildirim/denetim gurultusu uretme.
+        return appointment
+
+    old_dock_name = None
+    if old_dock_id is not None:
+        old_dock = (
+            await db.execute(select(Dock).where(Dock.id == old_dock_id))
+        ).scalar_one_or_none()
+        old_dock_name = old_dock.name if old_dock else None
+
+    appointment.dock_id = target.id
+    await on_lifecycle_action(
+        db,
+        appointment,
+        action="dock_change",
+        old_dock_name=old_dock_name,
+        new_dock_name=target.name,
+        reason=note,
+    )
+    record_audit(
+        db,
+        actor_type=actor_type,
+        actor_id=actor_id,
+        action="appointment.dock_change",
+        tenant_id=appointment.tenant_id,
+        facility_id=appointment.facility_id,
+        entity_type="appointment",
+        entity_id=appointment.id,
+        before={"dock_id": str(old_dock_id) if old_dock_id else None, "dock_name": old_dock_name},
+        after={"dock_id": str(target.id), "dock_name": target.name, "note": note},
+    )
+    await db.commit()
+    await db.refresh(appointment)
+    return appointment
+
+
 async def complete_appointment(
     db: AsyncSession,
     facility_id: uuid.UUID,
@@ -983,10 +1182,12 @@ async def cancel_appointment_series(
     # iptalinde e-posta da uretilmez)
     from app.services.email import EmailMessage, send_email
     from app.services.email_templates import EmailContext, render_email
-    from app.services.notifications import _supplier_email
+    from app.services.notification_preferences import prefs_email_allowed
+    from app.services.notifications import _supplier_email, _supplier_policy
 
     email, supplier_name = await _supplier_email(db, series.supplier_id)
-    if email and not by_supplier:
+    policy = await _supplier_policy(db, facility.id)
+    if email and not by_supplier and prefs_email_allowed(policy, "appointment_series_cancelled"):
         subject, body = render_email(
             "appointment_series_cancelled",
             EmailContext(
@@ -1232,10 +1433,12 @@ async def revise_appointment_series(
     )
     from app.services.email import EmailMessage, send_email
     from app.services.email_templates import EmailContext, render_email
-    from app.services.notifications import _supplier_email
+    from app.services.notification_preferences import prefs_email_allowed
+    from app.services.notifications import _supplier_email, _supplier_policy
 
     email, supplier_name = await _supplier_email(db, series.supplier_id)
-    if email:
+    policy = await _supplier_policy(db, facility.id)
+    if email and prefs_email_allowed(policy, "appointment_series_revised"):
         subject, body = render_email(
             "appointment_series_revised",
             EmailContext(
@@ -1440,12 +1643,13 @@ async def approve_appointment_series(
     )
     from app.services.email import EmailMessage, send_email
     from app.services.email_templates import EmailContext, render_email
-    from app.services.notification_preferences import email_allowed
-    from app.services.notifications import _supplier_account
+    from app.services.notification_preferences import prefs_email_allowed
+    from app.services.notifications import _supplier_account, _supplier_policy
 
     supplier_row, account = await _supplier_account(db, series.supplier_id)
     email = account.email if account else (supplier_row.contact_email if supplier_row else None)
-    if email and (account is None or email_allowed(account, "appointment_approved")):
+    policy = await _supplier_policy(db, facility.id)
+    if email and prefs_email_allowed(policy, "appointment_approved"):
         subject, body_text = render_email(
             "appointment_approved",
             EmailContext(

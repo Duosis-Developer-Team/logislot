@@ -6,21 +6,30 @@ export const DEMO_PASSWORD = "Demo123!";
 export const ACCOUNTS = {
   admin: "admin@cakesbakes.com",
   platform: "admin@logislot.com",
-  supplierAuto: "tedarikci@anadoluun.com",
-  supplierManual: "tedarikci@marmarasoguk.com",
+  // Urun karari: ana demo tedarikcisi (anadoluun) MANUEL onaylidir —
+  // talepler yonetim paneline duser. Otomatik onay OZELLIGI marmarasoguk
+  // hesabinda ornekli kalir (auto-akis testleri onu kullanir).
+  supplierAuto: "tedarikci@marmarasoguk.com",
+  supplierManual: "tedarikci@anadoluun.com",
 } as const;
 
-/** Login sayfasindan portal secip giris yapar (UI akisi). */
+/** Portal-specific login sayfasindan giris yapar (UI akisi).
+ *  Portal switcher KALDIRILDI (portal izolasyonu) — "all" modunda her portalin
+ *  login'i /login/<portal> altindadir; dev/prod'da ayri port/subdomain'dedir. */
+const PORTAL_LOGIN_PATHS = {
+  "Tedarikçi Portalı": "/login/supplier",
+  "Yönetim Paneli": "/login/admin",
+  "Platform Yönetimi": "/login/platform",
+} as const;
+
 export async function loginViaUi(
   page: Page,
   portal: "Tedarikçi Portalı" | "Yönetim Paneli" | "Platform Yönetimi",
   email: string,
 ) {
-  await page.goto("/login");
-  // Ayni metin submit butonunda da gectigi icin ilk eslesme = portal karti
-  await page.getByRole("button", { name: portal }).first().click();
+  await page.goto(PORTAL_LOGIN_PATHS[portal]);
   await page.getByLabel("E-posta").fill(email);
-  await page.getByLabel("Parola").fill(DEMO_PASSWORD);
+  await page.getByLabel("Parola", { exact: true }).fill(DEMO_PASSWORD);
   // Buton metni portala gore degisir: "...'na Giriş"
   await page.getByRole("button", { name: /Giriş$/ }).click();
 }
