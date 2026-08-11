@@ -130,3 +130,24 @@ def test_sema_silme_yalnizca_beklenen_adi_hedefler():
     assert _TENANT_SCHEMA_RE.match(schema_name_for(uuid.uuid4()))
     for tehlikeli in ("public", "information_schema", "t_x", "t_" + "g" * 32, ""):
         assert not _TENANT_SCHEMA_RE.match(tehlikeli)
+
+
+async def test_tasima_provisioning_i_hemen_aktif_etmez(seeded, session_maker):
+    """Tasima senaryosunda sema hazirlanir ama istekler YONLENDIRILMEZ.
+
+    Regresyon: `provision_tenant` kaydi hemen 'ready' yapiyordu; backfill
+    veriyi kopyalarken istekler BOS semaya yonlenebilirdi. activate=False
+    bu pencereyi tamamen kapatir.
+    """
+    from app.core.enums import DatastoreStatus
+    from app.tenancy.provisioning import provision_tenant
+
+    tenant_id = seeded["tenant"].id
+    async with session_maker() as db:
+        row = await provision_tenant(db, tenant_id, activate=False)
+        assert row.status == DatastoreStatus.provisioning, (
+            "tasima sirasinda kayit 'ready' olmamali"
+        )
+        # Varsayilan (yeni tenant) yol hala hemen kullanilabilir olmali
+        row = await provision_tenant(db, tenant_id, activate=True)
+        assert row.status == DatastoreStatus.ready

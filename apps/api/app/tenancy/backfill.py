@@ -181,12 +181,11 @@ async def migrate_tenant(slug: str, *, activate: bool) -> bool:
         tenant_id = tenant.id
         # Sema + tablolar (idempotent). Kayit 'provisioning'de kalir; tasima
         # dogrulanmadan istekler YONLENDIRILMEZ.
-        row = await provision_tenant(db, tenant_id)
+        # activate=False: sema hazirlanir ama istekler YONLENDIRILMEZ.
+        # Kayit yalnizca kopyalama dogrulandiktan sonra 'ready' olur; boylece
+        # veri tasinirken hicbir istek bos semaya dusmez.
+        row = await provision_tenant(db, tenant_id, activate=False)
         schema = row.schema_name
-        if activate:
-            # Dogrulama bitene kadar geri al: istekler eski yerlesimde kalsin.
-            row.status = DatastoreStatus.provisioning
-            await db.commit()
 
     print(f"[{slug}] sema: {schema}")
     counts = await copy_tenant(tenant_id, schema)
