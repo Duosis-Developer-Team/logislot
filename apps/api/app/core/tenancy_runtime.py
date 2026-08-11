@@ -34,15 +34,21 @@ LEGACY_SCHEMA = "public"
 
 @dataclass(frozen=True)
 class TenantLocation:
-    """Bir tenant'in verisinin fiziksel adresi.
+    """Bir tenant'in verisinin fiziksel adresi ve calisacagi veritabani rolu.
 
     schema=None + dsn_alias=None  -> control-plane / eski ortak yerlesim
     schema='t_ab12' , dsn_alias=None -> ayni veritabaninda kendi semasi
     schema='t_ab12' , dsn_alias='eu2' -> ayri veritabaninda kendi semasi
+
+    db_role doluysa her transaction basinda `SET LOCAL ROLE` calisir; o
+    transaction Postgres tarafinda BASKA hicbir tenant semasina erisemez.
+    None ise (henuz rol acilmamis tenant) yalnizca uygulama seviyesindeki
+    yonlendirme korur — gecis donemi icin bilerek geriye donuk uyumludur.
     """
 
     schema: str | None = None
     dsn_alias: str | None = None
+    db_role: str | None = None
 
     @property
     def is_control(self) -> bool:
@@ -61,6 +67,15 @@ def schema_name_for(tenant_id: uuid.UUID) -> str:
     63 baytlik identifier sinirinin altinda.
     """
     return f"t_{tenant_id.hex}"
+
+
+def role_name_for(tenant_id: uuid.UUID) -> str:
+    """Tenant'in veritabani rolu — sema adi gibi UUID'den turer.
+
+    Rol yalnizca kendi semasina yetkilidir; uygulama bu role gecerek
+    calistigi surece capraz tenant erisimi Postgres tarafindan reddedilir.
+    """
+    return f"tr_{tenant_id.hex}"
 
 
 def translate_map(schema: str | None, *, dialect_name: str) -> dict[str | None, str | None]:

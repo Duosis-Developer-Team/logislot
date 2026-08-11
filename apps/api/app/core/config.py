@@ -47,6 +47,14 @@ class Settings(BaseSettings):
     # KAPANIR — boylece provisioning'i atlanmis bir tenant sessizce ortak
     # tablolara yazmak yerine hata verir.
     tenant_datastore_required: bool = False
+    # DDL (sema/rol olusturma, migration) icin ayri ve YETKILI baglanti.
+    # Bos ise database_url kullanilir. Uretimde ayri tutulmasi onerilir:
+    # boylece calisma zamani rolunun DDL yetkisi hic olmaz.
+    admin_database_url: str = ""
+    # Uygulamanin calisma zamaninda kullandigi dusuk yetkili rol adi.
+    # Tenant rolleri bu role UYE yapilir; rol NOINHERIT oldugundan yetki
+    # yalnizca acikca SET ROLE yapilinca kazanilir (fail-closed).
+    app_db_role: str = "logislot_app"
     # Ayni anda acik tutulan tenant engine sayisi (LRU). Yalnizca AYRI
     # veritabani kullanan tenant'lar icin engine acilir; sema modundaki
     # tenant'lar tek havuzu paylasir.

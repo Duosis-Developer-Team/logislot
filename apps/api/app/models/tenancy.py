@@ -45,6 +45,10 @@ class TenantDatastore(Base, UUIDPkMixin, TimestampMixin):
     #: Dolu ise ayarlardaki DSN haritasinda aranan ANAHTAR'dir; DSN'in
     #: kendisi (parola iceriyor) veritabaninda TUTULMAZ, secret'ta kalir.
     dsn_alias: Mapped[str | None] = mapped_column(sa.String(64))
+    #: Bu tenant'in istekleri sirasinda gecilecek Postgres rolu. Rol yalnizca
+    #: kendi semasina yetkilidir; bos ise (henuz olusturulmamis) yalnizca
+    #: uygulama seviyesindeki yonlendirme korur.
+    db_role: Mapped[str | None] = mapped_column(sa.String(63))
     status: Mapped[DatastoreStatus] = mapped_column(
         str_enum(DatastoreStatus), default=DatastoreStatus.pending, index=True
     )

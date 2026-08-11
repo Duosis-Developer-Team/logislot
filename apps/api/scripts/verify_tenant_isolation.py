@@ -169,6 +169,83 @@ async def main() -> None:
         ).scalar_one()
     check("ikinci kosum satirlari COGALTMADI", ok2 and again == 3, f"docks={again}")
 
+    print("\n[8] VERITABANI SEVIYESINDE YETKILENDIRME")
+    # alfa provisioning sirasinda kendi rolunu aldi mi?
+    async with control_session() as db:
+        row = (
+            await db.execute(
+                sa.select(TenantDatastore).where(TenantDatastore.tenant_id == ids["alfa"])
+            )
+        ).scalar_one()
+    beklenen_rol = f"tr_{ids['alfa'].hex}"
+    check("alfa'ya veritabani rolu atandi", row.db_role == beklenen_rol, str(row.db_role))
+
+    # beta icin de sema + rol ac (capraz erisim denemesi icin gerekli)
+    from app.tenancy.provisioning import provision_tenant
+
+    async with control_session() as db:
+        beta_ds = await provision_tenant(db, ids["beta"])
+    beta_schema = beta_ds.schema_name
+
+    # Tenant rolune GECILDIGINDE capraz sema REDDEDILMELI
+    async with engine.connect() as conn:
+        await conn.execute(sa.text(f'SET ROLE "{row.db_role}"'))
+        own = (
+            await conn.execute(sa.text(f'SELECT count(*) FROM "{schema}".docks'))
+        ).scalar_one()
+        check("tenant rolu kendi semasini okuyor", own == 3, f"docks={own}")
+        try:
+            await conn.execute(sa.text(f'SELECT count(*) FROM "{beta_schema}".docks'))
+            check("tenant rolu BASKA semayi okuyamiyor", False, "OKUYABILDI")
+        except Exception as exc:
+            check("tenant rolu BASKA semayi okuyamiyor", "permission denied" in str(exc).lower(),
+                  type(exc).__name__)
+        await conn.rollback()
+
+    # public.tenants'a SELECT verilmedi -> diger musterilerin kaydi gorunmemeli
+    async with engine.connect() as conn:
+        await conn.execute(sa.text(f'SET ROLE "{row.db_role}"'))
+        try:
+            await conn.execute(sa.text("SELECT count(*) FROM public.tenants"))
+            check("tenant rolu public.tenants'i okuyamiyor", False, "OKUYABILDI")
+        except Exception as exc:
+            check("tenant rolu public.tenants'i okuyamiyor",
+                  "permission denied" in str(exc).lower(), type(exc).__name__)
+        await conn.rollback()
+        # ...ama plan tanimlarini okuyabilmeli (reports.py buna ihtiyac duyar)
+        await conn.execute(sa.text(f'SET ROLE "{row.db_role}"'))
+        await conn.execute(sa.text("SELECT count(*) FROM public.plans"))
+        check("tenant rolu public.plans'i okuyabiliyor", True)
+        await conn.rollback()
+
+    # Sonradan eklenen tablo da otomatik yetkilensin (DEFAULT PRIVILEGES)
+    async with engine.begin() as conn:
+        await conn.execute(sa.text(f'CREATE TABLE "{schema}".sonradan(id int)'))
+    async with engine.connect() as conn:
+        await conn.execute(sa.text(f'SET ROLE "{row.db_role}"'))
+        try:
+            await conn.execute(sa.text(f'SELECT count(*) FROM "{schema}".sonradan'))
+            check("sonradan eklenen tablo otomatik yetkili", True)
+        except Exception as exc:
+            check("sonradan eklenen tablo otomatik yetkili", False, str(exc)[:60])
+        await conn.rollback()
+
+    print("\n[9] UYGULAMA OTURUMU tenant roluyle calisiyor mu")
+    from app.core.tenancy_runtime import location_cache as _lc
+
+    _lc.invalidate()
+    loc = await location_for_tenant(ids["alfa"])
+    check("konum cozumu rolu tasiyor", loc.db_role == row.db_role, str(loc.db_role))
+    async with session_scope(loc) as db:
+        who = (await db.execute(sa.text("SELECT current_user"))).scalar_one()
+        check("oturum SET LOCAL ROLE ile tenant rolunde", who == row.db_role, who)
+        names = (await db.execute(sa.select(Dock.name))).scalars().all()
+        check("tenant rolunde kendi verisi okunuyor", len(names) == 3, str(names))
+    # transaction bitince baglanti temiz donmeli (havuz guvenligi)
+    async with engine.connect() as conn:
+        who = (await conn.execute(sa.text("SELECT current_user"))).scalar_one()
+        check("baglanti havuza TEMIZ dondu", who != row.db_role, who)
+
     await engine.dispose()
     await _admin(f"DROP DATABASE IF EXISTS {VERIFY_DB} WITH (FORCE)")
 

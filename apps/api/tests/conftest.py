@@ -45,15 +45,20 @@ async def session_maker(db_engine):
 
     original = core_db.sessionmaker_for
     original_engine = core_db.engine
+    original_admin = core_db.admin_engine
     core_db.sessionmaker_for = lambda location: maker
     # Provisioning DDL'i de test motoruna yonlensin (SQLite'ta sema
-    # olusturma atlanir, create_all zaten checkfirst ile no-op olur).
+    # olusturma ve rol yetkilendirmesi atlanir, create_all checkfirst ile
+    # no-op olur). admin_engine ayri tutuldugu icin O DA yonlendirilmeli —
+    # yoksa testler gercek Postgres'e baglanmaya calisir.
     core_db.engine = db_engine
+    core_db.admin_engine = db_engine
     try:
         yield maker
     finally:
         core_db.sessionmaker_for = original
         core_db.engine = original_engine
+        core_db.admin_engine = original_admin
 
 
 @pytest_asyncio.fixture

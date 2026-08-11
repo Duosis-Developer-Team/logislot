@@ -20,10 +20,12 @@ from datetime import UTC, datetime
 import sqlalchemy as sa
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
+from app.core.config import get_settings
 from app.core.enums import DatastoreStatus
 from app.core.tenancy_runtime import (
     TenantLocation,
     location_cache,
+    role_name_for,
     schema_name_for,
     translate_map,
 )
@@ -63,6 +65,75 @@ async def ensure_database(engine: AsyncEngine, database: str) -> None:
                 await conn.execute(sa.text(f"CREATE DATABASE {_quote(database)}"))
     finally:
         await admin.dispose()
+
+
+async def grant_tenant_role(engine: AsyncEngine, schema: str, role: str, app_role: str) -> None:
+    """Tenant rolunu acar ve YALNIZCA kendi semasina yetkilendirir.
+
+    Uc parca gerekir, ucu de sart:
+      1. USAGE ON SCHEMA        -> semaya girebilme
+      2. mevcut tablolara DML   -> bugunku tablolar
+      3. DEFAULT PRIVILEGES     -> BUNDAN SONRA yaratilacak tablolar
+         (3 olmadan yeni bir tablo eklendiginde tenant kendi verisini
+         goremez hale gelir — deneyle dogrulandi)
+
+    app_role bu role UYE yapilir ama uygulama rolu NOINHERIT'tir: yetki
+    yalnizca acikca `SET ROLE` yapilinca kazanilir. Bu sayede rol degisimi
+    atlanirsa istek sessizce genis yetkiyle degil, HATAYLA sonuclanir.
+    """
+    if engine.dialect.name == "sqlite":
+        return
+    q_schema, q_role = _quote(schema), _quote(role)
+    owner = engine.url.username
+    async with engine.begin() as conn:
+        # NOT: DO $$...$$ bloklari bind parametresi KABUL ETMEZ; varlik
+        # kontrolu ayri bir SELECT ile yapilir. Identifier'lar _quote()'tan
+        # gecer ve UUID'den turedigi icin kullanici girdisi degildir.
+        exists = (
+            await conn.execute(
+                sa.text("SELECT 1 FROM pg_roles WHERE rolname = :r"), {"r": role}
+            )
+        ).scalar()
+        if exists is None:
+            await conn.execute(sa.text(f"CREATE ROLE {q_role} NOLOGIN NOINHERIT"))
+        await conn.execute(sa.text(f"GRANT USAGE ON SCHEMA {q_schema} TO {q_role}"))
+        await conn.execute(
+            sa.text(
+                f"GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA {q_schema} "
+                f"TO {q_role}"
+            )
+        )
+        await conn.execute(
+            sa.text(f"GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA {q_schema} TO {q_role}")
+        )
+        # Bundan sonra bu semada olusacak nesneler de otomatik yetkilensin.
+        await conn.execute(
+            sa.text(
+                f"ALTER DEFAULT PRIVILEGES FOR ROLE {_quote(owner)} IN SCHEMA {q_schema} "
+                f"GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO {q_role}"
+            )
+        )
+        await conn.execute(
+            sa.text(
+                f"ALTER DEFAULT PRIVILEGES FOR ROLE {_quote(owner)} IN SCHEMA {q_schema} "
+                f"GRANT USAGE, SELECT ON SEQUENCES TO {q_role}"
+            )
+        )
+        # Control-plane'den tenant yoluna GEREKEN TEK sey plan tanimlari
+        # (reports.py plan adini okur). `tenants` gibi tablolara SELECT
+        # BILEREK verilmez — tenant rolu diger musterilerin kaydini
+        # veritabani seviyesinde de goremesin.
+        await conn.execute(sa.text(f"GRANT USAGE ON SCHEMA public TO {q_role}"))
+        await conn.execute(sa.text(f"GRANT SELECT ON public.plans TO {q_role}"))
+        # Uygulama rolu bu tenant rolune GECEBILSIN (ama miras almasin).
+        # Uygulama rolu henuz yoksa (gecis donemi) bu adim atlanir.
+        app_exists = (
+            await conn.execute(
+                sa.text("SELECT 1 FROM pg_roles WHERE rolname = :a"), {"a": app_role}
+            )
+        ).scalar()
+        if app_exists is not None:
+            await conn.execute(sa.text(f"GRANT {q_role} TO {_quote(app_role)}"))
 
 
 async def create_tenant_plane(engine: AsyncEngine, schema: str) -> str:
@@ -108,7 +179,7 @@ async def provision_tenant(
     cagiranin transaction'ina baglanmasi (DDL geri alinamayan adimlar
     icerdiginden) yaniltici olurdu.
     """
-    from app.core.db import engine as control_engine
+    from app.core.db import admin_engine as control_engine
     from app.core.tenancy_runtime import _engine_cache
 
     row = (
@@ -137,6 +208,11 @@ async def provision_tenant(
         if row.dsn_alias is not None:
             await ensure_database(engine, engine.url.database or "")
         revision = await create_tenant_plane(engine, row.schema_name)
+        # Veritabani seviyesinde yetkilendirme: bu tenant'in istekleri
+        # yalnizca kendi semasina erisebilen bir rolle calisir.
+        role = role_name_for(tenant_id)
+        await grant_tenant_role(engine, row.schema_name, role, get_settings().app_db_role)
+        row.db_role = None if engine.dialect.name == "sqlite" else role
     except Exception:
         row.status = DatastoreStatus.failed
         row.notes = "Provisioning basarisiz — platform panelinden yeniden denenebilir."

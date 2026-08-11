@@ -15,13 +15,14 @@ from contextlib import asynccontextmanager
 
 import jwt as pyjwt
 from fastapi import Request
-from sqlalchemy import select
+from sqlalchemy import event, select
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
     async_sessionmaker,
     create_async_engine,
 )
+from sqlalchemy.orm import Session as SyncSession
 
 from app.core.config import get_settings
 from app.core.enums import DatastoreStatus
@@ -36,12 +37,41 @@ from app.core.tenancy_runtime import (
 )
 
 #: Control-plane engine — ayni zamanda sema modundaki TUM tenant'larin
-#: paylastigi baglanti havuzu.
+#: paylastigi baglanti havuzu. Uygulama bu baglantida DUSUK YETKILI rolle
+#: calisir; tenant istekleri ayrica `SET LOCAL ROLE` ile kendi rolune duser.
 engine = create_async_engine(get_settings().database_url)
+
+#: Sema/rol yaratma gibi DDL islemleri icin ayri (yetkili) baglanti.
+#: Tanimli degilse uygulama baglantisina duser — dev/test icin yeterli,
+#: uretimde ayri tutmak calisma zamani rolunun DDL yetkisi olmamasini saglar.
+_admin_url = get_settings().admin_database_url or get_settings().database_url
+admin_engine = (
+    engine if _admin_url == get_settings().database_url else create_async_engine(_admin_url)
+)
+
+
+@event.listens_for(SyncSession, "after_begin")
+def _apply_tenant_role(session, transaction, connection) -> None:
+    """Her transaction basinda tenant rolune gecer.
+
+    `SET LOCAL` transaction sonunda KENDILIGINDEN dusuegi icin baglanti
+    havuza temiz doner (deneyle dogrulandi). Listener transaction basina
+    baglandigindan, ayni oturumda commit sonrasi acilan yeni transaction da
+    dogru rolle calisir — tek seferlik bir SET yeterli olmazdi.
+    """
+    role = session.info.get("db_role")
+    if not role or connection.dialect.name != "postgresql":
+        return
+    # Rol adi UUID'den turer (tr_<32 hex>); yine de savunma amacli dogrulanir.
+    if not role.replace("_", "").isalnum():
+        raise RuntimeError(f"Gecersiz veritabani rolu: {role!r}")
+    connection.exec_driver_sql(f'SET LOCAL ROLE "{role}"')
 
 #: Konum -> engine/sessionmaker onbellegi. OptionEngine'ler alttaki havuzu
 #: PAYLASIR; tenant basina yeni baglanti acilmaz.
-_bound: dict[tuple[str | None, str | None], async_sessionmaker[AsyncSession]] = {}
+_bound: dict[
+    tuple[str | None, str | None, str | None], async_sessionmaker[AsyncSession]
+] = {}
 
 
 def _base_engine(location: TenantLocation) -> AsyncEngine:
@@ -51,7 +81,7 @@ def _base_engine(location: TenantLocation) -> AsyncEngine:
 
 
 def sessionmaker_for(location: TenantLocation) -> async_sessionmaker[AsyncSession]:
-    key = (location.dsn_alias, location.schema)
+    key = (location.dsn_alias, location.schema, location.db_role)
     cached = _bound.get(key)
     if cached is not None:
         return cached
@@ -59,7 +89,9 @@ def sessionmaker_for(location: TenantLocation) -> async_sessionmaker[AsyncSessio
     bound_engine = base.execution_options(
         schema_translate_map=translate_map(location.schema, dialect_name=base.dialect.name)
     )
-    maker = async_sessionmaker(bound_engine, expire_on_commit=False)
+    maker = async_sessionmaker(
+        bound_engine, expire_on_commit=False, info={"db_role": location.db_role}
+    )
     _bound[key] = maker
     return maker
 
@@ -102,7 +134,9 @@ async def location_for_tenant(tenant_id: uuid.UUID) -> TenantLocation:
         ).scalar_one_or_none()
 
     if row is not None and row.status == DatastoreStatus.ready:
-        location = TenantLocation(schema=row.schema_name, dsn_alias=row.dsn_alias)
+        location = TenantLocation(
+            schema=row.schema_name, dsn_alias=row.dsn_alias, db_role=row.db_role
+        )
     elif get_settings().tenant_datastore_required:
         raise ApiError(
             "TENANT_DATASTORE_NOT_READY",
