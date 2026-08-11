@@ -169,8 +169,6 @@ export interface MultiSelectOption {
   label: string;
 }
 
-/** Bu sayıdan az seçenek varsa arama kutusu gösterilmez. */
-const SEARCH_MIN_OPTIONS = 8;
 /** Aynı anda basılan maksimum satır; gerisi arama ile daraltılır. */
 const MAX_RENDERED = 50;
 
@@ -332,7 +330,9 @@ export function MultiSelectField({
         </View>
       )}
 
-      {options.length >= SEARCH_MIN_OPTIONS && (
+      {/* Arama kutusu HER listede durur (kullanıcı kararı); yalnızca hiç
+          seçenek yokken gizlenir. */}
+      {options.length > 0 && (
         <Field
           value={query}
           onChangeText={setQuery}
@@ -549,7 +549,8 @@ export function PermissionPicker({
         )}
       </View>
 
-      {totalItems >= SEARCH_MIN_OPTIONS && (
+      {/* Arama kutusu her listede durur (kullanıcı kararı). */}
+      {totalItems > 0 && (
         <Field
           value={query}
           onChangeText={setQuery}
