@@ -223,7 +223,6 @@ export default function DocksScreen() {
               value={acceptedProducts}
               onChange={setAcceptedProducts}
               searchPlaceholder="Ürün kategorisi ara…"
-              emptyHint="Boş bırakılırsa tüm ürün kategorileri kabul edilir."
             />
           </View>
 
@@ -238,7 +237,6 @@ export default function DocksScreen() {
               value={acceptedVehicles}
               onChange={setAcceptedVehicles}
               searchPlaceholder="Araç kategorisi ara…"
-              emptyHint="Boş bırakılırsa tüm araç tipleri kabul edilir (geriye uyumluluk kuralı)."
             />
           </View>
 

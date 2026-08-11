@@ -19,8 +19,6 @@ interface MultiSelectFieldProps {
   searchPlaceholder?: string;
 }
 
-/** Bu sayidan az secenek varsa arama kutusu gosterilmez (gereksiz gurultu). */
-const SEARCH_MIN_OPTIONS = 8;
 /** Tek seferde DOM'a basilan maksimum satir; gerisi arama ile daraltilir. */
 const MAX_RENDERED = 100;
 
@@ -92,7 +90,10 @@ export function MultiSelectField({
     onChange([...value, ...additions]);
   }
 
-  const showSearch = options.length >= SEARCH_MIN_OPTIONS;
+  // Arama kutusu HER listede durur (kullanici karari): kisa listelerde de
+  // yazarak secmek, goz ile taramaktan hizli ve tutarli bir etkilesim.
+  // Yalnizca hic secenek yokken gizlenir (aranacak bir sey yok).
+  const showSearch = options.length > 0;
 
   return (
     <div className="flex flex-col gap-2">

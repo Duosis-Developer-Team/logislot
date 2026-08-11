@@ -274,7 +274,6 @@ export default function DocksPage() {
               value={acceptedProducts}
               onChange={setAcceptedProducts}
               searchPlaceholder="Ürün kategorisi ara…"
-              emptyHint="Boş bırakılırsa tüm ürün kategorileri kabul edilir."
             />
           </div>
 
@@ -287,7 +286,6 @@ export default function DocksPage() {
               value={acceptedVehicles}
               onChange={setAcceptedVehicles}
               searchPlaceholder="Araç kategorisi ara…"
-              emptyHint="Boş bırakılırsa tüm araç tipleri kabul edilir (geriye uyumluluk kuralı)."
             />
           </div>
 

@@ -66,6 +66,17 @@ test("çoklu seçim alanları: izin araması, Enter güvenliği ve rampa seçimi
   test.skip((await unchecked.count()) === 0, "Rampada seçilmemiş kategori kalmamış.");
   const target = (await unchecked.first().innerText()).trim();
 
+  // Arama KISA listelerde de vardir (esik kaldirildi) ve "bos = tumu kabul"
+  // ipucu artik yazilmaz.
+  const productSearch = productField.getByPlaceholder("Ürün kategorisi ara…");
+  await expect(productSearch).toBeVisible();
+  await expect(
+    dockDrawer.getByText("Boş bırakılırsa tüm ürün kategorileri kabul edilir."),
+  ).toBeHidden();
+  await productSearch.fill(target.slice(0, 4));
+  await expect(productField.getByRole("checkbox", { name: target })).toBeVisible();
+  await productSearch.fill("");
+
   await productField.getByRole("checkbox", { name: target }).click();
   await expect(
     productField.getByRole("button", { name: `${target} seçimini kaldır` }),
