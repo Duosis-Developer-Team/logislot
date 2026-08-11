@@ -178,6 +178,16 @@ jobs:
             echo "Zorunlu secret'lar eksik: ${ENV_NAME^^}_LOGISLOT_SECRET_KEY / _POSTGRES_PASSWORD / _DATABASE_URL"
             exit 1
           fi
+          # --- CAPRAZ ORTAM GUARD'I ---
+          # DATABASE_URL normalde kisa servis adi kullanir (logislot-postgres:5432)
+          # ve pod kendi namespace'ine cozer. Ama secret yanlislikla KARSI ortamin
+          # FQDN'ini iceriyorsa prod deploy'u DEV veritabanina migration koşardı;
+          # bu sessiz ve geri donusu zor bir felaket olurdu. Acikca engelle.
+          OTHER_NS="logislot-dev"; [[ "$ENV_NAME" == "dev" ]] && OTHER_NS="logislot-prod"
+          if [[ "$DATABASE_URL" == *"$OTHER_NS"* ]]; then
+            echo "::error::${ENV_NAME^^}_DATABASE_URL karsi ortami ($OTHER_NS) isaret ediyor — deploy durduruldu"
+            exit 1
+          fi
           kubectl create namespace "$NAMESPACE" --dry-run=client -o yaml | kubectl apply -f -
           kubectl -n "$NAMESPACE" create secret generic logislot-secrets \
             --from-literal=POSTGRES_USER=logislot \
