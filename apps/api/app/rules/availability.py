@@ -28,9 +28,8 @@ from app.rules.context import (
 )
 from app.services.overrides import pick_override
 
-#: Slot izgarasinin adimi (dakika). 15 => baslangic saatleri :00 :15 :30 :45.
-#: Onceden 30'du ve yalnizca :00/:30 sunuluyordu.
-SLOT_MINUTES = 15
+#: Randevu slot izgarasinin adimi (dakika).
+SLOT_MINUTES = 30
 #: Hicbir yerde ust sinir tanimli degilse uygulanan SISTEM VARSAYILANI (dakika).
 #: Onceden tanimsiz ust sinir "sinirsiz" demekti ve tek randevu tum gunu
 #: kapatabiliyordu. Acikca girilen kategori/tedarikci limiti bunu EZER.

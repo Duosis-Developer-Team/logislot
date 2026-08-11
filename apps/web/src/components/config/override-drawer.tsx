@@ -6,6 +6,7 @@ import { MultiSelectField } from "@/components/config/multi-select";
 import { Button } from "@/components/ui/button";
 import { Drawer } from "@/components/ui/drawer";
 import { Input, Label, Select } from "@/components/ui/input";
+import { TimeSelect } from "@/components/ui/time-select";
 import { ApiError } from "@/lib/api/client";
 import { dockOverrides, docks } from "@/lib/api/resources";
 import type { OverrideDto, OverrideType } from "@/lib/api/types";
@@ -203,15 +204,11 @@ function OverrideForm({
         <div className="grid grid-cols-2 gap-3">
           <div>
             <Label>Başlangıç</Label>
-            <Input
-              type="time"
-              value={startTime}
-              onChange={(e) => setStartTime(e.target.value)}
-            />
+            <TimeSelect ariaLabel="Başlangıç" value={startTime} onChange={setStartTime} />
           </div>
           <div>
             <Label>Bitiş</Label>
-            <Input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} />
+            <TimeSelect ariaLabel="Bitiş" value={endTime} onChange={setEndTime} />
           </div>
         </div>
       ) : (

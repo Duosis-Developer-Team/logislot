@@ -15,7 +15,11 @@ from pydantic import BaseModel, EmailStr, Field, field_validator, model_validato
 
 from app.core.enums import ConflictRelationType, DockOverrideType
 
-_HHMM = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
+#: Calisma saatlerinde dakika YALNIZCA ceyrek saat olabilir (00/15/30/45).
+#: Serbest dakika girisi 01:19 gibi degerlere izin veriyordu; hem operasyonel
+#: olarak anlamsiz hem de slot izgarasiyla hizasiz.
+QUARTER_HOUR_MINUTES = ("00", "15", "30", "45")
+_HHMM = re.compile(r"^([01]\d|2[0-3]):(00|15|30|45)$")
 _DAY_KEYS = {"mon", "tue", "wed", "thu", "fri", "sat", "sun"}
 
 
@@ -30,7 +34,9 @@ def _validate_working_hours(value: dict[str, Any] | None) -> dict[str, Any] | No
         if not isinstance(day, dict) or "start" not in day or "end" not in day:
             raise ValueError(f"{key}: {{start, end}} bekleniyor veya null")
         if not (_HHMM.match(str(day["start"])) and _HHMM.match(str(day["end"]))):
-            raise ValueError(f"{key}: saatler HH:MM formatinda olmali")
+            raise ValueError(
+                f"{key}: saatler HH:MM olmali ve dakika 00/15/30/45 olmali"
+            )
         if str(day["start"]) >= str(day["end"]):
             raise ValueError(f"{key}: bitis, baslangictan sonra olmali")
     return value
@@ -200,6 +206,10 @@ class OverrideCreate(BaseModel):
         if self.type == DockOverrideType.extra_hours:
             if self.start_time is None or self.end_time is None:
                 raise ValueError("extra_hours icin start_time ve end_time zorunlu")
+        for label, value in (("start_time", self.start_time), ("end_time", self.end_time)):
+            # Calisma saatleriyle ayni kural: dakika ceyrek saat olmali.
+            if value is not None and (value.minute % 15 or value.second or value.microsecond):
+                raise ValueError(f"{label}: dakika 00/15/30/45 olmali")
         if self.start_time is not None and self.end_time is not None:
             if self.end_time <= self.start_time:
                 raise ValueError("end_time, start_time'dan sonra olmali")

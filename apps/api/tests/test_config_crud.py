@@ -313,6 +313,22 @@ async def test_dock_crud_and_cross_facility_refs(client, seeded, session_maker):
     )
     assert response.status_code == 422
 
+    # Dakika ceyrek saat olmali: 01:19 gibi degerler kabul EDILMEZ.
+    for bad in ("08:19", "08:01", "08:59"):
+        response = await client.patch(
+            f"{base}/{dock['id']}", headers=headers,
+            json={"working_hours_json": {"mon": {"start": bad, "end": "17:00"}}},
+        )
+        assert response.status_code == 422, bad
+
+    # 00/15/30/45 kabul edilir.
+    for good in ("08:00", "08:15", "08:30", "08:45"):
+        response = await client.patch(
+            f"{base}/{dock['id']}", headers=headers,
+            json={"working_hours_json": {"mon": {"start": good, "end": "17:30"}}},
+        )
+        assert response.status_code == 200, good
+
 
 async def test_deactivated_dock_removed_from_availability(client, seeded):
     headers = await admin(client)
