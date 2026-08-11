@@ -44,6 +44,41 @@ kullanmak `InvalidRequestError` fırlatır ve **API tamamen durur**. Bu yüzden
 haritayı elle kurmayın — daima `app/core/tenancy_runtime.translate_map()`
 kullanın. `tests/test_tenancy.py` bu sözleşmeyi korur.
 
+## Veritabanı seviyesinde yetkilendirme (ikinci savunma hattı)
+
+Şema yönlendirmesi uygulama katmanındadır; bir yönlendirme hatası hâlâ yanlış
+veriyi getirebilirdi. Bu yüzden **Postgres'in kendisi de zorluyor**: her tenant
+isteği, o transaction boyunca yalnızca kendi şemasına yetkili bir role geçer.
+
+| Kim | Ne görebilir |
+|---|---|
+| Platform (LogiSlot) admini | Her şey — control-plane rolüyle çalışır, tenant'ları tek tek gezerek okur |
+| Tenant kullanıcısı | Yalnızca kendi şeması + `public.plans` (plan adı için) |
+| Tenant kullanıcısı → başka tenant şeması | `ERROR: permission denied for schema …` |
+| Tenant kullanıcısı → `public.tenants` | `ERROR: permission denied` (diğer müşterilerin kaydını göremez) |
+
+Mekanizma:
+- `tr_<tenant-uuid-hex>` rolü: yalnızca kendi şemasına `USAGE` + DML, artı
+  `ALTER DEFAULT PRIVILEGES` ile **sonradan eklenecek tablolar**.
+- Uygulama rolü `logislot_app` **NOINHERIT**'tir: tenant rollerine üyedir ama
+  yetkiyi ancak açıkça `SET ROLE` yapınca kazanır. Rol değişimi atlanırsa istek
+  sessizce geniş yetkiyle değil, **hatayla** sonuçlanır (fail-closed).
+- `SET LOCAL ROLE` her transaction başında uygulanır ve COMMIT'te kendiliğinden
+  düşer — bağlantı havuzu güvenli (doğrulandı).
+
+> **Superuser her şeyi bypass eder.** Uygulama superuser (`logislot`) ile
+> bağlandığı sürece bu GRANT'lar ETKİSİZDİR. Ayrı veritabanı kullanmak da bu
+> sorunu çözmez — güvenlik sınırı kap (şema/DB) değil, bağlanılan roldür.
+> Bu yüzden son adım `LOGISLOT_DATABASE_URL`'i `logislot_app`'e çevirmektir.
+
+```bash
+# Rolleri kur (uygulama rolü + mevcut tenant rolleri)
+python scripts/bootstrap_db_roles.py --print-dsn   # planı gör
+python scripts/bootstrap_db_roles.py --apply
+# ...sonra LOGISLOT_DATABASE_URL'i logislot_app kullanıcısına çevirip API'yi yeniden başlat.
+# DDL (migration/provisioning) için ayrı yetkili bağlantı: LOGISLOT_ADMIN_DATABASE_URL
+```
+
 ## Geçiş durumu ve geri dönüş
 
 `tenant_datastores`'ta `ready` kaydı **olmayan** tenant, eski ortak yerleşimde
