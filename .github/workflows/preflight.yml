@@ -1,0 +1,104 @@
+# Deploy ONCESI SALT-OKUNUR durum raporu.
+#
+# Neden var: prod'a ilk gercek deploy oncesinde "ne var, hangi migration'dayiz,
+# riskli veri durumu var mi" sorularinin cevabi yalnizca cluster'da; kubeconfig
+# ise GitHub secret'inda. Bu workflow o sorulari CEVAPLAR ama HICBIR SEYI
+# DEGISTIRMEZ.
+#
+# GUVENLIK: yalnizca `get/describe/exec psql SELECT` kullanilir. apply/delete/
+# create/patch/scale YOKTUR ve eklenmemelidir. Bu yuzden `environment:` de
+# yoktur — onay kapisi mutasyon yapan deploy.yml'e aittir.
+name: Preflight
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Incelenecek ortam"
+        required: true
+        type: choice
+        options: [prod, dev]
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      ENV_NAME: ${{ inputs.environment }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Kubeconfig hazirla (loglanmaz)
+        run: |
+          mkdir -p ~/.kube
+          if [[ "$ENV_NAME" == "prod" && -n "${{ secrets.KUBE_CONFIG_PROD }}" ]]; then
+            printf '%s' "${{ secrets.KUBE_CONFIG_PROD }}" | base64 -d > ~/.kube/config
+          elif [[ "$ENV_NAME" == "dev" && -n "${{ secrets.KUBE_CONFIG_DEV }}" ]]; then
+            printf '%s' "${{ secrets.KUBE_CONFIG_DEV }}" | base64 -d > ~/.kube/config
+          else
+            printf '%s' "${{ secrets.KUBE_CONFIG }}" | base64 -d > ~/.kube/config
+          fi
+          chmod 600 ~/.kube/config
+
+      - name: Durum raporu (salt-okunur)
+        run: |
+          NAMESPACE="logislot-$ENV_NAME"
+          if [[ "$NAMESPACE" != "logislot-dev" && "$NAMESPACE" != "logislot-prod" ]]; then
+            echo "Gecersiz namespace: $NAMESPACE"; exit 1
+          fi
+
+          say() { echo; echo "===== $* ====="; }
+
+          say "NAMESPACE"
+          if ! kubectl get namespace "$NAMESPACE" >/dev/null 2>&1; then
+            echo "YOK — ilk deploy namespace'i olusturacak (bos kurulum)."
+            exit 0
+          fi
+          echo "VAR"
+
+          say "POD'LAR"
+          kubectl -n "$NAMESPACE" get pods -o wide || true
+
+          say "DEPLOYMENT / STATEFULSET"
+          kubectl -n "$NAMESPACE" get deploy,statefulset || true
+
+          say "CALISAN IMAJ ETIKETLERI"
+          kubectl -n "$NAMESPACE" get deploy -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.spec.template.spec.containers[0].image}{"\n"}{end}' || true
+
+          say "PVC (silinmez, yalnizca bilgi)"
+          kubectl -n "$NAMESPACE" get pvc || true
+
+          PG=$(kubectl -n "$NAMESPACE" get pod -l app.kubernetes.io/name=logislot-postgres \
+                 -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)
+          if [[ -z "$PG" ]]; then
+            say "POSTGRES"
+            echo "Postgres pod'u yok — veritabani sorgulari atlandi."
+            exit 0
+          fi
+
+          psql_q() { kubectl -n "$NAMESPACE" exec "$PG" -- psql -U logislot -d logislot -tAc "$1" 2>/dev/null || echo "(sorgu calistirilamadi)"; }
+
+          say "ALEMBIC REVIZYONU (DB'nin bulundugu nokta)"
+          psql_q "SELECT version_num FROM alembic_version;"
+          echo "--- repodaki head ---"
+          grep -h "^revision" apps/api/alembic/versions/*.py | sed 's/.*= *//' | tr -d '\"' > /tmp/revs.txt
+          grep -h "^down_revision" apps/api/alembic/versions/*.py | sed 's/.*= *//' | tr -d '\"' > /tmp/downs.txt
+          comm -23 <(sort -u /tmp/revs.txt) <(sort -u /tmp/downs.txt)
+
+          say "RISK: 1 tenant = 1 tesis kisiti (c7f1a2b93d40 bunda DURUR)"
+          DUP=$(psql_q "SELECT COUNT(*) FROM (SELECT tenant_id FROM facilities GROUP BY tenant_id HAVING COUNT(*) > 1) x;")
+          echo "birden fazla tesisi olan tenant sayisi: $DUP"
+          if [[ "$DUP" == "0" ]]; then
+            echo "-> GUVENLI: migration bu kontrolden gecer."
+          else
+            echo "-> DIKKAT: migration bilincli olarak DURUR. Once tesisleri birlestirin."
+            psql_q "SELECT tenant_id, COUNT(*) FROM facilities GROUP BY tenant_id HAVING COUNT(*) > 1;"
+          fi
+
+          say "VERI HACMI (deploy'un neyi etkileyecegini gormek icin)"
+          for t in tenants facilities suppliers appointments tenant_users supplier_users; do
+            printf '%-16s %s\n' "$t" "$(psql_q "SELECT COUNT(*) FROM $t;")"
+          done
