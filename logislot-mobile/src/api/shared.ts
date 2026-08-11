@@ -60,6 +60,15 @@ export const SLOT_STATUS_LABELS: Record<SlotStatus, string> = {
 /** Randevu sihirbazlarında sunulan standart süre seçenekleri (dakika). */
 export const DURATION_OPTIONS = [30, 45, 60, 90, 120, 150, 180, 240] as const;
 
+/**
+ * Hiçbir yerde üst sınır tanımlı değilse uygulanan SİSTEM VARSAYILANI (dakika).
+ *
+ * Önceden tanımsız üst sınır "sınırsız" demekti ve tek bir randevu tüm günü
+ * kapatabiliyordu. Açıkça girilen kategori/tedarikçi limiti bunu EZER.
+ * Backend karşılığı: app/rules/availability.py DEFAULT_MAX_BLOCK_MINUTES.
+ */
+export const DEFAULT_MAX_BLOCK_MINUTES = 120;
+
 export interface BlockLimits {
   min_block_minutes: number | null;
   max_block_minutes: number | null;
@@ -94,7 +103,8 @@ export function resolveDurationRange(
   const caps = [category.max_block_minutes, supplierLimits?.max_block_minutes ?? null].filter(
     (value): value is number => value != null,
   );
-  const max = caps.length > 0 ? Math.min(...caps) : null;
+  // Hiç limit yoksa "sınırsız" değil, sistem varsayılanı uygulanır.
+  const max = caps.length > 0 ? Math.min(...caps) : DEFAULT_MAX_BLOCK_MINUTES;
 
   if (max !== null && max < min) {
     return { min, max, options: [], conflicting: true };

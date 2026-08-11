@@ -7,8 +7,8 @@ temel mimari fikridir.
 
 import uuid
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from datetime import date as date_type
-from datetime import datetime
 
 from app.core.enums import CargoWindow, DeliveryType
 from app.models import (
@@ -33,6 +33,7 @@ class HardRuleCode:
     DOCK_CLOSED_BY_OVERRIDE = "DOCK_CLOSED_BY_OVERRIDE"
     DOCK_TIME_CONFLICT = "DOCK_TIME_CONFLICT"
     DOCK_CONFLICT_GROUP_BLOCKED = "DOCK_CONFLICT_GROUP_BLOCKED"
+    START_TIME_IN_PAST = "START_TIME_IN_PAST"
 
 
 class WarningCode:
@@ -52,6 +53,7 @@ HARD_RULE_MESSAGES = {
     HardRuleCode.DOCK_CLOSED_BY_OVERRIDE: "Rampa bu gun icin kapatilmis",
     HardRuleCode.DOCK_TIME_CONFLICT: "Secilen aralikta rampa dolu",
     HardRuleCode.DOCK_CONFLICT_GROUP_BLOCKED: "Rampa, cakisma grubu nedeniyle bloke",
+    HardRuleCode.START_TIME_IN_PAST: "Gecmis bir saate randevu olusturulamaz",
 }
 
 
@@ -119,3 +121,7 @@ class RuleEvaluationContext:
     # Kota kontrolu icin sayimlar (iptal/red haric)
     supplier_week_count: int = 0
     supplier_month_count: int = 0
+    # "Simdi" (UTC, aware). Gecmis saate randevu acilmasini engeller; varsayilan
+    # olarak HER ZAMAN doludur — bir cagiran bunu vermeyi unutursa koruma
+    # sessizce kapanmasin diye bilerek Optional DEGIL.
+    now: datetime = field(default_factory=lambda: datetime.now(UTC))

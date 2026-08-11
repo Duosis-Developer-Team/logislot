@@ -26,7 +26,7 @@ from app.models import (
     Supplier,
     VehicleCategory,
 )
-from app.rules.availability import AvailabilityService
+from app.rules.availability import DEFAULT_MAX_BLOCK_MINUTES, AvailabilityService
 from app.rules.context import HardRuleCode, RuleEvaluationContext, WarningCode
 
 TZ = ZoneInfo("Europe/Istanbul")
@@ -104,6 +104,10 @@ def make_ctx(**overrides) -> RuleEvaluationContext:
         conflict_groups=[group],
         overrides=[],
         existing_appointments=[],
+        # Senaryolar sabit bir gune (TARGET) kuruludur; "simdi" o gunun basina
+        # sabitlenir ki gunun tum slotlari gelecekte kalsin ve testler takvim
+        # ilerledikce bozulmasin. Gecmis saat korumasi ayrica test edilir.
+        now=datetime.combine(TARGET, datetime.min.time(), tzinfo=TZ),
     )
     defaults.update(overrides)
     ctx = RuleEvaluationContext(**defaults)
@@ -159,10 +163,36 @@ def test_duration_above_category_maximum():
     assert result.code == HardRuleCode.DURATION_ABOVE_CATEGORY_MAXIMUM
 
 
-def test_category_maximum_none_means_no_upper_bound():
-    """Geriye uyumluluk: max NULL iken yalnizca tedarikci limiti gecerlidir."""
+def test_category_maximum_none_defers_to_supplier_limit():
+    """Kategori maksimumu NULL iken tedarikci limiti gecerlidir."""
     ctx = make_ctx(duration_minutes=120)
     assert ctx.product_category.max_block_minutes is None
+    assert AvailabilityService(ctx).validate_request().ok
+
+
+def test_default_max_applies_when_no_limit_is_configured_anywhere():
+    """Hicbir ust sinir yoksa "sinirsiz" DEGIL, sistem varsayilani (120 dk) gecerlidir.
+
+    Onceden tek bir randevu tum gunu kapatabiliyordu.
+    """
+    ctx = make_ctx(duration_minutes=150)
+    ctx.product_category.max_block_minutes = None
+    ctx.supplier.max_block_minutes = None
+    result = AvailabilityService(ctx).validate_request()
+    assert result.code == HardRuleCode.DURATION_ABOVE_CATEGORY_MAXIMUM
+
+    # Varsayilanin tam sinirinda kalan sure gecerlidir.
+    ok_ctx = make_ctx(duration_minutes=DEFAULT_MAX_BLOCK_MINUTES)
+    ok_ctx.product_category.max_block_minutes = None
+    ok_ctx.supplier.max_block_minutes = None
+    assert AvailabilityService(ok_ctx).validate_request().ok
+
+
+def test_explicit_limit_overrides_the_default_cap():
+    """Acikca girilen limit varsayilani EZER (240 dk isteniyorsa mumkun olmali)."""
+    ctx = make_ctx(duration_minutes=240)
+    ctx.product_category.max_block_minutes = 240
+    ctx.supplier.max_block_minutes = 240
     assert AvailabilityService(ctx).validate_request().ok
 
 
@@ -359,6 +389,48 @@ def test_evaluate_day_slot_statuses():
     assert by_start["08:00"].status == "available"
     assert by_start["10:00"].status == "partial"
     assert len(by_start["10:00"].candidate_dock_ids) == 1
+
+
+def test_slot_grid_is_quarter_hourly():
+    """Baslangic saatleri :00 :15 :30 :45 olmali (once yalnizca :00/:30 vardi)."""
+    ctx = make_ctx()
+    slots = AvailabilityService(ctx).evaluate_day()
+    starts = [s.start.astimezone(TZ).strftime("%H:%M") for s in slots]
+    assert starts[:5] == ["08:00", "08:15", "08:30", "08:45", "09:00"]
+    assert {s.split(":")[1] for s in starts} == {"00", "15", "30", "45"}
+
+
+def test_past_slots_are_not_offered():
+    """Gun ortasinda kalan slotlar sunulur, gecmis olanlar HIC listelenmez.
+
+    Sikayet: saat 17:00 iken bugun 13:00'e randevu alinabiliyordu.
+    """
+    ctx = make_ctx(now=datetime.combine(TARGET, datetime.min.time(), tzinfo=TZ).replace(hour=13))
+    slots = AvailabilityService(ctx).evaluate_day()
+    starts = [s.start.astimezone(TZ).strftime("%H:%M") for s in slots]
+    assert starts, "gunun kalani icin slot uretilmeli"
+    assert "08:00" not in starts
+    assert "12:00" not in starts
+    assert min(starts) >= "13:00"
+
+
+def test_past_start_time_is_rejected():
+    """UI atlansa bile gecmis bir saat dogrudan create/revize ile gecemez."""
+    ctx = make_ctx(now=datetime.combine(TARGET, datetime.min.time(), tzinfo=TZ).replace(hour=15))
+    _, _, _, _, _, d1, _, _, _ = ctx._world
+    result = AvailabilityService(ctx).interval_status(d1, at(9), at(9) + timedelta(minutes=60))
+    assert result.code == HardRuleCode.START_TIME_IN_PAST
+
+
+def test_past_day_is_rejected_even_without_exact_time():
+    """Kargoda kesin saat yoktur; gecmis GUN kontrolu bu yuzden gun bazindadir."""
+    ctx = make_ctx(
+        target_date=TARGET - timedelta(days=1),
+        now=datetime.combine(TARGET, datetime.min.time(), tzinfo=TZ),
+        delivery_type=DeliveryType.cargo,
+    )
+    result = AvailabilityService(ctx).validate_request()
+    assert result.code == HardRuleCode.START_TIME_IN_PAST
 
 
 def test_choose_dock_least_busy_deterministic():

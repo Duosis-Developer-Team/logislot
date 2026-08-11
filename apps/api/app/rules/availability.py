@@ -28,7 +28,14 @@ from app.rules.context import (
 )
 from app.services.overrides import pick_override
 
-SLOT_MINUTES = 30
+#: Slot izgarasinin adimi (dakika). 15 => baslangic saatleri :00 :15 :30 :45.
+#: Onceden 30'du ve yalnizca :00/:30 sunuluyordu.
+SLOT_MINUTES = 15
+#: Hicbir yerde ust sinir tanimli degilse uygulanan SISTEM VARSAYILANI (dakika).
+#: Onceden tanimsiz ust sinir "sinirsiz" demekti ve tek randevu tum gunu
+#: kapatabiliyordu. Acikca girilen kategori/tedarikci limiti bunu EZER.
+#: Frontend karsiligi: packages/shared DEFAULT_MAX_BLOCK_MINUTES.
+DEFAULT_MAX_BLOCK_MINUTES = 120
 WEEKDAY_KEYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
 # Kargo kaba pencereleri (tesis yerel saati)
 CARGO_WINDOW_BOUNDS: dict[CargoWindow, tuple[time, time]] = {
@@ -73,7 +80,6 @@ class AvailabilityService:
         if ctx.duration_minutes < ctx.product_category.min_block_minutes:
             return HardRuleResult.failed(HardRuleCode.DURATION_BELOW_CATEGORY_MINIMUM)
 
-        # Kategori ust siniri OPSIYONEL: None = sinir yok (eski davranis).
         if (
             ctx.product_category.max_block_minutes is not None
             and ctx.duration_minutes > ctx.product_category.max_block_minutes
@@ -89,6 +95,15 @@ class AvailabilityService:
         ):
             return HardRuleResult.failed(HardRuleCode.DURATION_OUTSIDE_SUPPLIER_LIMITS)
 
+        # Hicbir yerde ust sinir tanimli degilse sistem varsayilani devreye girer:
+        # tanimsiz limit artik "sinirsiz" DEGIL (tek randevu gunu kapatamasin).
+        if (
+            ctx.product_category.max_block_minutes is None
+            and ctx.supplier.max_block_minutes is None
+            and ctx.duration_minutes > DEFAULT_MAX_BLOCK_MINUTES
+        ):
+            return HardRuleResult.failed(HardRuleCode.DURATION_ABOVE_CATEGORY_MAXIMUM)
+
         return HardRuleResult.passed()
 
     def validate_request(self) -> HardRuleResult:
@@ -97,6 +112,11 @@ class AvailabilityService:
         allowed_ids = {c.id for c in ctx.supplier.allowed_product_categories}
         if ctx.product_category.id not in allowed_ids:
             return HardRuleResult.failed(HardRuleCode.SUPPLIER_CATEGORY_NOT_ALLOWED)
+
+        # Gecmis GUN: kargo randevusunun kesin saati yoktur, bu yuzden
+        # interval_status korumasi ona islemez — gun bazli kontrol burada.
+        if ctx.target_date < ctx.now.astimezone(self.tz).date():
+            return HardRuleResult.failed(HardRuleCode.START_TIME_IN_PAST)
 
         duration_check = self.validate_duration()
         if not duration_check.ok:
@@ -208,6 +228,11 @@ class AvailabilityService:
         self, dock: Dock, start: datetime, end: datetime
     ) -> HardRuleResult:
         """Rampa + kardes rampalar icin zaman araliginin uygunlugu."""
+        # Gecmis saat: takvim/manuel/otomatik tum yollar bu fonksiyondan gectigi
+        # icin koruma tek noktada durur (create, revize, rampa secimi).
+        if start < self.ctx.now:
+            return HardRuleResult.failed(HardRuleCode.START_TIME_IN_PAST)
+
         override = self._override_for(dock.id)
         if override is not None and override.type == DockOverrideType.closed:
             return HardRuleResult.failed(HardRuleCode.DOCK_CLOSED_BY_OVERRIDE)
@@ -290,6 +315,11 @@ class AvailabilityService:
         cursor = grid_start
         duration = timedelta(minutes=self.ctx.duration_minutes)
         while cursor + duration <= grid_end:
+            # Gecmis slotlar HIC sunulmaz. (interval_status bunlari zaten
+            # reddederdi ama o durumda "dolu" gibi gorunur, oysa dolu degil.)
+            if cursor < self.ctx.now:
+                cursor += timedelta(minutes=SLOT_MINUTES)
+                continue
             slot_end = cursor + duration
             free_ids: list[uuid.UUID] = []
             reasons: list[str] = []

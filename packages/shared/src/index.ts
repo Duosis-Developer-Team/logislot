@@ -58,6 +58,16 @@ export const SLOT_STATUS_LABELS: Record<SlotStatus, string> = {
 /** Randevu sihirbazlarinda sunulan standart sure secenekleri (dakika). */
 export const DURATION_OPTIONS = [30, 45, 60, 90, 120, 150, 180, 240] as const;
 
+/**
+ * Hicbir yerde ust sinir tanimli degilse uygulanan SISTEM VARSAYILANI (dakika).
+ *
+ * Onceden tanimsiz ust sinir "sinirsiz" demekti ve tek bir randevu tum gunu
+ * kapatabiliyordu. Acikca girilen kategori/tedarikci limiti bu varsayilani
+ * EZER; varsayilan yalnizca hic limit yokken devreye girer.
+ * Backend karsiligi: app/rules/availability.py DEFAULT_MAX_BLOCK_MINUTES.
+ */
+export const DEFAULT_MAX_BLOCK_MINUTES = 120;
+
 export interface BlockLimits {
   min_block_minutes: number | null;
   max_block_minutes: number | null;
@@ -94,7 +104,8 @@ export function resolveDurationRange(
   const caps = [category.max_block_minutes, supplierLimits?.max_block_minutes ?? null].filter(
     (value): value is number => value != null,
   );
-  const max = caps.length > 0 ? Math.min(...caps) : null;
+  // Hic limit yoksa "sinirsiz" degil, sistem varsayilani uygulanir.
+  const max = caps.length > 0 ? Math.min(...caps) : DEFAULT_MAX_BLOCK_MINUTES;
 
   if (max !== null && max < min) {
     return { min, max, options: [], conflicting: true };
