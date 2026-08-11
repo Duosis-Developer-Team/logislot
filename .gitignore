@@ -1,5 +1,8 @@
 # Node
-node_modules/
+# Slash'siz: worktree'lerde node_modules bazen ana repoya SEMBOLIK LINK olarak
+# kurulur; "node_modules/" kalibi dizinle eslestigi icin linki yakalamaz ve
+# mutlak yol iceren link yanlislikla commit'lenebilir.
+node_modules
 .next/
 out/
 *.tsbuildinfo
