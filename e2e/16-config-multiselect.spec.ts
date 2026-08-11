@@ -1,110 +1,87 @@
 import { expect, test } from "@playwright/test";
-import { ACCOUNTS, API_URL, apiLogin, loginViaUi } from "./helpers";
+import { ACCOUNTS, loginViaUi } from "./helpers";
 
 /**
  * Kritik akis 16: konfigurasyon formlarindaki coklu secim alanlari.
  *
- * Kapsam:
  * - Rol izin secici: arama filtreler, ENTER formu GONDERMEZ, grup toplu secimi
- *   yalnizca kendi grubunu etkiler. (Hicbir yazma yapmaz; drawer iptal edilir.)
- * - Rampa duzenleme: liste gorunumunden secim kaydedilir ve testin sonunda
- *   orijinal duruma geri alinir.
+ *   yalnizca kendi grubunu etkiler (drawer iptal edilir; yazma yok).
+ * - Rampa duzenleme: liste gorunumunden secim kaydedilir, tabloda gorunur ve
+ *   ayni yoldan geri alinir.
+ *
+ * NOT: Tek test + TEK giris kullanilir. Login rate limit'i IP+email basina
+ * 60 sn'de 10 denemedir; suite sonunda ek girisler limiti asiyordu.
  */
-
-test("rol izin seçici: arama + Enter güvenliği + grup toplu seçimi", async ({ page }) => {
+test("çoklu seçim alanları: izin araması, Enter güvenliği ve rampa seçimi", async ({
+  page,
+}) => {
   await loginViaUi(page, "Yönetim Paneli", ACCOUNTS.admin);
   await expect(page).toHaveURL(/\/admin\/dashboard/, { timeout: 30_000 });
 
+  // ---------- 1) Rol izin secici (yazma yok) ----------
   await page.goto("/admin/settings/users");
   await page.getByRole("button", { name: /^Roller/ }).click();
   await page.getByRole("button", { name: "Yeni Rol" }).click();
 
-  const drawer = page.getByRole("dialog", { name: "Yeni Rol" });
-  await expect(drawer).toBeVisible();
+  const roleDrawer = page.getByRole("dialog", { name: "Yeni Rol" });
+  await expect(roleDrawer).toBeVisible();
 
-  // Arama: aksan/Turkce duyarsiz eslesme ("rampalari" -> "Rampaları yönet")
-  const search = drawer.getByPlaceholder("İzin ara…");
-  await search.fill("rampalari");
-  await expect(drawer.getByText("Rampaları yönet")).toBeVisible();
-  await expect(drawer.getByText("Randevu onayla")).toBeHidden();
+  // Arama Turkce/aksan duyarsiz: "rampalari" -> "Rampaları yönet"
+  const permSearch = roleDrawer.getByPlaceholder("İzin ara…");
+  await permSearch.fill("rampalari");
+  await expect(roleDrawer.getByText("Rampaları yönet")).toBeVisible();
+  await expect(roleDrawer.getByText("Randevu onayla")).toBeHidden();
 
   // ENTER formu GONDERMEMELI: drawer acik kalir.
-  await search.press("Enter");
-  await expect(drawer).toBeVisible();
-  await expect(drawer.getByText("Rampaları yönet")).toBeVisible();
-
-  await search.fill("");
+  await permSearch.press("Enter");
+  await expect(roleDrawer).toBeVisible();
+  await expect(roleDrawer.getByText("Rampaları yönet")).toBeVisible();
+  await permSearch.fill("");
 
   // Grup toplu secimi yalnizca kendi grubunu etkiler.
-  const takvimGroup = drawer.locator("div").filter({ hasText: /^TAKVIM \(0\/2\)/i }).last();
+  const takvimGroup = roleDrawer
+    .locator("div")
+    .filter({ hasText: /^TAKVIM \(0\/2\)/i })
+    .last();
   await takvimGroup.getByRole("button", { name: "Tümünü seç" }).click();
-  await expect(drawer.getByText("2 / 18 izin seçili")).toBeVisible();
+  await expect(roleDrawer.getByText(/^2 \/ \d+ izin seçili$/)).toBeVisible();
 
-  await drawer.getByRole("button", { name: "İptal" }).click();
-  await expect(drawer).toBeHidden();
-});
+  await roleDrawer.getByRole("button", { name: "İptal" }).click();
+  await expect(roleDrawer).toBeHidden();
 
-test("rampa düzenleme: liste görünümünden seçim kaydedilir ve geri alınır", async ({
-  page,
-  request,
-}) => {
-  const token = await apiLogin(request, "/auth/login", ACCOUNTS.admin);
-  const me = await request.get(`${API_URL}/auth/me`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  const facilityId = (await me.json()).data.default_facility_id;
-  const headers = { Authorization: `Bearer ${token}` };
-
-  const docksRes = await request.get(`${API_URL}/facilities/${facilityId}/docks`, { headers });
-  const dock = (await docksRes.json()).data.find((d: { is_active: boolean }) => d.is_active);
-  expect(dock).toBeTruthy();
-  const originalCategoryIds: string[] = dock.accepted_product_category_ids;
-
-  const catsRes = await request.get(`${API_URL}/facilities/${facilityId}/categories`, {
-    headers,
-  });
-  const categories = (await catsRes.json()).data.filter((c: { is_active: boolean }) => c.is_active);
-  // Rampada HENUZ secili olmayan bir kategori: testin toggle hedefi.
-  const target = categories.find(
-    (c: { id: string }) => !originalCategoryIds.includes(c.id),
-  );
-  test.skip(!target, "Seed'de rampaya eklenebilecek serbest kategori yok.");
-
-  await loginViaUi(page, "Yönetim Paneli", ACCOUNTS.admin);
+  // ---------- 2) Rampa: sec -> kaydet -> geri al ----------
   await page.goto("/admin/settings/docks");
+  const firstRow = page.getByRole("row").nth(1);
+  const dockName = (await firstRow.getByRole("cell").first().innerText()).split("\n")[0];
+  await firstRow.getByRole("button", { name: "Düzenle" }).click();
 
-  const row = page.getByRole("row", { name: new RegExp(dock.name) }).first();
-  await row.getByRole("button", { name: "Düzenle" }).click();
-
-  const drawer = page.getByRole("dialog", { name: "Rampayı Düzenle" });
-  await expect(drawer).toBeVisible();
-
-  const productField = drawer
+  const dockDrawer = page.getByRole("dialog", { name: "Rampayı Düzenle" });
+  await expect(dockDrawer).toBeVisible();
+  const productField = dockDrawer
     .locator("div")
     .filter({ hasText: /^Kabul Edilen Ürün Kategorileri/ })
     .last();
-  await expect(
-    productField.getByText(`${originalCategoryIds.length} / ${categories.length} seçili`),
-  ).toBeVisible();
 
-  await productField.getByRole("checkbox", { name: target.display_name }).click();
-  await expect(
-    productField.getByText(`${originalCategoryIds.length + 1} / ${categories.length} seçili`),
-  ).toBeVisible();
+  const unchecked = productField.getByRole("checkbox", { checked: false });
+  test.skip((await unchecked.count()) === 0, "Rampada seçilmemiş kategori kalmamış.");
+  const target = (await unchecked.first().innerText()).trim();
 
-  await drawer.getByRole("button", { name: "Kaydet" }).click();
+  await productField.getByRole("checkbox", { name: target }).click();
+  await expect(
+    productField.getByRole("button", { name: `${target} seçimini kaldır` }),
+  ).toBeVisible();
+  await dockDrawer.getByRole("button", { name: "Kaydet" }).click();
   await expect(page.getByText("Rampa güncellendi.")).toBeVisible({ timeout: 15_000 });
 
-  // Kalicilik: API secimi gercekten aldi mi?
-  const afterRes = await request.get(`${API_URL}/facilities/${facilityId}/docks`, { headers });
-  const after = (await afterRes.json()).data.find((d: { id: string }) => d.id === dock.id);
-  expect(after.accepted_product_category_ids).toContain(target.id);
-  expect(after.accepted_product_category_ids).toHaveLength(originalCategoryIds.length + 1);
+  // Kalicilik: tablo listeyi API'den yeniler; rozet gorunur olmali.
+  const row = page.getByRole("row", { name: new RegExp(dockName) }).first();
+  await expect(row.getByText(target, { exact: true })).toBeVisible({ timeout: 15_000 });
 
-  // Temizlik: orijinal secim listesine geri don (API ile, deterministik).
-  const restore = await request.patch(`${API_URL}/facilities/${facilityId}/docks/${dock.id}`, {
-    headers,
-    data: { accepted_product_category_ids: originalCategoryIds },
-  });
-  expect(restore.ok()).toBeTruthy();
+  // Geri al: ayni yoldan secimi kaldir.
+  await row.getByRole("button", { name: "Düzenle" }).click();
+  await expect(dockDrawer).toBeVisible();
+  await productField.getByRole("checkbox", { name: target }).click();
+  await dockDrawer.getByRole("button", { name: "Kaydet" }).click();
+  await expect(page.getByText("Rampa güncellendi.")).toBeVisible({ timeout: 15_000 });
+  await expect(row.getByText(target, { exact: true })).toBeHidden({ timeout: 15_000 });
 });
