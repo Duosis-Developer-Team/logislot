@@ -171,16 +171,32 @@ class ConflictGroupPatch(BaseModel):
 
 
 class OverrideCreate(BaseModel):
-    dock_id: uuid.UUID
+    """Ayni istisna tek istekte birden fazla rampaya yazilabilir (dock_ids).
+
+    Tekil `dock_id` alani geriye uyumluluk icin korunur; iki alan da
+    gonderilirse birlestirilip tekillestirilir.
+    """
+
+    dock_id: uuid.UUID | None = None
+    # max_length: tek istekte sinirsiz rampa yazilmasin (tesis rampa sayisinin
+    # cok uzerinde bir tavan; normal kullanimda asilmaz).
+    dock_ids: list[uuid.UUID] = Field(default_factory=list, max_length=200)
     date: date_type
     type: DockOverrideType
     start_time: time_type | None = None
     end_time: time_type | None = None
-    reason: str | None = None
+    reason: str | None = Field(default=None, max_length=1000)
     is_active: bool = True
+
+    @property
+    def target_dock_ids(self) -> list[uuid.UUID]:
+        ids = [*([self.dock_id] if self.dock_id else []), *self.dock_ids]
+        return list(dict.fromkeys(ids))
 
     @model_validator(mode="after")
     def check_times(self) -> "OverrideCreate":
+        if not self.target_dock_ids:
+            raise ValueError("En az bir rampa secilmeli")
         if self.type == DockOverrideType.extra_hours:
             if self.start_time is None or self.end_time is None:
                 raise ValueError("extra_hours icin start_time ve end_time zorunlu")
@@ -195,7 +211,7 @@ class OverridePatch(BaseModel):
     type: DockOverrideType | None = None
     start_time: time_type | None = None
     end_time: time_type | None = None
-    reason: str | None = None
+    reason: str | None = Field(default=None, max_length=1000)
     is_active: bool | None = None
 
 

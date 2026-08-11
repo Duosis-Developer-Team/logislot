@@ -26,6 +26,7 @@ from app.rules.context import (
     WarningCode,
     WarningRuleResult,
 )
+from app.services.overrides import pick_override
 
 SLOT_MINUTES = 30
 WEEKDAY_KEYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
@@ -161,16 +162,7 @@ class AvailabilityService:
         )
 
     def _override_for(self, dock_id: uuid.UUID) -> DockOverride | None:
-        return next(
-            (
-                o
-                for o in self.ctx.overrides
-                if o.dock_id == dock_id
-                and o.date == self.ctx.target_date
-                and o.is_active
-            ),
-            None,
-        )
+        return pick_override(self.ctx.overrides, dock_id, self.ctx.target_date)
 
     # ---------- sert kural 3: cakisma kontrolu ----------
 

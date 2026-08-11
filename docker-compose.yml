@@ -21,6 +21,11 @@ services:
       LOGISLOT_DATABASE_URL: postgresql+asyncpg://logislot:logislot@db:5432/logislot
       LOGISLOT_SECRET_KEY: dev-secret-change-me
       LOGISLOT_CORS_ORIGINS: '["http://localhost:3000","http://localhost:3010"]'
+      # E2E paketi ayni demo hesabiyla arka arkaya ~15 kez giris yapar; varsayilan
+      # limit (IP+email basina 60 sn'de 10) suite sonunda tesadufi 429 uretiyordu.
+      # YALNIZCA dev/e2e compose'u icin gevsetildi — k8s prod overlay'i varsayilani
+      # (10) kullanmaya devam eder, rate limit ACIK kalir.
+      LOGISLOT_LOGIN_RATE_LIMIT_ATTEMPTS: "50"
     ports:
       # Yerel makinelerde 8000/3000 sik dolu oldugu icin LogiSlot 8010/3010 kullanir.
       - "8010:8000"

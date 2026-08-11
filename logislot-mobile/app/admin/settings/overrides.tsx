@@ -4,13 +4,13 @@ import { useState } from "react";
 import { Alert, Text, View } from "react-native";
 import { ApiError } from "@/api/client";
 import { dockOverrides, docks } from "@/api/resources";
-import type { OverrideDto, OverrideType } from "@/api/types";
+import type { OverrideDto } from "@/api/types";
 import { useSession } from "@/auth/session";
 import { ActiveBadge, ConfigList } from "@/components/config";
-import { AppModal, Badge, Button, Card, Chip, Field, PickerField } from "@/components/ui";
+import { OverrideModal } from "@/components/override-modal";
+import { Badge, Button, Card } from "@/components/ui";
 import { useTheme } from "@/theme/theme";
 import { spacing } from "@/theme/tokens";
-import { todayISO } from "@/utils/format";
 
 export default function OverridesScreen() {
   const { colors } = useTheme();
@@ -18,79 +18,19 @@ export default function OverridesScreen() {
   const facilityId = session.activeFacilityId;
   const list = dockOverrides.useList(facilityId);
   const dockList = docks.useList(facilityId);
-  const save = dockOverrides.useSave(facilityId);
   const deactivate = dockOverrides.useDeactivate(facilityId);
 
   const [editing, setEditing] = useState<OverrideDto | null>(null);
   const [open, setOpen] = useState(false);
-  const [dockId, setDockId] = useState<string | null>(null);
-  const [date, setDate] = useState(todayISO());
-  const [type, setType] = useState<OverrideType>("closed");
-  const [startTime, setStartTime] = useState("");
-  const [endTime, setEndTime] = useState("");
-  const [reason, setReason] = useState("");
-  const [formError, setFormError] = useState<string | null>(null);
 
   function openCreate() {
     setEditing(null);
-    setDockId(null);
-    setDate(todayISO());
-    setType("closed");
-    setStartTime("");
-    setEndTime("");
-    setReason("");
-    setFormError(null);
     setOpen(true);
   }
 
   function openEdit(row: OverrideDto) {
     setEditing(row);
-    setDockId(row.dock_id);
-    setDate(row.date);
-    setType(row.type);
-    setStartTime(row.start_time?.slice(0, 5) ?? "");
-    setEndTime(row.end_time?.slice(0, 5) ?? "");
-    setReason(row.reason ?? "");
-    setFormError(null);
     setOpen(true);
-  }
-
-  async function onSubmit() {
-    setFormError(null);
-    if (!dockId) {
-      setFormError("Rampa seçin.");
-      return;
-    }
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
-      setFormError("Tarih YYYY-AA-GG biçiminde olmalı.");
-      return;
-    }
-    if (type === "extra_hours") {
-      if (!startTime || !endTime) {
-        setFormError("Ek mesai için başlangıç ve bitiş saati zorunludur.");
-        return;
-      }
-      if (endTime <= startTime) {
-        setFormError("Bitiş, başlangıçtan sonra olmalı.");
-        return;
-      }
-    }
-    try {
-      await save.mutateAsync({
-        id: editing?.id,
-        body: {
-          dock_id: dockId,
-          date,
-          type,
-          start_time: startTime || null,
-          end_time: endTime || null,
-          reason: reason || null,
-        },
-      });
-      setOpen(false);
-    } catch (err) {
-      setFormError(err instanceof ApiError ? err.message : "Kaydedilemedi");
-    }
   }
 
   function onDeactivate(row: OverrideDto) {
@@ -187,94 +127,11 @@ export default function OverridesScreen() {
         )}
       />
 
-      <AppModal
+      <OverrideModal
         visible={open}
+        editing={editing}
         onClose={() => setOpen(false)}
-        title={editing ? "İstisnayı Düzenle" : "Yeni Takvim İstisnası"}
-      >
-        <View style={{ gap: spacing.md }}>
-          <PickerField
-            label="Rampa"
-            value={dockId}
-            placeholder="— Rampa seçin —"
-            options={(dockList.data ?? [])
-              .filter((d) => d.is_active)
-              .map((d) => ({ value: d.id, label: d.name }))}
-            onChange={setDockId}
-          />
-          <Field
-            label="Tarih (YYYY-AA-GG)"
-            value={date}
-            onChangeText={setDate}
-            placeholder="2026-07-15"
-            autoCapitalize="none"
-          />
-          <View style={{ gap: 6 }}>
-            <Text style={{ color: colors.text, fontSize: 14, fontWeight: "500" }}>Tip</Text>
-            <View style={{ flexDirection: "row", gap: spacing.sm }}>
-              <Chip
-                label="Kapalı (bakım, tatil…)"
-                selected={type === "closed"}
-                onPress={() => setType("closed")}
-              />
-              <Chip
-                label="Ek Mesai"
-                selected={type === "extra_hours"}
-                onPress={() => setType("extra_hours")}
-              />
-            </View>
-          </View>
-          {type === "extra_hours" ? (
-            <View style={{ flexDirection: "row", gap: spacing.md }}>
-              <View style={{ flex: 1 }}>
-                <Field
-                  label="Başlangıç (SS:DD)"
-                  value={startTime}
-                  onChangeText={setStartTime}
-                  placeholder="06:00"
-                  autoCapitalize="none"
-                />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Field
-                  label="Bitiş (SS:DD)"
-                  value={endTime}
-                  onChangeText={setEndTime}
-                  placeholder="22:00"
-                  autoCapitalize="none"
-                />
-              </View>
-            </View>
-          ) : (
-            <Text style={{ color: colors.faintText, fontSize: 12 }}>
-              Kapalı istisna tüm günü randevuya kapatır.
-            </Text>
-          )}
-          <Field
-            label="Sebep"
-            value={reason}
-            onChangeText={setReason}
-            placeholder="Örn. Planlı bakım"
-          />
-          {formError && (
-            <Text style={{ color: colors.destructive, fontSize: 13 }}>{formError}</Text>
-          )}
-          <View style={{ flexDirection: "row", gap: spacing.sm }}>
-            <Button
-              title="İptal"
-              variant="secondary"
-              onPress={() => setOpen(false)}
-              style={{ flex: 1 }}
-            />
-            <Button
-              title={save.isPending ? "Kaydediliyor…" : "Kaydet"}
-              loading={save.isPending}
-              onPress={() => void onSubmit()}
-              style={{ flex: 2 }}
-            />
-          </View>
-        </View>
-      </AppModal>
+      />
     </>
   );
 }

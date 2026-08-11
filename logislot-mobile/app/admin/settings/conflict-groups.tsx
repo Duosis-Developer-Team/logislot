@@ -6,7 +6,7 @@ import { ApiError } from "@/api/client";
 import { conflictGroups, docks, vehicleCategories } from "@/api/resources";
 import type { ConflictGroupDto, ConflictRelationType } from "@/api/types";
 import { useSession } from "@/auth/session";
-import { ActiveBadge, ConfigList, MultiSelectChips } from "@/components/config";
+import { ActiveBadge, ConfigList, MultiSelectField } from "@/components/config";
 import { AppModal, Badge, Button, Card, Chip, Field, SwitchRow } from "@/components/ui";
 import { useTheme } from "@/theme/theme";
 import { spacing } from "@/theme/tokens";
@@ -222,12 +222,13 @@ export default function ConflictGroupsScreen() {
             <Text style={{ color: colors.text, fontSize: 14, fontWeight: "500" }}>
               Üye Rampalar (en az 2)
             </Text>
-            <MultiSelectChips
+            <MultiSelectField
               options={(dockList.data ?? [])
                 .filter((d) => d.is_active)
                 .map((d) => ({ value: d.id, label: d.name }))}
               value={memberIds}
               onChange={setMemberIds}
+              searchPlaceholder="Rampa ara…"
             />
           </View>
 
@@ -236,12 +237,13 @@ export default function ConflictGroupsScreen() {
               <Text style={{ color: colors.text, fontSize: 14, fontWeight: "500" }}>
                 Tetikleyici Araç Kategorileri
               </Text>
-              <MultiSelectChips
+              <MultiSelectField
                 options={(vehicles.data ?? [])
                   .filter((v) => v.is_active)
                   .map((v) => ({ value: v.id, label: v.display_name }))}
                 value={triggerVehicleIds}
                 onChange={setTriggerVehicleIds}
+                searchPlaceholder="Araç kategorisi ara…"
               />
               {triggerVehicleIds.length > 0 && (
                 <Text style={{ color: colors.accent, fontSize: 12 }}>

@@ -479,13 +479,28 @@ async def test_override_crud_validation(client, seeded):
     )
     assert response.status_code == 422
 
-    # gecerli closed
+    # rampasiz istek -> 422
+    response = await client.post(
+        base, headers=headers, json={"date": day.isoformat(), "type": "closed"}
+    )
+    assert response.status_code == 422
+
+    # gecerli closed (tekil dock_id geriye uyumlu; yanit her zaman liste)
     response = await client.post(
         base, headers=headers,
         json={"dock_id": d1, "date": day.isoformat(), "type": "closed", "reason": "Bakim"},
     )
     assert response.status_code == 200
-    override_id = response.json()["data"]["id"]
+    created = response.json()["data"]
+    assert len(created) == 1
+    override_id = created[0]["id"]
+
+    # ayni rampa+gun icin ikinci aktif istisna -> 422
+    response = await client.post(
+        base, headers=headers,
+        json={"dock_ids": [d1], "date": day.isoformat(), "type": "closed"},
+    )
+    assert response.status_code == 422
 
     # patch + deactivate
     response = await client.patch(
@@ -494,6 +509,63 @@ async def test_override_crud_validation(client, seeded):
     assert response.json()["data"]["reason"] == "Uzatilan bakim"
     response = await client.delete(f"{base}/{override_id}", headers=headers)
     assert response.json()["data"]["is_active"] is False
+
+
+async def test_override_multi_dock_create(client, seeded):
+    """Coklu secim: tek istekte birden fazla rampaya ayni istisna yazilir."""
+    headers = await admin(client)
+    fid = seeded["facility"].id
+    base = f"/facilities/{fid}/dock-overrides"
+    d1 = str(seeded["docks"]["d1"].id)
+    d2 = str(seeded["docks"]["d2"].id)
+    day = next_weekday(6)
+
+    response = await client.post(
+        base, headers=headers,
+        json={
+            "dock_ids": [d1, d2, d1],  # tekrar eden id tekillestirilir
+            "date": day.isoformat(),
+            "type": "closed",
+            "reason": "Sayim",
+        },
+    )
+    assert response.status_code == 200
+    created = response.json()["data"]
+    assert len(created) == 2
+    assert {row["dock_id"] for row in created} == {d1, d2}
+    assert all(row["reason"] == "Sayim" for row in created)
+
+    # Her rampa icin ayri kayit listelenir
+    listed = (await client.get(base, headers=headers)).json()["data"]
+    same_day = [row for row in listed if row["date"] == day.isoformat()]
+    assert len(same_day) == 2
+
+
+async def test_override_rejects_foreign_dock_in_multi_select(client, seeded, session_maker):
+    """Coklu secim baska tesisin rampasini sizdirmamali (kismi yazma da yok)."""
+    headers = await admin(client)
+    fid = seeded["facility"].id
+    base = f"/facilities/{fid}/dock-overrides"
+    d1 = str(seeded["docks"]["d1"].id)
+    day = next_weekday(9)
+
+    other_facility = await _create_other_tenant(session_maker)
+    other_headers = auth_headers(await login(client, "/auth/login", "admin@rakip.com"))
+    response = await client.post(
+        f"/facilities/{other_facility.id}/docks",
+        headers=other_headers,
+        json={"name": "Rakip Rampa"},
+    )
+    foreign_dock_id = response.json()["data"]["id"]
+
+    response = await client.post(
+        base,
+        headers=headers,
+        json={"dock_ids": [d1, foreign_dock_id], "date": day.isoformat(), "type": "closed"},
+    )
+    assert response.status_code == 422
+    listed = (await client.get(base, headers=headers)).json()["data"]
+    assert [row for row in listed if row["date"] == day.isoformat()] == []
 
 
 async def test_closed_override_closes_availability(client, seeded):
@@ -522,7 +594,7 @@ async def test_closed_override_closes_availability(client, seeded):
         headers=headers,
         json={"dock_id": d2, "date": day.isoformat(), "type": "closed"},
     )
-    override_id = response.json()["data"]["id"]
+    override_id = response.json()["data"][0]["id"]
     assert await availability() == []
 
     # Override pasiflesince gun tekrar acilir
@@ -564,6 +636,125 @@ async def test_extra_hours_override_opens_sunday(client, seeded):
     slots = await availability()
     assert len(slots) > 0
     assert slots[0]["start"][11:16] == "09:00"
+
+
+async def test_override_dock_scope_enforced(client, seeded, session_maker):
+    """Rampa scope'lu uyelik yalnizca kendi rampalarina istisna yazabilir."""
+    from app.core.permissions import TenantPermission
+    from app.models import FacilityMembership, Role
+
+    fid = seeded["facility"].id
+    d1 = str(seeded["docks"]["d1"].id)
+    d2 = str(seeded["docks"]["d2"].id)
+    day = next_weekday(7)
+
+    # Rampa yoneticisini yalniz R1'e scope'la ve rolune calendar.override ekle
+    # (varsayilan rolde yoktur; bu izin verilse bile scope disina cikamamali).
+    async with session_maker() as db:
+        membership = (
+            await db.execute(
+                select(FacilityMembership).where(
+                    FacilityMembership.tenant_user_id == seeded["users"]["dock"].id
+                )
+            )
+        ).scalar_one()
+        membership.assigned_dock_ids = [d1]
+        role = (
+            await db.execute(select(Role).where(Role.name == "Rampa / Depo Yoneticisi"))
+        ).scalar_one()
+        role.permissions_json = [*role.permissions_json, TenantPermission.CALENDAR_OVERRIDE]
+        await db.commit()
+
+    manager = auth_headers(await login(client, "/auth/login", "rampa@cakesbakes.com"))
+    base = f"/facilities/{fid}/dock-overrides"
+
+    # Scope disi rampa -> 403
+    response = await client.post(
+        base, headers=manager, json={"dock_ids": [d2], "date": day.isoformat(), "type": "closed"}
+    )
+    assert response.status_code == 403
+
+    # Karisik secimde de hicbir kayit olusmamali (kismi yazma yok)
+    response = await client.post(
+        base,
+        headers=manager,
+        json={"dock_ids": [d1, d2], "date": day.isoformat(), "type": "closed"},
+    )
+    assert response.status_code == 403
+    listed = (await client.get(base, headers=manager)).json()["data"]
+    assert [row for row in listed if row["date"] == day.isoformat()] == []
+
+    # Kendi rampasi -> 200
+    response = await client.post(
+        base, headers=manager, json={"dock_ids": [d1], "date": day.isoformat(), "type": "closed"}
+    )
+    assert response.status_code == 200
+
+    # Scope disi mevcut istisnayi duzenleyemez/pasiflestiremez (seed: R3 bakim)
+    admin_headers = await admin(client)
+    all_rows = (await client.get(base, headers=admin_headers)).json()["data"]
+    foreign = next(row for row in all_rows if row["dock_id"] not in (d1, d2))
+    assert (
+        await client.patch(f"{base}/{foreign['id']}", headers=manager, json={"reason": "x"})
+    ).status_code == 403
+    assert (await client.delete(f"{base}/{foreign['id']}", headers=manager)).status_code == 403
+
+
+async def test_legacy_duplicate_overrides_closed_wins(client, seeded, session_maker):
+    """Kural oncesi olusmus cift istisnada KAPALI kazanir (deterministik secim).
+
+    API artik ayni rampa+gun icin ikinci aktif istisnaya izin vermiyor; bu test
+    eski verinin musaitlik ve takvimde tutarli davrandigini garanti eder.
+    """
+    from datetime import time
+
+    from app.core.enums import DockOverrideType
+    from app.models import DockOverride
+
+    headers = await admin(client)
+    fid = seeded["facility"].id
+    facility = seeded["facility"]
+    d2 = seeded["docks"]["d2"]
+    day = next_weekday(8)
+
+    async with session_maker() as db:
+        db.add_all(
+            [
+                # Once EK MESAI, sonra KAPALI: "ilk eslesen" mantigi ek mesaiyi
+                # secerdi; kapali kazanmali.
+                DockOverride(
+                    tenant_id=facility.tenant_id, facility_id=facility.id, dock_id=d2.id,
+                    date=day, type=DockOverrideType.extra_hours,
+                    start_time=time(9, 0), end_time=time(13, 0),
+                ),
+                DockOverride(
+                    tenant_id=facility.tenant_id, facility_id=facility.id, dock_id=d2.id,
+                    date=day, type=DockOverrideType.closed, reason="Bakim",
+                ),
+            ]
+        )
+        await db.commit()
+
+    # Musaitlik: soguk zincirin tek rampasi R2 kapali -> slot yok
+    response = await client.post(
+        f"/facilities/{fid}/availability/evaluate",
+        headers=headers,
+        json={
+            "supplier_id": str(seeded["suppliers"]["soguk"].id),
+            "product_category_id": str(seeded["product_categories"]["soguk"].id),
+            "target_date": day.isoformat(),
+        },
+    )
+    assert response.json()["data"] == []
+
+    # Takvim gunluk gorunumu ayni sonucu vermeli
+    response = await client.get(
+        f"/facilities/{fid}/calendar/day?date={day.isoformat()}", headers=headers
+    )
+    dock_row = next(
+        d for d in response.json()["data"]["docks"] if d["id"] == str(d2.id)
+    )
+    assert dock_row["day_window"] is None
 
 
 # ---------- Permission / izolasyon ----------

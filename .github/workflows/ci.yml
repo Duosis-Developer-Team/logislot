@@ -28,6 +28,20 @@ jobs:
         run: pip install -e ".[dev]"
       - name: Ruff
         run: ruff check app tests
+      # Paralel feature branch'ler ayni revision'dan dallanip SIBLING migration
+      # uretir; git merge cakisma vermez ama zincir ikiye boler. O durumda
+      # k8s migration job'i ve konteyner acilisi (`alembic upgrade head`,
+      # docker-entrypoint.sh `set -e`) patlar. Merge'den ONCE yakala.
+      - name: Alembic tek head kontrolu
+        run: |
+          COUNT=$(alembic heads | grep -c '(head)')
+          if [ "$COUNT" -ne 1 ]; then
+            echo "HATA: $COUNT alembic head bulundu; migration zinciri dallanmis."
+            echo "Cozum: kendi migration'inizin down_revision'ini digerinin id'sine cevirin."
+            alembic heads
+            exit 1
+          fi
+          echo "Tek head: $(alembic heads)"
       - name: Pytest (SQLite; PG gerektirmez)
         run: python -m pytest -q
 

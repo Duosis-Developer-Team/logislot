@@ -15,7 +15,7 @@ import {
 } from "@/api/resources";
 import type { FacilityUserDto, RoleDto } from "@/api/types";
 import { useSession } from "@/auth/session";
-import { ActiveBadge, MultiSelectChips } from "@/components/config";
+import { ActiveBadge, MultiSelectField, PermissionPicker } from "@/components/config";
 import {
   AppModal,
   Badge,
@@ -68,6 +68,9 @@ const PERMISSION_GROUPS: { title: string; items: { code: string; label: string }
       { code: "user.manage", label: "Kullanıcıları yönet" },
       { code: "role.manage", label: "Rolleri yönet" },
       { code: "report.view", label: "Raporları görüntüle" },
+      // Denetim Kayıtları sayfası bu izni ister; katalogda vardı ama listede
+      // olmadığı için UI'dan hiç verilemiyordu.
+      { code: "audit.view", label: "Denetim kayıtlarını görüntüle" },
     ],
   },
 ];
@@ -118,6 +121,13 @@ export default function UsersScreen() {
   const activeRoles = (roles.data ?? []).filter((r) => r.is_active);
   const knownPermissions = catalog.data?.permissions ?? [];
   const editingSystemRole = editingRole?.is_system ?? false;
+  // Katalog henüz gelmediyse (boş liste) tüm gruplar gösterilir — mevcut davranış.
+  const visiblePermissionGroups = PERMISSION_GROUPS.map((group) => ({
+    ...group,
+    items: group.items.filter(
+      (item) => knownPermissions.length === 0 || knownPermissions.includes(item.code),
+    ),
+  }));
 
   function openUserCreate() {
     setEditingUser(null);
@@ -527,22 +537,24 @@ export default function UsersScreen() {
             <Text style={{ color: colors.text, fontSize: 14, fontWeight: "500" }}>
               Roller (en az 1)
             </Text>
-            <MultiSelectChips
+            <MultiSelectField
               options={activeRoles.map((r) => ({ value: r.id, label: r.display_name }))}
               value={userRoleIds}
               onChange={setUserRoleIds}
+              searchPlaceholder="Rol ara…"
             />
           </View>
           <View style={{ gap: 6 }}>
             <Text style={{ color: colors.text, fontSize: 14, fontWeight: "500" }}>
               Yetkili Rampalar
             </Text>
-            <MultiSelectChips
+            <MultiSelectField
               options={(dockList.data ?? [])
                 .filter((d) => d.is_active)
                 .map((d) => ({ value: d.id, label: d.name }))}
               value={userDockIds}
               onChange={setUserDockIds}
+              searchPlaceholder="Rampa ara…"
               emptyHint="Boş = tüm rampalarda işlem yapabilir"
             />
           </View>
@@ -610,45 +622,14 @@ export default function UsersScreen() {
             onChangeText={setRoleDescription}
             placeholder="Opsiyonel"
           />
-          <View style={{ gap: spacing.sm, opacity: editingSystemRole ? 0.6 : 1 }}>
+          <View style={{ gap: spacing.sm }}>
             <Text style={{ color: colors.text, fontSize: 14, fontWeight: "500" }}>İzinler</Text>
-            {PERMISSION_GROUPS.map((group) => (
-              <View key={group.title} style={{ gap: 6 }}>
-                <Text
-                  style={{
-                    color: colors.mutedText,
-                    fontSize: 11,
-                    fontWeight: "700",
-                    textTransform: "uppercase",
-                    letterSpacing: 0.6,
-                  }}
-                >
-                  {group.title}
-                </Text>
-                <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
-                  {group.items
-                    .filter(
-                      (item) =>
-                        knownPermissions.length === 0 || knownPermissions.includes(item.code),
-                    )
-                    .map((item) => (
-                      <Chip
-                        key={item.code}
-                        label={item.label}
-                        selected={rolePermissions.includes(item.code)}
-                        disabled={editingSystemRole}
-                        onPress={() =>
-                          setRolePermissions((prev) =>
-                            prev.includes(item.code)
-                              ? prev.filter((p) => p !== item.code)
-                              : [...prev, item.code],
-                          )
-                        }
-                      />
-                    ))}
-                </View>
-              </View>
-            ))}
+            <PermissionPicker
+              groups={visiblePermissionGroups}
+              value={rolePermissions}
+              onChange={setRolePermissions}
+              disabled={editingSystemRole}
+            />
           </View>
           {editingRole && !editingSystemRole && (
             <SwitchRow label="Aktif" value={roleActive} onValueChange={setRoleActive} />

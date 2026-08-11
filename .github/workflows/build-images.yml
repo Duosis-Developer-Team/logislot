@@ -29,16 +29,20 @@ permissions:
   contents: read
   packages: write
 
-# Ayni branch'e arka arkaya push gelirse eski build iptal edilir; iki build
-# ayni :dev etiketini yarisla ezmez.
+# Ayni branch'te iki build/deploy zinciri ayni anda kosmasin. cancel-in-progress
+# KAPALI: deploy artik bu run'in parcasi, yarim kalan bir rollout'u iptal etmek
+# cluster'i tutarsiz birakabilir — yeni push sirasini bekler.
 concurrency:
   group: build-images-${{ github.ref_name }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   build-push:
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    outputs:
+      env_name: ${{ steps.env.outputs.env_name }}
+      image_tag: ${{ steps.env.outputs.env_name }}-${{ steps.env.outputs.short_sha }}
     steps:
       - uses: actions/checkout@v4
 
@@ -92,3 +96,14 @@ jobs:
                        .
           docker push "$IMG:${{ steps.env.outputs.env_name }}"
           docker push "$IMG:${{ steps.env.outputs.env_name }}-${{ steps.env.outputs.short_sha }}"
+
+  # Deploy artik AYNI run'in devami. Boylece (1) prod deploy'u cagiran run'in
+  # ref'i refs/heads/prod olur ve "production" environment branch policy'si
+  # saglanir, (2) build dustugunde deploy sessizce "skipped" gecip kaybolmaz.
+  deploy:
+    needs: build-push
+    uses: ./.github/workflows/deploy.yml
+    with:
+      environment: ${{ needs.build-push.outputs.env_name }}
+      image_tag: ${{ needs.build-push.outputs.image_tag }}
+    secrets: inherit

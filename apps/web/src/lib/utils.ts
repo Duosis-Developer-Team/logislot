@@ -5,6 +5,30 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+/**
+ * Arama karsilastirmasi icin metni normalize eder.
+ * - Turkce locale ile kucultur ("I" -> "ı", "İ" -> "i"),
+ * - ardindan aksanli harfleri ASCII karsiliklarina indirger; boylece
+ *   "urun" yazan kullanici "Ürün" kaydini da bulur.
+ */
+const SEARCH_FOLD: Record<string, string> = {
+  ı: "i",
+  ş: "s",
+  ğ: "g",
+  ü: "u",
+  ö: "o",
+  ç: "c",
+  â: "a",
+  î: "i",
+  û: "u",
+};
+
+export function normalizeSearch(text: string): string {
+  return text
+    .toLocaleLowerCase("tr")
+    .replace(/[ışğüöçâîû]/g, (ch) => SEARCH_FOLD[ch] ?? ch);
+}
+
 export function formatDateTime(iso: string): string {
   return new Date(iso).toLocaleString("tr-TR", {
     day: "2-digit",

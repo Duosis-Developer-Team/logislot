@@ -387,6 +387,16 @@ def _override_out(obj: DockOverride) -> dict:
     return DockOverrideOut.model_validate(obj).model_dump(mode="json")
 
 
+def _ensure_dock_scope(ctx: FacilityContext, dock_ids: list[uuid.UUID]) -> None:
+    """Rampa scope'lu uyelik (assigned_dock_ids) kendi rampalari disina yazamaz.
+
+    Takvim gorunumu zaten bu scope'a gore filtrelenir; istisna yazma da ayni
+    sinirda kalmali (scope'suz uyelikte davranis degismez).
+    """
+    if any(not ctx.can_act_on_dock(dock_id) for dock_id in dock_ids):
+        raise ApiError("FORBIDDEN", "Bu rampada islem yetkiniz yok", 403)
+
+
 @router.get("/dock-overrides")
 async def list_overrides(
     ctx: FacilityContext = Depends(require_facility_permissions(TenantPermission.APPT_VIEW)),
@@ -408,20 +418,56 @@ async def create_override(
     ),
     db: AsyncSession = Depends(get_db),
 ):
-    await load_scoped_refs(db, Dock, [body.dock_id], ctx.facility_id, "dock_id")
-    obj = DockOverride(
-        tenant_id=ctx.tenant_id, facility_id=ctx.facility_id, **body.model_dump()
+    """Secilen her rampa icin ayni istisnayi yazar; her zaman LISTE doner.
+
+    Musaitlik/takvim/rapor hesabi rampa+gun basina TEK aktif istisna varsayar
+    (bkz. services/overrides.pick_override), bu yuzden ayni gun icin ikinci bir
+    aktif istisna 422 ile reddedilir.
+    """
+    dock_ids = body.target_dock_ids
+    _ensure_dock_scope(ctx, dock_ids)
+    docks = await load_scoped_refs(db, Dock, dock_ids, ctx.facility_id, "dock_ids")
+    clashing = list(
+        (
+            await db.execute(
+                select(DockOverride).where(
+                    DockOverride.facility_id == ctx.facility_id,
+                    DockOverride.date == body.date,
+                    DockOverride.dock_id.in_(dock_ids),
+                    DockOverride.is_active.is_(True),
+                )
+            )
+        ).scalars()
     )
-    db.add(obj)
+    if clashing:
+        names = {d.id: d.name for d in docks}
+        busy = ", ".join(sorted(names.get(o.dock_id, "?") for o in clashing))
+        raise ApiError(
+            "VALIDATION_ERROR",
+            f"Bu tarihte zaten aktif istisnasi olan rampalar: {busy}. "
+            "Mevcut istisnayi duzenleyin ya da bu rampalari secimden cikarin.",
+            422,
+        )
+
+    payload = body.model_dump(exclude={"dock_id", "dock_ids"})
+    objs = [
+        DockOverride(
+            tenant_id=ctx.tenant_id, facility_id=ctx.facility_id, dock_id=dock_id, **payload
+        )
+        for dock_id in dock_ids
+    ]
+    db.add_all(objs)
     await db.flush()
-    _audit(
-        db, ctx,
-        action="dock_override.create", entity_type="dock_override",
-        entity_id=obj.id, after=snapshot(obj, OVERRIDE_AUDIT_FIELDS),
-    )
+    for obj in objs:
+        _audit(
+            db, ctx,
+            action="dock_override.create", entity_type="dock_override",
+            entity_id=obj.id, after=snapshot(obj, OVERRIDE_AUDIT_FIELDS),
+        )
     await db.commit()
-    await db.refresh(obj)
-    return ok(_override_out(obj))
+    for obj in objs:
+        await db.refresh(obj)
+    return ok([_override_out(o) for o in objs])
 
 
 @router.get("/dock-overrides/{override_id}")
@@ -444,6 +490,7 @@ async def patch_override(
     db: AsyncSession = Depends(get_db),
 ):
     obj = await get_scoped_or_404(db, DockOverride, override_id, ctx.facility_id)
+    _ensure_dock_scope(ctx, [obj.dock_id])
     changes = body.model_dump(exclude_unset=True)
 
     # Sonuc durumunu dogrula (extra_hours saat zorunlulugu, end > start)
@@ -454,6 +501,28 @@ async def patch_override(
         raise ApiError("VALIDATION_ERROR", "extra_hours icin start_time ve end_time zorunlu", 422)
     if final_start is not None and final_end is not None and final_end <= final_start:
         raise ApiError("VALIDATION_ERROR", "end_time, start_time'dan sonra olmali", 422)
+
+    # Tarih/aktiflik degisimi ayni rampa+gunde ikinci aktif istisna dogurmasin.
+    # Yalnizca bu iki alan degisiyorsa bakilir: eski kayitlarda (kural oncesi)
+    # olusmus cift istisnalarin sebep/saat duzenlemesi kilitlenmesin.
+    final_date = changes.get("date", obj.date)
+    final_active = changes.get("is_active", obj.is_active)
+    if final_active and ("date" in changes or "is_active" in changes):
+        clash = await db.execute(
+            select(DockOverride.id).where(
+                DockOverride.facility_id == ctx.facility_id,
+                DockOverride.dock_id == obj.dock_id,
+                DockOverride.date == final_date,
+                DockOverride.is_active.is_(True),
+                DockOverride.id != obj.id,
+            )
+        )
+        if clash.first() is not None:
+            raise ApiError(
+                "VALIDATION_ERROR",
+                "Bu rampada bu tarih icin zaten aktif bir istisna var.",
+                422,
+            )
 
     before = snapshot(obj, OVERRIDE_AUDIT_FIELDS)
     for key, value in changes.items():
@@ -477,6 +546,7 @@ async def deactivate_override(
     db: AsyncSession = Depends(get_db),
 ):
     obj = await get_scoped_or_404(db, DockOverride, override_id, ctx.facility_id)
+    _ensure_dock_scope(ctx, [obj.dock_id])
     before = snapshot(obj, OVERRIDE_AUDIT_FIELDS)
     obj.is_active = False
     _audit(
