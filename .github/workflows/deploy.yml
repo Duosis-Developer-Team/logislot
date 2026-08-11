@@ -1,6 +1,16 @@
 # Branch-aware Kubernetes deploy:
-#   dev  push -> Build Images -> bu workflow -> logislot-dev
-#   prod push -> Build Images -> bu workflow -> logislot-prod (environment: production)
+#   dev  push -> Build Images -> (workflow_call) bu workflow -> logislot-dev
+#   prod push -> Build Images -> (workflow_call) bu workflow -> logislot-prod
+#
+# NEDEN workflow_call, workflow_run DEGIL:
+# workflow_run ile tetiklenen bir workflow HER ZAMAN varsayilan branch'te
+# (dev) kosar. "production" environment'inin deployment branch policy'si ise
+# yalnizca `prod`'a izin veriyor; bu yuzden prod deploy'lari daima
+# "Branch dev is not allowed to deploy to production" ile DUSUYORDU — yani
+# prod'a hic deploy edilemiyordu. workflow_call'da is, cagiran run'in ref'inde
+# kosar (prod push icin refs/heads/prod), politika dogal olarak saglanir ve
+# branch guard'i gevsetmek gerekmez. Ayrica build+deploy tek run'da gorunur;
+# eskiden Build Images dustugunde Deploy sessizce "skipped" gecip kayboluyordu.
 #
 # GUVENLIK KURALLARI (degistirmeyin):
 # - NAMESPACE yalnizca logislot-dev | logislot-prod olabilir (guard step).
@@ -9,14 +19,19 @@
 # - PVC delete HICBIR kosulda yok.
 # - kubeconfig asla loglanmaz.
 # - Seed YALNIZCA workflow_dispatch + run_seed=true ile (prod'da da bilinçli).
-# NOT: workflow yeniden indeksleme (Actions kayit) tetiklemesi.
 name: Deploy
 
 on:
-  workflow_run:
-    workflows: ["Build Images"]
-    types: [completed]
-    branches: [dev, prod]
+  workflow_call:
+    inputs:
+      environment:
+        description: "Hedef ortam (dev | prod)"
+        required: true
+        type: string
+      image_tag:
+        description: "Deploy edilecek image tag'i"
+        required: true
+        type: string
   workflow_dispatch:
     inputs:
       environment:
@@ -36,13 +51,12 @@ permissions:
   contents: read
 
 concurrency:
-  group: deploy-${{ github.event.workflow_run.head_branch || inputs.environment }}
+  group: deploy-${{ inputs.environment }}
   cancel-in-progress: false
 
 jobs:
   prepare:
     runs-on: ubuntu-latest
-    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     outputs:
       env_name: ${{ steps.env.outputs.env_name }}
       namespace: ${{ steps.env.outputs.namespace }}
@@ -53,18 +67,13 @@ jobs:
       - name: Ortam ve tag belirle
         id: env
         run: |
-          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            ENV_NAME="${{ inputs.environment }}"
-            SHORT_SHA="${GITHUB_SHA::7}"
-            IMAGE_TAG="${{ inputs.image_tag }}"
-            IMAGE_TAG="${IMAGE_TAG:-$ENV_NAME-$SHORT_SHA}"
-            CHECKOUT_REF="$GITHUB_SHA"
-          else
-            BRANCH="${{ github.event.workflow_run.head_branch }}"
-            if [[ "$BRANCH" == "prod" ]]; then ENV_NAME=prod; else ENV_NAME=dev; fi
-            SHA="${{ github.event.workflow_run.head_sha }}"
-            IMAGE_TAG="$ENV_NAME-${SHA::7}"
-            CHECKOUT_REF="$SHA"
+          ENV_NAME="${{ inputs.environment }}"
+          IMAGE_TAG="${{ inputs.image_tag }}"
+          # Elle tetiklemede tag bos birakilabilir; bu run'in SHA'sina duser.
+          IMAGE_TAG="${IMAGE_TAG:-$ENV_NAME-${GITHUB_SHA::7}}"
+          CHECKOUT_REF="$GITHUB_SHA"
+          if [[ "$ENV_NAME" != "dev" && "$ENV_NAME" != "prod" ]]; then
+            echo "Gecersiz ortam: $ENV_NAME"; exit 1
           fi
           NAMESPACE="logislot-$ENV_NAME"
           # --- NAMESPACE GUARD ---
