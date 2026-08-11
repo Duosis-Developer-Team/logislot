@@ -7,7 +7,6 @@ import {
   CARGO_WINDOW_LABELS,
   SLOT_STATUS_LABELS,
   type CargoWindow,
-  formatDurationRange,
   resolveDurationRange,
 } from "@logislot/shared";
 import { ErrorState, LoadingState } from "@/components/config/states";
@@ -356,13 +355,10 @@ export default function NewAppointmentWizard() {
                 <option value="">— Kategori seçin —</option>
                 {categories.map((c) => (
                   <option key={c.id} value={c.id}>
-                    {c.display_name} ({formatDurationRange(c.min_block_minutes, c.max_block_minutes)})
+                    {c.display_name}
                   </option>
                 ))}
               </Select>
-              <p className="mt-1 text-xs text-muted-foreground">
-                Yalnızca size tanımlı kategoriler listelenir. Uygun rampayı sistem seçer.
-              </p>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -404,16 +400,9 @@ export default function NewAppointmentWizard() {
                 {vehicles.map((v) => (
                   <option key={v.id} value={v.id}>
                     {v.display_name}
-                    {v.id === defaultVehicleId ? " (kategori varsayılanı)" : ""}
                   </option>
                 ))}
               </Select>
-              {category && effectiveVehicle && (
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {category.display_name} için varsayılan araç otomatik geldi;
-                  değiştirebilirsiniz.
-                </p>
-              )}
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -506,11 +495,6 @@ export default function NewAppointmentWizard() {
                       </button>
                     ))}
                   </div>
-                  <p className="mt-2 text-xs text-muted-foreground">
-                    Kargoda kesin slot taahhüdü yoktur; sistem tahmini planlama penceresi
-                    ayırır ve planlamacıya takvimde uyarı gösterir. Varışta saat, mevcut
-                    revize akışıyla güncellenir.
-                  </p>
                 </div>
               ) : (
                 <>
@@ -530,23 +514,15 @@ export default function NewAppointmentWizard() {
                         </option>
                       ))}
                     </Select>
-                    {durationRange?.conflicting ? (
+                    {durationRange?.conflicting && (
                       <p className="mt-1 text-xs text-destructive">
                         Bu kategorinin süre aralığı size tanımlı limitlerle kesişmiyor.
                         Lütfen tesis yöneticisiyle iletişime geçin.
                       </p>
-                    ) : (
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        İzin verilen aralık:{" "}
-                        {durationRange
-                          ? formatDurationRange(durationRange.min, durationRange.max)
-                          : "—"}{" "}
-                        (kategori ve size tanımlı limitlerin kesişimi).
-                      </p>
                     )}
                   </div>
                   <div>
-                    <Label>Başlangıç Saati (30 dk dilimler)</Label>
+                    <Label>Başlangıç Saati</Label>
                     {availability.isLoading ? (
                       <LoadingState label="Müsaitlik hesaplanıyor…" />
                     ) : availability.isError ? (
@@ -654,10 +630,6 @@ export default function NewAppointmentWizard() {
                           value={recurringCount}
                           onChange={(e) => setRecurringCount(Number(e.target.value))}
                         />
-                        <p className="mt-1 text-xs text-muted-foreground">
-                          En fazla {maxOccurrences} tekrar
-                          {recurringFrequency === "monthly" ? " (aylıkta ~6 ay ufku)" : ""}.
-                        </p>
                       </div>
                     </div>
                     <div className="rounded-lg border border-border bg-muted/40 px-3 py-2">

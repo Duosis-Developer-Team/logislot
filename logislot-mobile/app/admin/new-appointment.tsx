@@ -17,7 +17,6 @@ import { ApiError } from "@/api/client";
 import {
   CARGO_WINDOW_LABELS,
   type CargoWindow,
-  formatDurationRange,
   resolveDurationRange,
 } from "@/api/shared";
 import { docks, productCategories, suppliers, vehicleCategories } from "@/api/resources";
@@ -232,7 +231,7 @@ export default function AdminNewAppointment() {
         {supplier && (
           <Card style={{ gap: spacing.md }}>
             <PickerField
-              label="Kategori (yalnızca tedarikçinin izinlileri)"
+              label="Kategori"
               value={categoryId || null}
               options={allowedCategories.map((c) => ({ value: c.id, label: c.display_name }))}
               onChange={(v) => {
@@ -348,10 +347,6 @@ export default function AdminNewAppointment() {
                     />
                   ))}
                 </View>
-                <Text style={{ color: colors.faintText, fontSize: 12 }}>
-                  Kargo kesin slot değil, tahmini pencere ayırır; planlamacıya takvimde uyarı
-                  gösterilir.
-                </Text>
               </View>
             ) : (
               category && (
@@ -373,18 +368,11 @@ export default function AdminNewAppointment() {
                         />
                       ))}
                     </View>
-                    {durationRange?.conflicting ? (
+                    {durationRange?.conflicting && (
                       <Text style={{ color: colors.destructive, fontSize: 12 }}>
                         Bu kategorinin süre aralığı tedarikçinin limitleriyle kesişmiyor.
                         Ayarlardan limitlerden birini güncelleyin.
                       </Text>
-                    ) : (
-                      durationRange && (
-                        <Text style={{ color: colors.mutedText, fontSize: 12 }}>
-                          İzin verilen aralık:{" "}
-                          {formatDurationRange(durationRange.min, durationRange.max)}
-                        </Text>
-                      )
                     )}
                   </View>
                   <View style={{ gap: 8 }}>
@@ -504,7 +492,7 @@ export default function AdminNewAppointment() {
             )}
 
             <Field
-              label="Not (opsiyonel — denetim kaydına işlenir)"
+              label="Not"
               value={note}
               onChangeText={setNote}
               placeholder='Örn. "Telefonla oluşturuldu"'
