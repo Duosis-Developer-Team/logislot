@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Alert, Text, View } from "react-native";
 import { ApiError } from "@/api/client";
 import { productCategories, vehicleCategories } from "@/api/resources";
-import { formatDurationRange } from "@/api/shared";
+import { DEFAULT_MAX_BLOCK_MINUTES, formatDurationRange } from "@/api/shared";
 import type { ProductCategoryDto } from "@/api/types";
 import { useSession } from "@/auth/session";
 import { ActiveBadge, ConfigList } from "@/components/config";
@@ -49,7 +49,9 @@ export default function CategoriesScreen() {
     setDisplayName("");
     setDescription("");
     setMinBlock("30");
-    setMaxBlock("");
+    // Üst sınır boş bırakılırsa sistem varsayılanı (120 dk) uygulanır; form da
+    // bu değerle açılır ki kural görünür olsun.
+    setMaxBlock(String(DEFAULT_MAX_BLOCK_MINUTES));
     setDefaultVehicleId(null);
     setIsActive(true);
     setFormError(null);
@@ -169,7 +171,10 @@ export default function CategoriesScreen() {
             </View>
             <KeyValueRow
               label="Blokaj Süresi"
-              value={formatDurationRange(row.min_block_minutes, row.max_block_minutes)}
+              value={formatDurationRange(
+                row.min_block_minutes,
+                row.max_block_minutes ?? DEFAULT_MAX_BLOCK_MINUTES,
+              )}
             />
             <KeyValueRow
               label="Varsayılan Araç"

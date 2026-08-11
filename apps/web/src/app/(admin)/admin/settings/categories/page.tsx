@@ -4,6 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
+import { DEFAULT_MAX_BLOCK_MINUTES } from "@logislot/shared";
 import { ConfirmDialog } from "@/components/config/confirm-dialog";
 import {
   ConfigPageShell,
@@ -79,7 +80,9 @@ export default function CategoriesPage() {
       display_name: "",
       description: "",
       min_block_minutes: 30,
-      max_block_minutes: "",
+      // Ust sinir bos birakilirsa sistem varsayilani (120 dk) uygulanir; form
+      // da bu degerle acilir ki kural gorunur olsun.
+      max_block_minutes: DEFAULT_MAX_BLOCK_MINUTES,
       default_vehicle_category_id: "",
     });
     setEditActive(true);
@@ -183,9 +186,9 @@ export default function CategoriesPage() {
                 <TD className="font-medium">{row.name}</TD>
                 <TD>{row.display_name}</TD>
                 <TD>
-                  {row.max_block_minutes == null
-                    ? `min ${row.min_block_minutes} dk`
-                    : `${row.min_block_minutes}–${row.max_block_minutes} dk`}
+                  {`${row.min_block_minutes}–${
+                    row.max_block_minutes ?? DEFAULT_MAX_BLOCK_MINUTES
+                  } dk`}
                 </TD>
                 <TD>{vehicleName(row.default_vehicle_category_id)}</TD>
                 <TD>
