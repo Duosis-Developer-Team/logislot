@@ -6,7 +6,11 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useCalendarDay } from "@/api/admin";
 import { useSession } from "@/auth/session";
 import { AppointmentCard } from "@/components/appointment";
-import { EmptyState, ErrorState, LoadingState, Screen } from "@/components/ui";
+import {
+  OverrideModal,
+  type OverrideModalInitial,
+} from "@/components/override-modal";
+import { Button, EmptyState, ErrorState, LoadingState, Screen } from "@/components/ui";
 import { useTheme } from "@/theme/theme";
 import { spacing } from "@/theme/tokens";
 import { addDaysISO, todayISO } from "@/utils/format";
@@ -18,9 +22,16 @@ import { addDaysISO, todayISO } from "@/utils/format";
 export default function AdminCalendar() {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
-  const { activeFacilityId } = useSession();
+  const { activeFacilityId, can } = useSession();
   const [date, setDate] = useState(todayISO());
   const day = useCalendarDay(activeFacilityId, date);
+
+  // Takvimden tek dokunuşla istisna: görüntülenen gün ön-seçili, tip "kapalı".
+  const [overrideInitial, setOverrideInitial] = useState<OverrideModalInitial | null>(null);
+  const canOverride = can("calendar.override");
+  function openOverride(dockId?: string) {
+    setOverrideInitial({ date, type: "closed", dockIds: dockId ? [dockId] : [] });
+  }
 
   const dateLabel = useMemo(
     () =>
@@ -83,6 +94,15 @@ export default function AdminCalendar() {
           <ArrowButton icon="chevron-forward" onPress={() => setDate(addDaysISO(date, 1))} />
         </View>
 
+        {canOverride && (
+          <Button
+            title="İstisna Ekle"
+            variant="secondary"
+            onPress={() => openOverride()}
+            style={{ height: 42 }}
+          />
+        )}
+
         {day.isLoading ? (
           <LoadingState label="Takvim yükleniyor…" />
         ) : day.isError || !data ? (
@@ -127,6 +147,16 @@ export default function AdminCalendar() {
                       ? `${dock.day_window.start}–${dock.day_window.end}`
                       : "Bugün kapalı"}
                   </Text>
+                  {canOverride && (
+                    <Pressable
+                      onPress={() => openOverride(dock.id)}
+                      accessibilityLabel={`${dock.name} için istisna ekle`}
+                      hitSlop={8}
+                      style={({ pressed }) => ({ marginLeft: "auto", opacity: pressed ? 0.6 : 1 })}
+                    >
+                      <Ionicons name="calendar-outline" size={16} color={colors.mutedText} />
+                    </Pressable>
+                  )}
                 </View>
                 {appointments.length === 0 ? (
                   <Text style={{ color: colors.faintText, fontSize: 13, paddingLeft: 4 }}>
@@ -148,6 +178,12 @@ export default function AdminCalendar() {
           </>
         )}
       </View>
+
+      <OverrideModal
+        visible={overrideInitial !== null}
+        initial={overrideInitial}
+        onClose={() => setOverrideInitial(null)}
+      />
     </Screen>
   );
 }

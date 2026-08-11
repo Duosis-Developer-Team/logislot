@@ -331,7 +331,7 @@ Günün KPI'ları (bugünkü/bekleyen/tamamlanan/haftalık/aktif tedarikçi/karg
 
 ### 10.2 Takvim
 
-Yatay zaman çizelgesi (timeline): her **rampa bir satır**, saat ekseni yataydır — rampa sayısı arttıkça görünüm satır ekleyerek kompakt kalır. Randevular statü renkli bloklar, kargolar taralı katman, kapalı/ek-mesai istisnaları kesikli bantlarla görünür; bugünde **“şu an” çizgisi** akar. Boş alana tıklayınca **o rampa+saat (30 dk hassasiyet) önceden dolu** adına-randevu oluşturma açılır; haftalık görünüm doluluk yüzdeleriyle özet verir:
+Yatay zaman çizelgesi (timeline): her **rampa bir satır**, saat ekseni yataydır — rampa sayısı arttıkça görünüm satır ekleyerek kompakt kalır. Randevular statü renkli bloklar, kargolar taralı katman, kapalı/ek-mesai istisnaları kesikli bantlarla görünür; bugünde **“şu an” çizgisi** akar. Boş alana tıklayınca **o rampa+saat (30 dk hassasiyet) önceden dolu** adına-randevu oluşturma açılır; haftalık görünüm doluluk yüzdeleriyle özet verir. Aynı ekrandaki **İstisna Ekle** butonu (ve her rampa satırındaki takvim ikonu) görüntülenen günü seçili getirerek istisna formunu açar — kapalı gün tanımlamak için Ayarlar’a gitmeye gerek yoktur:
 
 ![Takvim](screenshots/v1/27-yonetim-takvim.png)
 
@@ -385,7 +385,7 @@ Ayarlar merkezi tüm konfigürasyon alanlarına açılır (girişler kullanıcı
 
 ![Çakışma grupları](screenshots/v1/37-yonetim-cakisma-gruplari.png)
 
-**Takvim İstisnaları** — rampa bazında *Kapalı* gün (sert engel) veya *Ek Mesai* (normal pencerenin yerine geçer):
+**Takvim İstisnaları** — rampa bazında *Kapalı* gün (sert engel) veya *Ek Mesai* (normal pencerenin yerine geçer). Oluştururken **birden fazla rampa** seçilebilir (ör. Rampa 1 + Rampa 3’e aynı bakım günü); tek istek her rampa için ayrı kayıt yazar, böylece rampalar tek tek düzenlenip pasifleştirilebilir:
 
 ![Takvim istisnaları](screenshots/v1/38-yonetim-takvim-istisnalari.png)
 

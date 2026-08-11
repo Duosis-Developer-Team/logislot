@@ -830,6 +830,7 @@ async def calendar_day(
     from app.core.enums import BLOCKING_APPOINTMENT_STATUSES, DeliveryType, DockOverrideType
     from app.models import DockOverride
     from app.rules.availability import WEEKDAY_KEYS
+    from app.services.overrides import pick_override
 
     facility = ctx.facility
     tz = ZoneInfo(facility.timezone)
@@ -859,11 +860,10 @@ async def calendar_day(
             )
         ).scalars()
     )
-    override_by_dock = {o.dock_id: o for o in overrides}
     weekday = WEEKDAY_KEYS[date.weekday()]
 
     def day_window(dock: Dock) -> dict | None:
-        override = override_by_dock.get(dock.id)
+        override = pick_override(overrides, dock.id, date)
         if override is not None:
             if override.type == DockOverrideType.closed:
                 return None
@@ -1025,6 +1025,7 @@ async def calendar_week(
     from app.core.timeutils import to_utc
     from app.models import DockOverride
     from app.rules.availability import WEEKDAY_KEYS
+    from app.services.overrides import pick_override
 
     facility = ctx.facility
     tz = ZoneInfo(facility.timezone)
@@ -1075,9 +1076,7 @@ async def calendar_week(
     appointments = [a for a in appointments if a.dock_id in dock_ids]
 
     def window_minutes(dock: Dock, day: date) -> int:
-        override = next(
-            (o for o in overrides if o.dock_id == dock.id and o.date == day), None
-        )
+        override = pick_override(overrides, dock.id, day)
         if override is not None:
             if override.type == DockOverrideType.closed:
                 return 0

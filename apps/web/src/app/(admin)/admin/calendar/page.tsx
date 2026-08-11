@@ -10,6 +10,10 @@ import {
 } from "@/components/appointments/admin-create-drawer";
 import { AppointmentDrawer } from "@/components/appointments/appointment-drawer";
 import { WeekView } from "@/components/appointments/week-view";
+import {
+  OverrideDrawer,
+  type OverrideDrawerInitial,
+} from "@/components/config/override-drawer";
 import { useFlash } from "@/components/config/page-shell";
 import { EmptyState, ErrorState, LoadingState } from "@/components/config/states";
 import { Button } from "@/components/ui/button";
@@ -98,6 +102,13 @@ export default function CalendarPage() {
   // Boş slota tıklayınca ön-dolu "Yeni Randevu" drawer'ı (30 dk hassasiyet).
   const [createInitial, setCreateInitial] = useState<AdminCreateInitialValues | null>(null);
 
+  // Takvimden tek tıkla istisna: görüntülenen gün ön-seçili, tip "kapalı".
+  const [overrideInitial, setOverrideInitial] = useState<OverrideDrawerInitial | null>(null);
+  const canOverride = can("calendar.override");
+  function openOverride(dockId?: string) {
+    setOverrideInitial({ date, type: "closed", dockIds: dockId ? [dockId] : [] });
+  }
+
   function rowClick(dockId: string, e: React.MouseEvent<HTMLDivElement>) {
     if (!can("appt.create")) return;
     const rect = e.currentTarget.getBoundingClientRect();
@@ -184,6 +195,17 @@ export default function CalendarPage() {
           <Button variant="secondary" size="sm" onClick={() => setDate(todayISO())}>
             Bugün
           </Button>
+          {canOverride && (
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => openOverride()}
+              title={`${dateLabel} için kapalı gün / ek mesai tanımla`}
+            >
+              <CalendarOff className="mr-1.5 h-4 w-4" />
+              İstisna Ekle
+            </Button>
+          )}
         </div>
       </div>
 
@@ -285,6 +307,17 @@ export default function CalendarPage() {
                             )}
                             {window === null && (
                               <CalendarOff className="h-3.5 w-3.5 shrink-0 text-status-cancelled" />
+                            )}
+                            {canOverride && (
+                              <button
+                                type="button"
+                                onClick={() => openOverride(dock.id)}
+                                aria-label={`${dock.name} için istisna ekle`}
+                                title={`${dock.name} · ${dateLabel} için istisna ekle`}
+                                className="ml-auto shrink-0 rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                              >
+                                <CalendarOff className="h-3.5 w-3.5" />
+                              </button>
                             )}
                           </div>
                           <div className="truncate text-[11px] text-muted-foreground">
@@ -444,6 +477,13 @@ export default function CalendarPage() {
         onClose={() => setCreateInitial(null)}
         onSuccess={() => setCreateInitial(null)}
         initial={createInitial}
+      />
+
+      <OverrideDrawer
+        open={overrideInitial !== null}
+        initial={overrideInitial}
+        onClose={() => setOverrideInitial(null)}
+        onSaved={(message) => showFlash("success", message)}
       />
 
       <AppointmentDrawer

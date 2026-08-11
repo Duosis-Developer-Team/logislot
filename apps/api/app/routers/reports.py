@@ -31,6 +31,7 @@ from app.core.timeutils import to_utc
 from app.models import Appointment, AuditLog, Dock, DockOverride
 from app.routers.appointments import facility_name_maps
 from app.rules.availability import WEEKDAY_KEYS
+from app.services.overrides import pick_override
 from app.tenancy.deps import FacilityContext, require_facility_permissions
 
 router = APIRouter(prefix="/facilities/{facility_id}", tags=["reports"])
@@ -215,9 +216,7 @@ async def reports_summary(
     )
 
     def window_minutes(dock: Dock, day: date) -> int:
-        override = next(
-            (o for o in overrides if o.dock_id == dock.id and o.date == day), None
-        )
+        override = pick_override(overrides, dock.id, day)
         if override is not None:
             if override.type == DockOverrideType.closed:
                 return 0
