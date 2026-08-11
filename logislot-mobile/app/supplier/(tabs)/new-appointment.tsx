@@ -8,7 +8,6 @@ import {
   CARGO_WINDOW_LABELS,
   QUANTITY_UNIT_LABELS,
   type CargoWindow,
-  formatDurationRange,
   resolveDurationRange,
 } from "@/api/shared";
 import {
@@ -401,9 +400,6 @@ export default function NewAppointmentWizard() {
                   />
                 ))}
               </View>
-              <Text style={{ color: colors.faintText, fontSize: 12 }}>
-                Yalnızca size tanımlı kategoriler listelenir. Uygun rampayı sistem seçer.
-              </Text>
             </View>
             <View style={{ flexDirection: "row", gap: spacing.md }}>
               <View style={{ flex: 1 }}>
@@ -454,7 +450,7 @@ export default function NewAppointmentWizard() {
               </View>
             </View>
             <Field label="Plaka" value={plate} onChangeText={setPlate} placeholder="34 ABC 123" autoCapitalize="characters" />
-            <Field label="Sürücü (opsiyonel)" value={driver} onChangeText={setDriver} placeholder="Ad Soyad" />
+            <Field label="Sürücü" value={driver} onChangeText={setDriver} placeholder="Ad Soyad" />
             <View style={{ gap: 8 }}>
               <Text style={{ color: colors.text, fontSize: 14, fontWeight: "500" }}>
                 Teslimat Tipi
@@ -535,18 +531,11 @@ export default function NewAppointmentWizard() {
                       />
                     ))}
                   </View>
-                  {durationRange?.conflicting ? (
+                  {durationRange?.conflicting && (
                     <Text style={{ color: colors.destructive, fontSize: 12 }}>
                       Bu kategorinin süre aralığı size tanımlı limitlerle kesişmiyor.
                       Lütfen tesis yöneticisiyle iletişime geçin.
                     </Text>
-                  ) : (
-                    durationRange && (
-                      <Text style={{ color: colors.mutedText, fontSize: 12 }}>
-                        İzin verilen aralık:{" "}
-                        {formatDurationRange(durationRange.min, durationRange.max)}
-                      </Text>
-                    )
                   )}
                 </View>
                 <View style={{ gap: 8 }}>

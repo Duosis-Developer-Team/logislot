@@ -15,7 +15,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   CARGO_WINDOW_LABELS,
   type CargoWindow,
-  formatDurationRange,
   resolveDurationRange,
 } from "@logislot/shared";
 import { ErrorState, LoadingState } from "@/components/config/states";
@@ -256,7 +255,7 @@ export function AdminCreateDrawer({ open, onClose, onSuccess, initial }: AdminCr
   }
 
   return (
-    <Drawer open={open} onClose={onClose} title="Yeni Randevu (Tedarikçi Adına)">
+    <Drawer open={open} onClose={onClose} title="Yeni Randevu">
       {supplierList.isLoading ? (
         <LoadingState />
       ) : supplierList.isError ? (
@@ -305,9 +304,6 @@ export function AdminCreateDrawer({ open, onClose, onSuccess, initial }: AdminCr
                       </option>
                     ))}
                   </Select>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    Yalnızca tedarikçinin izinli kategorileri.
-                  </p>
                 </div>
                 <div>
                   <Label>Ürün Adı</Label>
@@ -439,12 +435,6 @@ export function AdminCreateDrawer({ open, onClose, onSuccess, initial }: AdminCr
                         </option>
                       ))}
                     </Select>
-                    {durationRange && !durationRange.conflicting && (
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        İzin verilen aralık:{" "}
-                        {formatDurationRange(durationRange.min, durationRange.max)}
-                      </p>
-                    )}
                   </div>
                 )}
               </div>
@@ -471,10 +461,6 @@ export function AdminCreateDrawer({ open, onClose, onSuccess, initial }: AdminCr
                       </option>
                     ))}
                   </Select>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    Kargo kesin slot değil, tahmini pencere ayırır; planlamacıya takvimde
-                    uyarı gösterilir.
-                  </p>
                 </div>
               ) : (
                 category && (
@@ -549,9 +535,6 @@ export function AdminCreateDrawer({ open, onClose, onSuccess, initial }: AdminCr
                     </Select>
                   )}
                 </div>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Manuel seçimde de uyumluluk ve çakışma kuralları tam uygulanır.
-                </p>
               </div>
 
               {!isCargo && (
@@ -579,7 +562,7 @@ export function AdminCreateDrawer({ open, onClose, onSuccess, initial }: AdminCr
                         </Select>
                       </div>
                       <div>
-                        <Label>Tekrar Sayısı (en fazla {maxCount})</Label>
+                        <Label>Tekrar Sayısı</Label>
                         <Input
                           type="number"
                           min={2}
@@ -588,25 +571,18 @@ export function AdminCreateDrawer({ open, onClose, onSuccess, initial }: AdminCr
                           onChange={(e) => setCount(Number(e.target.value))}
                         />
                       </div>
-                      <p className="col-span-2 text-xs text-muted-foreground">
-                        Tüm tarihler kural setinden geçer; biri uygun değilse hiçbiri
-                        oluşturulmaz. Admin açtığı için tüm randevular onaylı doğar.
-                      </p>
                     </div>
                   )}
                 </div>
               )}
 
               <div>
-                <Label>Not (opsiyonel)</Label>
+                <Label>Not</Label>
                 <Input
                   value={note}
                   onChange={(e) => setNote(e.target.value)}
                   placeholder='Örn. "Telefonla oluşturuldu"'
                 />
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Not denetim kaydına işlenir.
-                </p>
               </div>
             </>
           )}
