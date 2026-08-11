@@ -205,6 +205,36 @@ jobs:
             --from-literal=LOGISLOT_BOOTSTRAP_ADMIN_PASSWORD="${BOOTSTRAP_PASSWORD:-}" \
             --dry-run=client -o yaml | kubectl apply -f -
 
+      - name: GHCR pull secret guard (yeni namespace tuzagi)
+        # GHCR paketleri PRIVATE ve manifestlerde imagePullSecrets YOK: kimlik
+        # namespace'in default ServiceAccount'una elle baglanmis `ghcr-pull`
+        # secret'inda yasiyor. Yeni bir namespace bunu miras ALMAZ — prod ilk
+        # kurulumunda tum pod'lar ImagePullBackOff'a dustu ve hata ancak
+        # migration timeout'unda, 15 dakika sonra anlasildi. Artik saniyeler
+        # icinde ve ne yapilmasi gerektigini soyleyerek duruyor.
+        run: |
+          if [[ -n "${{ secrets.GHCR_PULL_TOKEN }}" ]]; then
+            kubectl -n "$NAMESPACE" create secret docker-registry ghcr-pull \
+              --docker-server=ghcr.io \
+              --docker-username="${{ github.repository_owner }}" \
+              --docker-password="${{ secrets.GHCR_PULL_TOKEN }}" \
+              --dry-run=client -o yaml | kubectl apply -f -
+          fi
+          if ! kubectl -n "$NAMESPACE" get secret ghcr-pull >/dev/null 2>&1; then
+            echo "::error::'$NAMESPACE' namespace'inde ghcr-pull secret'i yok; private GHCR imajlari cekilemez."
+            echo "Cozum A (kalici, tercih edilen): GHCR_PULL_TOKEN repo secret'i ekleyin (read:packages yetkili PAT); bu adim secret'i her deploy'da kendisi olusturur."
+            echo "Cozum B (tek seferlik): kubectl -n $NAMESPACE create secret docker-registry ghcr-pull --docker-server=ghcr.io --docker-username=<kullanici> --docker-password=<read:packages PAT>"
+            echo "Cozum C: logislot-api / logislot-web paketlerini public yapin; o zaman pull secret'i hic gerekmez."
+            exit 1
+          fi
+          # Secret var ama default SA'ya bagli degilse pod'lar yine cekemez.
+          if ! kubectl -n "$NAMESPACE" get serviceaccount default \
+                -o jsonpath='{.imagePullSecrets[*].name}' | grep -q ghcr-pull; then
+            echo "default ServiceAccount'a ghcr-pull ekleniyor"
+            kubectl -n "$NAMESPACE" patch serviceaccount default \
+              -p '{"imagePullSecrets":[{"name":"ghcr-pull"}]}'
+          fi
+
       - name: Image tag'lerini sabitle ve manifest'leri uygula
         run: |
           cd "k8s/overlays/$ENV_NAME"
