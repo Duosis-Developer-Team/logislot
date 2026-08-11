@@ -172,8 +172,16 @@ async def provision_tenant(
     tenant_id: uuid.UUID,
     *,
     dsn_alias: str | None = None,
+    activate: bool = True,
 ) -> TenantDatastore:
-    """Tenant icin veri alanini acar ve kaydi `ready` yapar.
+    """Tenant icin veri alanini acar.
+
+    activate=True (varsayilan) yeni tenant senaryosudur: sema bostur ve
+    hemen kullanilabilir. activate=False ise TASIMA senaryosudur — veri
+    baska yerdedir, sema hazir ama istekler HENUZ yonlendirilmemelidir;
+    kayit `provisioning`de birakilir ve cagiran (backfill) dogrulamadan
+    sonra `ready` yapar. Aksi halde veri kopyalanirken istekler BOS semaya
+    yonlenirdi.
 
     control_db uzerinde COMMIT eder — provisioning bir DDL islemidir ve
     cagiranin transaction'ina baglanmasi (DDL geri alinamayan adimlar
@@ -220,7 +228,7 @@ async def provision_tenant(
         logger.exception("Tenant %s icin veri alani acilamadi", tenant_id)
         raise
 
-    row.status = DatastoreStatus.ready
+    row.status = DatastoreStatus.ready if activate else DatastoreStatus.provisioning
     row.provisioned_at = datetime.now(UTC)
     row.migrated_revision = revision
     row.notes = None
