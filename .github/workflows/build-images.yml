@@ -5,7 +5,19 @@
 # web image'i ortamin GERCEK API adresiyle build edilir —
 # vars.DEV_NEXT_PUBLIC_API_URL / vars.PROD_NEXT_PUBLIC_API_URL
 # (tanimli degilse NodePort varsayilanlari kullanilir).
-# NOT: workflow yeniden indeksleme (Actions kayit) tetiklemesi.
+#
+# GHCR YAZMA YETKISI (deploy'un dusmesinin 1 numarali sebebiydi):
+# GITHUB_TOKEN yalnizca pakete repo erisimi TANIMLIYSA yazabilir. logislot-api
+# ve logislot-web org seviyesinde elle olusturulmustu, repoya bagli degildi ve
+# her push "denied: permission_denied: write_package" ile dusuyordu.
+# Kalici cozum iki parcali:
+#   1) Dockerfile'lardaki org.opencontainers.image.source etiketi paketi repoya
+#      BAGLAR ve her push'ta bagi tazeler.
+#   2) Paket ayarlarinda repoya "Write" rolu verilir (bir kerelik):
+#      https://github.com/orgs/Duosis-Developer-Team/packages/container/logislot-api/settings
+#      https://github.com/orgs/Duosis-Developer-Team/packages/container/logislot-web/settings
+# Alternatif: write:packages yetkili bir PAT'i GHCR_TOKEN secret'i olarak ekleyin;
+# asagidaki login onu otomatik tercih eder, yoksa GITHUB_TOKEN'a duser.
 name: Build Images
 
 on:
@@ -16,6 +28,12 @@ on:
 permissions:
   contents: read
   packages: write
+
+# Ayni branch'e arka arkaya push gelirse eski build iptal edilir; iki build
+# ayni :dev etiketini yarisla ezmez.
+concurrency:
+  group: build-images-${{ github.ref_name }}
+  cancel-in-progress: true
 
 jobs:
   build-push:
@@ -49,8 +67,11 @@ jobs:
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
+          # GHCR kullanici adini onemsemez, tokeni dogrular: GHCR_TOKEN
+          # tanimliysa o kullanilir (paket ACL'ine bagimli degildir), yoksa
+          # GITHUB_TOKEN'a duser.
           username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          password: ${{ secrets.GHCR_TOKEN || secrets.GITHUB_TOKEN }}
 
       - name: API image build/push
         run: |
