@@ -87,6 +87,58 @@ async def test_reports_range_validation_and_custom_range(client, seeded):
     assert data["totals"]["appointments"] >= 2  # bugunku seed randevulari
 
 
+async def test_daily_trend_buckets_and_csv_section(client, seeded):
+    """Gunluk trend gunleri eksiksiz kapsar ve toplamlarla tutarlidir.
+
+    Regresyon: CSV'nin "iptal" sutunu, daily_trend'de `cancelled` alani
+    olmadigi icin sessizce hep 0 yaziyordu.
+    """
+    headers = await admin(client)
+    fid = seeded["facility"].id
+    today = date.today()
+    start = today - timedelta(days=29)
+
+    response = await client.get(
+        f"/facilities/{fid}/reports/summary"
+        f"?date_from={start.isoformat()}&date_to={today.isoformat()}",
+        headers=headers,
+    )
+    assert response.status_code == 200
+    data = response.json()["data"]
+    trend = data["daily_trend"]
+    totals = data["totals"]
+
+    # Gunler kesintisiz ve date_to DAHIL
+    assert [d["date"] for d in trend] == [
+        (start + timedelta(days=i)).isoformat() for i in range(30)
+    ]
+    for day in trend:
+        assert set(day) == {"date", "total", "completed", "pending", "cancelled", "cargo"}
+
+    # Her randevu tam olarak bir gune duser -> gunluk toplamlar = aralik toplamlari
+    for field in ("total", "completed", "pending", "cancelled", "cargo"):
+        totals_key = "appointments" if field == "total" else field
+        assert sum(d[field] for d in trend) == totals[totals_key], field
+
+    # En az bir gunde veri olmali (aksi halde test bos gecerdi)
+    assert any(d["total"] > 0 for d in trend)
+
+    # CSV bolumu ayni degerleri tasir (iptal sutunu artik gercek veri)
+    csv_response = await client.get(
+        f"/facilities/{fid}/reports/summary.csv"
+        f"?date_from={start.isoformat()}&date_to={today.isoformat()}",
+        headers=headers,
+    )
+    assert csv_response.status_code == 200
+    lines = csv_response.text.splitlines()
+    section = lines.index("GUNLUK TREND")
+    assert lines[section + 1] == "tarih,toplam,tamamlanan,bekleyen,iptal,kargo"
+    csv_rows = [line.split(",") for line in lines[section + 2 : section + 32]]
+    assert [r[0] for r in csv_rows] == [d["date"] for d in trend]
+    assert sum(int(r[4]) for r in csv_rows) == totals["cancelled"]
+    assert sum(int(r[1]) for r in csv_rows) == totals["appointments"]
+
+
 async def test_reports_sla_and_auto_approved_from_live_flow(client, seeded):
     """Canli create+approve akisi SLA ve auto/manual metriklerine yansir."""
     headers = await admin(client)

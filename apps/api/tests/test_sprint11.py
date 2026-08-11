@@ -460,6 +460,42 @@ async def test_reports_csv_exports(client, seeded):
     ).status_code in (403, 404)
 
 
+async def test_csv_export_neutralizes_formula_injection(client, seeded):
+    """Tedarikcinin serbest metni Excel'de formul olarak calismamali.
+
+    Urun adi tedarikci tarafindan girilir ve CSV'yi tesis yoneticisi acar;
+    "=" ile baslayan hucre onun makinesinde formul olur.
+    """
+    fid = seeded["facility"].id
+    day = next_weekday()
+    payload = "=cmd|'/c calc'!A0"
+
+    supplier = auth_headers(
+        await login(client, "/auth/supplier-login", "tedarikci@anadoluun.com")
+    )
+    created = await client.post(
+        "/supplier/appointments", headers=supplier,
+        json={
+            "product_category_id": str(seeded["product_categories"]["unlu"].id),
+            "product_name": payload, "quantity": 1,
+            "target_date": day.isoformat(),
+            "start_at": f"{day.isoformat()}T14:00:00+03:00", "duration_minutes": 60,
+        },
+    )
+    assert created.status_code == 200
+
+    headers = await admin(client)
+    response = await client.get(
+        f"/facilities/{fid}/reports/appointments.csv"
+        f"?date_from={date.today().isoformat()}&date_to={day.isoformat()}",
+        headers=headers,
+    )
+    assert response.status_code == 200
+    assert payload in response.text  # veri kaybolmuyor
+    assert f"'{payload}" in response.text  # tirnakla etkisizlestirilmis
+    assert f",{payload}" not in response.text  # ham formul olarak yazilmamis
+
+
 async def test_platform_usage_csv_no_pii(client, seeded):
     p = await platform(client)
     response = await client.get("/platform/usage.csv", headers=p)

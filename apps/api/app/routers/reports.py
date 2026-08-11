@@ -11,10 +11,11 @@ import uuid
 from datetime import UTC, date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
-from fastapi import APIRouter, Depends, Response
+from fastapi import APIRouter, Depends
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.csvutils import csv_response
 from app.core.db import get_db
 from app.core.enums import (
     BLOCKING_APPOINTMENT_STATUSES,
@@ -270,6 +271,11 @@ async def reports_summary(
                 "pending": sum(
                     1 for a in day_appts if a.status == AppointmentStatus.pending
                 ),
+                # CSV'nin "iptal" sutunu bu alani kullanir; alan olmadigi surece
+                # sutun sessizce hep 0 yazardi.
+                "cancelled": sum(
+                    1 for a in day_appts if a.status == AppointmentStatus.cancelled
+                ),
                 "cargo": sum(
                     1 for a in day_appts if a.delivery_type == DeliveryType.cargo
                 ),
@@ -433,21 +439,6 @@ async def facility_plan_warnings(
 # ---------- CSV exportlar (Sprint 11) ----------
 
 
-def _csv_response(filename: str, rows: list[list]) -> Response:
-    """Excel-uyumlu UTF-8 BOM'lu CSV yaniti."""
-    import csv
-    import io
-
-    buffer = io.StringIO()
-    writer = csv.writer(buffer, lineterminator="\n")
-    writer.writerows(rows)
-    return Response(
-        content="﻿" + buffer.getvalue(),
-        media_type="text/csv; charset=utf-8",
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
-    )
-
-
 @router.get("/reports/summary.csv")
 async def reports_summary_csv(
     ctx: FacilityContext = Depends(require_facility_permissions(TenantPermission.REPORT_VIEW)),
@@ -468,9 +459,10 @@ async def reports_summary_csv(
         *[[key, value] for key, value in data["totals"].items()],
         [],
         ["GUNLUK TREND"],
-        ["tarih", "olusturulan", "tamamlanan", "iptal"],
+        # "toplam" = o gune planlanmis randevu sayisi (olusturulma tarihi degil).
+        ["tarih", "toplam", "tamamlanan", "bekleyen", "iptal", "kargo"],
         *[
-            [d["date"], d.get("total", 0), d.get("completed", 0), d.get("cancelled", 0)]
+            [d["date"], d["total"], d["completed"], d["pending"], d["cancelled"], d["cargo"]]
             for d in data["daily_trend"]
         ],
         [],
@@ -494,7 +486,7 @@ async def reports_summary_csv(
             for b in data["by_supplier"]
         ],
     ]
-    return _csv_response(
+    return csv_response(
         f"logislot_ozet_{data['range']['date_from']}_{data['range']['date_to']}.csv", rows
     )
 
@@ -581,6 +573,6 @@ async def reports_appointments_csv(
                 local(approved_at[a.id]) if a.id in approved_at else "",
             ]
         )
-    return _csv_response(
+    return csv_response(
         f"logislot_randevular_{date_from.isoformat()}_{date_to.isoformat()}.csv", rows
     )

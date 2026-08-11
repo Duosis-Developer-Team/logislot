@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.deps import Identity, require_platform_permissions
 from app.core.config import get_settings
+from app.core.csvutils import csv_response
 from app.core.db import get_db
 from app.core.enums import (
     ActorType,
@@ -1058,53 +1059,38 @@ async def usage_csv(
     date_to: date | None = None,
 ):
     """Platform kullanim CSV'si — PII ICERMEZ (yalnizca agregat)."""
-    import csv
-    import io
-
-    from fastapi import Response
-
     envelope = await usage(identity=identity, db=db, date_from=date_from, date_to=date_to)
     data = envelope["data"]
 
-    buffer = io.StringIO()
-    writer = csv.writer(buffer, lineterminator="\n")
-    writer.writerow(["LogiSlot Platform Kullanim"])
-    writer.writerow(["Aralik", data["range"]["date_from"], data["range"]["date_to"]])
-    writer.writerow([])
-    writer.writerow(["TENANT KULLANIMI"])
-    writer.writerow(
+    rows: list[list] = [
+        ["LogiSlot Platform Kullanim"],
+        ["Aralik", data["range"]["date_from"], data["range"]["date_to"]],
+        [],
+        ["TENANT KULLANIMI"],
         ["tenant", "durum", "plan", "tesis", "olusturulan", "tamamlanan",
-         "aktif_rampa", "aktif_tedarikci", "sla_dk"]
-    )
-    for row in data["tenant_usage"]:
-        writer.writerow(
+         "aktif_rampa", "aktif_tedarikci", "sla_dk"],
+        *[
             [row["tenant_name"], row["status"], row["assigned_plan"] or "",
              row["facility_count"], row["appointments_created"],
              row["appointments_completed"], row["active_docks"],
              row["active_suppliers"], row["approval_sla_avg_minutes"] or ""]
-        )
-    writer.writerow([])
-    writer.writerow(["TESIS KULLANIMI"])
-    writer.writerow(
+            for row in data["tenant_usage"]
+        ],
+        [],
+        ["TESIS KULLANIMI"],
         ["tesis", "tenant", "durum", "plan", "override", "olusturulan",
-         "tamamlanan", "aktif_rampa", "aktif_tedarikci", "aktif_kullanici"]
-    )
-    for row in data["facility_usage"]:
-        writer.writerow(
+         "tamamlanan", "aktif_rampa", "aktif_tedarikci", "aktif_kullanici"],
+        *[
             [row["facility_name"], row["tenant_name"] or "", row["status"],
              row["assigned_plan"] or "", "evet" if row["plan_is_override"] else "hayir",
              row["appointments_created"], row["appointments_completed"],
              row["active_docks"], row["active_suppliers"], row["active_users"]]
-        )
-    return Response(
-        content="﻿" + buffer.getvalue(),
-        media_type="text/csv; charset=utf-8",
-        headers={
-            "Content-Disposition": (
-                f'attachment; filename="logislot_usage_'
-                f'{data["range"]["date_from"]}_{data["range"]["date_to"]}.csv"'
-            )
-        },
+            for row in data["facility_usage"]
+        ],
+    ]
+    return csv_response(
+        f'logislot_usage_{data["range"]["date_from"]}_{data["range"]["date_to"]}.csv',
+        rows,
     )
 
 

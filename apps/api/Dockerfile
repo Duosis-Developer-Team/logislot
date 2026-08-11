@@ -1,5 +1,10 @@
 FROM python:3.13-slim
 
+# GHCR paketini repoya BAGLAR. Bag olmadan Actions'in GITHUB_TOKEN'i pakete
+# yazamaz ("denied: permission_denied: write_package") ve Build Images duser.
+# Etiket her push'ta bagi tazeledigi icin bag bir daha kopmaz.
+LABEL org.opencontainers.image.source="https://github.com/Duosis-Developer-Team/logislot"
+
 WORKDIR /srv/api
 
 COPY pyproject.toml ./

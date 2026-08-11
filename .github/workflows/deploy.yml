@@ -192,20 +192,56 @@ jobs:
           sed -e "s|name: logislot-migration|name: $JOB_NAME|" \
               -e "s|ghcr.io/duosis-developer-team/logislot-api:dev|ghcr.io/duosis-developer-team/logislot-api:$IMAGE_TAG|" \
               k8s/base/migration-job.yaml | kubectl -n "$NAMESPACE" apply -f -
-          kubectl -n "$NAMESPACE" wait --for=condition=complete "job/$JOB_NAME" --timeout=180s || {
-            kubectl -n "$NAMESPACE" logs "job/$JOB_NAME" --tail 100; exit 1; }
+          # `wait --for=condition=complete` job COKSE de timeout'u sonuna kadar
+          # bekler; birikmis migration'larda 180s zaten yetmiyordu. Burada iki
+          # kosul birden izlenir: basarida hemen cikilir, hatada hemen dusulur.
+          DEADLINE=$((SECONDS + 900))
+          STATE=timeout
+          while (( SECONDS < DEADLINE )); do
+            if [[ $(kubectl -n "$NAMESPACE" get job "$JOB_NAME" \
+                  -o jsonpath='{.status.conditions[?(@.type=="Complete")].status}') == "True" ]]; then
+              STATE=complete; break
+            fi
+            if [[ $(kubectl -n "$NAMESPACE" get job "$JOB_NAME" \
+                  -o jsonpath='{.status.conditions[?(@.type=="Failed")].status}') == "True" ]]; then
+              STATE=failed; break
+            fi
+            sleep 5
+          done
+          if [[ "$STATE" != "complete" ]]; then
+            echo "::error::Migration job '$JOB_NAME' durumu: $STATE"
+            kubectl -n "$NAMESPACE" describe job "$JOB_NAME" | tail -30
+            kubectl -n "$NAMESPACE" logs "job/$JOB_NAME" --tail 200 || true
+            exit 1
+          fi
           kubectl -n "$NAMESPACE" logs "job/$JOB_NAME" --tail 30
 
       - name: Rollout + saglik dogrulamasi
         run: |
-          kubectl -n "$NAMESPACE" rollout status deploy/logislot-api --timeout=180s
-          kubectl -n "$NAMESPACE" rollout status deploy/logislot-web --timeout=180s
-          kubectl -n "$NAMESPACE" rollout status deploy/logislot-scheduler --timeout=120s
-          kubectl -n "$NAMESPACE" port-forward svc/logislot-api 18010:8000 &
+          # Imaj cekme + scheduling yavas oldugunda 120s scheduler icin yetmiyor
+          # ve web/api saglikliyken deploy kirmizi donuyordu; sureler esitlendi.
+          kubectl -n "$NAMESPACE" rollout status deploy/logislot-api --timeout=300s
+          kubectl -n "$NAMESPACE" rollout status deploy/logislot-web --timeout=300s
+          kubectl -n "$NAMESPACE" rollout status deploy/logislot-scheduler --timeout=300s
+          # port-forward'in hazir olmasi sabit `sleep 3` ile garanti degildi;
+          # tunel kurulana kadar denenir, PID temizligi hataya takilmaz.
+          kubectl -n "$NAMESPACE" port-forward svc/logislot-api 18010:8000 >/dev/null 2>&1 &
           PF_PID=$!
-          sleep 3
+          trap 'kill "$PF_PID" 2>/dev/null || true' EXIT
+          HEALTHY=0
+          for _ in $(seq 1 30); do
+            if curl -fsS --max-time 5 http://localhost:18010/health >/dev/null 2>&1; then
+              HEALTHY=1; break
+            fi
+            sleep 2
+          done
+          if [[ "$HEALTHY" != "1" ]]; then
+            echo "::error::/health 60s icinde cevap vermedi"
+            kubectl -n "$NAMESPACE" get pods -o wide
+            kubectl -n "$NAMESPACE" logs deploy/logislot-api --tail 100 || true
+            exit 1
+          fi
           curl -fsS http://localhost:18010/health
-          kill $PF_PID
           kubectl -n "$NAMESPACE" get pods -o wide
 
       - name: Seed job (YALNIZCA manuel istekle)

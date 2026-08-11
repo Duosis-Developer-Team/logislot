@@ -196,11 +196,20 @@ export default function ReportsPage() {
               <CardTitle>Günlük Trend</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="flex h-32 items-end gap-1">
+              {/* Kolonlar h-full olmali: yuzde yukseklik ancak tanimli yukseklikli
+                  bir ebeveyne karsi cozulur, aksi halde TUM barlar 0px kalir.
+                  Barlar min-w-1'e dayandigi icin uzun araliklarda (180 gune kadar)
+                  bosluk daraltilir; overflow-x dar ekranlar icin emniyet agi. */}
+              <div
+                className={cn(
+                  "flex h-32 items-end overflow-x-auto",
+                  data.daily_trend.length > 60 ? "gap-px" : "gap-1",
+                )}
+              >
                 {data.daily_trend.map((day) => (
                   <div
                     key={day.date}
-                    className="group relative flex flex-1 flex-col items-center justify-end"
+                    className="group relative flex h-full flex-1 flex-col items-center justify-end"
                     title={`${day.date}: ${day.total} randevu (${day.completed} tamam, ${day.cargo} kargo)`}
                   >
                     <div
@@ -208,7 +217,9 @@ export default function ReportsPage() {
                         "w-full min-w-1 rounded-t-sm",
                         day.cargo > 0 ? "bg-cargo/70" : "bg-primary/70",
                       )}
-                      style={{ height: `${(day.total / maxTrend) * 100}%` }}
+                      style={{
+                        height: `${Math.max((day.total / maxTrend) * 100, day.total > 0 ? 4 : 0)}%`,
+                      }}
                     />
                   </div>
                 ))}
