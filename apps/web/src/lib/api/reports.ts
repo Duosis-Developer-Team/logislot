@@ -61,7 +61,14 @@ export interface ReportsSummaryDto {
     rejected: number;
     cargo: number;
   }[];
-  daily_trend: { date: string; total: number; completed: number; pending: number; cargo: number }[];
+  daily_trend: {
+    date: string;
+    total: number;
+    completed: number;
+    pending: number;
+    cancelled: number;
+    cargo: number;
+  }[];
 }
 
 export function useReportsSummary(
