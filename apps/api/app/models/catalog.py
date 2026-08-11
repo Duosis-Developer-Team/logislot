@@ -30,6 +30,8 @@ class ProductCategory(Base, UUIDPkMixin, TimestampMixin, FacilityScopedMixin):
     description: Mapped[str | None] = mapped_column(sa.Text)
     # Dinamik Sure Blokaji: kalite kontrol gibi ek sureler bu minimuma yansitilir.
     min_block_minutes: Mapped[int] = mapped_column(sa.Integer, default=30)
+    # Ust sinir OPSIYONELDIR: NULL = kategori bazli ust sinir yok (eski davranis).
+    max_block_minutes: Mapped[int | None] = mapped_column(sa.Integer)
     default_vehicle_category_id: Mapped[uuid.UUID | None] = mapped_column(
         sa.Uuid, sa.ForeignKey("vehicle_categories.id", ondelete="SET NULL")
     )

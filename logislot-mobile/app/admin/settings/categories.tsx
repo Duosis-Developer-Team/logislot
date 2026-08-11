@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Alert, Text, View } from "react-native";
 import { ApiError } from "@/api/client";
 import { productCategories, vehicleCategories } from "@/api/resources";
+import { formatDurationRange } from "@/api/shared";
 import type { ProductCategoryDto } from "@/api/types";
 import { useSession } from "@/auth/session";
 import { ActiveBadge, ConfigList } from "@/components/config";
@@ -18,6 +19,9 @@ import {
 } from "@/components/ui";
 import { useTheme } from "@/theme/theme";
 import { spacing } from "@/theme/tokens";
+
+// Backend ile aynı sınır: app/schemas/config.py -> MAX_BLOCK_MINUTES_CAP
+const MAX_BLOCK_MINUTES_CAP = 1440;
 
 export default function CategoriesScreen() {
   const { colors } = useTheme();
@@ -34,6 +38,7 @@ export default function CategoriesScreen() {
   const [displayName, setDisplayName] = useState("");
   const [description, setDescription] = useState("");
   const [minBlock, setMinBlock] = useState("30");
+  const [maxBlock, setMaxBlock] = useState("");
   const [defaultVehicleId, setDefaultVehicleId] = useState<string | null>(null);
   const [isActive, setIsActive] = useState(true);
   const [formError, setFormError] = useState<string | null>(null);
@@ -44,6 +49,7 @@ export default function CategoriesScreen() {
     setDisplayName("");
     setDescription("");
     setMinBlock("30");
+    setMaxBlock("");
     setDefaultVehicleId(null);
     setIsActive(true);
     setFormError(null);
@@ -56,6 +62,7 @@ export default function CategoriesScreen() {
     setDisplayName(row.display_name);
     setDescription(row.description ?? "");
     setMinBlock(String(row.min_block_minutes));
+    setMaxBlock(row.max_block_minutes != null ? String(row.max_block_minutes) : "");
     setDefaultVehicleId(row.default_vehicle_category_id);
     setIsActive(row.is_active);
     setFormError(null);
@@ -69,8 +76,22 @@ export default function CategoriesScreen() {
       setFormError("Ad ve görünen ad zorunludur.");
       return;
     }
-    if (!Number.isInteger(minutes) || minutes <= 0) {
-      setFormError("Min. blokaj süresi pozitif bir sayı olmalı.");
+    if (!Number.isInteger(minutes) || minutes <= 0 || minutes > MAX_BLOCK_MINUTES_CAP) {
+      setFormError("Min. blokaj süresi 1–1440 dk arasında olmalı.");
+      return;
+    }
+    // Boş = üst sınır yok (null gönderilir).
+    const trimmedMax = maxBlock.trim();
+    const maxMinutes = trimmedMax === "" ? null : parseInt(trimmedMax, 10);
+    if (
+      maxMinutes !== null &&
+      (!Number.isInteger(maxMinutes) || maxMinutes <= 0 || maxMinutes > MAX_BLOCK_MINUTES_CAP)
+    ) {
+      setFormError("Maks. blokaj süresi 1–1440 dk arasında olmalı veya boş bırakılmalı.");
+      return;
+    }
+    if (maxMinutes !== null && maxMinutes < minutes) {
+      setFormError("Maksimum blokaj süresi, minimumdan küçük olamaz.");
       return;
     }
     try {
@@ -81,6 +102,7 @@ export default function CategoriesScreen() {
           display_name: displayName,
           description: description || null,
           min_block_minutes: minutes,
+          max_block_minutes: maxMinutes,
           default_vehicle_category_id: defaultVehicleId || null,
           is_active: isActive,
         },
@@ -122,7 +144,7 @@ export default function CategoriesScreen() {
         query={list}
         createLabel="Yeni Kategori"
         onCreate={openCreate}
-        description="Minimum blokaj süresi ve varsayılan araç kategorisi randevu uygunluğunu doğrudan etkiler."
+        description="Blokaj süresi aralığı ve varsayılan araç kategorisi randevu uygunluğunu doğrudan etkiler."
         searchText={(r) => `${r.name} ${r.display_name}`}
         keyExtractor={(r) => r.id}
         emptyTitle="Kategori bulunamadı"
@@ -145,7 +167,10 @@ export default function CategoriesScreen() {
               </View>
               <ActiveBadge active={row.is_active} />
             </View>
-            <KeyValueRow label="Min. Blokaj" value={`${row.min_block_minutes} dk`} />
+            <KeyValueRow
+              label="Blokaj Süresi"
+              value={formatDurationRange(row.min_block_minutes, row.max_block_minutes)}
+            />
             <KeyValueRow
               label="Varsayılan Araç"
               value={vehicleName(row.default_vehicle_category_id)}
@@ -194,6 +219,17 @@ export default function CategoriesScreen() {
             onChangeText={setMinBlock}
             keyboardType="number-pad"
           />
+          <Field
+            label="Maks. Blokaj Süresi (dk) — boş bırakılırsa üst sınır uygulanmaz"
+            value={maxBlock}
+            onChangeText={setMaxBlock}
+            keyboardType="number-pad"
+            placeholder="Sınırsız"
+          />
+          <Text style={{ color: colors.mutedText, fontSize: 12 }}>
+            Randevu oluştururken seçilebilen süreler bu aralıkla sınırlanır. Tedarikçi
+            kartında ayrıca bir limit tanımlıysa, iki aralığın kesişimi uygulanır.
+          </Text>
           <PickerField
             label="Varsayılan Araç Kategorisi (sihirbazı önceden doldurur)"
             value={defaultVehicleId}

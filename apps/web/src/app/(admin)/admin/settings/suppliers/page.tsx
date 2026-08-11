@@ -37,8 +37,21 @@ const formSchema = z
     contact_name: z.string().optional(),
     contact_email: z.string().email("Geçerli e-posta girin").or(z.literal("")),
     contact_phone: z.string().optional(),
-    min_block_minutes: z.coerce.number().int().positive().optional().or(z.literal("")),
-    max_block_minutes: z.coerce.number().int().positive().optional().or(z.literal("")),
+    // Backend ile ayni sinir: app/schemas/config.py -> MAX_BLOCK_MINUTES_CAP
+    min_block_minutes: z.coerce
+      .number()
+      .int()
+      .positive()
+      .max(1440, "En fazla 1440 dk (24 saat)")
+      .optional()
+      .or(z.literal("")),
+    max_block_minutes: z.coerce
+      .number()
+      .int()
+      .positive()
+      .max(1440, "En fazla 1440 dk (24 saat)")
+      .optional()
+      .or(z.literal("")),
     weekly_quota: z.coerce.number().int().min(0).optional().or(z.literal("")),
     monthly_quota: z.coerce.number().int().min(0).optional().or(z.literal("")),
     notes: z.string().optional(),

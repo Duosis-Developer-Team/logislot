@@ -3,7 +3,13 @@ import { useState } from "react";
 import { Alert, Text, View } from "react-native";
 import { useAppointmentActions, useAppointmentDetail, useDockOptions } from "@/api/admin";
 import { ApiError } from "@/api/client";
-import { QUANTITY_UNIT_LABELS, type QuantityUnit } from "@/api/shared";
+import { productCategories } from "@/api/resources";
+import {
+  QUANTITY_UNIT_LABELS,
+  type QuantityUnit,
+  formatDurationRange,
+  resolveDurationRange,
+} from "@/api/shared";
 import { useSession } from "@/auth/session";
 import { CargoBadge, StatusBadge } from "@/components/appointment";
 import { Button, Card, Chip, ErrorState, Field, LoadingState, Screen } from "@/components/ui";
@@ -16,8 +22,6 @@ import { addDaysISO, dayLabel, formatDate, isoFromWallClock, timeInTz, todayISO 
  * karşılığı: aksiyonlar backend allowed_actions haritasına göre görünür
  * (statü + izin + rampa scope'u backend'de birleşir).
  */
-
-const DURATIONS = [30, 45, 60, 90, 120, 150, 180, 240];
 
 type ActionKind = "reject" | "complete" | "cancel" | "revise" | "dock-change" | null;
 
@@ -45,6 +49,10 @@ export default function AdminAppointmentDetail() {
     activeFacilityId,
     openForm === "dock-change" ? (id ?? null) : null,
   );
+  // Revize süresi KATEGORİ aralığıyla sınırlanır. Tedarikçi limitleri bilerek
+  // dışarıda: tedarikçi listesi SUPPLIER_MANAGE ister, rampa yöneticisi de
+  // revize edebilir. Backend süre değiştiğinde her iki limiti de doğrular.
+  const categoryList = productCategories.useList(activeFacilityId);
 
   if (detail.isLoading) return <Screen scroll={false}><LoadingState /></Screen>;
   if (detail.isError || !detail.data)
@@ -56,6 +64,17 @@ export default function AdminAppointmentDetail() {
 
   const a = detail.data;
   const allowed = a.allowed_actions;
+
+  const reviseCategory =
+    (categoryList.data ?? []).find((c) => c.id === a.product_category_id) ?? null;
+  const reviseCategoryRange = reviseCategory ? resolveDurationRange(reviseCategory) : null;
+  // Mevcut süre listede değilse (limitler sonradan daraltıldı) yine de
+  // gösterilir; böylece "süreyi değiştirmeden" kaydetmek mümkün kalır.
+  const reviseDurationOptions =
+    reviseCategoryRange && !reviseCategoryRange.options.includes(a.duration_minutes)
+      ? [...reviseCategoryRange.options, a.duration_minutes].sort((x, y) => x - y)
+      : (reviseCategoryRange?.options ?? []);
+
   const isBusy =
     actions.approve.isPending ||
     actions.reject.isPending ||
@@ -414,7 +433,7 @@ export default function AdminAppointmentDetail() {
             <View style={{ gap: 8 }}>
               <Text style={{ color: colors.text, fontSize: 14, fontWeight: "500" }}>Süre</Text>
               <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
-                {DURATIONS.map((d) => (
+                {reviseDurationOptions.map((d) => (
                   <Chip
                     key={d}
                     label={`${d} dk`}
@@ -423,6 +442,12 @@ export default function AdminAppointmentDetail() {
                   />
                 ))}
               </View>
+              {reviseCategoryRange && (
+                <Text style={{ color: colors.mutedText, fontSize: 12 }}>
+                  Kategori aralığı:{" "}
+                  {formatDurationRange(reviseCategoryRange.min, reviseCategoryRange.max)}
+                </Text>
+              )}
             </View>
             <Field
               label="Revizyon Notu (opsiyonel)"

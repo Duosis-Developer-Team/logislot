@@ -236,12 +236,14 @@ async def seed_data(db) -> dict:
         tenant_id=tenant.id, facility_id=facility.id,
         name="Soguk Zincir", display_name="Soguk Zincir (Et, Donuk, Sut)",
         min_block_minutes=60,  # kalite kontrol dahil
+        max_block_minutes=120,  # sogutmali kasa bu sureden uzun acik kalmamali
         default_vehicle_category_id=vc_frigo.id,
     )
     pc_unlu = ProductCategory(
         tenant_id=tenant.id, facility_id=facility.id,
         name="Unlu Mamul Hammaddesi", display_name="Unlu Mamul Hammaddesi",
         min_block_minutes=45,
+        max_block_minutes=180,
         default_vehicle_category_id=vc_tir.id,
     )
     pc_ambalaj = ProductCategory(
@@ -254,6 +256,7 @@ async def seed_data(db) -> dict:
         tenant_id=tenant.id, facility_id=facility.id,
         name="Genel", display_name="Genel",
         min_block_minutes=30,
+        # max_block_minutes bilerek NULL: "ust sinir yok" durumunun ornegi.
         default_vehicle_category_id=vc_kamyonet.id,
     )
     db.add_all([pc_soguk, pc_unlu, pc_ambalaj, pc_genel])

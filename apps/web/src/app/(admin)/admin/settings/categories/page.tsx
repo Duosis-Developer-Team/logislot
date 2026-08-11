@@ -22,16 +22,34 @@ import { productCategories, vehicleCategories } from "@/lib/api/resources";
 import type { ProductCategoryDto } from "@/lib/api/types";
 import { useSession } from "@/lib/auth/session";
 
-const formSchema = z.object({
-  name: z.string().min(1, "Ad zorunlu"),
-  display_name: z.string().min(1, "Görünen ad zorunlu"),
-  description: z.string().optional(),
-  min_block_minutes: z.coerce
-    .number({ invalid_type_error: "Sayı girin" })
-    .int()
-    .positive("Pozitif olmalı"),
-  default_vehicle_category_id: z.string().optional(),
-});
+// Backend ile ayni sinir: app/schemas/config.py -> MAX_BLOCK_MINUTES_CAP
+const MAX_BLOCK_MINUTES_CAP = 1440;
+
+const formSchema = z
+  .object({
+    name: z.string().min(1, "Ad zorunlu"),
+    display_name: z.string().min(1, "Görünen ad zorunlu"),
+    description: z.string().optional(),
+    min_block_minutes: z.coerce
+      .number({ invalid_type_error: "Sayı girin" })
+      .int()
+      .positive("Pozitif olmalı")
+      .max(MAX_BLOCK_MINUTES_CAP, "En fazla 1440 dk (24 saat)"),
+    // Boş bırakılabilir: "üst sınır yok" anlamına gelir.
+    max_block_minutes: z.union([
+      z.literal(""),
+      z.coerce
+        .number({ invalid_type_error: "Sayı girin" })
+        .int()
+        .positive("Pozitif olmalı")
+        .max(MAX_BLOCK_MINUTES_CAP, "En fazla 1440 dk (24 saat)"),
+    ]),
+    default_vehicle_category_id: z.string().optional(),
+  })
+  .refine(
+    (v) => v.max_block_minutes === "" || v.max_block_minutes >= v.min_block_minutes,
+    { path: ["max_block_minutes"], message: "Maksimum, minimumdan küçük olamaz" },
+  );
 
 type FormValues = z.infer<typeof formSchema>;
 
@@ -61,6 +79,7 @@ export default function CategoriesPage() {
       display_name: "",
       description: "",
       min_block_minutes: 30,
+      max_block_minutes: "",
       default_vehicle_category_id: "",
     });
     setEditActive(true);
@@ -74,6 +93,7 @@ export default function CategoriesPage() {
       display_name: row.display_name,
       description: row.description ?? "",
       min_block_minutes: row.min_block_minutes,
+      max_block_minutes: row.max_block_minutes ?? "",
       default_vehicle_category_id: row.default_vehicle_category_id ?? "",
     });
     setEditActive(row.is_active);
@@ -86,6 +106,8 @@ export default function CategoriesPage() {
     const body = {
       ...values,
       description: values.description || null,
+      // Bos deger = ust siniri KALDIR; backend null'i bilerek kabul eder.
+      max_block_minutes: values.max_block_minutes === "" ? null : values.max_block_minutes,
       default_vehicle_category_id: values.default_vehicle_category_id || null,
       is_active: editActive,
     };
@@ -123,7 +145,7 @@ export default function CategoriesPage() {
   return (
     <ConfigPageShell
       title="Ürün Kategorileri"
-      description="Minimum blokaj süresi ve varsayılan araç kategorisi randevu uygunluğunu doğrudan etkiler."
+      description="Blokaj süresi aralığı ve varsayılan araç kategorisi randevu uygunluğunu doğrudan etkiler."
       createLabel="Yeni Kategori"
       onCreate={openCreate}
       search={search}
@@ -149,7 +171,7 @@ export default function CategoriesPage() {
             <TR>
               <TH>Ad</TH>
               <TH>Görünen Ad</TH>
-              <TH>Min. Blokaj</TH>
+              <TH>Blokaj Süresi</TH>
               <TH>Varsayılan Araç</TH>
               <TH>Durum</TH>
               <TH className="text-right">İşlem</TH>
@@ -160,7 +182,11 @@ export default function CategoriesPage() {
               <TR key={row.id}>
                 <TD className="font-medium">{row.name}</TD>
                 <TD>{row.display_name}</TD>
-                <TD>{row.min_block_minutes} dk</TD>
+                <TD>
+                  {row.max_block_minutes == null
+                    ? `min ${row.min_block_minutes} dk`
+                    : `${row.min_block_minutes}–${row.max_block_minutes} dk`}
+                </TD>
                 <TD>{vehicleName(row.default_vehicle_category_id)}</TD>
                 <TD>
                   <ActiveBadge active={row.is_active} />
@@ -226,21 +252,43 @@ export default function CategoriesPage() {
               </p>
             </div>
             <div>
-              <Label>Varsayılan Araç Kategorisi</Label>
-              <Select {...form.register("default_vehicle_category_id")}>
-                <option value="">— Seçilmedi —</option>
-                {(vehicles.data ?? [])
-                  .filter((v) => v.is_active)
-                  .map((v) => (
-                    <option key={v.id} value={v.id}>
-                      {v.display_name}
-                    </option>
-                  ))}
-              </Select>
+              <Label>Maks. Blokaj Süresi (dk)</Label>
+              <Input
+                type="number"
+                min={1}
+                placeholder="Sınırsız"
+                {...form.register("max_block_minutes")}
+              />
+              {form.formState.errors.max_block_minutes && (
+                <p className="mt-1 text-xs text-destructive">
+                  {form.formState.errors.max_block_minutes.message}
+                </p>
+              )}
               <p className="mt-1 text-xs text-muted-foreground">
-                Sihirbazda araç adımı bu değerle önceden doldurulur.
+                Boş bırakılırsa üst sınır uygulanmaz.
               </p>
             </div>
+          </div>
+          <div className="rounded-lg border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+            Randevu oluştururken seçilebilen süreler bu aralıkla sınırlanır. Tedarikçi
+            kartında ayrıca bir limit tanımlıysa, iki aralığın <strong>kesişimi</strong>{" "}
+            uygulanır.
+          </div>
+          <div>
+            <Label>Varsayılan Araç Kategorisi</Label>
+            <Select {...form.register("default_vehicle_category_id")}>
+              <option value="">— Seçilmedi —</option>
+              {(vehicles.data ?? [])
+                .filter((v) => v.is_active)
+                .map((v) => (
+                  <option key={v.id} value={v.id}>
+                    {v.display_name}
+                  </option>
+                ))}
+            </Select>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Sihirbazda araç adımı bu değerle önceden doldurulur.
+            </p>
           </div>
           {drawer.editing && (
             <Switch checked={editActive} onChange={setEditActive} label="Aktif" />

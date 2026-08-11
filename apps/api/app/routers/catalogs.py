@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_db
 from app.core.enums import ActorType
+from app.core.errors import ApiError
 from app.core.permissions import TenantPermission
 from app.core.responses import ok
 from app.models import ProductCategory, VehicleCategory
@@ -39,6 +40,7 @@ PC_AUDIT_FIELDS = [
     "display_name",
     "description",
     "min_block_minutes",
+    "max_block_minutes",
     "default_vehicle_category_id",
     "is_active",
 ]
@@ -161,6 +163,14 @@ async def patch_category(
         )
     if "default_vehicle_category_id" in changes:
         await _check_default_vehicle(db, ctx, changes["default_vehicle_category_id"])
+    # min/max tutarliligi SONUC durum uzerinden dogrulanir: tek alan
+    # guncellendiginde bile aralik gecersiz hale gelmemeli.
+    final_min = changes.get("min_block_minutes", obj.min_block_minutes)
+    final_max = changes.get("max_block_minutes", obj.max_block_minutes)
+    if final_min is not None and final_max is not None and final_max < final_min:
+        raise ApiError(
+            "VALIDATION_ERROR", "max_block_minutes, min_block_minutes'ten kucuk olamaz", 422
+        )
     before = snapshot(obj, PC_AUDIT_FIELDS)
     for key, value in changes.items():
         setattr(obj, key, value)

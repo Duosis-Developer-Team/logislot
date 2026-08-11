@@ -108,6 +108,99 @@ async def test_product_category_validation(client, seeded, session_maker):
     assert response.json()["error"]["code"] == "INVALID_REFERENCE"
 
 
+async def test_product_category_block_range(client, seeded):
+    """Kategori bazli sure araligi: max opsiyonel, ama min'in altina inemez."""
+    headers = await admin(client)
+    base = f"/facilities/{seeded['facility'].id}/categories"
+
+    # max < min -> create reddedilir
+    response = await client.post(
+        base, headers=headers,
+        json={
+            "name": "Ters Aralik", "display_name": "Ters",
+            "min_block_minutes": 60, "max_block_minutes": 30,
+        },
+    )
+    assert response.status_code == 422
+
+    # gecerli aralik
+    response = await client.post(
+        base, headers=headers,
+        json={
+            "name": "Et", "display_name": "Et Urunleri",
+            "min_block_minutes": 30, "max_block_minutes": 120,
+        },
+    )
+    assert response.status_code == 200, response.text
+    created = response.json()["data"]
+    assert created["max_block_minutes"] == 120
+
+    # SONUC durum kontrolu: tek basina min yukseltmek araligi bozamaz
+    response = await client.patch(
+        f"{base}/{created['id']}", headers=headers, json={"min_block_minutes": 150}
+    )
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "VALIDATION_ERROR"
+
+    # ...ve tek basina max dusurmek de bozamaz
+    response = await client.patch(
+        f"{base}/{created['id']}", headers=headers, json={"max_block_minutes": 15}
+    )
+    assert response.status_code == 422
+
+    # max = null -> ust sinir kaldirilir (geriye uyumlu davranis)
+    response = await client.patch(
+        f"{base}/{created['id']}", headers=headers, json={"max_block_minutes": None}
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["data"]["max_block_minutes"] is None
+
+    # ust sinir yokken min serbestce yukseltilebilir
+    response = await client.patch(
+        f"{base}/{created['id']}", headers=headers, json={"min_block_minutes": 150}
+    )
+    assert response.status_code == 200
+
+
+async def test_block_minutes_reject_out_of_range_values(client, seeded):
+    """Tamsayi tasmasi 500 yerine temiz 422 dondurmeli (kategori + tedarikci)."""
+    headers = await admin(client)
+    fid = seeded["facility"].id
+
+    for value in (1441, 2_147_483_648, 10**30):
+        response = await client.post(
+            f"/facilities/{fid}/categories",
+            headers=headers,
+            json={
+                "name": f"Asiri {value}", "display_name": "X",
+                "min_block_minutes": 30, "max_block_minutes": value,
+            },
+        )
+        assert response.status_code == 422, f"{value} icin 422 bekleniyordu"
+
+    response = await client.post(
+        f"/facilities/{fid}/suppliers",
+        headers=headers,
+        json={
+            "company_name": "Asiri Limit A.S.", "code": "SUP-CAP",
+            "min_block_minutes": 30, "max_block_minutes": 2_147_483_648,
+            "create_account": False,
+        },
+    )
+    assert response.status_code == 422
+
+
+async def test_product_category_max_block_defaults_to_null(client, seeded):
+    """Mevcut entegrasyonlar alani hic gondermezse davranis degismez."""
+    headers = await admin(client)
+    base = f"/facilities/{seeded['facility'].id}/categories"
+    response = await client.post(
+        base, headers=headers, json={"name": "Sinirsiz", "display_name": "Sinirsiz"}
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["data"]["max_block_minutes"] is None
+
+
 async def test_inactive_category_rejected_in_appointment_create(client, seeded):
     headers = await admin(client)
     fid = seeded["facility"].id

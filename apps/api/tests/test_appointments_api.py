@@ -227,3 +227,119 @@ async def test_availability_conflict_group_via_api(client, seeded):
         "DOCK_TIME_CONFLICT",
         "DOCK_CONFLICT_GROUP_BLOCKED",
     )
+
+
+# ---------- kategori bazli sure araligi (min_block / max_block) ----------
+
+
+async def test_category_max_block_rejects_longer_appointment(client, seeded):
+    """Kategori ust siniri, tedarikci limitinden DAHA dar oldugunda o gecerlidir.
+
+    Seed: Soguk Zincir 60-120 dk, tedarikci limiti 60-180 dk.
+    """
+    token = await login(client, "/auth/supplier-login", "tedarikci@marmarasoguk.com")
+    day = next_weekday()
+    response = await client.post(
+        "/supplier/appointments",
+        headers=auth_headers(token),
+        json={
+            "product_category_id": str(seeded["product_categories"]["soguk"].id),
+            "product_name": "Donuk Et",
+            "quantity": 4,
+            "target_date": day.isoformat(),
+            "start_at": f"{day.isoformat()}T09:00:00+03:00",
+            "duration_minutes": 150,
+        },
+    )
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "DURATION_ABOVE_CATEGORY_MAXIMUM"
+
+
+async def test_category_without_max_block_is_unbounded(client, seeded):
+    """max NULL olan kategoride yalnizca tedarikci limiti gecerli kalir."""
+    token = await login(client, "/auth/supplier-login", "tedarikci@anadoluun.com")
+    day = next_weekday()
+    response = await client.post(
+        "/supplier/appointments",
+        headers=auth_headers(token),
+        json={
+            # "Genel" kategorisinde max_block_minutes NULL; sup_un limiti 30-120.
+            "product_category_id": str(seeded["product_categories"]["genel"].id),
+            "product_name": "Karisik Malzeme",
+            "quantity": 1,
+            "target_date": day.isoformat(),
+            "start_at": f"{day.isoformat()}T09:00:00+03:00",
+            "duration_minutes": 120,
+        },
+    )
+    assert response.status_code == 200, response.text
+
+
+async def test_revise_enforces_category_max_only_when_duration_changes(client, seeded):
+    """Limit sonradan daraltilsa bile mevcut randevunun SAATI tasinabilir.
+
+    Canli veri guvenligi: limit yalnizca yeni bir sure secildiginde uygulanir.
+    """
+    supplier_token = await login(
+        client, "/auth/supplier-login", "tedarikci@marmarasoguk.com"
+    )
+    day = next_weekday()
+    created = await client.post(
+        "/supplier/appointments",
+        headers=auth_headers(supplier_token),
+        json={
+            "product_category_id": str(seeded["product_categories"]["soguk"].id),
+            "product_name": "Dondurma",
+            "quantity": 2,
+            "target_date": day.isoformat(),
+            "start_at": f"{day.isoformat()}T09:00:00+03:00",
+            "duration_minutes": 120,
+        },
+    )
+    assert created.status_code == 200, created.text
+    appointment_id = created.json()["data"]["id"]
+    fid = seeded["facility"].id
+    admin_token = auth_headers(await login(client, "/auth/login", "admin@cakesbakes.com"))
+
+    # Yonetici kategori araligini 60-120 -> 60-60 daraltir (mevcut randevu 120 dk).
+    patched = await client.patch(
+        f"/facilities/{fid}/categories/{seeded['product_categories']['soguk'].id}",
+        headers=admin_token,
+        json={"max_block_minutes": 60},
+    )
+    assert patched.status_code == 200, patched.text
+
+    base = f"/facilities/{fid}/appointments/{appointment_id}"
+
+    # 1) Sure DEGISMEDEN saat tasima -> hala mumkun (mevcut randevular kilitlenmez)
+    response = await client.post(
+        f"{base}/revise",
+        headers=admin_token,
+        json={"new_start_at": f"{day.isoformat()}T14:00:00+03:00"},
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["data"]["duration_minutes"] == 120
+
+    # 2) Yeni sure secildiginde guncel limit uygulanir
+    response = await client.post(
+        f"{base}/revise",
+        headers=admin_token,
+        json={
+            "new_start_at": f"{day.isoformat()}T15:00:00+03:00",
+            "new_duration_minutes": 90,
+        },
+    )
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "DURATION_ABOVE_CATEGORY_MAXIMUM"
+
+    # 3) Limite uyan yeni sure kabul edilir
+    response = await client.post(
+        f"{base}/revise",
+        headers=admin_token,
+        json={
+            "new_start_at": f"{day.isoformat()}T15:00:00+03:00",
+            "new_duration_minutes": 60,
+        },
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["data"]["duration_minutes"] == 60

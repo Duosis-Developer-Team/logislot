@@ -31,6 +31,8 @@ export interface ProductCategoryDto {
   display_name: string;
   description: string | null;
   min_block_minutes: number;
+  /** null = kategori bazlı üst sınır yok; yalnızca tedarikçi limiti geçerli. */
+  max_block_minutes: number | null;
   default_vehicle_category_id: string | null;
   is_active: boolean;
 }

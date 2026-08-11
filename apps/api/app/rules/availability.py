@@ -60,15 +60,24 @@ class AvailabilityService:
 
     # ---------- sert kural 1: talep dogrulama ----------
 
-    def validate_request(self) -> HardRuleResult:
-        ctx = self.ctx
+    def validate_duration(self) -> HardRuleResult:
+        """Sure limitleri: kategori araligi + tedarikci araligi.
 
-        allowed_ids = {c.id for c in ctx.supplier.allowed_product_categories}
-        if ctx.product_category.id not in allowed_ids:
-            return HardRuleResult.failed(HardRuleCode.SUPPLIER_CATEGORY_NOT_ALLOWED)
+        `validate_request`ten AYRI durur cunku revize akisi yalnizca bu
+        kismi yeniden dogrular — kota/izin kontrolleri mevcut bir randevunun
+        saatini tasimayi engellememelidir.
+        """
+        ctx = self.ctx
 
         if ctx.duration_minutes < ctx.product_category.min_block_minutes:
             return HardRuleResult.failed(HardRuleCode.DURATION_BELOW_CATEGORY_MINIMUM)
+
+        # Kategori ust siniri OPSIYONEL: None = sinir yok (eski davranis).
+        if (
+            ctx.product_category.max_block_minutes is not None
+            and ctx.duration_minutes > ctx.product_category.max_block_minutes
+        ):
+            return HardRuleResult.failed(HardRuleCode.DURATION_ABOVE_CATEGORY_MAXIMUM)
 
         if (
             ctx.supplier.min_block_minutes is not None
@@ -78,6 +87,19 @@ class AvailabilityService:
             and ctx.duration_minutes > ctx.supplier.max_block_minutes
         ):
             return HardRuleResult.failed(HardRuleCode.DURATION_OUTSIDE_SUPPLIER_LIMITS)
+
+        return HardRuleResult.passed()
+
+    def validate_request(self) -> HardRuleResult:
+        ctx = self.ctx
+
+        allowed_ids = {c.id for c in ctx.supplier.allowed_product_categories}
+        if ctx.product_category.id not in allowed_ids:
+            return HardRuleResult.failed(HardRuleCode.SUPPLIER_CATEGORY_NOT_ALLOWED)
+
+        duration_check = self.validate_duration()
+        if not duration_check.ok:
+            return duration_check
 
         if (
             ctx.supplier.weekly_quota is not None

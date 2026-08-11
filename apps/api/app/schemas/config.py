@@ -36,6 +36,18 @@ def _validate_working_hours(value: dict[str, Any] | None) -> dict[str, Any] | No
     return value
 
 
+def _validate_block_limits(min_block: int | None, max_block: int | None) -> None:
+    """Hem tedarikci hem urun kategorisi ayni min/max sozlesmesini kullanir."""
+    if min_block is not None and max_block is not None and max_block < min_block:
+        raise ValueError("max_block_minutes, min_block_minutes'ten kucuk olamaz")
+
+
+# Blokaj sureleri icin makul ust sinir (24 saat). Motor rampa penceresini GUN
+# bazinda hesapladigi icin bundan uzun bir randevu zaten planlanamaz; sinir ayni
+# zamanda tamsayi tasmasinin 500'e donusmesini engeller.
+MAX_BLOCK_MINUTES_CAP = 1440
+
+
 # ---------- Product Category ----------
 
 
@@ -43,16 +55,26 @@ class ProductCategoryCreate(BaseModel):
     name: str = Field(min_length=1, max_length=100)
     display_name: str = Field(min_length=1, max_length=150)
     description: str | None = None
-    min_block_minutes: int = Field(default=30, gt=0)
+    min_block_minutes: int = Field(default=30, gt=0, le=MAX_BLOCK_MINUTES_CAP)
+    # None = kategori bazli ust sinir yok (yalnizca tedarikci limitleri gecerli).
+    max_block_minutes: int | None = Field(default=None, gt=0, le=MAX_BLOCK_MINUTES_CAP)
     default_vehicle_category_id: uuid.UUID | None = None
     is_active: bool = True
+
+    @model_validator(mode="after")
+    def check_limits(self) -> "ProductCategoryCreate":
+        _validate_block_limits(self.min_block_minutes, self.max_block_minutes)
+        return self
 
 
 class ProductCategoryPatch(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=100)
     display_name: str | None = Field(default=None, min_length=1, max_length=150)
     description: str | None = None
-    min_block_minutes: int | None = Field(default=None, gt=0)
+    min_block_minutes: int | None = Field(default=None, gt=0, le=MAX_BLOCK_MINUTES_CAP)
+    # Patch'te None ANLAMLI bir degerdir (ust siniri kaldirir); tutarlilik
+    # kontrolu bu yuzden router'da SONUC durumu uzerinden yapilir.
+    max_block_minutes: int | None = Field(default=None, gt=0, le=MAX_BLOCK_MINUTES_CAP)
     default_vehicle_category_id: uuid.UUID | None = None
     is_active: bool | None = None
 
@@ -180,11 +202,6 @@ class OverridePatch(BaseModel):
 # ---------- Supplier ----------
 
 
-def _validate_block_limits(min_block: int | None, max_block: int | None) -> None:
-    if min_block is not None and max_block is not None and max_block < min_block:
-        raise ValueError("max_block_minutes, min_block_minutes'ten kucuk olamaz")
-
-
 class SupplierCreate(BaseModel):
     company_name: str = Field(min_length=1, max_length=255)
     code: str = Field(min_length=1, max_length=50)
@@ -193,8 +210,8 @@ class SupplierCreate(BaseModel):
     contact_email: EmailStr | None = None
     contact_phone: str | None = None
     allowed_product_category_ids: list[uuid.UUID] = []
-    min_block_minutes: int | None = Field(default=None, gt=0)
-    max_block_minutes: int | None = Field(default=None, gt=0)
+    min_block_minutes: int | None = Field(default=None, gt=0, le=MAX_BLOCK_MINUTES_CAP)
+    max_block_minutes: int | None = Field(default=None, gt=0, le=MAX_BLOCK_MINUTES_CAP)
     weekly_quota: int | None = Field(default=None, ge=0)
     monthly_quota: int | None = Field(default=None, ge=0)
     auto_approval_enabled: bool = False
@@ -219,8 +236,8 @@ class SupplierPatch(BaseModel):
     contact_email: EmailStr | None = None
     contact_phone: str | None = None
     allowed_product_category_ids: list[uuid.UUID] | None = None
-    min_block_minutes: int | None = Field(default=None, gt=0)
-    max_block_minutes: int | None = Field(default=None, gt=0)
+    min_block_minutes: int | None = Field(default=None, gt=0, le=MAX_BLOCK_MINUTES_CAP)
+    max_block_minutes: int | None = Field(default=None, gt=0, le=MAX_BLOCK_MINUTES_CAP)
     weekly_quota: int | None = Field(default=None, ge=0)
     monthly_quota: int | None = Field(default=None, ge=0)
     auto_approval_enabled: bool | None = None
