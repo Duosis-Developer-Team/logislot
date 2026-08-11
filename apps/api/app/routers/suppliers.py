@@ -16,7 +16,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.core.db import get_db
+from app.core.db import get_control_db, get_db
 from app.core.enums import ActorType, SupplierStatus, UserStatus
 from app.core.errors import ApiError
 from app.core.permissions import TenantPermission
@@ -45,6 +45,7 @@ from app.services.notification_preferences import (
     resolve_supplier_policy,
 )
 from app.tenancy.deps import FacilityContext, require_facility_permissions
+from app.tenancy.directory import claim_email_once
 
 router = APIRouter(prefix="/facilities/{facility_id}", tags=["suppliers"])
 
@@ -143,13 +144,23 @@ async def _create_account(
     supplier: Supplier,
     email: str,
     password: str,
+    control_db: AsyncSession,
 ) -> SupplierUser:
     await ensure_unique_value(
         db, SupplierUser, "email", email,
         code="DUPLICATE_EMAIL",
         message="Bu e-posta baska bir portal hesabinda kullaniliyor",
     )
+    account_id = uuid.uuid4()
+    await claim_email_once(
+        control_db,
+        principal_id=account_id,
+        user_type="supplier",
+        email=email,
+        tenant_id=ctx.tenant_id,
+    )
     account = SupplierUser(
+        id=account_id,
         supplier_id=supplier.id,
         name=f"{supplier.company_name} Portal",
         email=email,
@@ -190,6 +201,7 @@ async def create_supplier(
         require_facility_permissions(TenantPermission.SUPPLIER_MANAGE)
     ),
     db: AsyncSession = Depends(get_db),
+    control_db: AsyncSession = Depends(get_control_db),
 ):
     await ensure_unique_value(
         db, Supplier, "code", body.code,
@@ -233,6 +245,7 @@ async def create_supplier(
         await _create_account(
             db, ctx, supplier, str(account_email),
             body.account_password or DEFAULT_ACCOUNT_PASSWORD,
+            control_db,
         )
 
     _audit(
@@ -343,11 +356,12 @@ async def create_supplier_account(
         require_facility_permissions(TenantPermission.SUPPLIER_MANAGE)
     ),
     db: AsyncSession = Depends(get_db),
+    control_db: AsyncSession = Depends(get_control_db),
 ):
     supplier = await _load_supplier(db, ctx, supplier_id)
     if supplier.users:
         raise ApiError("ACCOUNT_EXISTS", "Bu tedarikcinin zaten bir portal hesabi var", 409)
-    await _create_account(db, ctx, supplier, str(body.email), body.password)
+    await _create_account(db, ctx, supplier, str(body.email), body.password, control_db)
     await db.commit()
     supplier = await _load_supplier(db, ctx, supplier_id)
     return ok(_supplier_out(supplier))

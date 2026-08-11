@@ -6,6 +6,20 @@ import sqlalchemy as sa
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, declared_attr, mapped_column
 
+#: Control-plane (platform) tablolarinin SEMBOLIK sema adi.
+#:
+#: Gercek bir Postgres semasi degildir; calisma aninda her baglantiya
+#: verilen ``schema_translate_map`` bunu gercek semaya cevirir
+#: (uretimde ``public``, testlerde ``None``). Boylece tek bir model
+#: tanimi hem tenant semalarinda hem control-plane'de kullanilabilir.
+#:
+#: DUZLEM AYRIMI:
+#:   - ``schema=CONTROL_SCHEMA`` -> tum tenant'lar icin ORTAK tablo
+#:     (tenants, plans, platform_users, tenant_datastores, ...)
+#:   - ``schema=None``           -> her tenant'in KENDI semasindaki tablo
+#:     (facilities, appointments, docks, tenant_users, ...)
+CONTROL_SCHEMA = "control"
+
 NAMING_CONVENTION = {
     "ix": "ix_%(column_0_label)s",
     "uq": "uq_%(table_name)s_%(column_0_name)s",
@@ -49,13 +63,18 @@ class TimestampMixin:
 
 
 class FacilityScopedMixin:
-    """SaaS izolasyonunun cekirdegi: her operasyonel tablo tenant + facility tasir."""
+    """Operasyonel tablolarin tenant + facility tasiyicisi.
+
+    Not: izolasyonun BIRINCIL mekanizmasi artik bu kolonlar degil, tablonun
+    hangi semada durdugudur (bkz. CONTROL_SCHEMA). tenant_id ikinci savunma
+    hatti ve control-plane'e referans olarak korunur.
+    """
 
     @declared_attr
     def tenant_id(cls) -> Mapped[uuid.UUID]:  # noqa: N805
         return mapped_column(
             sa.Uuid,
-            sa.ForeignKey("tenants.id", ondelete="CASCADE"),
+            sa.ForeignKey(f"{CONTROL_SCHEMA}.tenants.id", ondelete="CASCADE"),
             nullable=False,
             index=True,
         )

@@ -9,7 +9,14 @@ import sqlalchemy as sa
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.enums import UserStatus
-from app.models.base import Base, JsonVariant, TimestampMixin, UUIDPkMixin, str_enum
+from app.models.base import (
+    CONTROL_SCHEMA,
+    Base,
+    JsonVariant,
+    TimestampMixin,
+    UUIDPkMixin,
+    str_enum,
+)
 
 platform_user_roles = sa.Table(
     "platform_user_roles",
@@ -17,20 +24,22 @@ platform_user_roles = sa.Table(
     sa.Column(
         "platform_user_id",
         sa.Uuid,
-        sa.ForeignKey("platform_users.id", ondelete="CASCADE"),
+        sa.ForeignKey(f"{CONTROL_SCHEMA}.platform_users.id", ondelete="CASCADE"),
         primary_key=True,
     ),
     sa.Column(
         "platform_role_id",
         sa.Uuid,
-        sa.ForeignKey("platform_roles.id", ondelete="CASCADE"),
+        sa.ForeignKey(f"{CONTROL_SCHEMA}.platform_roles.id", ondelete="CASCADE"),
         primary_key=True,
     ),
+    schema=CONTROL_SCHEMA,
 )
 
 
 class PlatformRole(Base, UUIDPkMixin, TimestampMixin):
     __tablename__ = "platform_roles"
+    __table_args__ = {"schema": CONTROL_SCHEMA}
 
     name: Mapped[str] = mapped_column(sa.String(100), unique=True)
     permissions_json: Mapped[list[str]] = mapped_column(JsonVariant, default=list)
@@ -38,6 +47,7 @@ class PlatformRole(Base, UUIDPkMixin, TimestampMixin):
 
 class PlatformUser(Base, UUIDPkMixin, TimestampMixin):
     __tablename__ = "platform_users"
+    __table_args__ = {"schema": CONTROL_SCHEMA}
 
     name: Mapped[str] = mapped_column(sa.String(255))
     email: Mapped[str] = mapped_column(sa.String(255), unique=True, index=True)

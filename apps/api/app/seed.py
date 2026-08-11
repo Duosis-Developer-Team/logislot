@@ -5,12 +5,13 @@ Calistirma: python -m app.seed  (idempotent: tenant varsa dokunmaz)
 """
 
 import asyncio
+import uuid
 from datetime import datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
 from sqlalchemy import select
 
-from app.core.db import SessionLocal
+from app.core.db import control_session, session_scope
 from app.core.enums import (
     AppointmentStatus,
     CargoWindow,
@@ -61,8 +62,14 @@ WORKING_HOURS = {
 DEMO_PASSWORD = "Demo123!"
 
 
-async def seed_data(db) -> dict:
-    """Demo evrenini verilen session'a kurar; testler de bunu kullanir."""
+async def seed_data(db, tenant_id: uuid.UUID | None = None) -> dict:
+    """Demo evrenini verilen session'a kurar; testler de bunu kullanir.
+
+    tenant_id verilirse tenant satiri ONCEDEN yaratilmis demektir (canli
+    kurulumda once tenant, sonra semasi acilir; geri kalan veri o semaya
+    yazilir). Verilmezse — testlerdeki gibi tek veritabanli senaryo —
+    tenant burada yaratilir.
+    """
     # --- Planlar: politika kabi, faturalama motoru degil ---
     dimensions = [
         "appointments_created",
@@ -126,16 +133,22 @@ async def seed_data(db) -> dict:
     await db.flush()
 
     # --- Tenant + Facility ---
-    tenant = Tenant(
-        commercial_name="BTA Uretim A.S.",
-        display_name="BTA / Cakes & Bakes",
-        slug="bta",
-        status=TenantStatus.active,
-        primary_contact_name="BTA Operasyon",
-        primary_contact_email="operasyon@bta.example.com",
-        assigned_plan_id=plan.id,
-    )
-    db.add(tenant)
+    if tenant_id is None:
+        tenant = Tenant(
+            commercial_name="BTA Uretim A.S.",
+            display_name="BTA / Cakes & Bakes",
+            slug="bta",
+            status=TenantStatus.active,
+            primary_contact_name="BTA Operasyon",
+            primary_contact_email="operasyon@bta.example.com",
+            assigned_plan_id=plan.id,
+        )
+        db.add(tenant)
+    else:
+        tenant = (
+            await db.execute(select(Tenant).where(Tenant.id == tenant_id))
+        ).scalar_one()
+        tenant.assigned_plan_id = plan.id
     await db.flush()
 
     facility = Facility(
@@ -646,20 +659,71 @@ async def seed_data(db) -> dict:
 
 
 async def seed() -> None:
-    async with SessionLocal() as db:
+    """Canli kurulum icin seed: tenant + KENDI SEMASI + demo veri.
+
+    Sira onemlidir — tenant satiri olmadan sema acilamaz (FK), sema
+    olmadan da operasyonel veri yazilamaz.
+    """
+    from app.tenancy.provisioning import location_of, provision_tenant
+
+    async with control_session() as db:
         existing = await db.execute(select(Tenant).where(Tenant.slug == "bta"))
         if existing.scalar_one_or_none() is not None:
             print("Seed atlandi: 'bta' tenant'i zaten mevcut.")
             return
-        await seed_data(db)
-        print("Seed tamamlandi.")
-        print(f"  Platform : admin@logislot.com / {DEMO_PASSWORD}")
-        print(f"  Tenant   : admin@cakesbakes.com / {DEMO_PASSWORD}")
-        print(f"             rampa@cakesbakes.com / {DEMO_PASSWORD}")
-        print(f"             izleyici@cakesbakes.com / {DEMO_PASSWORD}")
-        print(f"  Supplier : tedarikci@anadoluun.com / {DEMO_PASSWORD} (manuel onay)")
-        print(f"             tedarikci@marmarasoguk.com / {DEMO_PASSWORD} (otomatik onayli)")
-        print(f"             tedarikci@hizlikargo.com / {DEMO_PASSWORD}")
+
+    tenant_id = uuid.uuid4()
+    async with control_session() as db:
+        db.add(
+            Tenant(
+                id=tenant_id,
+                commercial_name="BTA Uretim A.S.",
+                display_name="BTA / Cakes & Bakes",
+                slug="bta",
+                status=TenantStatus.active,
+                primary_contact_name="BTA Operasyon",
+                primary_contact_email="operasyon@bta.example.com",
+            )
+        )
+        await db.commit()
+
+    async with control_session() as db:
+        datastore = await provision_tenant(db, tenant_id)
+    print(f"  Veri alani: {datastore.schema_name}")
+
+    async with session_scope(location_of(datastore)) as db:
+        refs = await seed_data(db, tenant_id=tenant_id)
+
+    # Login yonlendirmesi icin dizin kayitlari
+    async with control_session() as db:
+        await register_seeded_principals(db, refs, tenant_id)
+        await db.commit()
+
+    print("Seed tamamlandi.")
+    print(f"  Platform : admin@logislot.com / {DEMO_PASSWORD}")
+    print(f"  Tenant   : admin@cakesbakes.com / {DEMO_PASSWORD}")
+    print(f"             rampa@cakesbakes.com / {DEMO_PASSWORD}")
+    print(f"             izleyici@cakesbakes.com / {DEMO_PASSWORD}")
+    print(f"  Supplier : tedarikci@anadoluun.com / {DEMO_PASSWORD} (manuel onay)")
+    print(f"             tedarikci@marmarasoguk.com / {DEMO_PASSWORD} (otomatik onayli)")
+    print(f"             tedarikci@hizlikargo.com / {DEMO_PASSWORD}")
+
+
+async def register_seeded_principals(control_db, refs: dict, tenant_id) -> None:
+    """Seed'lenen tenant/tedarikci hesaplarini login dizinine yazar."""
+    from app.tenancy.directory import ensure_registered
+
+    for user in refs["users"].values():
+        await ensure_registered(
+            control_db, principal_id=user.id, user_type="tenant",
+            email=user.email, tenant_id=tenant_id,
+        )
+    for supplier in refs["suppliers"].values():
+        for account in supplier.users:
+            await ensure_registered(
+                control_db, principal_id=account.id, user_type="supplier",
+                email=account.email, tenant_id=tenant_id,
+            )
 
 
 if __name__ == "__main__":

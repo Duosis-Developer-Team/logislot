@@ -20,7 +20,7 @@ from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.core.db import get_db
+from app.core.db import get_control_db, get_db
 from app.core.enums import ActorType, UserStatus
 from app.core.errors import ApiError, NotFoundError
 from app.core.permissions import TenantPermission
@@ -31,6 +31,7 @@ from app.services.audit import record_audit
 from app.services.auth_sessions import revoke_user_sessions
 from app.services.config import ensure_unique_value, load_scoped_refs
 from app.tenancy.deps import FacilityContext, require_facility_permissions
+from app.tenancy.directory import claim_email
 
 router = APIRouter(prefix="/facilities/{facility_id}", tags=["users"])
 
@@ -236,6 +237,7 @@ async def create_user(
     body: UserCreate,
     ctx: FacilityContext = Depends(require_facility_permissions(TenantPermission.USER_MANAGE)),
     db: AsyncSession = Depends(get_db),
+    control_db: AsyncSession = Depends(get_control_db),
 ):
     await ensure_unique_value(
         db, TenantUser, "email", str(body.email),
@@ -247,7 +249,11 @@ async def create_user(
             db, Dock, body.assigned_dock_ids, ctx.facility_id, "assigned_dock_ids"
         )
 
+    # id ONCE uretilir: dizin kaydi kullanicidan once alinir ve ikisinin
+    # ayni kimligi tasimasi gerekir (bkz. tenancy/directory.py).
+    user_id = uuid.uuid4()
     user = TenantUser(
+        id=user_id,
         tenant_id=ctx.tenant_id,
         name=body.name,
         email=str(body.email),
@@ -257,29 +263,37 @@ async def create_user(
         status=UserStatus.active if body.is_active else UserStatus.inactive,
         default_facility_id=ctx.facility_id,
     )
-    db.add(user)
-    await db.flush()
-    membership = FacilityMembership(
-        tenant_user_id=user.id,
+    async with claim_email(
+        control_db,
+        principal_id=user_id,
+        user_type="tenant",
+        email=str(body.email),
         tenant_id=ctx.tenant_id,
-        facility_id=ctx.facility_id,
-        roles=roles,
-        assigned_dock_ids=(
-            [str(d) for d in body.assigned_dock_ids] if body.assigned_dock_ids else None
-        ),
-    )
-    db.add(membership)
-    await db.flush()
-    _audit(
-        db, ctx,
-        action="user.create", entity_type="tenant_user", entity_id=user.id,
-        after={
-            "email": user.email,
-            "roles": [r.name for r in roles],
-            "assigned_dock_ids": membership.assigned_dock_ids,
-        },
-    )
-    await db.commit()
+    ) as claim:
+        db.add(user)
+        await db.flush()
+        membership = FacilityMembership(
+            tenant_user_id=user.id,
+            tenant_id=ctx.tenant_id,
+            facility_id=ctx.facility_id,
+            roles=roles,
+            assigned_dock_ids=(
+                [str(d) for d in body.assigned_dock_ids] if body.assigned_dock_ids else None
+            ),
+        )
+        db.add(membership)
+        await db.flush()
+        _audit(
+            db, ctx,
+            action="user.create", entity_type="tenant_user", entity_id=user.id,
+            after={
+                "email": user.email,
+                "roles": [r.name for r in roles],
+                "assigned_dock_ids": membership.assigned_dock_ids,
+            },
+        )
+        await db.commit()
+        claim.confirm()
     membership = await _membership_of(db, ctx, user.id)
     return ok(_user_out(membership))
 

@@ -546,10 +546,16 @@ async def test_scheduler_loop_survives_errors(monkeypatch):
 
     calls = {"n": 0}
 
-    async def bad_execute(db, job_name):
+    async def bad_execute(db, job_name, scope=""):
         calls["n"] += 1
         raise RuntimeError("boom")
 
+    # Scheduler artik her tenant veri alani icin ayri kosuyor; testte tek
+    # (control-plane) alan yeterli.
+    async def one_location():
+        return [scheduler.CONTROL_LOCATION]
+
+    monkeypatch.setattr(scheduler, "scheduler_locations", one_location)
     monkeypatch.setattr(scheduler, "execute_job", bad_execute)
     task = asyncio.create_task(scheduler._loop("email_retry", 0))
     await asyncio.sleep(0.05)

@@ -20,8 +20,9 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
-from app.core.db import SessionLocal
+from app.core.db import session_scope
 from app.core.enums import ActorType
+from app.core.tenancy_runtime import CONTROL_LOCATION, TenantLocation
 from app.maintenance.cleanup_notifications import cleanup_notifications
 from app.models import MaintenanceRun
 from app.services.audit import record_audit
@@ -33,13 +34,18 @@ JOB_EMAIL_RETRY = "email_retry"
 JOB_NOTIFICATION_CLEANUP = "notification_cleanup"
 
 
-async def try_job_lock(db: AsyncSession, job_name: str) -> bool:
-    """Transaction-scoped advisory lock; alinamazsa False (is atlanir)."""
+async def try_job_lock(db: AsyncSession, job_name: str, scope: str = "") -> bool:
+    """Transaction-scoped advisory lock; alinamazsa False (is atlanir).
+
+    Kilit anahtari TENANT BAZLIDIR: bir tenant'in isi kosarken baska bir
+    tenant'in ayni isi beklemez, ama ayni tenant+is cifti coklu instance'ta
+    yine tek kez kosar.
+    """
     if db.bind.dialect.name != "postgresql":
         return True
     result = await db.execute(
         text("SELECT pg_try_advisory_xact_lock(hashtext(:key))"),
-        {"key": f"logislot:scheduler:{job_name}"},
+        {"key": f"logislot:scheduler:{job_name}:{scope}"},
     )
     return bool(result.scalar_one())
 
@@ -71,10 +77,12 @@ WORKERS = {
 }
 
 
-async def execute_job(db: AsyncSession, job_name: str) -> MaintenanceRun:
+async def execute_job(
+    db: AsyncSession, job_name: str, scope: str = ""
+) -> MaintenanceRun:
     """Isi kilit altinda kosar ve sonucu maintenance_runs'a yazar."""
     started = datetime.now(UTC)
-    if not await try_job_lock(db, job_name):
+    if not await try_job_lock(db, job_name, scope):
         run = MaintenanceRun(
             job_name=job_name,
             started_at=started,
@@ -115,15 +123,40 @@ async def execute_job(db: AsyncSession, job_name: str) -> MaintenanceRun:
     return run
 
 
+async def scheduler_locations() -> list[TenantLocation]:
+    """Bakim islerinin kosacagi tum veri alanlari.
+
+    Her tenant'in bildirimleri/e-posta kuyrugu KENDI semasindadir, bu yuzden
+    isler tenant basina kosar. Control-plane de listeye dahildir: henuz
+    tasinmamis tenant'larin verisi orada durur (tasima bitince no-op olur).
+    """
+    from app.tenancy.migrations import ready_datastores
+
+    locations = [CONTROL_LOCATION]
+    for row in await ready_datastores():
+        locations.append(TenantLocation(schema=row.schema_name, dsn_alias=row.dsn_alias))
+    return locations
+
+
 async def _loop(job_name: str, interval_seconds: int) -> None:
     """Is hata alsa da yasamaya devam eden periyodik dongu."""
     logger.info("scheduler job '%s' basladi (aralik: %ss)", job_name, interval_seconds)
     while True:
         try:
-            async with SessionLocal() as db:
-                await execute_job(db, job_name)
-        except Exception:  # DB baglantisi vb. — dongu OLMEMELI
-            logger.exception("scheduler job '%s' kosulamadi; sonraki turda denenecek", job_name)
+            locations = await scheduler_locations()
+        except Exception:
+            # Kayit okunamadi: hicbir sey yapmamaktansa control-plane'de kos.
+            logger.exception("tenant veri alanlari listelenemedi; control-plane'e dusuluyor")
+            locations = [CONTROL_LOCATION]
+        for location in locations:
+            scope = location.schema or "control"
+            try:
+                async with session_scope(location) as db:
+                    await execute_job(db, job_name, scope)
+            except Exception:  # tek tenant tum donguyu dusurmesin
+                logger.exception(
+                    "scheduler job '%s' veri alani '%s' icin kosulamadi", job_name, scope
+                )
         await asyncio.sleep(interval_seconds)
 
 
