@@ -48,8 +48,35 @@ async def _admin(sql: str) -> None:
     await engine.dispose()
 
 
+async def _drop_verify_roles() -> None:
+    """Dogrulamanin actigi tenant rollerini siler.
+
+    ONEMLI: Postgres'te ROLLER CLUSTER GENELIDIR — tek kullanimlik
+    veritabanini dusurmek rolleri silmez. Temizlenmezse her kosum cluster'a
+    artik rol birakir.
+    """
+    engine = create_async_engine(ADMIN_URL, isolation_level="AUTOCOMMIT")
+    async with engine.connect() as conn:
+        roles = list(
+            (
+                await conn.execute(
+                    sa.text(
+                        "SELECT rolname FROM pg_roles "
+                        "WHERE rolname ~ '^tr_[0-9a-f]{32}$'"
+                    )
+                )
+            ).scalars()
+        )
+        for role in roles:
+            await conn.execute(sa.text(f'DROP ROLE IF EXISTS "{role}"'))
+    await engine.dispose()
+    if roles:
+        print(f"(temizlendi: {len(roles)} dogrulama rolu)")
+
+
 async def main() -> None:
     await _admin(f"DROP DATABASE IF EXISTS {VERIFY_DB} WITH (FORCE)")
+    await _drop_verify_roles()
     await _admin(f"CREATE DATABASE {VERIFY_DB}")
 
     from alembic.config import Config
@@ -248,6 +275,7 @@ async def main() -> None:
 
     await engine.dispose()
     await _admin(f"DROP DATABASE IF EXISTS {VERIFY_DB} WITH (FORCE)")
+    await _drop_verify_roles()
 
     print("\n" + "=" * 62)
     if failures:
