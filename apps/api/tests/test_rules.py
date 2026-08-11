@@ -391,13 +391,13 @@ def test_evaluate_day_slot_statuses():
     assert len(by_start["10:00"].candidate_dock_ids) == 1
 
 
-def test_slot_grid_is_quarter_hourly():
-    """Baslangic saatleri :00 :15 :30 :45 olmali (once yalnizca :00/:30 vardi)."""
+def test_slot_grid_is_half_hourly():
+    """Randevu slotlari 30 dakikalik izgarada uretilir."""
     ctx = make_ctx()
     slots = AvailabilityService(ctx).evaluate_day()
     starts = [s.start.astimezone(TZ).strftime("%H:%M") for s in slots]
-    assert starts[:5] == ["08:00", "08:15", "08:30", "08:45", "09:00"]
-    assert {s.split(":")[1] for s in starts} == {"00", "15", "30", "45"}
+    assert starts[:4] == ["08:00", "08:30", "09:00", "09:30"]
+    assert {s.split(":")[1] for s in starts} == {"00", "30"}
 
 
 def test_past_slots_are_not_offered():

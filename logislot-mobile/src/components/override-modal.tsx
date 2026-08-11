@@ -12,7 +12,7 @@ import { ApiError } from "@/api/client";
 import { dockOverrides, docks } from "@/api/resources";
 import type { OverrideDto, OverrideType } from "@/api/types";
 import { useSession } from "@/auth/session";
-import { MultiSelectField } from "@/components/config";
+import { MultiSelectField, TimeSelect } from "@/components/config";
 import { AppModal, Button, Chip, Field } from "@/components/ui";
 import { useTheme } from "@/theme/theme";
 import { spacing } from "@/theme/tokens";
@@ -213,22 +213,12 @@ function OverrideForm({
       {type === "extra_hours" ? (
         <View style={{ flexDirection: "row", gap: spacing.md }}>
           <View style={{ flex: 1 }}>
-            <Field
-              label="Başlangıç (SS:DD)"
-              value={startTime}
-              onChangeText={setStartTime}
-              placeholder="06:00"
-              autoCapitalize="none"
-            />
+            <Text style={{ color: colors.mutedText, fontSize: 13 }}>Başlangıç</Text>
+            <TimeSelect value={startTime} onChange={setStartTime} />
           </View>
           <View style={{ flex: 1 }}>
-            <Field
-              label="Bitiş (SS:DD)"
-              value={endTime}
-              onChangeText={setEndTime}
-              placeholder="22:00"
-              autoCapitalize="none"
-            />
+            <Text style={{ color: colors.mutedText, fontSize: 13 }}>Bitiş</Text>
+            <TimeSelect value={endTime} onChange={setEndTime} />
           </View>
         </View>
       ) : (

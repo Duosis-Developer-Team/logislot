@@ -16,6 +16,7 @@ import {
   ErrorState,
   Field,
   LoadingState,
+  PickerField,
   SwitchRow,
 } from "@/components/ui";
 import { useTheme } from "@/theme/theme";
@@ -698,6 +699,51 @@ export const DEFAULT_WORKING_HOURS: WorkingHours = {
   sun: null,
 };
 
+const HOURS = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, "0"));
+/** Çalışma saatlerinde dakika YALNIZCA çeyrek saat olabilir (backend de zorlar). */
+const QUARTER_HOUR_MINUTES = ["00", "15", "30", "45"];
+
+/**
+ * Saat + dakika seçici ("HH:MM").
+ *
+ * Önceden serbest metin alanıydı ve 01:19 gibi değerler girilebiliyordu.
+ * Backend karşılığı: app/schemas/config.py QUARTER_HOUR_MINUTES.
+ */
+export function TimeSelect({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (next: string) => void;
+}) {
+  const [rawHour = "", rawMinute = ""] = value.split(":");
+  const hour = HOURS.includes(rawHour) ? rawHour : "08";
+  // Eski kayıtlarda 01:19 gibi değerler olabilir; çeyrek saate yuvarlanır.
+  const parsed = Number(rawMinute);
+  const minute = Number.isFinite(parsed)
+    ? QUARTER_HOUR_MINUTES[Math.min(3, Math.floor(parsed / 15))]
+    : "00";
+
+  return (
+    <View style={{ flexDirection: "row", gap: 6 }}>
+      <View style={{ flex: 1 }}>
+        <PickerField
+          value={hour}
+          options={HOURS.map((h) => ({ value: h, label: h }))}
+          onChange={(h) => onChange(`${h}:${minute}`)}
+        />
+      </View>
+      <View style={{ flex: 1 }}>
+        <PickerField
+          value={minute}
+          options={QUARTER_HOUR_MINUTES.map((m) => ({ value: m, label: m }))}
+          onChange={(m) => onChange(`${hour}:${m}`)}
+        />
+      </View>
+    </View>
+  );
+}
+
 export function WorkingHoursEditor({
   value,
   onChange,
@@ -734,19 +780,15 @@ export function WorkingHoursEditor({
             {open && day && (
               <View style={{ flexDirection: "row", gap: spacing.sm }}>
                 <View style={{ flex: 1 }}>
-                  <Field
+                  <TimeSelect
                     value={day.start}
-                    onChangeText={(t) => setDay(key, { ...day, start: t })}
-                    placeholder="08:00"
-                    autoCapitalize="none"
+                    onChange={(next) => setDay(key, { ...day, start: next })}
                   />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Field
+                  <TimeSelect
                     value={day.end}
-                    onChangeText={(t) => setDay(key, { ...day, end: t })}
-                    placeholder="17:00"
-                    autoCapitalize="none"
+                    onChange={(next) => setDay(key, { ...day, end: next })}
                   />
                 </View>
               </View>

@@ -1,7 +1,7 @@
 "use client";
 
-import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
+import { TimeSelect } from "@/components/ui/time-select";
 import type { WorkingHours } from "@/lib/api/types";
 
 const DAYS: { key: string; label: string }[] = [
@@ -51,18 +51,16 @@ export function WorkingHoursEditor({ value, onChange }: WorkingHoursEditorProps)
             />
             {open && day && (
               <div className="flex items-center gap-1.5">
-                <Input
-                  type="time"
-                  className="h-8 w-28 text-xs"
+                <TimeSelect
+                  ariaLabel={`${label} başlangıç`}
                   value={day.start}
-                  onChange={(e) => setDay(key, { ...day, start: e.target.value })}
+                  onChange={(next) => setDay(key, { ...day, start: next })}
                 />
                 <span className="text-xs text-muted-foreground">–</span>
-                <Input
-                  type="time"
-                  className="h-8 w-28 text-xs"
+                <TimeSelect
+                  ariaLabel={`${label} bitiş`}
                   value={day.end}
-                  onChange={(e) => setDay(key, { ...day, end: e.target.value })}
+                  onChange={(next) => setDay(key, { ...day, end: next })}
                 />
               </div>
             )}
