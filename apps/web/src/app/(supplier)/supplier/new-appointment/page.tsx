@@ -3,7 +3,13 @@
 import { Check, ChevronLeft, ChevronRight, Package } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { CARGO_WINDOW_LABELS, SLOT_STATUS_LABELS, type CargoWindow } from "@logislot/shared";
+import {
+  CARGO_WINDOW_LABELS,
+  SLOT_STATUS_LABELS,
+  type CargoWindow,
+  formatDurationRange,
+  resolveDurationRange,
+} from "@logislot/shared";
 import { ErrorState, LoadingState } from "@/components/config/states";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -29,7 +35,6 @@ import { cn } from "@/lib/utils";
  */
 
 const STEPS = ["Ürün Bilgisi", "Araç & Teslimat", "Tarih & Özet"];
-const DURATION_OPTIONS = [30, 45, 60, 90, 120, 150, 180, 240];
 
 function tomorrowISO(): string {
   const d = new Date();
@@ -110,14 +115,12 @@ export default function NewAppointmentWizard() {
   const effectiveVehicleId = vehicleOverrideId ?? defaultVehicleId;
   const effectiveVehicle = vehicles.find((v) => v.id === effectiveVehicleId) ?? null;
 
-  // Sure secenekleri: kategori min + tedarikci min/max limitlerine gore filtrelenir.
-  const durationOptions = useMemo(() => {
-    if (!category) return [];
-    const min = Math.max(category.min_block_minutes, limits?.min_block_minutes ?? 0);
-    const max = limits?.max_block_minutes ?? Infinity;
-    const options = DURATION_OPTIONS.filter((d) => d >= min && d <= max);
-    return options.length > 0 ? options : [min];
-  }, [category, limits]);
+  // Sure secenekleri: kategori araligi ile tedarikci araliginin KESISIMI.
+  const durationRange = useMemo(
+    () => (category ? resolveDurationRange(category, limits) : null),
+    [category, limits],
+  );
+  const durationOptions = durationRange?.options ?? [];
 
   const effectiveDuration =
     duration && durationOptions.includes(duration) ? duration : durationOptions[0] ?? null;
@@ -353,7 +356,7 @@ export default function NewAppointmentWizard() {
                 <option value="">— Kategori seçin —</option>
                 {categories.map((c) => (
                   <option key={c.id} value={c.id}>
-                    {c.display_name} (min {c.min_block_minutes} dk)
+                    {c.display_name} ({formatDurationRange(c.min_block_minutes, c.max_block_minutes)})
                   </option>
                 ))}
               </Select>
@@ -515,6 +518,7 @@ export default function NewAppointmentWizard() {
                     <Label>Tahmini Süre</Label>
                     <Select
                       value={effectiveDuration ?? ""}
+                      disabled={durationOptions.length === 0}
                       onChange={(e) => {
                         setDuration(Number(e.target.value));
                         setSelectedSlot(null);
@@ -526,9 +530,20 @@ export default function NewAppointmentWizard() {
                         </option>
                       ))}
                     </Select>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      Seçenekler kategori ve size tanımlı min/maks limitlere göre filtrelenir.
-                    </p>
+                    {durationRange?.conflicting ? (
+                      <p className="mt-1 text-xs text-destructive">
+                        Bu kategorinin süre aralığı size tanımlı limitlerle kesişmiyor.
+                        Lütfen tesis yöneticisiyle iletişime geçin.
+                      </p>
+                    ) : (
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        İzin verilen aralık:{" "}
+                        {durationRange
+                          ? formatDurationRange(durationRange.min, durationRange.max)
+                          : "—"}{" "}
+                        (kategori ve size tanımlı limitlerin kesişimi).
+                      </p>
+                    )}
                   </div>
                   <div>
                     <Label>Başlangıç Saati (30 dk dilimler)</Label>

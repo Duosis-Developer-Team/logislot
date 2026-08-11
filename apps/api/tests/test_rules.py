@@ -152,6 +152,28 @@ def test_duration_below_category_minimum():
     assert result.code == HardRuleCode.DURATION_BELOW_CATEGORY_MINIMUM
 
 
+def test_duration_above_category_maximum():
+    ctx = make_ctx(duration_minutes=90)
+    ctx.product_category.max_block_minutes = 60
+    result = AvailabilityService(ctx).validate_request()
+    assert result.code == HardRuleCode.DURATION_ABOVE_CATEGORY_MAXIMUM
+
+
+def test_category_maximum_none_means_no_upper_bound():
+    """Geriye uyumluluk: max NULL iken yalnizca tedarikci limiti gecerlidir."""
+    ctx = make_ctx(duration_minutes=120)
+    assert ctx.product_category.max_block_minutes is None
+    assert AvailabilityService(ctx).validate_request().ok
+
+
+def test_category_maximum_is_checked_before_supplier_limits():
+    """Kategori siniri tedarikci sinirindan DAHA dar olabilir ve oncelikli raporlanir."""
+    ctx = make_ctx(duration_minutes=120)  # tedarikci maksimumu tam 120
+    ctx.product_category.max_block_minutes = 90
+    result = AvailabilityService(ctx).validate_request()
+    assert result.code == HardRuleCode.DURATION_ABOVE_CATEGORY_MAXIMUM
+
+
 def test_duration_above_supplier_max():
     ctx = make_ctx(duration_minutes=180)
     result = AvailabilityService(ctx).validate_request()

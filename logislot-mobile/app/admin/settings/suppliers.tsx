@@ -116,6 +116,11 @@ export default function SuppliersScreen() {
     }
     const min = numOrNull(minBlock);
     const max = numOrNull(maxBlock);
+    // Backend ile aynı sınır: app/schemas/config.py -> MAX_BLOCK_MINUTES_CAP
+    if ((min !== null && min > 1440) || (max !== null && max > 1440)) {
+      setFormError("Blokaj süreleri en fazla 1440 dk (24 saat) olabilir.");
+      return;
+    }
     if (min !== null && max !== null && max < min) {
       setFormError("Maks. süre, min. süreden küçük olamaz.");
       return;

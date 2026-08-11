@@ -55,6 +55,62 @@ export const SLOT_STATUS_LABELS: Record<SlotStatus, string> = {
   full: "Dolu",
 };
 
+/** Randevu sihirbazlarinda sunulan standart sure secenekleri (dakika). */
+export const DURATION_OPTIONS = [30, 45, 60, 90, 120, 150, 180, 240] as const;
+
+export interface BlockLimits {
+  min_block_minutes: number | null;
+  max_block_minutes: number | null;
+}
+
+export interface CategoryBlockLimits {
+  min_block_minutes: number;
+  /** null = kategori bazli ust sinir yok. */
+  max_block_minutes: number | null;
+}
+
+export interface DurationRange {
+  min: number;
+  /** null = ust sinir yok. */
+  max: number | null;
+  /** Kullaniciya sunulacak secenekler; `conflicting` ise bostur. */
+  options: number[];
+  /** Kategori ve tedarikci araliklari kesismiyor -> gecerli sure YOK. */
+  conflicting: boolean;
+}
+
+/**
+ * Kategori araligi ile tedarikci araliginin KESISIMI.
+ *
+ * Backend karsiligi: `AvailabilityService.validate_duration`. Iki tarafi da
+ * ayni sekilde daraltir; buradaki tek fark, gecersiz secenegin kullaniciya
+ * hic gosterilmemesidir.
+ */
+export function resolveDurationRange(
+  category: CategoryBlockLimits,
+  supplierLimits?: BlockLimits | null,
+): DurationRange {
+  const min = Math.max(category.min_block_minutes, supplierLimits?.min_block_minutes ?? 0);
+  const caps = [category.max_block_minutes, supplierLimits?.max_block_minutes ?? null].filter(
+    (value): value is number => value != null,
+  );
+  const max = caps.length > 0 ? Math.min(...caps) : null;
+
+  if (max !== null && max < min) {
+    return { min, max, options: [], conflicting: true };
+  }
+
+  const options = DURATION_OPTIONS.filter((d) => d >= min && (max === null || d <= max));
+  // Standart listede araliga dusen deger yoksa taban sureyi tek secenek yap;
+  // min <= max garantili oldugu icin bu deger HER ZAMAN gecerlidir.
+  return { min, max, options: options.length > 0 ? [...options] : [min], conflicting: false };
+}
+
+/** "30–120 dk" / "min 60 dk" gibi insan okunur aralik etiketi. */
+export function formatDurationRange(min: number, max: number | null): string {
+  return max == null ? `min ${min} dk` : `${min}–${max} dk`;
+}
+
 export interface AppointmentSummary {
   id: string;
   product_name: string;

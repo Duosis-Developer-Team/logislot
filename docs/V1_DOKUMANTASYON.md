@@ -369,7 +369,7 @@ Ayarlar merkezi tüm konfigürasyon alanlarına açılır (girişler kullanıcı
 
 ![Ayarlar hub](screenshots/v1/33-yonetim-ayarlar-hub.png)
 
-**Ürün Kategorileri** — min. blokaj süresi ve varsayılan araç kategorisi randevu uygunluğunu doğrudan etkiler; pasifleştirme geçmişi bozmaz:
+**Ürün Kategorileri** — blokaj süresi aralığı (min–maks) ve varsayılan araç kategorisi randevu uygunluğunu doğrudan etkiler. Maksimum boş bırakılabilir (üst sınır yok); dolu ise randevuda seçilebilen süreler bu aralıkla sınırlanır ve tedarikçi limitleriyle kesiştirilir. Pasifleştirme geçmişi bozmaz:
 
 ![Kategoriler](screenshots/v1/34-yonetim-kategoriler.png)
 

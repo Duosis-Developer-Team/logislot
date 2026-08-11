@@ -24,6 +24,7 @@ class ProductCategoryOut(OrmModel):
     display_name: str
     description: str | None = None
     min_block_minutes: int
+    max_block_minutes: int | None = None
     default_vehicle_category_id: uuid.UUID | None = None
     is_active: bool
 

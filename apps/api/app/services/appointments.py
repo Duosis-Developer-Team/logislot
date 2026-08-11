@@ -550,6 +550,17 @@ async def revise_appointment(
         a for a in ctx.existing_appointments if a.id != appointment.id
     ]
     engine = AvailabilityService(ctx)
+
+    # Sure limitleri YALNIZCA sure gercekten degistiginde dogrulanir. Eski
+    # limitlerle acilmis bir randevunun saatini tasimak, limitler sonradan
+    # daraltildi diye engellenmemelidir (canli veri guvenligi).
+    if duration != appointment.duration_minutes:
+        duration_check = engine.validate_duration()
+        if not duration_check.ok:
+            raise RuleViolationError(
+                duration_check.code or "RULE_VIOLATION", duration_check.message or ""
+            )
+
     compatible = {d.id: d for d in engine.compatible_docks()}
 
     if auto_assign_dock:
@@ -1376,6 +1387,12 @@ async def revise_appointment_series(
                     "code": str(code),
                 },
             )
+
+        # Tekil revize ile ayni kural: sure degistiyse limitler yeniden gecerli.
+        if duration != appointment.duration_minutes:
+            duration_check = engine.validate_duration()
+            if not duration_check.ok:
+                _fail(duration_check.code or "RULE_VIOLATION")
 
         if dock_id is not None and not auto_assign_dock:
             target = compatible.get(dock_id)

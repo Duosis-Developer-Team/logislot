@@ -12,7 +12,12 @@
 
 import { Package } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { CARGO_WINDOW_LABELS, type CargoWindow } from "@logislot/shared";
+import {
+  CARGO_WINDOW_LABELS,
+  type CargoWindow,
+  formatDurationRange,
+  resolveDurationRange,
+} from "@logislot/shared";
 import { ErrorState, LoadingState } from "@/components/config/states";
 import { Button } from "@/components/ui/button";
 import { Drawer } from "@/components/ui/drawer";
@@ -28,7 +33,6 @@ import type { AppointmentDto, SeriesCreateResultDto } from "@/lib/api/types";
 import { useSession } from "@/lib/auth/session";
 import { cn } from "@/lib/utils";
 
-const DURATION_OPTIONS = [30, 45, 60, 90, 120, 150, 180, 240];
 const CARGO_WINDOWS: CargoWindow[] = ["morning", "afternoon", "all_day"];
 
 function addDaysISO(days: number): string {
@@ -106,13 +110,12 @@ export function AdminCreateDrawer({ open, onClose, onSuccess, initial }: AdminCr
   const effectiveVehicleId =
     vehicleOverrideId ?? category?.default_vehicle_category_id ?? null;
 
-  const durationOptions = useMemo(() => {
-    if (!category) return [];
-    const min = Math.max(category.min_block_minutes, supplier?.min_block_minutes ?? 0);
-    const max = supplier?.max_block_minutes ?? Infinity;
-    const options = DURATION_OPTIONS.filter((d) => d >= min && d <= max);
-    return options.length > 0 ? options : [min];
-  }, [category, supplier]);
+  // Kategori araligi x tedarikci araligi kesisimi (backend ile ayni kural).
+  const durationRange = useMemo(
+    () => (category ? resolveDurationRange(category, supplier) : null),
+    [category, supplier],
+  );
+  const durationOptions = durationRange?.options ?? [];
   const effectiveDuration =
     duration && durationOptions.includes(duration) ? duration : durationOptions[0] ?? null;
 
@@ -424,6 +427,7 @@ export function AdminCreateDrawer({ open, onClose, onSuccess, initial }: AdminCr
                     <Label>Süre</Label>
                     <Select
                       value={effectiveDuration ?? ""}
+                      disabled={durationOptions.length === 0}
                       onChange={(e) => {
                         setDuration(Number(e.target.value));
                         setSelectedSlot(null);
@@ -435,9 +439,24 @@ export function AdminCreateDrawer({ open, onClose, onSuccess, initial }: AdminCr
                         </option>
                       ))}
                     </Select>
+                    {durationRange && !durationRange.conflicting && (
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        İzin verilen aralık:{" "}
+                        {formatDurationRange(durationRange.min, durationRange.max)}
+                      </p>
+                    )}
                   </div>
                 )}
               </div>
+
+              {!isCargo && durationRange?.conflicting && (
+                <p className="text-sm text-destructive">
+                  Bu kategorinin süre aralığı ({category?.min_block_minutes}–
+                  {category?.max_block_minutes} dk) tedarikçinin limitleriyle (
+                  {supplier?.min_block_minutes ?? "—"}–{supplier?.max_block_minutes ?? "—"}{" "}
+                  dk) kesişmiyor. Ayarlardan limitlerden birini güncelleyin.
+                </p>
+              )}
 
               {isCargo ? (
                 <div>
@@ -597,7 +616,15 @@ export function AdminCreateDrawer({ open, onClose, onSuccess, initial }: AdminCr
             <Button variant="secondary" onClick={onClose}>
               İptal
             </Button>
-            <Button onClick={() => void onSubmit()} disabled={create.isPending || !supplier}>
+            <Button
+              onClick={() => void onSubmit()}
+              disabled={
+                create.isPending ||
+                !supplier ||
+                // Cakisan limitlerde gecerli bir sure yok; sunucuya bosuna gitme.
+                (!isCargo && durationRange?.conflicting === true)
+              }
+            >
               {create.isPending ? "Oluşturuluyor…" : "Randevu Oluştur"}
             </Button>
           </div>

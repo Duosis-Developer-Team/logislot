@@ -12,6 +12,8 @@ import {
   APPOINTMENT_STATUS_LABELS,
   QUANTITY_UNIT_LABELS,
   type QuantityUnit,
+  formatDurationRange,
+  resolveDurationRange,
 } from "@logislot/shared";
 import { ConfirmDialog } from "@/components/config/confirm-dialog";
 import { ErrorState, LoadingState } from "@/components/config/states";
@@ -32,11 +34,12 @@ import {
 import { ApiError } from "@/lib/api/client";
 import { emailProviderLabel, emailStatusLabel, emailTemplateLabel } from "@/lib/email-labels";
 import { useEmailLogs } from "@/lib/api/reports";
-import { docks as dockResource } from "@/lib/api/resources";
+import {
+  docks as dockResource,
+  productCategories as categoryResource,
+} from "@/lib/api/resources";
 import { useSession } from "@/lib/auth/session";
 import { formatDate, isoFromWallClock, timeInTz } from "@/lib/utils";
-
-const DURATIONS = [30, 45, 60, 90, 120, 150, 180, 240];
 
 interface AppointmentDrawerProps {
   appointmentId: string | null;
@@ -53,6 +56,7 @@ export function AppointmentDrawer({
   const { activeFacilityId, activeFacility, can } = useSession();
   const detail = useAppointmentDetail(activeFacilityId, appointmentId);
   const dockList = dockResource.useList(activeFacilityId);
+  const categoryList = categoryResource.useList(activeFacilityId);
   const actions = useAppointmentActions(activeFacilityId);
   const tz = activeFacility?.timezone ?? "Europe/Istanbul";
 
@@ -105,6 +109,30 @@ export function AppointmentDrawer({
       setResendError(err instanceof ApiError ? err.message : "Tekrar gönderilemedi");
     }
   }
+
+  /**
+   * Revize suresi secenekleri KATEGORI araligiyla sinirlanir.
+   *
+   * Tedarikci limitleri bilerek disarida: tedarikci listesi SUPPLIER_MANAGE
+   * ister ve rampa yoneticisi de revize edebilir. Backend sure degistiginde
+   * her iki limiti de dogruladigi icin guvenlik acigi olusmaz.
+   */
+  const reviseCategoryRange = useMemo(() => {
+    const category = (categoryList.data ?? []).find(
+      (c) => c.id === a?.product_category_id,
+    );
+    return category ? resolveDurationRange(category) : null;
+  }, [categoryList.data, a?.product_category_id]);
+
+  const reviseDurationOptions = useMemo(() => {
+    if (!reviseCategoryRange) return [];
+    // Mevcut sure listede degilse (limitler sonradan daraltildi) yine de
+    // gosterilir; boylece "sureyi degistirmeden" kaydetmek mumkun kalir.
+    const current = a?.duration_minutes;
+    return current != null && !reviseCategoryRange.options.includes(current)
+      ? [...reviseCategoryRange.options, current].sort((x, y) => x - y)
+      : reviseCategoryRange.options;
+  }, [reviseCategoryRange, a?.duration_minutes]);
 
   // Revize hedefinde kargo advisory onizlemesi (engellemez; farkindalik).
   const reviseAvailability = useAdminAvailability(
@@ -719,12 +747,23 @@ export function AppointmentDrawer({
                 value={reviseDuration}
                 onChange={(e) => setReviseDuration(Number(e.target.value))}
               >
-                {DURATIONS.map((d) => (
+                {reviseDurationOptions.map((d) => (
                   <option key={d} value={d}>
                     {d} dakika
+                    {reviseCategoryRange &&
+                    (d < reviseCategoryRange.min ||
+                      (reviseCategoryRange.max != null && d > reviseCategoryRange.max))
+                      ? " (mevcut süre — kategori aralığı dışında)"
+                      : ""}
                   </option>
                 ))}
               </Select>
+              {reviseCategoryRange && (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Kategori aralığı:{" "}
+                  {formatDurationRange(reviseCategoryRange.min, reviseCategoryRange.max)}
+                </p>
+              )}
             </div>
             <div>
               <Label>Rampa</Label>

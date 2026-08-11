@@ -40,7 +40,7 @@ export default function SettingsPage() {
     {
       icon: Boxes,
       title: "Ürün Kategorileri",
-      description: "Minimum blokaj süresi + varsayılan araç kategorisi",
+      description: "Blokaj süresi aralığı (min–maks) + varsayılan araç kategorisi",
       stat: count(categories),
       href: "/admin/settings/categories",
       permission: "category.manage",

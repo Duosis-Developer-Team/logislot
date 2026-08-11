@@ -14,7 +14,12 @@ import { useMemo, useState } from "react";
 import { Alert, ScrollView, Text, View } from "react-native";
 import { useAdminAvailability, useAdminCreateAppointment } from "@/api/admin";
 import { ApiError } from "@/api/client";
-import { CARGO_WINDOW_LABELS, type CargoWindow } from "@/api/shared";
+import {
+  CARGO_WINDOW_LABELS,
+  type CargoWindow,
+  formatDurationRange,
+  resolveDurationRange,
+} from "@/api/shared";
 import { docks, productCategories, suppliers, vehicleCategories } from "@/api/resources";
 import type { AppointmentDto, SeriesCreateResultDto } from "@/api/types";
 import { useSession } from "@/auth/session";
@@ -32,7 +37,6 @@ import { useTheme } from "@/theme/theme";
 import { spacing } from "@/theme/tokens";
 import { addDaysISO, dayLabel, timeInTz, todayISO } from "@/utils/format";
 
-const DURATION_OPTIONS = [30, 45, 60, 90, 120, 150, 180, 240];
 const CARGO_WINDOWS: CargoWindow[] = ["morning", "afternoon", "all_day"];
 const UNITS = [
   { value: "pallet", label: "Palet" },
@@ -81,18 +85,9 @@ export default function AdminNewAppointment() {
   const effectiveVehicleId = vehicleOverrideId ?? category?.default_vehicle_category_id ?? null;
 
   // useMemo yok: React Compiler türetilmiş listeyi kendisi optimize eder.
-  const minDuration = category
-    ? Math.max(category.min_block_minutes, supplier?.min_block_minutes ?? 0)
-    : 0;
-  const maxDuration = supplier?.max_block_minutes ?? Infinity;
-  const filteredDurations = category
-    ? DURATION_OPTIONS.filter((d) => d >= minDuration && d <= maxDuration)
-    : [];
-  const durationOptions = category
-    ? filteredDurations.length > 0
-      ? filteredDurations
-      : [minDuration]
-    : [];
+  // Kategori aralığı x tedarikçi aralığı kesişimi (backend ile aynı kural).
+  const durationRange = category ? resolveDurationRange(category, supplier) : null;
+  const durationOptions = durationRange?.options ?? [];
   const effectiveDuration =
     duration && durationOptions.includes(duration) ? duration : durationOptions[0] ?? null;
 
@@ -378,6 +373,19 @@ export default function AdminNewAppointment() {
                         />
                       ))}
                     </View>
+                    {durationRange?.conflicting ? (
+                      <Text style={{ color: colors.destructive, fontSize: 12 }}>
+                        Bu kategorinin süre aralığı tedarikçinin limitleriyle kesişmiyor.
+                        Ayarlardan limitlerden birini güncelleyin.
+                      </Text>
+                    ) : (
+                      durationRange && (
+                        <Text style={{ color: colors.mutedText, fontSize: 12 }}>
+                          İzin verilen aralık:{" "}
+                          {formatDurationRange(durationRange.min, durationRange.max)}
+                        </Text>
+                      )
+                    )}
                   </View>
                   <View style={{ gap: 8 }}>
                     <Text style={{ color: colors.text, fontSize: 14, fontWeight: "500" }}>
@@ -510,7 +518,8 @@ export default function AdminNewAppointment() {
         <Button
           title={create.isPending ? "Oluşturuluyor…" : "Randevu Oluştur"}
           loading={create.isPending}
-          disabled={!supplier}
+          // Çakışan limitlerde geçerli bir süre yok; sunucuya boşuna gitme.
+          disabled={!supplier || (!isCargo && durationRange?.conflicting === true)}
           onPress={() => void onSubmit()}
         />
       </ScrollView>

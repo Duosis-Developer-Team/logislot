@@ -8,6 +8,8 @@ import {
   CARGO_WINDOW_LABELS,
   QUANTITY_UNIT_LABELS,
   type CargoWindow,
+  formatDurationRange,
+  resolveDurationRange,
 } from "@/api/shared";
 import {
   useCreateSupplierAppointment,
@@ -30,7 +32,6 @@ import { addDaysISO, dayLabel, timeInTz, todayISO } from "@/utils/format";
  */
 
 const STEPS = ["Ürün", "Araç & Teslimat", "Tarih & Özet"];
-const DURATION_OPTIONS = [30, 45, 60, 90, 120, 150, 180, 240];
 
 const FREQUENCY_LABELS = {
   weekly: "Her hafta",
@@ -99,13 +100,12 @@ export default function NewAppointmentWizard() {
   const defaultVehicleId = category?.default_vehicle_category_id ?? null;
   const effectiveVehicleId = vehicleOverrideId ?? defaultVehicleId;
 
-  const durationOptions = useMemo(() => {
-    if (!category) return [];
-    const min = Math.max(category.min_block_minutes, limits?.min_block_minutes ?? 0);
-    const max = limits?.max_block_minutes ?? Infinity;
-    const options = DURATION_OPTIONS.filter((d) => d >= min && d <= max);
-    return options.length > 0 ? options : [min];
-  }, [category, limits]);
+  // Kategori aralığı x tedarikçi aralığı kesişimi (backend ile aynı kural).
+  const durationRange = useMemo(
+    () => (category ? resolveDurationRange(category, limits) : null),
+    [category, limits],
+  );
+  const durationOptions = durationRange?.options ?? [];
 
   const effectiveDuration =
     duration && durationOptions.includes(duration) ? duration : durationOptions[0] ?? null;
@@ -535,6 +535,19 @@ export default function NewAppointmentWizard() {
                       />
                     ))}
                   </View>
+                  {durationRange?.conflicting ? (
+                    <Text style={{ color: colors.destructive, fontSize: 12 }}>
+                      Bu kategorinin süre aralığı size tanımlı limitlerle kesişmiyor.
+                      Lütfen tesis yöneticisiyle iletişime geçin.
+                    </Text>
+                  ) : (
+                    durationRange && (
+                      <Text style={{ color: colors.mutedText, fontSize: 12 }}>
+                        İzin verilen aralık:{" "}
+                        {formatDurationRange(durationRange.min, durationRange.max)}
+                      </Text>
+                    )
+                  )}
                 </View>
                 <View style={{ gap: 8 }}>
                   <Text style={{ color: colors.text, fontSize: 14, fontWeight: "500" }}>

@@ -26,6 +26,7 @@ class HardRuleCode:
     SUPPLIER_CATEGORY_NOT_ALLOWED = "SUPPLIER_CATEGORY_NOT_ALLOWED"
     SUPPLIER_QUOTA_EXCEEDED = "SUPPLIER_QUOTA_EXCEEDED"
     DURATION_BELOW_CATEGORY_MINIMUM = "DURATION_BELOW_CATEGORY_MINIMUM"
+    DURATION_ABOVE_CATEGORY_MAXIMUM = "DURATION_ABOVE_CATEGORY_MAXIMUM"
     DURATION_OUTSIDE_SUPPLIER_LIMITS = "DURATION_OUTSIDE_SUPPLIER_LIMITS"
     NO_COMPATIBLE_DOCK = "NO_COMPATIBLE_DOCK"
     DOCK_OUTSIDE_WORKING_HOURS = "DOCK_OUTSIDE_WORKING_HOURS"
@@ -44,6 +45,7 @@ HARD_RULE_MESSAGES = {
     HardRuleCode.SUPPLIER_CATEGORY_NOT_ALLOWED: "Tedarikci bu kategoride randevu olusturamaz",
     HardRuleCode.SUPPLIER_QUOTA_EXCEEDED: "Tedarikci rezervasyon kotasi asildi",
     HardRuleCode.DURATION_BELOW_CATEGORY_MINIMUM: "Sure, kategori minimum blokaj suresinin altinda",
+    HardRuleCode.DURATION_ABOVE_CATEGORY_MAXIMUM: "Sure, kategori maksimum blokaj suresini asiyor",
     HardRuleCode.DURATION_OUTSIDE_SUPPLIER_LIMITS: "Sure, tedarikci min/maks limitleri disinda",
     HardRuleCode.NO_COMPATIBLE_DOCK: "Uygun rampa bulunamadi",
     HardRuleCode.DOCK_OUTSIDE_WORKING_HOURS: "Secilen aralik rampa calisma saatleri disinda",
