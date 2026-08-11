@@ -1,10 +1,16 @@
 "use client";
 
+/**
+ * Tedarikçi profili — firma bilgisi + izinli kategoriler + çıkış.
+ *
+ * Bildirim tercihleri BURADA YOKTUR: tedarikçiye hangi bildirimin gideceğine
+ * tesis yönetimi karar verir (yönetim panelindeki "Tedarikçi Bildirimleri").
+ */
+
 import { BadgeCheck, LogOut } from "lucide-react";
 import { ErrorState, LoadingState } from "@/components/config/states";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { NotificationPreferencesForm } from "@/components/domain/notification-preferences";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useSupplierCatalog, useSupplierProfile } from "@/lib/api/supplier";
 import { useSession } from "@/lib/auth/session";
@@ -78,15 +84,6 @@ export default function SupplierProfilePage() {
               </Badge>
             ))
           )}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Bildirim Tercihleri</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <NotificationPreferencesForm />
         </CardContent>
       </Card>
 

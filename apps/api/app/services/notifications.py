@@ -40,6 +40,23 @@ async def _facility_when(
     return appointment.scheduled_start_at.astimezone(ZoneInfo(tz_name)).strftime(fmt)
 
 
+async def _supplier_policy(db: AsyncSession, facility_id: uuid.UUID) -> dict:
+    """Tesisin tedarikci bildirim politikasi (yonetim belirler).
+
+    db.get identity map uzerinden calisir; ayni istekte tekrar tekrar
+    cagrilmasi ek sorgu uretmez.
+    """
+    from app.services.notification_preferences import (
+        DEFAULT_SUPPLIER_POLICY,
+        resolve_supplier_policy,
+    )
+
+    facility = await db.get(Facility, facility_id)
+    if facility is None:
+        return dict(DEFAULT_SUPPLIER_POLICY)
+    return resolve_supplier_policy(facility)
+
+
 def _route_hint(appointment: Appointment) -> str:
     return f"/admin/appointments?appointmentId={appointment.id}"
 
@@ -165,11 +182,11 @@ async def _email_supplier(
     template_key: str,
     **ctx_extra,
 ) -> None:
-    from app.services.notification_preferences import email_allowed
+    from app.services.notification_preferences import prefs_email_allowed
 
-    _, account = await _supplier_account(db, appointment.supplier_id)
-    if account is not None and not email_allowed(account, template_key):
-        return  # tercih kapali: e-posta ve EmailLog uretilmez (MVP karari)
+    policy = await _supplier_policy(db, appointment.facility_id)
+    if not prefs_email_allowed(policy, template_key):
+        return  # politika kapali: e-posta ve EmailLog uretilmez (MVP karari)
     email, ctx = await _email_context(db, appointment, **ctx_extra)
     if not email:
         return
@@ -221,11 +238,11 @@ async def notify_supplier(
     body: str | None,
     extra: dict[str, Any] | None = None,
 ) -> None:
-    from app.services.notification_preferences import in_app_allowed
+    from app.services.notification_preferences import prefs_in_app_allowed
 
-    _, account = await _supplier_account(db, appointment.supplier_id)
-    if account is not None and not in_app_allowed(account, type_):
-        return  # tercih kapali: satir uretilmez (kritik eventler haric)
+    policy = await _supplier_policy(db, appointment.facility_id)
+    if not prefs_in_app_allowed(policy, type_):
+        return  # politika kapali: satir uretilmez (kritik eventler haric)
     _add(
         db, appointment,
         type_=type_, severity=severity, title=title, body=body,

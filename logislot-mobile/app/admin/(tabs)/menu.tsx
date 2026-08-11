@@ -77,6 +77,12 @@ const CONFIG_ENTRIES: MenuEntry[] = [
     permission: "supplier.manage",
   },
   {
+    title: "Tedarikçi Bildirimleri",
+    icon: "notifications-outline",
+    route: "/admin/settings/supplier-notifications",
+    permission: "supplier.manage",
+  },
+  {
     title: "Kullanıcılar & Roller",
     icon: "shield-checkmark-outline",
     route: "/admin/settings/users",

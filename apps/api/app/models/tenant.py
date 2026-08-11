@@ -97,6 +97,13 @@ class Facility(Base, UUIDPkMixin, TimestampMixin):
         sa.Uuid, sa.ForeignKey("plans.id", ondelete="SET NULL")
     )
     branding_json: Mapped[dict[str, Any] | None] = mapped_column(JsonVariant)
+    # Tedarikcilere gidecek bildirim/e-posta politikasi — YONETIM belirler,
+    # tedarikci goremez/degistiremez. None = tum varsayilanlar acik.
+    # Sekil: {"in_app_enabled": bool, "email_enabled": bool,
+    #         "email_events": {<supplier event key>: bool}}
+    supplier_notification_policy_json: Mapped[dict[str, Any] | None] = mapped_column(
+        JsonVariant
+    )
 
     tenant: Mapped[Tenant] = relationship(back_populates="facilities")
     plan_override: Mapped[Plan | None] = relationship()

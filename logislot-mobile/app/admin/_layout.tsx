@@ -30,6 +30,7 @@ export default function AdminLayout() {
             ["settings/email-logs", "E-posta Logları"],
             ["settings/audit-logs", "Denetim İzleri"],
             ["settings/notification-preferences", "Bildirim Tercihleri"],
+            ["settings/supplier-notifications", "Tedarikçi Bildirimleri"],
           ] as const
         ).map(([name, title]) => (
           <Stack.Screen

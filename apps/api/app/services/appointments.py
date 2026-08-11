@@ -1182,10 +1182,12 @@ async def cancel_appointment_series(
     # iptalinde e-posta da uretilmez)
     from app.services.email import EmailMessage, send_email
     from app.services.email_templates import EmailContext, render_email
-    from app.services.notifications import _supplier_email
+    from app.services.notification_preferences import prefs_email_allowed
+    from app.services.notifications import _supplier_email, _supplier_policy
 
     email, supplier_name = await _supplier_email(db, series.supplier_id)
-    if email and not by_supplier:
+    policy = await _supplier_policy(db, facility.id)
+    if email and not by_supplier and prefs_email_allowed(policy, "appointment_series_cancelled"):
         subject, body = render_email(
             "appointment_series_cancelled",
             EmailContext(
@@ -1431,10 +1433,12 @@ async def revise_appointment_series(
     )
     from app.services.email import EmailMessage, send_email
     from app.services.email_templates import EmailContext, render_email
-    from app.services.notifications import _supplier_email
+    from app.services.notification_preferences import prefs_email_allowed
+    from app.services.notifications import _supplier_email, _supplier_policy
 
     email, supplier_name = await _supplier_email(db, series.supplier_id)
-    if email:
+    policy = await _supplier_policy(db, facility.id)
+    if email and prefs_email_allowed(policy, "appointment_series_revised"):
         subject, body = render_email(
             "appointment_series_revised",
             EmailContext(
@@ -1639,12 +1643,13 @@ async def approve_appointment_series(
     )
     from app.services.email import EmailMessage, send_email
     from app.services.email_templates import EmailContext, render_email
-    from app.services.notification_preferences import email_allowed
-    from app.services.notifications import _supplier_account
+    from app.services.notification_preferences import prefs_email_allowed
+    from app.services.notifications import _supplier_account, _supplier_policy
 
     supplier_row, account = await _supplier_account(db, series.supplier_id)
     email = account.email if account else (supplier_row.contact_email if supplier_row else None)
-    if email and (account is None or email_allowed(account, "appointment_approved")):
+    policy = await _supplier_policy(db, facility.id)
+    if email and prefs_email_allowed(policy, "appointment_approved"):
         subject, body_text = render_email(
             "appointment_approved",
             EmailContext(

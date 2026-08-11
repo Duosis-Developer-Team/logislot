@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  BellRing,
   Boxes,
   CalendarOff,
   GitFork,
@@ -82,6 +83,14 @@ export default function SettingsPage() {
       description: "İzinli kategoriler, kota, otomatik onay + portal hesabı",
       stat: "Yönet",
       href: "/admin/settings/suppliers",
+      permission: "supplier.manage",
+    },
+    {
+      icon: BellRing,
+      title: "Tedarikçi Bildirimleri",
+      description: "Tedarikçilere hangi panel/e-posta bildirimlerinin gideceği",
+      stat: "Politika",
+      href: "/admin/settings/supplier-notifications",
       permission: "supplier.manage",
     },
     {

@@ -319,16 +319,35 @@ async def logout(identity: Identity = Depends(get_identity), db: AsyncSession = 
     return ok({"logged_out": True, "revoked_sessions": revoked})
 
 
+def _require_tenant_user(identity: Identity) -> None:
+    """Bildirim tercihi YALNIZCA tenant kullanicisinindir.
+
+    - platform: operasyonel bildirim almaz, tercihi de yoktur.
+    - supplier: tercihini yonetim belirler; kendi goremez/degistiremez.
+    """
+    from app.core.errors import ForbiddenError
+
+    if identity.user_type == "supplier":
+        raise ForbiddenError(
+            "Tedarikci bildirim tercihleri tesis yonetimi tarafindan belirlenir"
+        )
+    if identity.user_type != "tenant":
+        raise ForbiddenError("Bu kullanici turu icin bildirim tercihi yoktur")
+
+
 @router.get("/notification-preferences")
 async def get_notification_preferences(
     identity: Identity = Depends(get_identity),
 ):
-    """Kullanicinin kendi bildirim tercihleri (tenant + supplier)."""
-    from app.core.errors import ForbiddenError
+    """TENANT kullanicisinin kendi bildirim tercihleri.
+
+    Tedarikci bu uca erisemez: tedarikciye hangi bildirimin gidecegine yonetim
+    karar verir (facilities.supplier_notification_policy_json) ve tedarikci bu
+    politikayi ne gorur ne degistirir.
+    """
     from app.services.notification_preferences import resolve_preferences
 
-    if identity.user_type == "platform":
-        raise ForbiddenError("Platform kullanicilari icin bildirim tercihi yoktur")
+    _require_tenant_user(identity)
     return ok(resolve_preferences(identity.user))
 
 
@@ -338,19 +357,19 @@ async def patch_notification_preferences(
     identity: Identity = Depends(get_identity),
     db: AsyncSession = Depends(get_db),
 ):
-    """Kullanici YALNIZCA kendi tercihini gunceller (baskasininkini degil).
+    """TENANT kullanicisi YALNIZCA kendi tercihini gunceller.
 
-    Kritik istisna: appointment_revised panel bildirimi kapatilamaz
-    (servis katmaninda zorlanir); e-postalarin tumu kapatilabilir.
+    Tedarikci bu uca erisemez (yonetim politikasi gecerlidir). Kritik istisna:
+    appointment_revised panel bildirimi kapatilamaz (servis katmaninda
+    zorlanir); e-postalarin tumu kapatilabilir.
     """
-    from app.core.errors import ForbiddenError
     from app.services.notification_preferences import (
         EMAIL_EVENT_KEYS,
+        TENANT_EMAIL_EVENT_KEYS,
         resolve_preferences,
     )
 
-    if identity.user_type == "platform":
-        raise ForbiddenError("Platform kullanicilari icin bildirim tercihi yoktur")
+    _require_tenant_user(identity)
 
     user = identity.user
     current = resolve_preferences(user)
@@ -367,7 +386,16 @@ async def patch_notification_preferences(
                 f"Bilinmeyen event anahtarlari: {', '.join(sorted(unknown))}",
                 422,
             )
-        current["email_events"].update(changes["email_events"])
+        # Tedarikciye giden sablon anahtarlari burada YOK SAYILIR: onlar tesis
+        # politikasina aittir. (Eski/onbellekli istemciler tumunu gonderebilir;
+        # 422 vermek yerine ilgisiz anahtarlar sessizce dusurulur.)
+        current["email_events"].update(
+            {
+                key: value
+                for key, value in changes["email_events"].items()
+                if key in TENANT_EMAIL_EVENT_KEYS
+            }
+        )
     user.notification_preferences_json = current
     record_audit(
         db,

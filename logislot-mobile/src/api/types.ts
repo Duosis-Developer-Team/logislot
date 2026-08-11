@@ -320,6 +320,11 @@ export interface NotificationPreferencesDto {
   email_events: Record<string, boolean>;
 }
 
+export interface SupplierNotificationPolicyDto extends NotificationPreferencesDto {
+  /** false ise hiçbir şey değiştirilmemiş, varsayılan (hepsi açık) geçerli. */
+  is_customized: boolean;
+}
+
 export interface FacilityUserDto {
   id: string;
   name: string;

@@ -11,6 +11,7 @@ Kurallar:
 import uuid
 
 from fastapi import APIRouter, Depends, Request
+from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -22,7 +23,7 @@ from app.core.permissions import TenantPermission
 from app.core.ratelimit import enforce_rate_limit
 from app.core.responses import ok
 from app.core.security import hash_password
-from app.models import ProductCategory, Supplier, SupplierUser
+from app.models import Facility, ProductCategory, Supplier, SupplierUser
 from app.schemas.catalog import SupplierOut
 from app.schemas.config import (
     SupplierAccountCreate,
@@ -38,6 +39,10 @@ from app.services.config import (
     get_scoped_or_404,
     load_scoped_refs,
     snapshot,
+)
+from app.services.notification_preferences import (
+    SUPPLIER_EMAIL_EVENT_KEYS,
+    resolve_supplier_policy,
 )
 from app.tenancy.deps import FacilityContext, require_facility_permissions
 
@@ -66,6 +71,20 @@ _SUPPLIER_RELATIONS = (
 #: Demo ortami varsayilan parolasi. PRODUCTION NOTU: gercek ortamda rastgele
 #: gecici parola uretilip e-posta ile iletilmeli; sabit varsayilan KULLANILMAMALI.
 DEFAULT_ACCOUNT_PASSWORD = "Demo123!"
+
+
+class SupplierNotificationPolicyPatch(BaseModel):
+    in_app_enabled: bool | None = None
+    email_enabled: bool | None = None
+    email_events: dict[str, bool] | None = None
+
+
+def _policy_out(facility: Facility) -> dict:
+    """Cozulmus politika; is_customized=false ise varsayilan (hepsi acik) gecerlidir."""
+    return {
+        **resolve_supplier_policy(facility),
+        "is_customized": bool(facility.supplier_notification_policy_json),
+    }
 
 
 def _supplier_out(supplier: Supplier) -> dict:
@@ -387,3 +406,64 @@ async def set_supplier_account_status(
     await db.commit()
     supplier = await _load_supplier(db, ctx, supplier_id)
     return ok(_supplier_out(supplier))
+
+
+# ------------------------------------------------- tedarikci bildirim politikasi
+
+
+@router.get("/supplier-notification-policy")
+async def get_supplier_notification_policy(
+    ctx: FacilityContext = Depends(
+        require_facility_permissions(TenantPermission.SUPPLIER_MANAGE)
+    ),
+):
+    """Tedarikcilere gidecek bildirim/e-posta politikasi (tesis geneli).
+
+    Yalnizca yonetim gorur ve degistirir; tedarikcinin kendi panelinde bu
+    tercihler YOKTUR (require_facility_permissions tenant kullanicisi zorunlu
+    kildigi icin tedarikci bu uca hic ulasamaz).
+    """
+    return ok(_policy_out(ctx.facility))
+
+
+@router.patch("/supplier-notification-policy")
+async def patch_supplier_notification_policy(
+    body: SupplierNotificationPolicyPatch,
+    ctx: FacilityContext = Depends(
+        require_facility_permissions(TenantPermission.SUPPLIER_MANAGE)
+    ),
+    db: AsyncSession = Depends(get_db),
+):
+    """Politikayi gunceller. Yalnizca bilinen anahtarlar saklanir.
+
+    Kritik istisna: `appointment_revised` ve `appointment_dock_changed` PANEL
+    bildirimleri politikadan bagimsiz olarak her zaman uretilir (servis
+    katmaninda zorlanir) — saat/rampa degisikligi tedarikciden gizlenemez.
+    """
+    facility = await db.get(Facility, ctx.facility_id)
+    assert facility is not None
+    before = resolve_supplier_policy(facility)
+    current = resolve_supplier_policy(facility)
+    changes = body.model_dump(exclude_unset=True)
+    if "in_app_enabled" in changes:
+        current["in_app_enabled"] = changes["in_app_enabled"]
+    if "email_enabled" in changes:
+        current["email_enabled"] = changes["email_enabled"]
+    if changes.get("email_events"):
+        unknown = set(changes["email_events"]) - set(SUPPLIER_EMAIL_EVENT_KEYS)
+        if unknown:
+            raise ApiError(
+                "INVALID_PREFERENCE_EVENT",
+                f"Bilinmeyen event anahtarlari: {', '.join(sorted(unknown))}",
+                422,
+            )
+        current["email_events"].update(changes["email_events"])
+    facility.supplier_notification_policy_json = current
+    _audit(
+        db, ctx,
+        action="supplier_notification_policy.update", entity_type="facility",
+        entity_id=ctx.facility_id, before=before, after=current,
+    )
+    await db.commit()
+    await db.refresh(facility)
+    return ok(_policy_out(facility))

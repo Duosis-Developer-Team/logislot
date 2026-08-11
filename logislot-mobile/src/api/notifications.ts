@@ -5,7 +5,11 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "./client";
-import type { NotificationDto, NotificationPreferencesDto } from "./types";
+import type {
+  NotificationDto,
+  NotificationPreferencesDto,
+  SupplierNotificationPolicyDto,
+} from "./types";
 
 const POLL_MS = 45_000; // cache-dostu hafif polling; WebSocket gerekmiyor
 
@@ -89,11 +93,46 @@ export function useSaveNotificationPreferences() {
   });
 }
 
+// ------------------------------------------- tedarikçi bildirim politikası
+//
+// Tedarikçiye hangi bildirimin gideceğine YÖNETİM karar verir; tedarikçi bu
+// tercihleri kendi panelinde ne görür ne değiştirir. Politika tesis geneli.
+
+const policyKey = (facilityId: string | null) => [
+  "config",
+  "supplier-notification-policy",
+  facilityId ?? "none",
+];
+
+export function useSupplierNotificationPolicy(facilityId: string | null) {
+  return useQuery({
+    queryKey: policyKey(facilityId),
+    queryFn: () =>
+      apiRequest<SupplierNotificationPolicyDto>(
+        `/facilities/${facilityId}/supplier-notification-policy`,
+      ),
+    enabled: facilityId !== null,
+  });
+}
+
+export function useSaveSupplierNotificationPolicy(facilityId: string | null) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (body: NotificationPreferencesDto) =>
+      apiRequest<SupplierNotificationPolicyDto>(
+        `/facilities/${facilityId}/supplier-notification-policy`,
+        { method: "PATCH", body },
+      ),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: policyKey(facilityId) }),
+  });
+}
+
 /** Web'deki EVENT_LABELS ile aynı — e-posta olay anahtarı → Türkçe etiket. */
 export const NOTIFICATION_EVENT_LABELS: Record<string, string> = {
   appointment_approved: "Randevu onaylandığında",
   appointment_rejected: "Randevu reddedildiğinde",
   appointment_revised: "Randevu revize edildiğinde",
+  appointment_dock_changed: "Rampa değiştirildiğinde",
   appointment_cancelled: "Randevu iptal edildiğinde",
   appointment_revised_team: "Ekip revize bilgilendirmesi",
   appointment_series_cancelled: "Seri iptal edildiğinde",
