@@ -5,7 +5,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { ConfirmDialog } from "@/components/config/confirm-dialog";
-import { MultiSelectChips } from "@/components/config/multi-select";
+import { MultiSelectField } from "@/components/config/multi-select";
 import {
   ConfigPageShell,
   filterRows,
@@ -267,24 +267,26 @@ export default function DocksPage() {
 
           <div>
             <Label>Kabul Edilen Ürün Kategorileri</Label>
-            <MultiSelectChips
+            <MultiSelectField
               options={(categories.data ?? [])
                 .filter((c) => c.is_active)
                 .map((c) => ({ value: c.id, label: c.display_name }))}
               value={acceptedProducts}
               onChange={setAcceptedProducts}
+              searchPlaceholder="Ürün kategorisi ara…"
               emptyHint="Boş bırakılırsa tüm ürün kategorileri kabul edilir."
             />
           </div>
 
           <div>
             <Label>Kabul Edilen Araç Kategorileri</Label>
-            <MultiSelectChips
+            <MultiSelectField
               options={(vehicles.data ?? [])
                 .filter((v) => v.is_active)
                 .map((v) => ({ value: v.id, label: v.display_name }))}
               value={acceptedVehicles}
               onChange={setAcceptedVehicles}
+              searchPlaceholder="Araç kategorisi ara…"
               emptyHint="Boş bırakılırsa tüm araç tipleri kabul edilir (geriye uyumluluk kuralı)."
             />
           </div>

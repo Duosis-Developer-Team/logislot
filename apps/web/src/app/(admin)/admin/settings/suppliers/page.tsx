@@ -6,7 +6,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { ConfirmDialog } from "@/components/config/confirm-dialog";
-import { MultiSelectChips } from "@/components/config/multi-select";
+import { MultiSelectField } from "@/components/config/multi-select";
 import {
   ConfigPageShell,
   filterRows,
@@ -412,12 +412,13 @@ export default function SuppliersPage() {
           </Section>
 
           <Section title="İzinler / Kategoriler">
-            <MultiSelectChips
+            <MultiSelectField
               options={(categories.data ?? [])
                 .filter((c) => c.is_active)
                 .map((c) => ({ value: c.id, label: c.display_name }))}
               value={allowedCategories}
               onChange={setAllowedCategories}
+              searchPlaceholder="Ürün kategorisi ara…"
             />
             <p className="text-xs text-muted-foreground">
               Bu tedarikçi yalnızca seçili kategorilerden randevu oluşturabilir.

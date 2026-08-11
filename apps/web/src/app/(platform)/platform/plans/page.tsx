@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { MultiSelectChips } from "@/components/config/multi-select";
+import { MultiSelectField } from "@/components/config/multi-select";
 import { ConfirmDialog } from "@/components/config/confirm-dialog";
 import { EmptyState, ErrorState, LoadingState } from "@/components/config/states";
 import { Badge } from "@/components/ui/badge";
@@ -279,10 +279,11 @@ export default function PlansPage() {
           </div>
           <div>
             <Label>Ölçülebilir Boyutlar</Label>
-            <MultiSelectChips
+            <MultiSelectField
               options={DIMENSIONS.map((d) => ({ value: d, label: d }))}
               value={dimensions}
               onChange={setDimensions}
+              searchPlaceholder="Boyut ara…"
             />
           </div>
           <div className="rounded-xl border border-border bg-muted/30 p-3">

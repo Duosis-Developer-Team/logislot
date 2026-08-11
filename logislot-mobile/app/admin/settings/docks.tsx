@@ -15,7 +15,7 @@ import {
   ActiveBadge,
   ConfigList,
   DEFAULT_WORKING_HOURS,
-  MultiSelectChips,
+  MultiSelectField,
   summarizeWorkingHours,
   WorkingHoursEditor,
 } from "@/components/config";
@@ -216,12 +216,13 @@ export default function DocksScreen() {
             <Text style={{ color: colors.text, fontSize: 14, fontWeight: "500" }}>
               Kabul Edilen Ürün Kategorileri
             </Text>
-            <MultiSelectChips
+            <MultiSelectField
               options={(categories.data ?? [])
                 .filter((c) => c.is_active)
                 .map((c) => ({ value: c.id, label: c.display_name }))}
               value={acceptedProducts}
               onChange={setAcceptedProducts}
+              searchPlaceholder="Ürün kategorisi ara…"
               emptyHint="Boş bırakılırsa tüm ürün kategorileri kabul edilir."
             />
           </View>
@@ -230,12 +231,13 @@ export default function DocksScreen() {
             <Text style={{ color: colors.text, fontSize: 14, fontWeight: "500" }}>
               Kabul Edilen Araç Kategorileri
             </Text>
-            <MultiSelectChips
+            <MultiSelectField
               options={(vehicles.data ?? [])
                 .filter((v) => v.is_active)
                 .map((v) => ({ value: v.id, label: v.display_name }))}
               value={acceptedVehicles}
               onChange={setAcceptedVehicles}
+              searchPlaceholder="Araç kategorisi ara…"
               emptyHint="Boş bırakılırsa tüm araç tipleri kabul edilir (geriye uyumluluk kuralı)."
             />
           </View>

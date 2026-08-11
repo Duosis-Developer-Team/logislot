@@ -11,7 +11,7 @@ import {
 } from "@/api/resources";
 import type { SupplierDto } from "@/api/types";
 import { useSession } from "@/auth/session";
-import { ActiveBadge, ConfigList, MultiSelectChips } from "@/components/config";
+import { ActiveBadge, ConfigList, MultiSelectField } from "@/components/config";
 import {
   AppModal,
   Badge,
@@ -324,12 +324,13 @@ export default function SuppliersScreen() {
           />
 
           <SectionTitle title="İzinler / Kategoriler" />
-          <MultiSelectChips
+          <MultiSelectField
             options={(categories.data ?? [])
               .filter((c) => c.is_active)
               .map((c) => ({ value: c.id, label: c.display_name }))}
             value={allowedCategories}
             onChange={setAllowedCategories}
+            searchPlaceholder="Ürün kategorisi ara…"
             emptyHint="Bu tedarikçi yalnızca seçili kategorilerden randevu oluşturabilir."
           />
           <SwitchRow

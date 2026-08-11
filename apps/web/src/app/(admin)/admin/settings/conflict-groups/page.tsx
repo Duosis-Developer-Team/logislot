@@ -5,7 +5,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { ConfirmDialog } from "@/components/config/confirm-dialog";
-import { MultiSelectChips } from "@/components/config/multi-select";
+import { MultiSelectField } from "@/components/config/multi-select";
 import {
   ConfigPageShell,
   filterRows,
@@ -250,24 +250,26 @@ export default function ConflictGroupsPage() {
 
           <div>
             <Label>Üye Rampalar (en az 2)</Label>
-            <MultiSelectChips
+            <MultiSelectField
               options={(dockList.data ?? [])
                 .filter((d) => d.is_active)
                 .map((d) => ({ value: d.id, label: d.name }))}
               value={memberIds}
               onChange={setMemberIds}
+              searchPlaceholder="Rampa ara…"
             />
           </div>
 
           {relationType === "conditional" && (
             <div>
               <Label>Tetikleyici Araç Kategorileri</Label>
-              <MultiSelectChips
+              <MultiSelectField
                 options={(vehicles.data ?? [])
                   .filter((v) => v.is_active)
                   .map((v) => ({ value: v.id, label: v.display_name }))}
                 value={triggerVehicleIds}
                 onChange={setTriggerVehicleIds}
+                searchPlaceholder="Araç kategorisi ara…"
               />
               {triggerVehicleIds.length > 0 && (
                 <p className="mt-2 rounded-md bg-primary/5 px-3 py-2 text-xs text-primary">

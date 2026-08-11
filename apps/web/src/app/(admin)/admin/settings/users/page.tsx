@@ -7,7 +7,8 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { ConfirmDialog } from "@/components/config/confirm-dialog";
 import { useFlash } from "@/components/config/page-shell";
-import { MultiSelectChips } from "@/components/config/multi-select";
+import { MultiSelectField } from "@/components/config/multi-select";
+import { PermissionPicker } from "@/components/config/permission-picker";
 import { ActiveBadge, EmptyState, ErrorState, LoadingState } from "@/components/config/states";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -65,6 +66,9 @@ const PERMISSION_GROUPS: { title: string; items: { code: string; label: string }
       { code: "user.manage", label: "Kullanıcıları yönet" },
       { code: "role.manage", label: "Rolleri yönet" },
       { code: "report.view", label: "Raporları görüntüle" },
+      // Denetim Kayitlari sayfasi bu izni ister; katalogda vardi ama listede
+      // olmadigi icin UI'dan hic verilemiyordu.
+      { code: "audit.view", label: "Denetim kayıtlarını görüntüle" },
     ],
   },
 ];
@@ -128,6 +132,13 @@ export default function UsersPage() {
   const dockName = (id: string) => dockList.data?.find((d) => d.id === id)?.name ?? "?";
   const activeRoles = (roles.data ?? []).filter((r) => r.is_active);
   const knownPermissions = catalog.data?.permissions ?? [];
+  // Katalog henuz gelmediyse (bos liste) tum gruplar gosterilir — mevcut davranis.
+  const visiblePermissionGroups = PERMISSION_GROUPS.map((group) => ({
+    ...group,
+    items: group.items.filter(
+      (item) => knownPermissions.length === 0 || knownPermissions.includes(item.code),
+    ),
+  }));
 
   function openUserCreate() {
     userForm.reset({ name: "", email: "", temporary_password: "" });
@@ -521,20 +532,22 @@ export default function UsersPage() {
           )}
           <div>
             <Label>Roller (en az 1)</Label>
-            <MultiSelectChips
+            <MultiSelectField
               options={activeRoles.map((r) => ({ value: r.id, label: r.display_name }))}
               value={userRoleIds}
               onChange={setUserRoleIds}
+              searchPlaceholder="Rol ara…"
             />
           </div>
           <div>
             <Label>Yetkili Rampalar</Label>
-            <MultiSelectChips
+            <MultiSelectField
               options={(dockList.data ?? [])
                 .filter((d) => d.is_active)
                 .map((d) => ({ value: d.id, label: d.name }))}
               value={userDockIds}
               onChange={setUserDockIds}
+              searchPlaceholder="Rampa ara…"
               emptyHint="Boş = tüm rampalarda işlem yapabilir"
             />
           </div>
@@ -589,50 +602,12 @@ export default function UsersPage() {
           </div>
           <div>
             <Label>İzinler</Label>
-            <div className={cn("flex flex-col gap-3", editingSystemRole && "opacity-60")}>
-              {PERMISSION_GROUPS.map((group) => (
-                <div key={group.title}>
-                  <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    {group.title}
-                  </p>
-                  <div className="flex flex-col gap-1">
-                    {group.items
-                      .filter(
-                        (item) =>
-                          knownPermissions.length === 0 ||
-                          knownPermissions.includes(item.code),
-                      )
-                      .map((item) => {
-                        const checked = rolePermissions.includes(item.code);
-                        return (
-                          <label
-                            key={item.code}
-                            className="flex cursor-pointer items-center gap-2 text-sm"
-                          >
-                            <input
-                              type="checkbox"
-                              className="h-4 w-4 accent-[hsl(var(--primary))]"
-                              checked={checked}
-                              disabled={editingSystemRole}
-                              onChange={() =>
-                                setRolePermissions((prev) =>
-                                  checked
-                                    ? prev.filter((p) => p !== item.code)
-                                    : [...prev, item.code],
-                                )
-                              }
-                            />
-                            <span>{item.label}</span>
-                            <span className="font-mono text-[10px] text-muted-foreground">
-                              {item.code}
-                            </span>
-                          </label>
-                        );
-                      })}
-                  </div>
-                </div>
-              ))}
-            </div>
+            <PermissionPicker
+              groups={visiblePermissionGroups}
+              value={rolePermissions}
+              onChange={setRolePermissions}
+              disabled={editingSystemRole}
+            />
           </div>
           {roleDrawer.editing && !editingSystemRole && (
             <Switch checked={roleActive} onChange={setRoleActive} label="Aktif" />

@@ -7,7 +7,7 @@ import { ApiError } from "@/api/client";
 import { usePlanLimitDimensions,
   usePlanMutations, usePlatformPlans } from "@/api/platform";
 import type { PlanDto } from "@/api/types";
-import { MultiSelectChips } from "@/components/config";
+import { MultiSelectField } from "@/components/config";
 import {
   AppModal,
   Badge,
@@ -289,10 +289,11 @@ export default function PlatformPlans() {
             <Text style={{ color: colors.text, fontSize: 14, fontWeight: "500" }}>
               Ölçülebilir Boyutlar
             </Text>
-            <MultiSelectChips
+            <MultiSelectField
               options={DIMENSIONS.map((d) => ({ value: d, label: d }))}
               value={dimensions}
               onChange={setDimensions}
+              searchPlaceholder="Boyut ara…"
             />
           </View>
           <Card style={{ gap: spacing.sm }}>
