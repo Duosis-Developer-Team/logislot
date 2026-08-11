@@ -17,6 +17,7 @@
 | logislot-scheduler | Deployment (1, Recreate) | api image | — | `python -m app.maintenance.scheduler` |
 | logislot-migration | Job (elle) | api image | — | `alembic upgrade head` |
 | logislot-seed | Job (elle, **bilinçli**) | api image | — | `python -m app.seed` (demo verisi!) |
+| logislot-bootstrap-admin | Job (elle) | api image | — | `python -m app.bootstrap_admin` — **üretim için**: tek platform yöneticisi, demo verisi yok |
 | logislot ingress | Ingress (class: nginx) | — | — | host-bazlı: `logislot-<env>.local` → web, `logislot-<env>-api.local` → api |
 | logislot-*-nodeport | Service (NodePort) | — | dev 30080/30081, prod 30082/30083 | domain'siz pratik erişim |
 
@@ -163,6 +164,30 @@ Branch push'u deploy'u tetikler (bkz. [docs/GITHUB_CICD.md](../docs/GITHUB_CICD.
 guard → secret upsert (GitHub Secrets'tan) → `kustomize edit set image`
 (sha tag) → `kubectl apply -k` → SHA'lı migration job → rollout + `/health`.
 Seed yalnızca dispatch + `run_seed=true` ile.
+
+### İlk giriş hesabı (boş kurulum)
+
+Migration şemayı kurar ama **hiçbir kullanıcı oluşturmaz**; taze bir ortamda
+kimse giriş yapamaz. `app.seed` bu boşluğu doldurmaz — o DEMO verisidir
+(sabit `Demo123!`, sahte tenant/tedarikçi) ve üretimde çalıştırılmamalıdır.
+
+Üretim için `logislot-bootstrap-admin` job'ı kullanılır: yalnızca tek bir
+platform yöneticisi açar, parolayı secret'tan alır, ilk girişte parola
+değişimini zorunlu kılar ve veritabanında zaten bir platform kullanıcısı varsa
+**hiçbir şey yapmaz** (parola sıfırlamaz — yönetici ele geçirme vektörü
+olmasın diye).
+
+```bash
+# Önce secret'lar (repo Settings → Secrets → Actions):
+#   PROD_BOOTSTRAP_ADMIN_EMAIL     ornek: ops@firma.com
+#   PROD_BOOTSTRAP_ADMIN_PASSWORD  en az 12 karakter, demo parolalar reddedilir
+gh workflow run deploy.yml --ref prod \
+  -f environment=prod -f image_tag=prod-<sha7> -f run_bootstrap_admin=true
+```
+
+Deploy öncesi ortamın durumunu (namespace, alembic revizyonu, riskli veri,
+kayıt sayıları) salt-okunur görmek için:
+`gh workflow run preflight.yml --ref dev -f environment=prod`
 
 ## 5b) Elle Deploy (CI olmadan; kullanıcı onayıyla)
 

@@ -46,6 +46,10 @@ on:
         description: "Deploy sonrasi seed job kossun mu? (demo verisi!)"
         required: false
         default: "false"
+      run_bootstrap_admin:
+        description: "Ilk platform yoneticisini olustur (bos kurulum icin; demo verisi YOK)"
+        required: false
+        default: "false"
 
 permissions:
   contents: read
@@ -148,6 +152,10 @@ jobs:
           PROD_SMTP_PASSWORD: ${{ secrets.PROD_SMTP_PASSWORD }}
           PROD_SMTP_FROM_EMAIL: ${{ secrets.PROD_SMTP_FROM_EMAIL }}
           PROD_SMTP_FROM_NAME: ${{ secrets.PROD_SMTP_FROM_NAME }}
+          DEV_BOOTSTRAP_ADMIN_EMAIL: ${{ secrets.DEV_BOOTSTRAP_ADMIN_EMAIL }}
+          DEV_BOOTSTRAP_ADMIN_PASSWORD: ${{ secrets.DEV_BOOTSTRAP_ADMIN_PASSWORD }}
+          PROD_BOOTSTRAP_ADMIN_EMAIL: ${{ secrets.PROD_BOOTSTRAP_ADMIN_EMAIL }}
+          PROD_BOOTSTRAP_ADMIN_PASSWORD: ${{ secrets.PROD_BOOTSTRAP_ADMIN_PASSWORD }}
         run: |
           if [[ "$ENV_NAME" == "prod" ]]; then
             SECRET_KEY="$PROD_LOGISLOT_SECRET_KEY"; PG_PASSWORD="$PROD_POSTGRES_PASSWORD"
@@ -155,12 +163,16 @@ jobs:
             SMTP_PORT="$PROD_SMTP_PORT"; SMTP_USERNAME="$PROD_SMTP_USERNAME"
             SMTP_PASSWORD="$PROD_SMTP_PASSWORD"; SMTP_FROM_EMAIL="$PROD_SMTP_FROM_EMAIL"
             SMTP_FROM_NAME="$PROD_SMTP_FROM_NAME"
+            BOOTSTRAP_EMAIL="$PROD_BOOTSTRAP_ADMIN_EMAIL"
+            BOOTSTRAP_PASSWORD="$PROD_BOOTSTRAP_ADMIN_PASSWORD"
           else
             SECRET_KEY="$DEV_LOGISLOT_SECRET_KEY"; PG_PASSWORD="$DEV_POSTGRES_PASSWORD"
             DATABASE_URL="$DEV_DATABASE_URL"; SMTP_HOST="$DEV_SMTP_HOST"
             SMTP_PORT="$DEV_SMTP_PORT"; SMTP_USERNAME="$DEV_SMTP_USERNAME"
             SMTP_PASSWORD="$DEV_SMTP_PASSWORD"; SMTP_FROM_EMAIL="$DEV_SMTP_FROM_EMAIL"
             SMTP_FROM_NAME="$DEV_SMTP_FROM_NAME"
+            BOOTSTRAP_EMAIL="$DEV_BOOTSTRAP_ADMIN_EMAIL"
+            BOOTSTRAP_PASSWORD="$DEV_BOOTSTRAP_ADMIN_PASSWORD"
           fi
           if [[ -z "$SECRET_KEY" || -z "$PG_PASSWORD" || -z "$DATABASE_URL" ]]; then
             echo "Zorunlu secret'lar eksik: ${ENV_NAME^^}_LOGISLOT_SECRET_KEY / _POSTGRES_PASSWORD / _DATABASE_URL"
@@ -179,6 +191,8 @@ jobs:
             --from-literal=LOGISLOT_SMTP_PASSWORD="${SMTP_PASSWORD:-}" \
             --from-literal=LOGISLOT_SMTP_FROM_EMAIL="${SMTP_FROM_EMAIL:-}" \
             --from-literal=LOGISLOT_SMTP_FROM_NAME="${SMTP_FROM_NAME:-LogiSlot}" \
+            --from-literal=LOGISLOT_BOOTSTRAP_ADMIN_EMAIL="${BOOTSTRAP_EMAIL:-}" \
+            --from-literal=LOGISLOT_BOOTSTRAP_ADMIN_PASSWORD="${BOOTSTRAP_PASSWORD:-}" \
             --dry-run=client -o yaml | kubectl apply -f -
 
       - name: Image tag'lerini sabitle ve manifest'leri uygula
@@ -252,6 +266,25 @@ jobs:
           fi
           curl -fsS http://localhost:18010/health
           kubectl -n "$NAMESPACE" get pods -o wide
+
+      - name: Ilk platform yoneticisi (YALNIZCA manuel istekle)
+        # Bos bir kurulumda hicbir giris hesabi olmaz. Bu job demo verisi
+        # URETMEZ; yalnizca tek bir platform yoneticisi olusturur ve zaten bir
+        # platform kullanicisi varsa hicbir sey yapmaz (parola sifirlamaz).
+        if: github.event_name == 'workflow_dispatch' && inputs.run_bootstrap_admin == 'true'
+        run: |
+          if ! kubectl -n "$NAMESPACE" get secret logislot-secrets \
+                -o jsonpath='{.data.LOGISLOT_BOOTSTRAP_ADMIN_PASSWORD}' | grep -q .; then
+            echo "::error::${ENV_NAME^^}_BOOTSTRAP_ADMIN_EMAIL / _PASSWORD secret'lari tanimli degil"
+            exit 1
+          fi
+          JOB=logislot-bootstrap-admin
+          kubectl -n "$NAMESPACE" delete job "$JOB" --ignore-not-found=true
+          sed -e "s|ghcr.io/duosis-developer-team/logislot-api:dev|ghcr.io/duosis-developer-team/logislot-api:$IMAGE_TAG|" \
+              k8s/base/bootstrap-admin-job.yaml | kubectl -n "$NAMESPACE" apply -f -
+          kubectl -n "$NAMESPACE" wait --for=condition=complete "job/$JOB" --timeout=180s || {
+            kubectl -n "$NAMESPACE" logs "job/$JOB" --tail 50; exit 1; }
+          kubectl -n "$NAMESPACE" logs "job/$JOB" --tail 20
 
       - name: Seed job (YALNIZCA manuel istekle)
         if: github.event_name == 'workflow_dispatch' && inputs.run_seed == 'true'

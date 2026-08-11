@@ -1,0 +1,44 @@
+# ============================================================================
+# ILK PLATFORM YONETICISI — uretim icin GUVENLI kurulum adimi.
+#
+# seed-job.yaml'in aksine DEMO VERI URETMEZ: yalnizca tek bir platform
+# yoneticisi olusturur, parolayi secret'tan alir ve ilk giriste parola
+# degisimini zorunlu kilar. Veritabaninda zaten bir platform kullanicisi varsa
+# HICBIR SEY yapmaz (parola sifirlamaz) — bu yuzden tekrar tekrar kosabilir.
+#
+# kustomization'a dahil DEGILDIR; deploy.yml'den bilincli olarak uygulanir:
+#   gh workflow run deploy.yml --ref prod -f environment=prod \
+#     -f image_tag=prod-<sha7> -f run_bootstrap_admin=true
+#
+# Gerekli secret alanlari (deploy.yml logislot-secrets icine yazar):
+#   LOGISLOT_BOOTSTRAP_ADMIN_EMAIL / _PASSWORD  (+ istege bagli _NAME)
+# ============================================================================
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: logislot-bootstrap-admin
+  labels:
+    app.kubernetes.io/name: logislot-bootstrap-admin
+    app.kubernetes.io/part-of: logislot
+spec:
+  backoffLimit: 0
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: logislot-bootstrap-admin
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: bootstrap-admin
+          image: ghcr.io/duosis-developer-team/logislot-api:dev
+          command: ["python", "-m", "app.bootstrap_admin"]
+          envFrom:
+            - configMapRef: { name: logislot-config }
+            - secretRef: { name: logislot-secrets }
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
