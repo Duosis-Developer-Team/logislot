@@ -9,10 +9,17 @@ from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.pool import StaticPool
 
-from app.core.db import get_db
+from app.core.db import get_control_db, get_db
+from app.core.tenancy_runtime import translate_map
 from app.main import app
 from app.models import Base
 from app.seed import DEMO_PASSWORD, seed_data
+
+#: SQLite'in Postgres anlaminda semasi yoktur; test paketi tek bir
+#: veritabaninda calisir ve her iki duzlem de oraya cevrilir. GERCEK sema
+#: izolasyonu Postgres'e ozgudur ve scripts/verify_tenant_isolation.py ile
+#: ayrica dogrulanir.
+SQLITE_TRANSLATE = translate_map(None, dialect_name="sqlite")
 
 
 @pytest_asyncio.fixture
@@ -21,7 +28,7 @@ async def db_engine():
         "sqlite+aiosqlite://",
         poolclass=StaticPool,
         connect_args={"check_same_thread": False},
-    )
+    ).execution_options(schema_translate_map=SQLITE_TRANSLATE)
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     yield engine
@@ -30,7 +37,23 @@ async def db_engine():
 
 @pytest_asyncio.fixture
 async def session_maker(db_engine):
-    return async_sessionmaker(db_engine, expire_on_commit=False)
+    maker = async_sessionmaker(db_engine, expire_on_commit=False)
+    # Login/refresh gibi akislar oturumu DI'dan degil, adrese gore
+    # `sessionmaker_for()` uzerinden acar. Testlerde her adres tek bir
+    # SQLite motoruna baglanir; boylece o kod yollari da kapsanir.
+    import app.core.db as core_db
+
+    original = core_db.sessionmaker_for
+    original_engine = core_db.engine
+    core_db.sessionmaker_for = lambda location: maker
+    # Provisioning DDL'i de test motoruna yonlensin (SQLite'ta sema
+    # olusturma atlanir, create_all zaten checkfirst ile no-op olur).
+    core_db.engine = db_engine
+    try:
+        yield maker
+    finally:
+        core_db.sessionmaker_for = original
+        core_db.engine = original_engine
 
 
 @pytest_asyncio.fixture
@@ -56,6 +79,7 @@ async def client(session_maker):
             yield session
 
     app.dependency_overrides[get_db] = override_get_db
+    app.dependency_overrides[get_control_db] = override_get_db
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as c:
         yield c

@@ -6,13 +6,21 @@ import sqlalchemy as sa
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.enums import FacilityStatus, PlanScope, PlanStatus, TenantStatus
-from app.models.base import Base, JsonVariant, TimestampMixin, UUIDPkMixin, str_enum
+from app.models.base import (
+    CONTROL_SCHEMA,
+    Base,
+    JsonVariant,
+    TimestampMixin,
+    UUIDPkMixin,
+    str_enum,
+)
 
 
 class Plan(Base, UUIDPkMixin, TimestampMixin):
     """Politika kabi; faturalama motoru degildir."""
 
     __tablename__ = "plans"
+    __table_args__ = {"schema": CONTROL_SCHEMA}
 
     name: Mapped[str] = mapped_column(sa.String(200), unique=True)
     scope: Mapped[PlanScope] = mapped_column(str_enum(PlanScope), default=PlanScope.tenant)
@@ -34,6 +42,7 @@ class Tenant(Base, UUIDPkMixin, TimestampMixin):
     """Ana musteri hesabi. Operasyonel veri tutmaz; kimlik/faturalama/plan sarmalayicisidir."""
 
     __tablename__ = "tenants"
+    __table_args__ = {"schema": CONTROL_SCHEMA}
 
     commercial_name: Mapped[str] = mapped_column(sa.String(255))
     display_name: Mapped[str] = mapped_column(sa.String(255))
@@ -50,7 +59,7 @@ class Tenant(Base, UUIDPkMixin, TimestampMixin):
     default_language: Mapped[str] = mapped_column(sa.String(10), default="tr")
     default_timezone: Mapped[str] = mapped_column(sa.String(64), default="Europe/Istanbul")
     assigned_plan_id: Mapped[uuid.UUID | None] = mapped_column(
-        sa.Uuid, sa.ForeignKey("plans.id", ondelete="SET NULL")
+        sa.Uuid, sa.ForeignKey("control.plans.id", ondelete="SET NULL")
     )
     notes: Mapped[str | None] = mapped_column(sa.Text)
 
@@ -79,7 +88,7 @@ class Facility(Base, UUIDPkMixin, TimestampMixin):
     )
 
     tenant_id: Mapped[uuid.UUID] = mapped_column(
-        sa.Uuid, sa.ForeignKey("tenants.id", ondelete="CASCADE"), index=True
+        sa.Uuid, sa.ForeignKey("control.tenants.id", ondelete="CASCADE"), index=True
     )
     name: Mapped[str] = mapped_column(sa.String(255))
     address: Mapped[str | None] = mapped_column(sa.Text)
@@ -94,7 +103,7 @@ class Facility(Base, UUIDPkMixin, TimestampMixin):
     # Kargo randevulari icin tesis bazli varsayilan minimum blokaj (dk).
     cargo_default_min_block_minutes: Mapped[int] = mapped_column(sa.Integer, default=90)
     plan_override_id: Mapped[uuid.UUID | None] = mapped_column(
-        sa.Uuid, sa.ForeignKey("plans.id", ondelete="SET NULL")
+        sa.Uuid, sa.ForeignKey("control.plans.id", ondelete="SET NULL")
     )
     branding_json: Mapped[dict[str, Any] | None] = mapped_column(JsonVariant)
     # Tedarikcilere gidecek bildirim/e-posta politikasi — YONETIM belirler,

@@ -119,7 +119,8 @@ async def test_scheduler_execute_job_records_runs(client, seeded, session_maker,
         assert run.finished_at is not None
 
     # Kilit alinamadi -> skipped_locked (hata DEGIL)
-    async def no_lock(db, job_name):
+    async def no_lock(db, job_name, scope=""):
+        # Kilit anahtari artik tenant bazli (scope) — imza ona gore.
         return False
 
     monkeypatch.setattr(scheduler, "try_job_lock", no_lock)

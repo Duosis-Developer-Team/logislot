@@ -9,8 +9,14 @@ WORKDIR /srv/api
 
 COPY pyproject.toml ./
 COPY app ./app
+# Iki migration zinciri: control-plane (alembic) ve her tenant semasinda
+# kosan tenant-plane (alembic_tenant). Entrypoint IKISINI de calistirir —
+# biri imajdan eksik kalirsa migration job'i patlar.
 COPY alembic ./alembic
+COPY alembic_tenant ./alembic_tenant
 COPY alembic.ini ./
+# Operasyon araclari (izolasyon dogrulamasi) ayni imajdan kosturulabilsin.
+COPY scripts ./scripts
 
 RUN pip install --no-cache-dir .
 

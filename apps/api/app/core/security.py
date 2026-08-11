@@ -36,6 +36,7 @@ def _create_token(
     token_type: Literal["access", "refresh"],
     expires_minutes: int,
     jti: uuid.UUID | None = None,
+    tenant_id: uuid.UUID | None = None,
 ) -> str:
     settings = get_settings()
     now = datetime.now(UTC)
@@ -48,22 +49,34 @@ def _create_token(
     }
     if jti is not None:
         payload["jti"] = str(jti)
+    # `tid`: istegin hangi tenant semasina yonlendirilecegi. Token IMZALI
+    # oldugundan istemci bunu degistiremez. Claim'i tasimayan eski tokenlar
+    # control.principal_directory uzerinden cozulur (bkz. core/db.py).
+    if tenant_id is not None:
+        payload["tid"] = str(tenant_id)
     return jwt.encode(payload, settings.secret_key, algorithm=settings.jwt_algorithm)
 
 
-def create_access_token(subject: uuid.UUID | str, user_type: UserType) -> str:
+def create_access_token(
+    subject: uuid.UUID | str, user_type: UserType, tenant_id: uuid.UUID | None = None
+) -> str:
     return _create_token(
-        subject, user_type, "access", get_settings().access_token_expire_minutes
+        subject, user_type, "access", get_settings().access_token_expire_minutes,
+        tenant_id=tenant_id,
     )
 
 
 def create_refresh_token(
-    subject: uuid.UUID | str, user_type: UserType, jti: uuid.UUID
+    subject: uuid.UUID | str,
+    user_type: UserType,
+    jti: uuid.UUID,
+    tenant_id: uuid.UUID | None = None,
 ) -> str:
     """Refresh token her zaman bir oturum jti'sine baglidir (rotation)."""
     return _create_token(
         subject, user_type, "refresh",
         get_settings().refresh_token_expire_minutes, jti=jti,
+        tenant_id=tenant_id,
     )
 
 

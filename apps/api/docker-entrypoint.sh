@@ -1,8 +1,11 @@
 #!/bin/sh
 set -e
 
-echo "Migrationlar uygulaniyor..."
+echo "Control-plane migrationlari uygulaniyor..."
 alembic upgrade head
+
+echo "Tenant semalari migrate ediliyor..."
+python -m app.tenancy.migrations upgrade
 
 echo "Seed kontrol ediliyor (idempotent)..."
 python -m app.seed

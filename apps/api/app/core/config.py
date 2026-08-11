@@ -37,6 +37,25 @@ class Settings(BaseSettings):
     create_rate_limit_attempts: int = 20  # supplier randevu create / 60 sn
     # API docs: production'da LOGISLOT_ENABLE_DOCS=false ile kapatin
     enable_docs: bool = True
+    # --- Tenant veri izolasyonu (sema-basina-tenant) ---
+    # Her tenant kendi Postgres semasinda yasar; control-plane (tenants,
+    # plans, platform_users, ...) veritabaninin varsayilan semasindadir.
+    #
+    # GECIS SOZLESMESI: control.tenant_datastores'ta 'ready' kaydi OLMAYAN
+    # tenant, eski ortak yerlesimde calismaya devam eder. Tum tenant'lar
+    # tasindiktan sonra asagidaki bayrak true yapilir ve bu geri dusus
+    # KAPANIR — boylece provisioning'i atlanmis bir tenant sessizce ortak
+    # tablolara yazmak yerine hata verir.
+    tenant_datastore_required: bool = False
+    # Ayni anda acik tutulan tenant engine sayisi (LRU). Yalnizca AYRI
+    # veritabani kullanan tenant'lar icin engine acilir; sema modundaki
+    # tenant'lar tek havuzu paylasir.
+    tenant_engine_cache_size: int = 16
+    # Ayri veritabani kullanan tenant'lar icin takma ad -> DSN haritasi.
+    # DSN'ler parola icerdiginden veritabaninda DEGIL, secret'ta tutulur;
+    # tenant_datastores.dsn_alias yalnizca buradaki anahtari isaret eder.
+    tenant_database_dsns: dict[str, str] = {}
+
     # Maintenance scheduler (Sprint 11): email retry + bildirim temizligi
     scheduler_enabled: bool = True
     email_retry_interval_seconds: int = 300

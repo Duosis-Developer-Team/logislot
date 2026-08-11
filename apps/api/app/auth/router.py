@@ -5,6 +5,7 @@ Her basarili/basarisiz giris audit log uretir.
 """
 
 import uuid
+from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 
 import jwt as pyjwt
@@ -15,17 +16,25 @@ from sqlalchemy.orm import selectinload
 
 from app.auth.deps import Identity, get_identity
 from app.core.config import get_settings
-from app.core.db import get_db
+from app.core.db import (
+    control_session,
+    get_control_db,
+    get_db,
+    location_for_tenant,
+    session_scope,
+)
 from app.core.enums import ActorType, SupplierStatus, UserStatus
 from app.core.errors import ApiError, UnauthorizedError
 from app.core.passwords import validate_password_policy
 from app.core.ratelimit import client_ip, enforce_rate_limit
 from app.core.responses import ok
 from app.core.security import decode_token, hash_password, verify_password
+from app.core.tenancy_runtime import CONTROL_LOCATION, TenantLocation
 from app.models import (
     Facility,
     FacilityMembership,
     PlatformUser,
+    PrincipalDirectory,
     Supplier,
     SupplierUser,
     TenantUser,
@@ -41,6 +50,7 @@ from app.schemas.auth import (
 )
 from app.services.audit import record_audit
 from app.services.auth_sessions import open_session, revoke_user_sessions, rotate_session
+from app.tenancy.directory import tenant_for_email
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -76,8 +86,30 @@ def _enforce_portal(body: LoginRequest, expected: str) -> None:
         raise UnauthorizedError(_PORTAL_ERRORS[body.portal])
 
 
+async def _location_for_login(
+    control_db: AsyncSession, user_type: str, email: str
+) -> TenantLocation:
+    """Login'in hangi veri alaninda aranacagini belirler.
+
+    Dizinde kayit yoksa (henuz tasinmamis tenant) eski ortak yerlesime
+    dusulur — boylece gecis doneminde mevcut kullanicilar giris yapmaya
+    devam eder.
+    """
+    hit = await tenant_for_email(control_db, user_type, email)
+    if hit is None:
+        return CONTROL_LOCATION
+    return await location_for_tenant(hit[0])
+
+
+@asynccontextmanager
+async def _login_session(control_db: AsyncSession, user_type: str, email: str):
+    location = await _location_for_login(control_db, user_type, email)
+    async with session_scope(location) as db:
+        yield db
+
+
 async def _wrong_portal_error(
-    db: AsyncSession, email: str, password: str, current_portal: str
+    control_db: AsyncSession, email: str, password: str, current_portal: str
 ) -> str | None:
     """Yanlis portalda DOGRULANMIS kimlik icin net hata uretir.
 
@@ -86,15 +118,23 @@ async def _wrong_portal_error(
     Parola dogrulanmadan hicbir sey soylenmez — hesap kesfi (enumeration)
     sizdirmaz. Yalnizca basarisiz login dalinda calisir (2 ek sorgu).
     """
-    others: dict[str, type] = {
-        "admin": TenantUser,
-        "supplier": SupplierUser,
-        "platform": PlatformUser,
+    #: portal -> (model, dizindeki kimlik tipi). Platform kullanicilari
+    #: control-plane'de yasar ve dizine girmez.
+    others: dict[str, tuple[type, str | None]] = {
+        "admin": (TenantUser, "tenant"),
+        "supplier": (SupplierUser, "supplier"),
+        "platform": (PlatformUser, None),
     }
     others.pop(current_portal)
-    for model in others.values():
-        result = await db.execute(select(model).where(model.email == email))
-        candidate = result.scalar_one_or_none()
+    for model, directory_type in others.values():
+        if directory_type is None:
+            location = CONTROL_LOCATION
+        else:
+            location = await _location_for_login(control_db, directory_type, email)
+        async with session_scope(location) as probe:
+            candidate = (
+                await probe.execute(select(model).where(model.email == email))
+            ).scalar_one_or_none()
         if candidate is not None and verify_password(password, candidate.password_hash):
             return _PORTAL_ERRORS[current_portal]
     return None
@@ -118,7 +158,11 @@ async def _audit_login(
 
 
 async def _token_pair(
-    db: AsyncSession, request: Request, user_id: uuid.UUID, user_type: str
+    db: AsyncSession,
+    request: Request,
+    user_id: uuid.UUID,
+    user_type: str,
+    tenant_id: uuid.UUID | None = None,
 ) -> TokenPair:
     access, refresh = await open_session(
         db,
@@ -126,67 +170,76 @@ async def _token_pair(
         user_id=user_id,
         user_agent=request.headers.get("user-agent"),
         ip=client_ip(request),
+        tenant_id=tenant_id,
     )
     return TokenPair(access_token=access, refresh_token=refresh)
 
 
 @router.post("/login")
 async def tenant_login(
-    body: LoginRequest, request: Request, db: AsyncSession = Depends(get_db)
+    body: LoginRequest,
+    request: Request,
+    control_db: AsyncSession = Depends(get_control_db),
 ):
     _enforce_portal(body, "admin")
     enforce_rate_limit(
         request, "login", body.email,
         times=get_settings().login_rate_limit_attempts,
     )
-    result = await db.execute(select(TenantUser).where(TenantUser.email == body.email))
-    user = result.scalar_one_or_none()
-    if user is None or not verify_password(body.password, user.password_hash):
-        await _audit_login(db, "tenant", None, False, body.email)
-        hint = await _wrong_portal_error(db, body.email, body.password, "admin")
-        raise UnauthorizedError(hint or "E-posta veya parola hatali")
-    if user.status != UserStatus.active:
-        raise UnauthorizedError("Hesap pasif durumda")
-    await _audit_login(db, "tenant", user.id, True, body.email)
-    pair = await _token_pair(db, request, user.id, "tenant")
-    await db.commit()
-    return ok({**pair.model_dump(), "must_change_password": user.must_change_password})
+    async with _login_session(control_db, "tenant", body.email) as db:
+        result = await db.execute(select(TenantUser).where(TenantUser.email == body.email))
+        user = result.scalar_one_or_none()
+        if user is None or not verify_password(body.password, user.password_hash):
+            await _audit_login(db, "tenant", None, False, body.email)
+            hint = await _wrong_portal_error(control_db, body.email, body.password, "admin")
+            raise UnauthorizedError(hint or "E-posta veya parola hatali")
+        if user.status != UserStatus.active:
+            raise UnauthorizedError("Hesap pasif durumda")
+        await _audit_login(db, "tenant", user.id, True, body.email)
+        pair = await _token_pair(db, request, user.id, "tenant", user.tenant_id)
+        await db.commit()
+        return ok({**pair.model_dump(), "must_change_password": user.must_change_password})
 
 
 @router.post("/supplier-login")
 async def supplier_login(
-    body: LoginRequest, request: Request, db: AsyncSession = Depends(get_db)
+    body: LoginRequest,
+    request: Request,
+    control_db: AsyncSession = Depends(get_control_db),
 ):
     _enforce_portal(body, "supplier")
     enforce_rate_limit(
         request, "login", body.email,
         times=get_settings().login_rate_limit_attempts,
     )
-    result = await db.execute(
-        select(SupplierUser)
-        .options(selectinload(SupplierUser.supplier))
-        .where(SupplierUser.email == body.email)
-    )
-    user = result.scalar_one_or_none()
-    if user is None or not verify_password(body.password, user.password_hash):
-        await _audit_login(db, "supplier", None, False, body.email)
-        hint = await _wrong_portal_error(db, body.email, body.password, "supplier")
-        raise UnauthorizedError(hint or "E-posta veya parola hatali")
-    if user.status != UserStatus.active:
-        raise UnauthorizedError("Hesap pasif durumda")
-    # Pasif tedarikci firmasi portala giris yapamaz (karar: login'de engelle).
-    if user.supplier.status != SupplierStatus.active:
-        await _audit_login(db, "supplier", user.id, False, body.email)
-        raise UnauthorizedError("Tedarikci hesabi pasif durumda")
-    await _audit_login(db, "supplier", user.id, True, body.email)
-    pair = await _token_pair(db, request, user.id, "supplier")
-    await db.commit()
-    return ok({**pair.model_dump(), "must_change_password": user.must_change_password})
+    async with _login_session(control_db, "supplier", body.email) as db:
+        result = await db.execute(
+            select(SupplierUser)
+            .options(selectinload(SupplierUser.supplier))
+            .where(SupplierUser.email == body.email)
+        )
+        user = result.scalar_one_or_none()
+        if user is None or not verify_password(body.password, user.password_hash):
+            await _audit_login(db, "supplier", None, False, body.email)
+            hint = await _wrong_portal_error(control_db, body.email, body.password, "supplier")
+            raise UnauthorizedError(hint or "E-posta veya parola hatali")
+        if user.status != UserStatus.active:
+            raise UnauthorizedError("Hesap pasif durumda")
+        # Pasif tedarikci firmasi portala giris yapamaz (karar: login'de engelle).
+        if user.supplier.status != SupplierStatus.active:
+            await _audit_login(db, "supplier", user.id, False, body.email)
+            raise UnauthorizedError("Tedarikci hesabi pasif durumda")
+        await _audit_login(db, "supplier", user.id, True, body.email)
+        pair = await _token_pair(
+            db, request, user.id, "supplier", user.supplier.tenant_id
+        )
+        await db.commit()
+        return ok({**pair.model_dump(), "must_change_password": user.must_change_password})
 
 
 @router.post("/platform-login")
 async def platform_login(
-    body: LoginRequest, request: Request, db: AsyncSession = Depends(get_db)
+    body: LoginRequest, request: Request, db: AsyncSession = Depends(get_control_db)
 ):
     _enforce_portal(body, "platform")
     enforce_rate_limit(
@@ -208,10 +261,13 @@ async def platform_login(
 
 
 @router.post("/refresh")
-async def refresh(
-    body: RefreshRequest, request: Request, db: AsyncSession = Depends(get_db)
-):
-    """Rotation: refresh her kullanimda eski oturumu kapatir, yenisini acar."""
+async def refresh(body: RefreshRequest, request: Request):
+    """Rotation: refresh her kullanimda eski oturumu kapatir, yenisini acar.
+
+    Refresh token govdede gelir (Authorization basligi yok), bu yuzden
+    istegin tenant'i `get_db` tarafindan cozulemez; burada token'in kendi
+    `tid` claim'inden (yoksa dizinden) cozulur.
+    """
     try:
         payload = decode_token(body.refresh_token)
     except pyjwt.PyJWTError as exc:
@@ -221,18 +277,49 @@ async def refresh(
     user_id = uuid.UUID(payload["sub"])
     user_type = payload["user_type"]
 
-    # Kullanici hala aktif mi? (pasif supplier/kullanici refresh edemez)
-    await _ensure_user_active(db, user_type, user_id)
+    tenant_id = await _tenant_of_token(payload, user_id, user_type)
+    location = CONTROL_LOCATION if tenant_id is None else await location_for_tenant(tenant_id)
 
-    access, new_refresh_token = await rotate_session(
-        db,
-        jti=uuid.UUID(payload["jti"]),
-        user_type=user_type,
-        user_id=user_id,
-        user_agent=request.headers.get("user-agent"),
-        ip=client_ip(request),
-    )
-    return ok(TokenPair(access_token=access, refresh_token=new_refresh_token).model_dump())
+    async with session_scope(location) as db:
+        # Kullanici hala aktif mi? (pasif supplier/kullanici refresh edemez)
+        await _ensure_user_active(db, user_type, user_id)
+
+        access, new_refresh_token = await rotate_session(
+            db,
+            jti=uuid.UUID(payload["jti"]),
+            user_type=user_type,
+            user_id=user_id,
+            user_agent=request.headers.get("user-agent"),
+            ip=client_ip(request),
+            tenant_id=tenant_id,
+        )
+        return ok(
+            TokenPair(access_token=access, refresh_token=new_refresh_token).model_dump()
+        )
+
+
+async def _tenant_of_token(
+    payload: dict, user_id: uuid.UUID, user_type: str
+) -> uuid.UUID | None:
+    """Token'dan tenant'i cozer: once `tid` claim'i, sonra dizin."""
+    if user_type == "platform":
+        return None
+    raw = payload.get("tid")
+    if raw:
+        try:
+            return uuid.UUID(str(raw))
+        except ValueError:
+            pass
+    async with control_session() as control_db:
+        row = (
+            await control_db.execute(
+                select(PrincipalDirectory.tenant_id).where(
+                    PrincipalDirectory.principal_id == user_id,
+                    PrincipalDirectory.user_type == user_type,
+                )
+            )
+        ).scalar_one_or_none()
+    return row
 
 
 async def _ensure_user_active(db: AsyncSession, user_type: str, user_id: uuid.UUID) -> None:

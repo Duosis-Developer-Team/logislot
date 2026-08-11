@@ -21,7 +21,15 @@ spec:
       containers:
         - name: migration
           image: ghcr.io/duosis-developer-team/logislot-api:dev
-          command: ["alembic", "upgrade", "head"]
+          # Iki zincir: once control-plane (ortak tablolar), sonra her
+          # tenant semasi. Ikincisi 'ready' kaydi olmayan kurulumda no-op'tur.
+          command:
+            - sh
+            - -c
+            - |
+              set -e
+              alembic upgrade head
+              python -m app.tenancy.migrations upgrade
           envFrom:
             - configMapRef: { name: logislot-config }
             - secretRef: { name: logislot-secrets }

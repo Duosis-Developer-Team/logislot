@@ -104,3 +104,16 @@ class RecurringRule(StrEnum):
     weekly = "weekly"
     biweekly = "biweekly"
     monthly = "monthly"
+
+
+class DatastoreStatus(StrEnum):
+    """Bir tenant'in kendi veri alaninin yasam dongusu."""
+
+    #: Kayit acildi, sema/veritabani henuz olusturulmadi.
+    pending = "pending"
+    #: Sema olusturuluyor veya veri tasiniyor — istekler HENUZ yonlendirilmez.
+    provisioning = "provisioning"
+    #: Kullanima hazir; tenant istekleri buraya yonlendirilir.
+    ready = "ready"
+    #: Provision/tasima basarisiz — istekler yonlendirilmez, uyari uretilir.
+    failed = "failed"

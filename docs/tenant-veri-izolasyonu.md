@@ -1,0 +1,108 @@
+# Tenant veri izolasyonu — mimari ve geçiş runbook'u
+
+## Ne değişti
+
+Önceden tüm müşterilerin operasyonel verisi **tek veritabanında, tek şemada,
+aynı tablolarda** duruyordu; ayrım yalnızca uygulama kodundaki `WHERE tenant_id`
+koşullarına bağlıydı. Unutulan tek bir filtre = tenant sızıntısı.
+
+Artık her tenant **kendi Postgres şemasına** sahiptir. Bir isteğin oturumu
+tenant'ının şemasına bağlanır; başka bir tenant'ın satırı **fiziksel olarak
+erişilemez** (başka bir şemadaki başka bir tablodadır), filtre unutulsa bile.
+
+### İki düzlem
+
+| Düzlem | Nerede | Tablolar |
+|---|---|---|
+| Control-plane | `public` (ortak) | `tenants`, `plans`, `platform_users`, `platform_roles`, `platform_user_roles`, `tenant_datastores`, `principal_directory` |
+| Tenant-plane | `t_<tenant-uuid-hex>` (her tenant ayrı) | `facilities`, `docks`, `appointments`, `suppliers`, `tenant_users`, `roles`, `audit_logs`, … (24 tablo) |
+
+Düzlem, modelin `schema` işaretinden **türetilir** (`app/models/__init__.py`
+içindeki `control_plane_tables()` / `tenant_plane_tables()`); elle tutulan bir
+liste yoktur, yeni model eklendiğinde listeler kendiliğinden doğru kalır.
+
+### Neden ayrı şema, ayrı veritabanı değil
+
+Tenant tabloları `public.tenants` / `public.plans`'a **gerçek foreign key** ile
+bağlı kalır (doğrulandı: FK ihlali `IntegrityError` ile reddediliyor, tenant
+silinince veri `CASCADE` ile gidiyor). Tenant başına ayrı veritabanı bu
+bütünlüğü koparır ve `tenants`/`plans` satırlarının her veritabanına
+kopyalanıp senkronlanmasını gerektirirdi — kalıcı bir drift kaynağı. Ayrıca
+şema modunda tüm tenant'lar **tek bağlantı havuzunu** paylaşır; 300 tenant ×
+havuz = binlerce Postgres bağlantısı sorunu oluşmaz.
+
+**Ayrı veritabanı gerekirse** kapı açık: `tenant_datastores.dsn_alias` dolu
+olan tenant kendi veritabanına yönlenir (DSN'ler ayarlarda/secret'ta,
+veritabanında **değil**). Kod yolu aynıdır.
+
+## Kritik değişmez (bunu bozmayın)
+
+`schema_translate_map` sözlüğünün **anahtar kümesi** ardışık çağrılarda aynı
+kalmalıdır. SQLAlchemy derlenmiş sorgu önbelleğini anahtar kümesine göre tutar;
+bir çağrıda `{"control": ...}`, diğerinde `{None: ..., "control": ...}`
+kullanmak `InvalidRequestError` fırlatır ve **API tamamen durur**. Bu yüzden
+haritayı elle kurmayın — daima `app/core/tenancy_runtime.translate_map()`
+kullanın. `tests/test_tenancy.py` bu sözleşmeyi korur.
+
+## Geçiş durumu ve geri dönüş
+
+`tenant_datastores`'ta `ready` kaydı **olmayan** tenant, eski ortak yerleşimde
+(`public`) çalışmaya devam eder. Yani bu değişiklik, taşınmamış tenant'lar için
+**davranışsal olarak no-op**'tur. Taşıma tenant tenant yapılır.
+
+Backfill kaynak satırları **silmez** — doğrulama bitene kadar eski veri
+yerinde durur.
+
+> **Kesme anı tek yönlüdür:** `--activate` sonrası yazmalar yeni şemaya gider.
+> O andan sonra geri dönmek, yeni şemadaki değişikliklerin geri taşınmasını
+> gerektirir. Aktivasyonu düşük trafikli bir pencerede yapın.
+
+## Runbook
+
+```bash
+# 0) Ne yapılacağını gör (hiçbir şey değiştirmez)
+python -m app.tenancy.backfill plan
+
+# 1) Kopyala ama YÖNLENDİRME (istekler eski yerleşimde kalır)
+python -m app.tenancy.backfill run --slug bta
+
+# 2) Sayımları gözden geçir, sonra kesme anı
+python -m app.tenancy.backfill run --slug bta --activate
+
+# 3) Tüm tenant'lar taşındıktan sonra geri düşüşü KAPAT
+#    (provisioning'i atlanmış tenant sessizce ortak tablolara yazamasın)
+LOGISLOT_TENANT_DATASTORE_REQUIRED=true
+
+# Şema migration'ları (deploy akışında otomatik)
+alembic upgrade head                          # control-plane
+python -m app.tenancy.migrations upgrade      # her tenant şeması
+python -m app.tenancy.migrations status
+
+# Gerçek Postgres'te uçtan uca izolasyon doğrulaması (tek kullanımlık DB)
+python scripts/verify_tenant_isolation.py
+```
+
+`verify_tenant_isolation.py`'yi **canlı API pod'unun içinde çalıştırmayın** —
+pod 512Mi limitindedir ve exec süreci OOM ile öldürülür. Aynı imajla ayrı bir
+pod açın.
+
+## Şema değişikliği nasıl yapılır
+
+- Control-plane tablosu değişiyorsa → `alembic/` zincirine revizyon ekleyin.
+- Tenant-plane tablosu değişiyorsa → `alembic_tenant/` zincirine ekleyin;
+  deploy sırasında her tenant şemasında çalışır.
+
+Yeni tenant şemaları migration'lar baştan oynatılarak değil, o anki model
+durumundan `create_all` ile yaratılır ve tenant zincirinin head'ine damgalanır.
+
+## Login yönlendirmesi
+
+`tenant_users` artık tenant şemasında olduğundan "bu e-posta hangi tenant'a
+ait" sorusu `public.principal_directory` ile yanıtlanır. Bu dizin, tablolar
+bölündükten sonra da **global e-posta benzersizliğini** korur (eskiden
+`tenant_users.email UNIQUE` sağlıyordu). Yalnızca yönlendirme bilgisi tutar;
+parola özeti ve kişisel alanlar tenant şemasında kalır.
+
+Token'lara `tid` claim'i eklenir. Claim'i taşımayan **eski token'lar** dizin
+üzerinden çözülür — deploy anında elde token'ı olan kullanıcıların oturumu
+düşmez.

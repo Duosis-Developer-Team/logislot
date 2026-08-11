@@ -28,7 +28,7 @@ class TenantUser(Base, UUIDPkMixin, TimestampMixin):
     __tablename__ = "tenant_users"
 
     tenant_id: Mapped[uuid.UUID] = mapped_column(
-        sa.Uuid, sa.ForeignKey("tenants.id", ondelete="CASCADE"), index=True
+        sa.Uuid, sa.ForeignKey("control.tenants.id", ondelete="CASCADE"), index=True
     )
     name: Mapped[str] = mapped_column(sa.String(255))
     email: Mapped[str] = mapped_column(sa.String(255), unique=True, index=True)
@@ -56,7 +56,7 @@ class Role(Base, UUIDPkMixin, TimestampMixin):
     __table_args__ = (sa.UniqueConstraint("tenant_id", "facility_id", "name"),)
 
     tenant_id: Mapped[uuid.UUID] = mapped_column(
-        sa.Uuid, sa.ForeignKey("tenants.id", ondelete="CASCADE"), index=True
+        sa.Uuid, sa.ForeignKey("control.tenants.id", ondelete="CASCADE"), index=True
     )
     facility_id: Mapped[uuid.UUID | None] = mapped_column(
         sa.Uuid, sa.ForeignKey("facilities.id", ondelete="CASCADE"), index=True
@@ -80,7 +80,7 @@ class FacilityMembership(Base, UUIDPkMixin, TimestampMixin):
         sa.Uuid, sa.ForeignKey("tenant_users.id", ondelete="CASCADE"), index=True
     )
     tenant_id: Mapped[uuid.UUID] = mapped_column(
-        sa.Uuid, sa.ForeignKey("tenants.id", ondelete="CASCADE"), index=True
+        sa.Uuid, sa.ForeignKey("control.tenants.id", ondelete="CASCADE"), index=True
     )
     facility_id: Mapped[uuid.UUID] = mapped_column(
         sa.Uuid, sa.ForeignKey("facilities.id", ondelete="CASCADE"), index=True

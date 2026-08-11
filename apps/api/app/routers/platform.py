@@ -14,14 +14,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.auth.deps import Identity, require_platform_permissions
 from app.core.config import get_settings
 from app.core.csvutils import csv_response
-from app.core.db import get_db
+from app.core.db import get_db, location_for_tenant, session_scope
 from app.core.enums import (
     ActorType,
     AppointmentStatus,
     FacilityStatus,
     PlanScope,
     PlanStatus,
-    SupplierStatus,
     TenantStatus,
 )
 from app.core.errors import ApiError, NotFoundError
@@ -32,10 +31,23 @@ from app.core.plan_limits import (
     normalize_limits,
 )
 from app.core.responses import ok
-from app.models import Appointment, Dock, Facility, Plan, Supplier, Tenant
+from app.models import Appointment, Facility, Plan, Tenant
 from app.services.audit import record_audit
 from app.services.onboarding import bootstrap_facility_defaults
 from app.services.plan_warnings import evaluate_rate_card
+from app.tenancy.directory import claim_email_once, tenant_for_email
+from app.tenancy.fanout import (
+    facilities_by_tenant,
+    facility_of,
+    gather_by_tenant,
+    locate_facility,
+    usage_snapshot,
+)
+from app.tenancy.provisioning import (
+    deprovision_tenant,
+    location_of,
+    provision_tenant,
+)
 
 router = APIRouter(prefix="/platform", tags=["platform"])
 
@@ -190,8 +202,7 @@ async def list_tenants(
 ):
     result = await db.execute(select(Tenant).order_by(Tenant.display_name))
     tenants = list(result.scalars())
-    facilities = (await db.execute(select(Facility))).scalars()
-    by_tenant = {f.tenant_id: f for f in facilities}
+    by_tenant = await facilities_by_tenant([t.id for t in tenants])
     return ok([_tenant_out(t, by_tenant.get(t.id)) for t in tenants])
 
 
@@ -201,6 +212,17 @@ async def create_tenant(
     identity: Identity = Depends(require_platform_permissions(PlatformPermission.TENANT_MANAGE)),
     db: AsyncSession = Depends(get_db),
 ):
+    """Musteri hesabi + KENDI VERI ALANI + tesis acar.
+
+    Adimlar ayri transaction'lardadir cunku aradaki provisioning bir DDL
+    islemidir ve geri alinamaz:
+        1. control-plane: Tenant satiri
+        2. provisioning:  tenant'in semasi + tablolari
+        3. tenant semasi: Facility, varsayilanlar, ilk yonetici
+    Herhangi bir adim patlarsa tenant 'failed' veri alaniyla gorunur kalir
+    ve platform panelinden yeniden provision edilebilir; sessizce ORTAK
+    tablolara yazilmaz.
+    """
     payload = body.model_dump()
     # Tesis alanlari tenant kolonlari degil; ayirip Facility'ye gecirilir.
     address = payload.pop("address", None)
@@ -210,49 +232,109 @@ async def create_tenant(
     if plan_override_id is not None:
         await _get_assignable_plan(db, plan_override_id)
 
+    # Ucuz on kontrol: ilk yonetici e-postasi zaten kullanimdaysa hicbir sey
+    # yaratmadan 409 don (telafi yolunu bos yere calistirmamak icin).
+    if initial_admin_spec is not None:
+        taken = await tenant_for_email(db, "tenant", str(initial_admin_spec["email"]))
+        if taken is not None:
+            raise ApiError("DUPLICATE_EMAIL", "Bu e-posta zaten bir kullaniciya ait", 409)
+
+    # 1) Control-plane: tenant kimligi
     tenant = Tenant(**payload)
     db.add(tenant)
-    await db.flush()
-
-    # 1 tenant = 1 tesis: operasyonel kapsam ayni istekte acilir.
-    facility = Facility(
-        tenant_id=tenant.id,
-        name=tenant.display_name,
-        address=address,
-        timezone=tenant.default_timezone,
-        plan_override_id=plan_override_id,
-    )
-    db.add(facility)
-    await db.flush()
-
-    bootstrap_summary = None
-    if bootstrap_defaults:
-        bootstrap_summary = await bootstrap_facility_defaults(db, facility)
-    initial_admin_out = None
-    if initial_admin_spec is not None:
-        initial_admin_out = await _create_initial_admin(
-            db, facility, InitialAdmin(**initial_admin_spec), actor_id=identity.id
-        )
-
-    record_audit(
-        db,
-        actor_type=ActorType.platform_user,
-        actor_id=identity.id,
-        action="tenant.create",
-        tenant_id=tenant.id,
-        facility_id=facility.id,
-        entity_type="tenant",
-        entity_id=tenant.id,
-        after={"slug": tenant.slug, "bootstrap": bootstrap_summary},
-    )
     await db.commit()
     await db.refresh(tenant)
-    await db.refresh(facility)
-    data = _tenant_out(tenant, facility)
+
+    try:
+        return await _finish_tenant_creation(
+            db, tenant, identity,
+            address=address,
+            bootstrap_defaults=bootstrap_defaults,
+            initial_admin_spec=initial_admin_spec,
+            plan_override_id=plan_override_id,
+        )
+    except BaseException:
+        # ALL-OR-NOTHING: provisioning DDL oldugu icin tek transaction
+        # mumkun degil; bunun yerine yaratilan her sey geri alinir.
+        await deprovision_tenant(db, tenant.id)
+        raise
+
+
+async def _finish_tenant_creation(
+    db: AsyncSession,
+    tenant: Tenant,
+    identity: Identity,
+    *,
+    address,
+    bootstrap_defaults,
+    initial_admin_spec,
+    plan_override_id,
+):
+    # 2) Tenant'in kendi veri alani (sema + tablolar + alembic damgasi)
+    datastore = await provision_tenant(db, tenant.id)
+
+    # 3) Operasyonel veri artik tenant'in KENDI semasina yazilir
+    async with session_scope(location_of(datastore)) as tdb:
+        facility = Facility(
+            tenant_id=tenant.id,
+            name=tenant.display_name,
+            address=address,
+            timezone=tenant.default_timezone,
+            plan_override_id=plan_override_id,
+        )
+        tdb.add(facility)
+        await tdb.flush()
+
+        bootstrap_summary = None
+        if bootstrap_defaults:
+            bootstrap_summary = await bootstrap_facility_defaults(tdb, facility)
+        initial_admin_out = None
+        if initial_admin_spec is not None:
+            initial_admin_out = await _create_initial_admin(
+                tdb, facility, InitialAdmin(**initial_admin_spec),
+                actor_id=identity.id, control_db=db,
+            )
+
+        record_audit(
+            tdb,
+            actor_type=ActorType.platform_user,
+            actor_id=identity.id,
+            action="tenant.create",
+            tenant_id=tenant.id,
+            facility_id=facility.id,
+            entity_type="tenant",
+            entity_id=tenant.id,
+            after={
+                "slug": tenant.slug,
+                "bootstrap": bootstrap_summary,
+                "schema": datastore.schema_name,
+            },
+        )
+        await tdb.commit()
+        await tdb.refresh(facility)
+        data = _tenant_out(tenant, facility)
+
     data["bootstrap"] = bootstrap_summary
+    data["datastore"] = {"schema": datastore.schema_name, "status": datastore.status}
     # Gecici parola YALNIZCA bu yanitta gosterilir; sonradan okunamaz.
     data["initial_admin"] = initial_admin_out
     return ok(data)
+
+
+@router.post("/tenants/{tenant_id}/reprovision")
+async def reprovision_tenant(
+    tenant_id: uuid.UUID,
+    identity: Identity = Depends(require_platform_permissions(PlatformPermission.TENANT_MANAGE)),
+    db: AsyncSession = Depends(get_db),
+):
+    """Yarida kalmis/basarisiz bir veri alanini yeniden acar (idempotent)."""
+    tenant = (
+        await db.execute(select(Tenant).where(Tenant.id == tenant_id))
+    ).scalar_one_or_none()
+    if tenant is None:
+        raise NotFoundError("Musteri bulunamadi")
+    datastore = await provision_tenant(db, tenant_id)
+    return ok({"schema": datastore.schema_name, "status": datastore.status})
 
 
 @router.get("/tenants/{tenant_id}")
@@ -264,9 +346,7 @@ async def get_tenant(
     tenant = (await db.execute(select(Tenant).where(Tenant.id == tenant_id))).scalar_one_or_none()
     if tenant is None:
         raise NotFoundError("Tenant bulunamadi")
-    facility = (
-        await db.execute(select(Facility).where(Facility.tenant_id == tenant_id))
-    ).scalar_one_or_none()
+    facility = await facility_of(tenant_id)
     data = _tenant_out(tenant, facility)
     # Geriye uyumluluk: eski istemciler `facilities` listesini bekliyor olabilir.
     data["facilities"] = [_facility_out(facility)] if facility else []
@@ -297,22 +377,28 @@ async def patch_tenant(
         setattr(tenant, key, value)
 
     # tenant=tesis: ad/saat dilimi/durum ve adres tek kayitmis gibi senkronlanir.
-    facility = (
-        await db.execute(select(Facility).where(Facility.tenant_id == tenant_id))
-    ).scalar_one_or_none()
-    if facility is not None:
-        if "display_name" in changes:
-            facility.name = tenant.display_name
-        if "default_timezone" in changes:
-            facility.timezone = tenant.default_timezone
-        if address is not _UNSET:
-            facility.address = address
-        if "status" in changes:
-            facility.status = (
-                FacilityStatus.inactive
-                if tenant.status in (TenantStatus.suspended, TenantStatus.archived)
-                else FacilityStatus.active
-            )
+    # Tesis tenant'in KENDI semasinda oldugundan ayri bir oturumda guncellenir.
+    facility = None
+    location = await location_for_tenant(tenant_id)
+    async with session_scope(location) as tdb:
+        facility = (
+            await tdb.execute(select(Facility).where(Facility.tenant_id == tenant_id))
+        ).scalar_one_or_none()
+        if facility is not None:
+            if "display_name" in changes:
+                facility.name = tenant.display_name
+            if "default_timezone" in changes:
+                facility.timezone = tenant.default_timezone
+            if address is not _UNSET:
+                facility.address = address
+            if "status" in changes:
+                facility.status = (
+                    FacilityStatus.inactive
+                    if tenant.status in (TenantStatus.suspended, TenantStatus.archived)
+                    else FacilityStatus.active
+                )
+            await tdb.commit()
+            await tdb.refresh(facility)
 
     record_audit(
         db,
@@ -327,8 +413,8 @@ async def patch_tenant(
     )
     await db.commit()
     await db.refresh(tenant)
-    if facility is not None:
-        await db.refresh(facility)
+    # facility ARTIK tenant oturumuna ait; control oturumuyla refresh edilemez
+    # (zaten kendi oturumunda tazelendi).
     return ok(_tenant_out(tenant, facility))
 
 
@@ -340,8 +426,10 @@ async def list_facilities(
     identity: Identity = Depends(require_platform_permissions(PlatformPermission.FACILITY_VIEW)),
     db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(select(Facility).order_by(Facility.name))
-    return ok([_facility_out(f) for f in result.scalars()])
+    tenant_ids = list((await db.execute(select(Tenant.id))).scalars())
+    by_tenant = await facilities_by_tenant(tenant_ids)
+    rows = sorted(by_tenant.values(), key=lambda f: f.name)
+    return ok([_facility_out(f) for f in rows])
 
 
 @router.post("/tenants/{tenant_id}/facilities")
@@ -360,9 +448,7 @@ async def create_facility(
         )
     # Urun karari: 1 tenant = 1 tesis. Tesis artik tenant ile birlikte acilir;
     # bu uc yalnizca tesisi olmayan ESKI kayitlar icin telafi yolu olarak kalir.
-    existing = (
-        await db.execute(select(Facility).where(Facility.tenant_id == tenant_id))
-    ).scalar_one_or_none()
+    existing = await facility_of(tenant_id)
     if existing is not None:
         raise ApiError(
             "TENANT_FACILITY_EXISTS",
@@ -409,7 +495,12 @@ async def create_facility(
 
 
 async def _create_initial_admin(
-    db: AsyncSession, facility: Facility, spec: InitialAdmin, *, actor_id: uuid.UUID
+    db: AsyncSession,
+    facility: Facility,
+    spec: InitialAdmin,
+    *,
+    actor_id: uuid.UUID,
+    control_db: AsyncSession,
 ) -> dict:
     """Ilk tenant yoneticisi: user.manage yetkili sistem roluyle uyelik.
 
@@ -428,7 +519,18 @@ async def _create_initial_admin(
     )
     role = await ensure_sysadmin_role(db, facility)
     temporary_password = spec.temporary_password or generate_temporary_password()
+    # Dizin kaydi kullanicidan ONCE alinir: global e-posta benzersizligini
+    # o saglar ve login yonlendirmesi ona bakar.
+    user_id = uuid.uuid4()
+    await claim_email_once(
+        control_db,
+        principal_id=user_id,
+        user_type="tenant",
+        email=str(spec.email),
+        tenant_id=facility.tenant_id,
+    )
     user = TenantUser(
+        id=user_id,
         tenant_id=facility.tenant_id,
         name=spec.name,
         email=str(spec.email),
@@ -474,28 +576,34 @@ async def patch_facility(
     identity: Identity = Depends(require_platform_permissions(PlatformPermission.TENANT_MANAGE)),
     db: AsyncSession = Depends(get_db),
 ):
-    facility = (
-        await db.execute(select(Facility).where(Facility.id == facility_id))
-    ).scalar_one_or_none()
-    if facility is None:
+    found = await locate_facility(facility_id)
+    if found is None:
         raise NotFoundError("Tesis bulunamadi")
+    tenant_id, _ = found
     changes = body.model_dump(exclude_unset=True)
-    for key, value in changes.items():
-        setattr(facility, key, value)
-    record_audit(
-        db,
-        actor_type=ActorType.platform_user,
-        actor_id=identity.id,
-        action="facility.update",
-        tenant_id=facility.tenant_id,
-        facility_id=facility.id,
-        entity_type="facility",
-        entity_id=facility.id,
-        after={k: str(v) for k, v in changes.items()},
-    )
-    await db.commit()
-    await db.refresh(facility)
-    return ok(_facility_out(facility))
+    # Yazma, tesisin yasadigi tenant semasinda yapilir.
+    async with session_scope(await location_for_tenant(tenant_id)) as tdb:
+        facility = (
+            await tdb.execute(select(Facility).where(Facility.id == facility_id))
+        ).scalar_one_or_none()
+        if facility is None:
+            raise NotFoundError("Tesis bulunamadi")
+        for key, value in changes.items():
+            setattr(facility, key, value)
+        record_audit(
+            tdb,
+            actor_type=ActorType.platform_user,
+            actor_id=identity.id,
+            action="facility.update",
+            tenant_id=facility.tenant_id,
+            facility_id=facility.id,
+            entity_type="facility",
+            entity_id=facility.id,
+            after={k: str(v) for k, v in changes.items()},
+        )
+        await tdb.commit()
+        await tdb.refresh(facility)
+        return ok(_facility_out(facility))
 
 
 # ---------- usage (yalnizca agregat; PII/operasyonel detay ASLA donmez) ----------
@@ -519,7 +627,6 @@ async def usage(
     from datetime import UTC, datetime, timedelta
 
     from app.core.timeutils import to_utc
-    from app.models import AuditLog, FacilityMembership
 
     today = datetime.now(UTC).date()
     date_to = date_to or today
@@ -528,62 +635,20 @@ async def usage(
     range_end = datetime.combine(date_to + timedelta(days=1), datetime.min.time(), UTC)
 
     tenants = list((await db.execute(select(Tenant))).scalars())
-    facilities = list((await db.execute(select(Facility))).scalars())
     plans = {p.id: p.name for p in (await db.execute(select(Plan))).scalars()}
 
-    appointments = list(
-        (
-            await db.execute(
-                select(
-                    Appointment.id,
-                    Appointment.facility_id,
-                    Appointment.tenant_id,
-                    Appointment.status,
-                    Appointment.created_at,
-                ).where(
-                    Appointment.created_at >= range_start,
-                    Appointment.created_at < range_end,
-                )
-            )
-        ).all()
+    # Operasyonel veri her tenant'in kendi semasinda; tek SELECT yerine
+    # tenant'lar arasi toplama yapilir (ciktilarin sekli aynidir).
+    snapshot = await usage_snapshot(
+        [t.id for t in tenants], range_start=range_start, range_end=range_end
     )
-
-    async def count_by_facility(query) -> dict:
-        return dict((await db.execute(query)).all())
-
-    docks_by_facility = await count_by_facility(
-        select(Dock.facility_id, func.count(Dock.id))
-        .where(Dock.is_active.is_(True))
-        .group_by(Dock.facility_id)
-    )
-    suppliers_by_facility = await count_by_facility(
-        select(Supplier.facility_id, func.count(Supplier.id))
-        .where(Supplier.status == SupplierStatus.active)
-        .group_by(Supplier.facility_id)
-    )
-    users_by_facility = await count_by_facility(
-        select(FacilityMembership.facility_id, func.count(FacilityMembership.id))
-        .group_by(FacilityMembership.facility_id)
-    )
-
+    facilities = snapshot["facilities"]
+    appointments = snapshot["appointments"]
+    docks_by_facility = snapshot["docks_by_facility"]
+    suppliers_by_facility = snapshot["suppliers_by_facility"]
+    users_by_facility = snapshot["users_by_facility"]
     # Karar suresi (SLA) — audit izlerinden, tenant bazinda ortalama
-    audit_rows = list(
-        (
-            await db.execute(
-                select(
-                    AuditLog.tenant_id,
-                    AuditLog.entity_id,
-                    AuditLog.action,
-                    AuditLog.occurred_at,
-                ).where(
-                    AuditLog.action.in_(
-                        ["appointment.create", "appointment.approve", "appointment.reject"]
-                    ),
-                    AuditLog.occurred_at >= range_start,
-                )
-            )
-        ).all()
-    )
+    audit_rows = snapshot["audit_rows"]
     created_map: dict = {}
     decided_map: dict = {}
     for tenant_id, entity_id, action, occurred_at in audit_rows:
@@ -890,27 +955,32 @@ async def assign_facility_plan(
     db: AsyncSession = Depends(get_db),
 ):
     """Facility override: tenant varsayilanindan farkli plan (havalimani senaryosu)."""
-    facility = (
-        await db.execute(select(Facility).where(Facility.id == facility_id))
-    ).scalar_one_or_none()
-    if facility is None:
+    found = await locate_facility(facility_id)
+    if found is None:
         raise NotFoundError("Tesis bulunamadi")
+    tenant_id, _ = found
     plan = await _get_assignable_plan(db, body.plan_id)
-    before = str(facility.plan_override_id) if facility.plan_override_id else None
-    facility.plan_override_id = plan.id
-    record_audit(
-        db,
-        actor_type=ActorType.platform_user,
-        actor_id=identity.id,
-        action="plan.assign_facility_override",
-        tenant_id=facility.tenant_id,
-        facility_id=facility.id,
-        entity_type="plan",
-        entity_id=plan.id,
-        before={"plan_id": before},
-        after={"plan_id": str(plan.id), "plan_name": plan.name},
-    )
-    await db.commit()
+    async with session_scope(await location_for_tenant(tenant_id)) as tdb:
+        facility = (
+            await tdb.execute(select(Facility).where(Facility.id == facility_id))
+        ).scalar_one_or_none()
+        if facility is None:
+            raise NotFoundError("Tesis bulunamadi")
+        before = str(facility.plan_override_id) if facility.plan_override_id else None
+        facility.plan_override_id = plan.id
+        record_audit(
+            tdb,
+            actor_type=ActorType.platform_user,
+            actor_id=identity.id,
+            action="plan.assign_facility_override",
+            tenant_id=facility.tenant_id,
+            facility_id=facility.id,
+            entity_type="plan",
+            entity_id=plan.id,
+            before={"plan_id": before},
+            after={"plan_id": str(plan.id), "plan_name": plan.name},
+        )
+        await tdb.commit()
     return ok({"assigned": True, "plan_name": plan.name})
 
 
@@ -934,7 +1004,6 @@ async def usage_warnings(
     """
     from datetime import UTC, datetime, timedelta
 
-    from app.models import FacilityMembership
 
     today = datetime.now(UTC).date()
     date_to = date_to or today
@@ -943,41 +1012,20 @@ async def usage_warnings(
     range_end = datetime.combine(date_to + timedelta(days=1), datetime.min.time(), UTC)
 
     tenants = list((await db.execute(select(Tenant))).scalars())
-    facilities = list((await db.execute(select(Facility))).scalars())
     plans = {p.id: p for p in (await db.execute(select(Plan))).scalars()}
 
-    appt_rows = (
-        await db.execute(
-            select(
-                Appointment.facility_id,
-                Appointment.status,
-                func.count(Appointment.id),
-            )
-            .where(
-                Appointment.created_at >= range_start,
-                Appointment.created_at < range_end,
-            )
-            .group_by(Appointment.facility_id, Appointment.status)
-        )
-    ).all()
-
-    async def counts(query) -> dict:
-        return dict((await db.execute(query)).all())
-
-    docks = await counts(
-        select(Dock.facility_id, func.count(Dock.id))
-        .where(Dock.is_active.is_(True))
-        .group_by(Dock.facility_id)
+    snapshot = await usage_snapshot(
+        [t.id for t in tenants], range_start=range_start, range_end=range_end
     )
-    suppliers = await counts(
-        select(Supplier.facility_id, func.count(Supplier.id))
-        .where(Supplier.status == SupplierStatus.active)
-        .group_by(Supplier.facility_id)
-    )
-    users = await counts(
-        select(FacilityMembership.facility_id, func.count(FacilityMembership.id))
-        .group_by(FacilityMembership.facility_id)
-    )
+    facilities = snapshot["facilities"]
+    docks = snapshot["docks_by_facility"]
+    suppliers = snapshot["suppliers_by_facility"]
+    users = snapshot["users_by_facility"]
+    # (facility_id, status, adet) — snapshot ham randevulardan turetilir
+    _counter: dict = {}
+    for _id, fid, _tid, status, _created in snapshot["appointments"]:
+        _counter[(fid, status)] = _counter.get((fid, status), 0) + 1
+    appt_rows = [(fid, status, n) for (fid, status), n in _counter.items()]
 
     def facility_dimensions(facility_ids: list) -> dict[str, int]:
         created = sum(n for fid, _s, n in appt_rows if fid in facility_ids)
@@ -1108,39 +1156,60 @@ async def support_health(
 
     now = datetime.now(UTC)
 
-    async def count(query) -> int:
-        return int((await db.execute(query)).scalar_one())
+    # Bu sayimlarin hepsi TENANT-PLANE tablolarindan gelir; her tenant'in
+    # kendi semasinda sayilip toplanir.
+    tenant_ids = list((await db.execute(select(Tenant.id))).scalars())
 
-    failed_emails = await count(
-        select(func.count(EmailLog.id)).where(EmailLog.status == "failed")
-    )
-    due_retries = await count(
-        select(func.count(EmailLog.id)).where(
-            EmailLog.status.in_(["failed", "queued"]),
-            EmailLog.retry_count < EmailLog.max_attempts,
-            EmailLog.next_retry_at.is_not(None),
-            EmailLog.next_retry_at <= now,
-        )
-    )
-    unread_critical = await count(
-        select(func.count(Notification.id)).where(
-            Notification.read_at.is_(None), Notification.severity == "error"
-        )
-    )
-    pending = await count(
-        select(func.count(Appointment.id)).where(
-            Appointment.status == AppointmentStatus.pending
-        )
-    )
-    revision_pending = await count(
-        select(func.count(Appointment.id)).where(
-            Appointment.status == AppointmentStatus.revision_pending
-        )
-    )
-    tenants_count = await count(select(func.count(Tenant.id)))
-    active_facilities = await count(
-        select(func.count(Facility.id)).where(Facility.status == FacilityStatus.active)
-    )
+    async def health_counts(tdb: AsyncSession, _tid) -> dict:
+        async def n(query) -> int:
+            return int((await tdb.execute(query)).scalar_one())
+
+        return {
+            "failed_emails": await n(
+                select(func.count(EmailLog.id)).where(EmailLog.status == "failed")
+            ),
+            "due_retries": await n(
+                select(func.count(EmailLog.id)).where(
+                    EmailLog.status.in_(["failed", "queued"]),
+                    EmailLog.retry_count < EmailLog.max_attempts,
+                    EmailLog.next_retry_at.is_not(None),
+                    EmailLog.next_retry_at <= now,
+                )
+            ),
+            "unread_critical": await n(
+                select(func.count(Notification.id)).where(
+                    Notification.read_at.is_(None), Notification.severity == "error"
+                )
+            ),
+            "pending": await n(
+                select(func.count(Appointment.id)).where(
+                    Appointment.status == AppointmentStatus.pending
+                )
+            ),
+            "revision_pending": await n(
+                select(func.count(Appointment.id)).where(
+                    Appointment.status == AppointmentStatus.revision_pending
+                )
+            ),
+            "active_facilities": await n(
+                select(func.count(Facility.id)).where(
+                    Facility.status == FacilityStatus.active
+                )
+            ),
+        }
+
+    parts = (await gather_by_tenant(tenant_ids, health_counts)).values()
+
+    def total(key: str) -> int:
+        return sum(int(p.get(key, 0)) for p in parts)
+
+    failed_emails = total("failed_emails")
+    due_retries = total("due_retries")
+    unread_critical = total("unread_critical")
+    pending = total("pending")
+    revision_pending = total("revision_pending")
+    tenants_count = len(tenant_ids)
+    active_facilities = total("active_facilities")
     warnings_envelope = await usage_warnings(identity=identity, db=db)
 
     # Scheduler durumu: is basina SON kosum (kayit yoksa null -> "henuz kosmadi")

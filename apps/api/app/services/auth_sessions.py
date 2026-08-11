@@ -32,8 +32,13 @@ async def open_session(
     user_id: uuid.UUID,
     user_agent: str | None = None,
     ip: str | None = None,
+    tenant_id: uuid.UUID | None = None,
 ) -> tuple[str, str]:
-    """Yeni oturum acar; (access_token, refresh_token) dondurur."""
+    """Yeni oturum acar; (access_token, refresh_token) dondurur.
+
+    tenant_id verilirse tokenlara `tid` claim'i eklenir; sonraki istekler
+    dizine gitmeden dogru tenant semasina yonlendirilir.
+    """
     jti = uuid.uuid4()
     settings = get_settings()
     db.add(
@@ -48,8 +53,8 @@ async def open_session(
         )
     )
     return (
-        create_access_token(user_id, user_type),  # type: ignore[arg-type]
-        create_refresh_token(user_id, user_type, jti),  # type: ignore[arg-type]
+        create_access_token(user_id, user_type, tenant_id),  # type: ignore[arg-type]
+        create_refresh_token(user_id, user_type, jti, tenant_id),  # type: ignore[arg-type]
     )
 
 
@@ -61,6 +66,7 @@ async def rotate_session(
     user_id: uuid.UUID,
     user_agent: str | None = None,
     ip: str | None = None,
+    tenant_id: uuid.UUID | None = None,
 ) -> tuple[str, str]:
     """Eski oturumu kapatip yenisini acar; gecersiz jti'de 401."""
     session = (
@@ -83,7 +89,8 @@ async def rotate_session(
     session.revoked_at = now
     session.last_used_at = now
     tokens = await open_session(
-        db, user_type=user_type, user_id=user_id, user_agent=user_agent, ip=ip
+        db, user_type=user_type, user_id=user_id, user_agent=user_agent, ip=ip,
+        tenant_id=tenant_id,
     )
     await db.commit()
     return tokens
