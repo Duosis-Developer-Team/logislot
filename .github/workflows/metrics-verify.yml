@@ -1,0 +1,145 @@
+# Drake metrik sozlesmesinin CANLI dogrulamasi — SALT OKUNUR.
+#
+# Neden var: metrik sozlesmesi sessizce bozulur. Etiket adi kayarsa seri
+# toplanmaya devam eder, panolar bos kalir ve kimse haftalarca fark etmez.
+# "Deploy yesil" bu yuzden yeterli kanit degildir; LOGISLOT_METRICS.md'deki
+# UC SORGUNUN gercek Prometheus'ta veri dondurmesi gerekir.
+#
+# GUVENLIK: yalnizca `get` ve `port-forward` kullanilir. apply/delete/create/
+# patch/scale/exec YOKTUR ve eklenmemelidir. Baska ekiplerin namespace'lerine
+# (Prometheus) yalnizca OKUMA amacli erisilir; hicbir sey degistirilmez.
+# Bu yuzden `environment:` de yoktur — onay kapisi mutasyon yapan deploy.yml'e
+# aittir.
+name: Metrics Verify
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Dogrulanacak ortam"
+        required: true
+        type: choice
+        options: [dev, prod]
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      ENV_NAME: ${{ inputs.environment }}
+      METRICS_PORT: "9464"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Kubeconfig hazirla (loglanmaz)
+        run: |
+          mkdir -p ~/.kube
+          if [[ "$ENV_NAME" == "prod" && -n "${{ secrets.KUBE_CONFIG_PROD }}" ]]; then
+            printf '%s' "${{ secrets.KUBE_CONFIG_PROD }}" | base64 -d > ~/.kube/config
+          elif [[ "$ENV_NAME" == "dev" && -n "${{ secrets.KUBE_CONFIG_DEV }}" ]]; then
+            printf '%s' "${{ secrets.KUBE_CONFIG_DEV }}" | base64 -d > ~/.kube/config
+          else
+            printf '%s' "${{ secrets.KUBE_CONFIG }}" | base64 -d > ~/.kube/config
+          fi
+          chmod 600 ~/.kube/config
+
+      - name: 1) Pod anotasyonlari ve ortam degiskeni
+        run: |
+          NAMESPACE="logislot-$ENV_NAME"
+          if [[ "$NAMESPACE" != "logislot-dev" && "$NAMESPACE" != "logislot-prod" ]]; then
+            echo "Gecersiz namespace: $NAMESPACE"; exit 1
+          fi
+          echo "===== POD ANOTASYONLARI (Service'te DEGIL, pod'da olmali) ====="
+          POD=$(kubectl -n "$NAMESPACE" get pod -l app.kubernetes.io/name=logislot-api \
+                  -o jsonpath='{.items[0].metadata.name}')
+          echo "pod: $POD"
+          for key in scrape port path; do
+            VAL=$(kubectl -n "$NAMESPACE" get pod "$POD" \
+                    -o jsonpath="{.metadata.annotations.prometheus\.io/$key}")
+            echo "  prometheus.io/$key = ${VAL:-<YOK>}"
+            [[ -n "$VAL" ]] || { echo "::error::prometheus.io/$key anotasyonu pod'da yok"; exit 1; }
+          done
+
+          echo "===== KATALOG ANAHTARI (namespace DEGIL) ====="
+          ENVLABEL=$(kubectl -n "$NAMESPACE" get configmap logislot-config \
+                       -o jsonpath='{.data.LOGISLOT_METRICS_ENVIRONMENT}')
+          echo "  LOGISLOT_METRICS_ENVIRONMENT = ${ENVLABEL:-<YOK>}"
+          if [[ "$ENVLABEL" != "$ENV_NAME" ]]; then
+            echo "::error::environment '$ENVLABEL' olmamali; '$ENV_NAME' bekleniyor"
+            exit 1
+          fi
+
+          echo "===== METRIK PORTU HICBIR SERVICE'TEN YAYINLANMAMALI ====="
+          if kubectl -n "$NAMESPACE" get svc -o json \
+               | grep -E "\"(port|targetPort)\": *$METRICS_PORT\b" ; then
+            echo "::error::metrik portu ($METRICS_PORT) bir Service'ten yayinlaniyor"
+            exit 1
+          fi
+          echo "  temiz: $METRICS_PORT hicbir Service'te yok"
+
+      - name: 2) Pod /metrics'i sozlesmeye uygun yayinliyor mu
+        run: |
+          NAMESPACE="logislot-$ENV_NAME"
+          POD=$(kubectl -n "$NAMESPACE" get pod -l app.kubernetes.io/name=logislot-api \
+                  -o jsonpath='{.items[0].metadata.name}')
+          kubectl -n "$NAMESPACE" port-forward "pod/$POD" 19464:$METRICS_PORT >/dev/null 2>&1 &
+          PF=$!
+          trap 'kill "$PF" 2>/dev/null || true' EXIT
+          for _ in $(seq 1 30); do
+            curl -fsS --max-time 3 http://localhost:19464/metrics >/tmp/metrics.txt 2>/dev/null && break
+            sleep 2
+          done
+          if [[ ! -s /tmp/metrics.txt ]]; then
+            echo "::error::pod'un $METRICS_PORT portundan /metrics alinamadi"; exit 1
+          fi
+
+          echo "===== SOZLESME SERILERI ====="
+          grep -E '^http_server_requests_total\{' /tmp/metrics.txt || {
+            echo "::error::http_server_requests_total yok"; exit 1; }
+          grep -qE '^http_server_request_duration_seconds_bucket\{' /tmp/metrics.txt || {
+            echo "::error::http_server_request_duration_seconds_bucket yok"; exit 1; }
+
+          echo "===== YASAK ETIKET DENETIMI ====="
+          if grep -E '^http_server_request' /tmp/metrics.txt \
+               | grep -qE '(^|[{,])(pod|container|instance|route|path|tenant|customer|user|user_id|email|request_id|method)='; then
+            echo "::error::sinirsiz kardinaliteli etiket bulundu"; exit 1
+          fi
+          echo "  temiz"
+
+      - name: 3) Drake'in UC SORGUSU gercek Prometheus'ta
+        run: |
+          echo "===== PROMETHEUS KESFI (salt okunur) ====="
+          # Prometheus baska bir ekibin namespace'inde. Yalnizca OKUNUR;
+          # hicbir sey degistirilmez.
+          kubectl get svc -A -o json > /tmp/svcs.json
+          if ! PROM=$(python3 scripts/find_prometheus.py /tmp/svcs.json); then
+            echo "::warning::Prometheus otomatik bulunamadi. Aday servisler:"
+            kubectl get svc -A | grep -i prom || true
+            echo "::error::Prometheus bulunamadi; sorgular kosturulamadi"
+            exit 1
+          fi
+          read -r PNS PSVC PPORT <<< "$PROM"
+          echo "  bulundu: $PNS/$PSVC:$PPORT"
+
+          kubectl -n "$PNS" port-forward "svc/$PSVC" 19090:"$PPORT" >/dev/null 2>&1 &
+          PF=$!
+          trap 'kill "$PF" 2>/dev/null || true' EXIT
+          READY=0
+          for _ in $(seq 1 30); do
+            if curl -fsS --max-time 3 "http://localhost:19090/api/v1/status/buildinfo" >/dev/null 2>&1; then
+              READY=1; break
+            fi
+            sleep 2
+          done
+          if [[ "$READY" != "1" ]]; then
+            echo "::error::Prometheus API'sine ($PNS/$PSVC) ulasilamadi"; exit 1
+          fi
+
+          echo
+          echo "===== SOZLESME SORGULARI ====="
+          python3 scripts/check_drake_queries.py \
+            --base-url http://localhost:19090 \
+            --environment "$ENV_NAME"
