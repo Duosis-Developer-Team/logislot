@@ -76,3 +76,12 @@ jobs:
           grep -q "namespace: logislot-prod" /tmp/prod.yaml
           ! grep -q "namespace: hermes" /tmp/dev.yaml /tmp/prod.yaml
           echo "kustomize overlays OK"
+
+      # Drake metrik sozlesmesi (LOGISLOT_METRICS.md). Bir etiket adi/degeri
+      # kaydiginda metrikler toplanmaya DEVAM eder ama panolarda gorunmez;
+      # yani bozulma sessizdir ve haftalarca fark edilmez. Bu yuzden guard
+      # testte degil, deploy'un onunde.
+      - name: Metrik sozlesmesi (env anahtari + pod anotasyonlari + port gizliligi)
+        run: |
+          python3 -m pip install --quiet pyyaml
+          python3 scripts/verify_metrics_manifests.py

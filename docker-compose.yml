@@ -26,9 +26,14 @@ services:
       # YALNIZCA dev/e2e compose'u icin gevsetildi — k8s prod overlay'i varsayilani
       # (10) kullanmaya devam eder, rate limit ACIK kalir.
       LOGISLOT_LOGIN_RATE_LIMIT_ATTEMPTS: "50"
+      # Drake katalog anahtari; k8s'te overlay configmap'inden gelir.
+      LOGISLOT_METRICS_ENVIRONMENT: "dev"
     ports:
       # Yerel makinelerde 8000/3000 sik dolu oldugu icin LogiSlot 8010/3010 kullanir.
       - "8010:8000"
+      # /metrics — k8s'te BU PORT DISARIYA ACILMAZ (yalnizca pod ici).
+      # Burada acik olmasi yerel dogrulamayi kolaylastirmak icindir.
+      - "9464:9464"
     depends_on:
       db:
         condition: service_healthy

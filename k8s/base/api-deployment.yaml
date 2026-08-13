@@ -19,6 +19,15 @@ spec:
     metadata:
       labels:
         app.kubernetes.io/name: logislot-api
+      # Prometheus hedefleri POD anotasyonlarindan kesfeder. Bu anotasyonlar
+      # SERVICE'e konursa metrikler toplanmaz ve belirti "hic metrik
+      # yayinlamamak" ile birebir aynidir — bu yuzden POD TEMPLATE'inde.
+      # Port, uygulama portu (8000) DEGIL ayri metrik portudur; 8000
+      # NodePort ile disariya aciktir (dev 30081 / prod 30083).
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9464"
+        prometheus.io/path: "/metrics"
     spec:
       containers:
         - name: api
@@ -27,6 +36,11 @@ spec:
           ports:
             - name: http
               containerPort: 8000
+            # BILGI AMACLI: hicbir Service/NodePort/Ingress bu porta
+            # baglanmaz. Prometheus dogrudan pod IP'sine gider, yani
+            # /metrics kumeden hic cikmaz.
+            - name: metrics
+              containerPort: 9464
           envFrom:
             - configMapRef: { name: logislot-config }
             - secretRef: { name: logislot-secrets }

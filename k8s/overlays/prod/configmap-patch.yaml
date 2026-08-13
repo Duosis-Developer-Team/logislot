@@ -10,6 +10,11 @@ metadata:
   name: logislot-config
 data:
   LOGISLOT_ENVIRONMENT: "production"
+  # Drake KATALOG ANAHTARI — namespace ("logislot-prod") DEGIL, yukaridaki
+  # LOGISLOT_ENVIRONMENT ("production") de DEGIL. Drake'in uc sorgusu da
+  # environment="prod" ile filtreler; burasi degisirse prod panolari sessizce
+  # bosalir. ci.yml -> manifests bu degeri dogrular.
+  LOGISLOT_METRICS_ENVIRONMENT: "prod"
   LOGISLOT_ENABLE_DOCS: "false"
   LOGISLOT_PUBLIC_WEB_URL: "http://84.247.180.172:30082"
   LOGISLOT_CORS_ORIGINS: '["http://84.247.180.172:30082","http://84.247.180.173:30082"]'
