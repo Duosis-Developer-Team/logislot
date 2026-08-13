@@ -6,6 +6,11 @@ metadata:
   name: logislot-config
 data:
   LOGISLOT_ENVIRONMENT: "production"
+  # Drake katalog anahtari. Burada BILEREK gecersiz: her overlay kendi
+  # degerini ("dev" / "prod") patch'lemek ZORUNDA. Boylece patch'i unutulan
+  # bir ortam baska bir ortamin panolarina karismak yerine "unknown" olarak
+  # gorunur. Bkz. docs/OBSERVABILITY_METRICS.md.
+  LOGISLOT_METRICS_ENVIRONMENT: "unknown"
   LOGISLOT_ENABLE_DOCS: "false"
   LOGISLOT_RATE_LIMIT_ENABLED: "true"
   # Pilot ilk deploy: gercek SMTP yok -> log_only (e-postalar email_logs'a yazilir).

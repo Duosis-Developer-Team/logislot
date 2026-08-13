@@ -64,6 +64,28 @@ class Settings(BaseSettings):
     # tenant_datastores.dsn_alias yalnizca buradaki anahtari isaret eder.
     tenant_database_dsns: dict[str, str] = {}
 
+    # --- Gozlemlenebilirlik: Prometheus/Drake (bkz. LOGISLOT_METRICS.md) ---
+    # /metrics AYRI bir portta yayinlanir; uygulama portu (8000) NodePort ile
+    # disariya aciktir ve metrikler kumeden cikmamalidir.
+    metrics_enabled: bool = True
+    metrics_port: int = 9464
+    metrics_project: str = "logislot"
+    # DIKKAT: bu ALAN yukaridaki `environment` DEGILDIR ve onunla
+    # doldurulmamalidir. Drake KATALOG ANAHTARINI bekler (dev | prod);
+    # `environment` ise development | production tutar. Sozlesme dokumaninin
+    # "en olasi hata" dedigi yer tam olarak burasi, bu yuzden ayri alan.
+    # Deger her iki overlay'in configmap patch'inde ACIKCA verilir ve CI
+    # (ci.yml -> manifests) prod overlay'inin "prod" urettigini dogrular.
+    #
+    # Varsayilan bilerek "unknown": gecerli bir ortam adi DEGIL. Eskiden
+    # "dev" idi ve bu sessiz bir tuzakti — patch'i unutulmus bir prod
+    # kurulumu environment="dev" yayinlar, prod panolari bos kalir VE prod
+    # trafigi dev'in rakamlarina karisirdi. "unknown" ile hata yalnizca
+    # kendi ortamini etkiler ve grafikte hemen gorunur.
+    metrics_environment: str = "unknown"
+    # Drake'in servis anahtari (.drake/project.yaml ile birebir ayni olmali).
+    metrics_service: str = "logislot-api"
+
     # Maintenance scheduler (Sprint 11): email retry + bildirim temizligi
     scheduler_enabled: bool = True
     email_retry_interval_seconds: int = 300

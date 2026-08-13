@@ -1,9 +1,12 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.auth.router import router as auth_router
 from app.core.config import get_settings
 from app.core.errors import register_error_handlers
+from app.core.metrics import PrometheusMiddleware, start_metrics_server
 from app.routers.appointments import router as appointments_router
 from app.routers.audit import router as audit_router
 from app.routers.branding import router as branding_router
@@ -19,6 +22,20 @@ from app.routers.suppliers import router as suppliers_router
 from app.routers.users import router as users_router
 
 
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    """/metrics dinleyicisini ayri portta baslatir (bkz. app.core.metrics).
+
+    Uvicorn'un event loop'unu mesgul etmez: prometheus_client kendi daemon
+    thread'inde kucuk bir WSGI sunucusu kosar. Bind edilemezse uygulama
+    yine de acilir.
+    """
+    settings = get_settings()
+    if settings.metrics_enabled:
+        start_metrics_server(settings.metrics_port)
+    yield
+
+
 def create_app() -> FastAPI:
     settings = get_settings()
     app = FastAPI(
@@ -29,6 +46,7 @@ def create_app() -> FastAPI:
         docs_url="/docs" if settings.enable_docs else None,
         redoc_url="/redoc" if settings.enable_docs else None,
         openapi_url="/openapi.json" if settings.enable_docs else None,
+        lifespan=lifespan,
     )
     app.add_middleware(
         CORSMiddleware,
@@ -45,6 +63,17 @@ def create_app() -> FastAPI:
         response.headers.setdefault("X-Frame-Options", "DENY")
         response.headers.setdefault("Referrer-Policy", "same-origin")
         return response
+
+    # EN SONA eklenir cunku Starlette'te en son eklenen middleware EN DISTA
+    # kalir: boylece olculen sure CORS + guvenlik basliklari dahil istegin
+    # TAMAMINI kapsar ve asagidaki katmanlardan biri patlasa bile istek
+    # sayilir. (add_middleware sirasi = user_middleware[0] en distaki.)
+    app.add_middleware(
+        PrometheusMiddleware,
+        project=settings.metrics_project,
+        environment=settings.metrics_environment,
+        service=settings.metrics_service,
+    )
 
     register_error_handlers(app)
 
