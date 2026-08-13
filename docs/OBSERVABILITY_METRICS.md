@@ -86,10 +86,19 @@ olculen sure CORS ve guvenlik basliklari dahil istegin tamamidir.
 
 - **Saglik yoklamalari sayilir.** `/health` haric tutulmadi: sozlesme etiket
   kumesini tuketici sekilde tanimliyor ama yol filtresinden hic bahsetmiyor
-  ve sessiz bir sapma tam da kaciniulmasi istenen hata bicimi. Yan etkisi:
+  ve sessiz bir sapma tam da kacinilmasi istenen hata bicimi. Yan etkisi:
   tek replikada readiness (10 sn) + liveness (20 sn) ~0.15 req/sn taban
   trafik uretir ve dusuk trafikte p95'i asagi ceker. Haric tutulmasi
   istenirse tek satirlik ve geri alinabilir bir degisiklik.
 - `prometheus_client` sozlesme metriklerinin yani sira standart
   `*_created` gauge'lari ve `process_*` / `python_*` serilerini de yayinlar.
   Drake'in sorgulariyla cakismazlar.
+- **Tek uvicorn sureci varsayilir.** Sayaclar surec ici bellektedir.
+  Deployment `uvicorn ... --port 8000` komutunu `--workers` OLMADAN kosar,
+  yani bugun dogru. `--workers` eklenirse her worker 9464'u bind etmeye
+  calisir; yalnizca biri basarir (digerleri uyari loglayip acilmaya devam
+  eder) ve metrikler tek worker'i yansitir. O gun gerekecek olan
+  `prometheus_client`'in multiprocess modudur.
+- Scheduler ve migration/seed/bootstrap job'lari ayni imaji farkli komutla
+  kosar; `app.main` import edilmedigi icin metrik sunucusu acilmaz ve port
+  cakismasi olmaz.
