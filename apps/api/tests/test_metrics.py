@@ -6,6 +6,7 @@ hicbir sey gorunmez — kimse haftalarca fark etmez. Kirilirlarsa dogru tepki
 testi guncellemek DEGIL, uygulamayi sozlesmeye geri getirmektir.
 """
 
+import asyncio
 import re
 
 import pytest
@@ -16,8 +17,10 @@ from starlette.routing import Route
 from starlette.testclient import TestClient
 
 from app.core.metrics import (
+    CLIENT_GONE_ERRORS,
     REQUEST_COUNT,
     REQUEST_DURATION,
+    STATUS_CLASSES,
     PrometheusMiddleware,
     status_class,
 )
@@ -65,6 +68,18 @@ def _labels_of(sample_line: str) -> dict[str, str]:
 
 def _counter_value(project: str, environment: str, service: str, status: str) -> float:
     return REQUEST_COUNT.labels(project, environment, service, status)._value.get()
+
+
+def _duration_count(environment: str) -> float:
+    """Histogram'in gozlem sayisi — exposition ciktisindan okunur.
+
+    Histogram nesnesi `_count` gibi bir alan sunmaz; `_sum` vardir ama
+    sayiyi vermez.
+    """
+    for line in _samples(f"{HISTOGRAM_NAME}_count"):
+        if _labels_of(line).get("environment") == environment:
+            return float(line.rsplit(" ", 1)[1])
+    return 0.0
 
 
 def _make_app(*, project="logislot", environment="dev", service="logislot-api") -> Starlette:
@@ -151,6 +166,20 @@ def test_forbidden_high_cardinality_labels_never_appear(forbidden):
     for name in (COUNTER_NAME, f"{HISTOGRAM_NAME}_bucket"):
         for line in _samples(name):
             assert forbidden not in _labels_of(line)
+
+
+def test_environment_default_is_not_a_real_environment():
+    """Varsayilan 'dev'/'prod' OLMAMALI.
+
+    Overlay patch'i unutulan bir kurulum, gecerli bir ortam adi
+    varsayiliyorsa o ortamin panolarina karisir ve kendi panosunu bos
+    birakir. Gecersiz bir varsayilan hatayi kendi ortaminda ve gorunur
+    tutar.
+    """
+    from app.core.config import Settings
+
+    default = Settings.model_fields["metrics_environment"].default
+    assert default not in {"dev", "prod"}
 
 
 def test_label_values_come_from_settings_not_hardcoded():
@@ -280,6 +309,89 @@ def test_recording_failure_cannot_break_a_request(monkeypatch):
 
     assert response.status_code == 200
     assert response.text == "ok"
+
+
+def test_client_disconnect_is_not_counted_as_a_server_error():
+    """Sekme kapanmasi 5xx DEGILDIR.
+
+    uvicorn'un ClientDisconnected'i OSError turevidir, yani duz
+    `except Exception` onu yakalar ve dikkat edilmezse hata oranina
+    olmayan bir ariza yazilir.
+    """
+    env = "t-disconnect"
+
+    async def disconnecting(_request):
+        raise CLIENT_GONE_ERRORS[0]("istemci gitti")
+
+    app = Starlette(routes=[Route("/gone", disconnecting)])
+    app.add_middleware(
+        PrometheusMiddleware, project="logislot", environment=env, service="logislot-api"
+    )
+
+    before = {cls: _counter_value("logislot", env, "logislot-api", cls) for cls in STATUS_CLASSES}
+    with pytest.raises(CLIENT_GONE_ERRORS[0]):
+        TestClient(app).get("/gone")
+
+    after = {cls: _counter_value("logislot", env, "logislot-api", cls) for cls in STATUS_CLASSES}
+    assert after == before, "istemci kopmasi hicbir status_class'a yazilmamali"
+
+
+def test_disconnect_after_response_started_keeps_the_real_status_class():
+    """200 gonderildikten sonra kopma olursa bu bir 2xx'tir, 5xx degil."""
+    env = "t-disconnect-mid"
+
+    class _HalfResponse:
+        async def __call__(self, scope, receive, send):
+            await send(
+                {"type": "http.response.start", "status": 200, "headers": [(b"x", b"y")]}
+            )
+            raise CLIENT_GONE_ERRORS[0]("govde yarida kesildi")
+
+    app = PrometheusMiddleware(
+        _HalfResponse(), project="logislot", environment=env, service="logislot-api"
+    )
+
+    before_2xx = _counter_value("logislot", env, "logislot-api", "2xx")
+    before_5xx = _counter_value("logislot", env, "logislot-api", "5xx")
+
+    with pytest.raises(CLIENT_GONE_ERRORS[0]):
+        TestClient(app).get("/whatever")
+
+    assert _counter_value("logislot", env, "logislot-api", "2xx") == before_2xx + 1
+    assert _counter_value("logislot", env, "logislot-api", "5xx") == before_5xx
+
+
+async def test_cancelled_request_is_still_recorded():
+    """CancelledError BaseException'dir; istek iki metrikten de kaybolmamali.
+
+    Rollout sirasinda ucusan istekler iptal edilir; sayilmazlarsa trafik ve
+    gecikme sessizce eksik raporlanir. ASGI arayuzu DOGRUDAN surulur:
+    TestClient iptali kendi thread portal'inda sarmalayip turunu degistirir.
+    """
+    env = "t-cancelled"
+
+    class _Cancelling:
+        async def __call__(self, _scope, _receive, _send):
+            raise asyncio.CancelledError()
+
+    app = PrometheusMiddleware(
+        _Cancelling(), project="logislot", environment=env, service="logislot-api"
+    )
+
+    async def receive():  # pragma: no cover — cagrilmiyor
+        return {"type": "http.request"}
+
+    async def send(_message):  # pragma: no cover — cagrilmiyor
+        return None
+
+    before = _counter_value("logislot", env, "logislot-api", "5xx")
+    before_count = _duration_count(env)
+
+    with pytest.raises(asyncio.CancelledError):
+        await app({"type": "http", "method": "GET", "path": "/slow"}, receive, send)
+
+    assert _counter_value("logislot", env, "logislot-api", "5xx") == before + 1
+    assert _duration_count(env) == before_count + 1
 
 
 def test_metric_failure_does_not_mask_the_application_error(monkeypatch):

@@ -76,7 +76,13 @@ class Settings(BaseSettings):
     # "en olasi hata" dedigi yer tam olarak burasi, bu yuzden ayri alan.
     # Deger her iki overlay'in configmap patch'inde ACIKCA verilir ve CI
     # (ci.yml -> manifests) prod overlay'inin "prod" urettigini dogrular.
-    metrics_environment: str = "dev"
+    #
+    # Varsayilan bilerek "unknown": gecerli bir ortam adi DEGIL. Eskiden
+    # "dev" idi ve bu sessiz bir tuzakti — patch'i unutulmus bir prod
+    # kurulumu environment="dev" yayinlar, prod panolari bos kalir VE prod
+    # trafigi dev'in rakamlarina karisirdi. "unknown" ile hata yalnizca
+    # kendi ortamini etkiler ve grafikte hemen gorunur.
+    metrics_environment: str = "unknown"
     # Drake'in servis anahtari (.drake/project.yaml ile birebir ayni olmali).
     metrics_service: str = "logislot-api"
 

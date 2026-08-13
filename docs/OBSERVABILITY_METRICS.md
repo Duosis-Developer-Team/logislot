@@ -67,8 +67,18 @@ bos kalir, kimse haftalarca fark etmez. Iki guard bu yuzden var:
   sinif oldugu, histogramin saniye oldugu, yasak etiketlerin bulunmadigi ve
   middleware'in istegi dusurmedigi/degistirmedigi.
 - `scripts/verify_metrics_manifests.py` (CI: `ci.yml` -> `manifests`) —
-  `environment` katalog anahtari mi, anotasyonlar pod template'inde mi,
-  metrik portu bir Service'ten sizmis mi.
+  `environment` katalog anahtari mi (namespace degil), `project`/`service`
+  degerleri Drake'in anahtarlariyla uyusuyor mu, anotasyonlar pod
+  template'inde mi (Service'te degil), metrik portu bir Service'ten
+  **veya** Ingress'ten sizmis mi. Port kontrolu `targetPort`'un ISIMLI
+  halini de cozer (`targetPort: metrics`) — sadece sayiya bakmak, mevcut
+  Service'lerin zaten kullandigi yazim bicimini kacirirdi.
+- `.github/workflows/metrics-verify.yml` — canli, salt-okunur dogrulama:
+  uc sorguyu gercek Prometheus'ta kosturur ve biri bos donerse duser.
+
+Uc guard'in hepsi, koruduklari hatalar kasten uretilerek **kirmizi
+dondukleri dogrulanarak** yazildi; hic basarisiz olamayan bir guard
+korumaz.
 
 ## Middleware notlari
 
@@ -81,6 +91,22 @@ Guvenceler: mesajlar oldugu gibi aktarilir; metrik kaydi `try/except`
 icindedir ve hata yutulur; uygulamanin istisnasi 5xx sayilir ama **oldugu
 gibi** yukari birakilir. Middleware en son eklenir, yani en distadir —
 olculen sure CORS ve guvenlik basliklari dahil istegin tamamidir.
+
+### Istisna muhasebesi
+
+Iki kenar durum bilincli olarak ayri ele alinir; ikisi de gozden gecirmede
+yakalandi:
+
+- **Istemci koptu** (`ClientDisconnected`, `ClientDisconnect`,
+  `ConnectionResetError`, `BrokenPipeError`) — bu bir sunucu hatasi
+  DEGILDIR. Dikkat: uvicorn'un `ClientDisconnected`'i `OSError` turevidir,
+  yani duz `except Exception` onu yakalar; oyle birakilsaydi her sekme
+  kapatma hata oranina 5xx yazardi. Yanit zaten basladiysa gercek sinifiyla
+  (orn. 2xx) sayilir, hic baslamadiysa hic sayilmaz.
+- **Istek iptal edildi** (`asyncio.CancelledError`) — `BaseException`
+  turevidir, yani `except Exception` onu KACIRIR. Yakalanmasaydi rollout
+  sirasinda ucusan istekler hem sayactan hem histogramdan sessizce
+  dusserdi. Yakalanir, kaydedilir ve aynen yukari birakilir.
 
 ## Bilinen kabuller
 
@@ -102,3 +128,8 @@ olculen sure CORS ve guvenlik basliklari dahil istegin tamamidir.
 - Scheduler ve migration/seed/bootstrap job'lari ayni imaji farkli komutla
   kosar; `app.main` import edilmedigi icin metrik sunucusu acilmaz ve port
   cakismasi olmaz.
+- **`metrics_environment` varsayilani `"unknown"`** — bilerek gecersiz bir
+  ortam adi. Her overlay kendi degerini patch'lemek zorunda. Varsayilan
+  "dev" olsaydi, patch'i unutulan bir prod kurulumu prod panolarini bos
+  birakip trafigini dev'in rakamlarina karistirirdi; "unknown" ile hata
+  yalnizca kendi ortamini etkiler ve gorunur olur.

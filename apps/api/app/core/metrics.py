@@ -31,6 +31,36 @@ Send = Callable[[Message], Awaitable[None]]
 #: Her iki metrikte de bulunan sozlesme etiketleri.
 _BASE_LABELS = ("project", "environment", "service")
 
+
+def _client_gone_errors() -> tuple[type[BaseException], ...]:
+    """Istemcinin ortadan kaybolmasini ifade eden istisnalar.
+
+    Bunlar SUNUCU HATASI DEGILDIR ve 5xx sayilmamalidir: kullanici sekmeyi
+    kapattiginda ya da mobil baglanti dustugunde hata orani panosunda
+    olmayan bir arizanin gorunmesine yol acardi. Ozellikle uvicorn'un
+    ClientDisconnected'i OSError turevidir, yani duz `except Exception`
+    onu yakalar.
+
+    Adlar surumden surume degisebildigi icin varsa import edilir.
+    """
+    errors: tuple[type[BaseException], ...] = (ConnectionResetError, BrokenPipeError)
+    try:
+        from uvicorn.protocols.utils import ClientDisconnected
+
+        errors += (ClientDisconnected,)
+    except ImportError:  # pragma: no cover — uvicorn yoksa (testler)
+        pass
+    try:
+        from starlette.requests import ClientDisconnect
+
+        errors += (ClientDisconnect,)
+    except ImportError:  # pragma: no cover
+        pass
+    return errors
+
+
+CLIENT_GONE_ERRORS = _client_gone_errors()
+
 #: status_class'in alabilecegi TUM degerler — kod degil, SINIF (500 degil, 5xx).
 STATUS_CLASSES = ("2xx", "3xx", "4xx", "5xx")
 
@@ -104,8 +134,8 @@ class PrometheusMiddleware:
             return
 
         started = time.perf_counter()
-        # Uygulama hic yanit baslatmadan patlarsa bu deger kullanilir.
-        status_code = 500
+        # None = yanit hic baslamadi.
+        status_code: int | None = None
 
         async def send_wrapper(message: Message) -> None:
             nonlocal status_code
@@ -115,10 +145,21 @@ class PrometheusMiddleware:
 
         try:
             await self.app(scope, receive, send_wrapper)
-        except Exception:
-            self._record(500, started)
+        except CLIENT_GONE_ERRORS:
+            # Istemci gitti. Yanit BASLAMISSA gercek sinifiyla sayilir
+            # (200 gonderilip govde yarida kaldiysa bu bir 2xx'tir);
+            # hic baslamadiysa HIC sayilmaz. 5xx yazmak, olmayan bir sunucu
+            # arizasini hata oranina eklerdi.
+            if status_code is not None:
+                self._record(status_code, started)
             raise
-        self._record(status_code, started)
+        except BaseException:
+            # BaseException, cunku asyncio.CancelledError Exception DEGILDIR:
+            # rollout sirasinda iptal edilen istekler aksi halde iki
+            # metrikten birden sessizce kaybolurdu.
+            self._record(status_code if status_code is not None else 500, started)
+            raise
+        self._record(status_code if status_code is not None else 500, started)
 
     def _record(self, status_code: int, started: float) -> None:
         try:

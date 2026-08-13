@@ -32,7 +32,26 @@ ANNOTATIONS = {
 }
 
 #: Metrik yayan is yukleri: workload adi -> beklenen `service` etiketi.
+#: Deger Drake'in .drake/project.yaml'daki servis anahtariyla ayni olmali.
 INSTRUMENTED = {"logislot-api": "logislot-api"}
+
+#: Sabit sozlesme degeri.
+EXPECTED_PROJECT = "logislot"
+
+
+def _container_port_names(workload: dict) -> dict[str, int]:
+    """Pod'daki isimli portlar: ad -> numara.
+
+    Service `targetPort: metrics` gibi ISIMLE de refere edebilir; sayisal
+    karsilastirma bunu kacirir.
+    """
+    names: dict[str, int] = {}
+    containers = workload["spec"]["template"]["spec"].get("containers", []) or []
+    for container in containers:
+        for port in container.get("ports", []) or []:
+            if port.get("name") and port.get("containerPort") is not None:
+                names[port["name"]] = port["containerPort"]
+    return names
 
 
 def render(overlay: str) -> list[dict]:
@@ -71,15 +90,33 @@ def check(overlay: str) -> list[str]:
             f"[{overlay}] logislot-config'te LOGISLOT_METRICS_ENVIRONMENT yok; "
             f'"{expected_env}" bekleniyordu'
         )
+    elif actual == namespace:
+        # Ayni kusurun iki kez raporlanmamasi icin zincirin parcasi.
+        errors.append(
+            f"[{overlay}] environment degeri NAMESPACE ({namespace}); "
+            f"Drake katalog anahtarini bekler ({expected_env})"
+        )
     elif actual != expected_env:
         errors.append(
             f"[{overlay}] LOGISLOT_METRICS_ENVIRONMENT={actual!r}, "
             f"{expected_env!r} olmali"
         )
-    if actual == namespace:
+
+    # --- 1b. project / service etiketleri (ayarlanmissa) dogru olmali ---
+    # Ikisi de uygulama varsayilanini kullanabilir; ama configmap'te YANLIS
+    # bir deger varsa Drake'in `sum by (service)` ve project filtresi bosa
+    # duser — guard'in engellemek icin var oldugu sessiz hatanin aynisi.
+    configured_project = data.get("LOGISLOT_METRICS_PROJECT")
+    if configured_project is not None and configured_project != EXPECTED_PROJECT:
         errors.append(
-            f"[{overlay}] environment degeri NAMESPACE ({namespace}); "
-            f"Drake katalog anahtarini bekler ({expected_env})"
+            f"[{overlay}] LOGISLOT_METRICS_PROJECT={configured_project!r}, "
+            f"{EXPECTED_PROJECT!r} olmali"
+        )
+    configured_service = data.get("LOGISLOT_METRICS_SERVICE")
+    if configured_service is not None and configured_service not in INSTRUMENTED.values():
+        errors.append(
+            f"[{overlay}] LOGISLOT_METRICS_SERVICE={configured_service!r} "
+            f"Drake servis anahtarlarindan biri degil: {sorted(INSTRUMENTED.values())}"
         )
 
     # --- 2. Anotasyonlar POD TEMPLATE'inde olmali ---
@@ -109,13 +146,54 @@ def check(overlay: str) -> list[str]:
             )
 
     # --- 4. /metrics portu HICBIR Service'ten yayinlanmamali ---
+    # targetPort SAYI ("9464") ya da AD ("metrics") olabilir. Yalnizca
+    # sayisal karsilastirma yapmak, `targetPort: metrics` yazan birini
+    # kacirir ve CI yesil kalirken /metrics NodePort'tan disari acilir —
+    # mevcut Service'ler zaten isimli formu kullaniyor (`targetPort: http`),
+    # yani bu yazim hic de uzak bir ihtimal degil.
+    metrics_port_names = {
+        name
+        for workload in INSTRUMENTED
+        if workload in workloads
+        for name, number in _container_port_names(workloads[workload]).items()
+        if number == METRICS_PORT
+    }
+
+    def exposes_metrics(port: dict) -> bool:
+        target = port.get("targetPort")
+        return (
+            port.get("port") == METRICS_PORT
+            or target == METRICS_PORT
+            or (isinstance(target, str) and target in metrics_port_names)
+        )
+
     for svc in services:
         for port in svc["spec"].get("ports", []) or []:
-            if METRICS_PORT in (port.get("port"), port.get("targetPort")):
+            if exposes_metrics(port):
                 errors.append(
                     f"[{overlay}] Service/{svc['metadata']['name']} metrik portunu "
                     f"({METRICS_PORT}) yayinliyor; /metrics kume disina cikmamali"
                 )
+
+    # --- 5. /metrics public ingress'ten GECMEMELI ---
+    # Sozlesme bunu acikca yasakliyor. Ingress bir Service'e isaret eder;
+    # o Service metrik portunu yayinliyorsa yol disariya acilmis olur.
+    exposing_services = {
+        svc["metadata"]["name"]
+        for svc in services
+        if any(exposes_metrics(p) for p in svc["spec"].get("ports", []) or [])
+    }
+    for ingress in (d for d in docs if d.get("kind") == "Ingress"):
+        for rule in ingress["spec"].get("rules", []) or []:
+            for path in (rule.get("http") or {}).get("paths", []) or []:
+                backend = (path.get("backend") or {}).get("service") or {}
+                port = backend.get("port") or {}
+                if backend.get("name") in exposing_services or port.get("number") == METRICS_PORT:
+                    errors.append(
+                        f"[{overlay}] Ingress/{ingress['metadata']['name']} "
+                        f"metrik portunu disariya aciyor "
+                        f"(backend={backend.get('name')}, path={path.get('path')})"
+                    )
 
     return errors
 

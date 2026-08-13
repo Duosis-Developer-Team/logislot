@@ -81,6 +81,13 @@ jobs:
       # kaydiginda metrikler toplanmaya DEVAM eder ama panolarda gorunmez;
       # yani bozulma sessizdir ve haftalarca fark edilmez. Bu yuzden guard
       # testte degil, deploy'un onunde.
+      # Runner'in sistem Python'una pip install PEP 668 altinda
+      # "externally-managed-environment" ile duser; guard o zaman
+      # denetledigi sozlesmeyle ilgisiz bir sebeple kirmizi olurdu.
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
       - name: Metrik sozlesmesi (env anahtari + pod anotasyonlari + port gizliligi)
         run: |
           python3 -m pip install --quiet pyyaml

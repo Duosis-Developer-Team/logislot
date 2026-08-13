@@ -32,8 +32,9 @@ services:
       # Yerel makinelerde 8000/3000 sik dolu oldugu icin LogiSlot 8010/3010 kullanir.
       - "8010:8000"
       # /metrics — k8s'te BU PORT DISARIYA ACILMAZ (yalnizca pod ici).
-      # Burada acik olmasi yerel dogrulamayi kolaylastirmak icindir.
-      - "9464:9464"
+      # Yerelde YALNIZCA 127.0.0.1'e baglanir: Docker'in varsayilani
+      # 0.0.0.0'dir ve trafik seklini anlatan bu ucu tum LAN'a acardi.
+      - "127.0.0.1:9464:9464"
     depends_on:
       db:
         condition: service_healthy
