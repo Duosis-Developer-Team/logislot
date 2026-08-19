@@ -273,6 +273,64 @@ async def main() -> None:
         who = (await conn.execute(sa.text("SELECT current_user"))).scalar_one()
         check("baglanti havuza TEMIZ dondu", who != row.db_role, who)
 
+    print("\n[10] tenant-plane migration PUBLIC'i DEGIL kendi semasini degistirir")
+    # 2026-08 regresyonu: Alembic'in ALTER TABLE'i semasiz render edilir ve
+    # schema_translate_map onu CEVIRMEZ; env.py search_path'i sabitlemeseydi
+    # tenant migrationlari sessizce ortak semayi degistirirdi.
+    from app.tenancy.migrations import (
+        stamp_tenant_schema,
+        tenant_head_revision,
+        upgrade_tenant_schema,
+    )
+
+    async def _columns(sch: str, table: str) -> set[str]:
+        async with engine.connect() as conn:
+            rows = await conn.execute(
+                sa.text(
+                    "SELECT column_name FROM information_schema.columns "
+                    "WHERE table_schema = :s AND table_name = :t"
+                ),
+                {"s": sch, "t": table},
+            )
+        return {r[0] for r in rows}
+
+    baseline = "0001_tenant_baseline"
+    probe = f"t_{uuid.uuid4().hex}"
+    # Baseline durumunu taklit et: tabloyu kopyala, zincirin EKLEDIGI kolonlari
+    # dusur. YENI TENANT MIGRATION'I EKLENDIGINDE bu listeyi genisletin —
+    # aksi halde bu adim "zaten var" hatasiyla duser ve sizi uyarir.
+    post_baseline_columns = {"suppliers": ["cargo_enabled"]}
+    async with engine.begin() as conn:
+        await conn.execute(sa.text(f'CREATE SCHEMA "{probe}"'))
+        for table, columns in post_baseline_columns.items():
+            await conn.execute(
+                sa.text(f'CREATE TABLE "{probe}".{table} (LIKE public.{table} INCLUDING ALL)')
+            )
+            for column in columns:
+                await conn.execute(
+                    sa.text(f'ALTER TABLE "{probe}".{table} DROP COLUMN {column}')
+                )
+    await stamp_tenant_schema(engine, probe, baseline)
+
+    public_before = await _columns("public", "suppliers")
+    upgrade_error = None
+    try:
+        await upgrade_tenant_schema(engine, probe)
+    except Exception as exc:  # noqa: BLE001 — hata mesaji check'e tasinir
+        upgrade_error = f"{type(exc).__name__}: {str(exc)[:80]}"
+    public_after = await _columns("public", "suppliers")
+    probe_after = await _columns(probe, "suppliers")
+    async with engine.connect() as conn:
+        stamped = (
+            await conn.execute(sa.text(f'SELECT version_num FROM "{probe}".alembic_version'))
+        ).scalar_one()
+
+    check("tenant zinciri hatasiz kostu", upgrade_error is None, upgrade_error or "")
+    check("kolon TENANT semasina eklendi", "cargo_enabled" in probe_after)
+    check("PUBLIC semasi DEGISMEDI", public_before == public_after,
+          str(public_after ^ public_before))
+    check("tenant semasi head'e damgalandi", stamped == tenant_head_revision(), stamped)
+
     await engine.dispose()
     await _admin(f"DROP DATABASE IF EXISTS {VERIFY_DB} WITH (FORCE)")
     await _drop_verify_roles()

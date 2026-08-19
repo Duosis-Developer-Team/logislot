@@ -126,6 +126,19 @@ pod açın.
 - Control-plane tablosu değişiyorsa → `alembic/` zincirine revizyon ekleyin.
 - Tenant-plane tablosu değişiyorsa → `alembic_tenant/` zincirine ekleyin;
   deploy sırasında her tenant şemasında çalışır.
+- Tablo **hem** eski ortak yerleşimde (henüz taşınmamış tenant'lar `public`'te)
+  **hem de** taşınmış tenant şemalarında yaşıyorsa revizyon **iki zincire de**
+  gerekir: `alembic/` `public` kopyasını, `alembic_tenant/` her tenant şemasını
+  günceller.
+
+**Tuzak (2026-08'de bir kez ısırdı):** Alembic'in `op.add_column("x", ...)`
+işlemi `ALTER TABLE` ifadesini **şemasız** render eder ve `schema_translate_map`
+bunu **çevirmez** — harita yalnızca `Table`/`MetaData`'dan üretilen SQL'e
+uygulanır. Bu yüzden `alembic_tenant/env.py`, migration transaction'ı boyunca
+`SET LOCAL search_path TO "<tenant şeması>"` uygular (listede `public` bilerek
+yoktur: nitelenmemiş bir DDL ortak şemayı sessizce değiştirmektense hata
+vermelidir). Tenant revizyonlarında tablo adlarını **şemasız** yazın; o satırı
+env.py'den kaldırmayın.
 
 Yeni tenant şemaları migration'lar baştan oynatılarak değil, o anki model
 durumundan `create_all` ile yaratılır ve tenant zincirinin head'ine damgalanır.

@@ -1,5 +1,11 @@
 """${message}
 
+TENANT-PLANE REVIZYONU — bu dosya HER TENANT SEMASINDA ayri kosar.
+Tablo adlarini SEMASIZ yazin (`op.add_column("suppliers", ...)`): hedef sema
+`alembic_tenant/env.py` icinde `search_path` ile sabitlenir. `public.` ile
+nitelemek TUM tenant'lar icin ortak semayi degistirir ve neredeyse her zaman
+HATADIR. Control-plane tablosu degisiyorsa revizyon `alembic/` zincirine gider.
+
 Revision ID: ${up_revision}
 Revises: ${down_revision | comma,n}
 Create Date: ${create_date}
