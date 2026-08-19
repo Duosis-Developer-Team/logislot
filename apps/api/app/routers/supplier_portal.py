@@ -17,7 +17,6 @@ from app.core.enums import (
     ActorType,
     CargoWindow,
     CreatedByType,
-    DeliveryType,
     QuantityUnit,
 )
 from app.core.errors import NotFoundError
@@ -38,6 +37,7 @@ from app.schemas.appointment import (
 )
 from app.schemas.catalog import ProductCategoryOut, SupplierOut, VehicleCategoryOut
 from app.services import appointments as svc
+from app.services.appointments import allowed_delivery_types
 from app.tenancy.deps import FacilityContext, get_supplier_context
 
 router = APIRouter(prefix="/supplier", tags=["supplier-portal"])
@@ -133,8 +133,11 @@ async def catalog(
                 "weekly_quota": supplier.weekly_quota,
                 "monthly_quota": supplier.monthly_quota,
                 "auto_approval_enabled": supplier.auto_approval_enabled,
+                "cargo_enabled": supplier.cargo_enabled,
             },
-            "delivery_types": [t.value for t in DeliveryType],
+            # Standart her tedarikcide aciktir; kargo yalnizca yonetim bu
+            # tedarikci icin acmissa listelenir (sihirbaz bu listeyi kullanir).
+            "delivery_types": allowed_delivery_types(supplier),
             "cargo_windows": [w.value for w in CargoWindow],
             "cargo_default_min_block_minutes": ctx.facility.cargo_default_min_block_minutes,
             "quantity_units": [

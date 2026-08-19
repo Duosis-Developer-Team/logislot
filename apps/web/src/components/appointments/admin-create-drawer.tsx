@@ -71,7 +71,7 @@ export function AdminCreateDrawer({ open, onClose, onSuccess, initial }: AdminCr
   const [vehicleOverrideId, setVehicleOverrideId] = useState<string | null>(null);
   const [plate, setPlate] = useState("");
   const [driver, setDriver] = useState("");
-  const [isCargo, setIsCargo] = useState(false);
+  const [cargoSelected, setIsCargo] = useState(false);
   const [cargoWindow, setCargoWindow] = useState<CargoWindow>("morning");
   const [date, setDate] = useState(addDaysISO(1));
   const [duration, setDuration] = useState<number | null>(null);
@@ -101,6 +101,10 @@ export function AdminCreateDrawer({ open, onClose, onSuccess, initial }: AdminCr
   }, [open, initial]);
 
   const supplier = supplierList.data?.find((s) => s.id === supplierId) ?? null;
+  // Kargo tedarikci bazinda acilir; kapali tedarikcide secenek gorunmez ve
+  // tedarikci degisince onceki secim otomatik duser.
+  const cargoAllowed = supplier?.cargo_enabled ?? false;
+  const isCargo = cargoSelected && cargoAllowed;
   const allowedCategories = (categoryList.data ?? []).filter(
     (c) =>
       c.is_active && (supplier?.allowed_product_category_ids ?? []).includes(c.id),
@@ -376,7 +380,7 @@ export function AdminCreateDrawer({ open, onClose, onSuccess, initial }: AdminCr
 
               <div>
                 <Label>Teslimat Tipi</Label>
-                <div className="grid grid-cols-2 gap-2">
+                <div className={cn("grid gap-2", cargoAllowed ? "grid-cols-2" : "grid-cols-1")}>
                   <button
                     type="button"
                     onClick={() => setIsCargo(false)}
@@ -389,19 +393,23 @@ export function AdminCreateDrawer({ open, onClose, onSuccess, initial }: AdminCr
                   >
                     Standart
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsCargo(true);
-                      setRecurringEnabled(false);
-                    }}
-                    className={cn(
-                      "flex items-center gap-1 rounded-lg border p-2 text-left text-sm",
-                      isCargo ? "border-cargo bg-cargo/5 ring-1 ring-cargo/30" : "border-border",
-                    )}
-                  >
-                    <Package className="h-3.5 w-3.5 text-cargo" /> Kargo
-                  </button>
+                  {cargoAllowed && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsCargo(true);
+                        setRecurringEnabled(false);
+                      }}
+                      className={cn(
+                        "flex items-center gap-1 rounded-lg border p-2 text-left text-sm",
+                        isCargo
+                          ? "border-cargo bg-cargo/5 ring-1 ring-cargo/30"
+                          : "border-border",
+                      )}
+                    >
+                      <Package className="h-3.5 w-3.5 text-cargo" /> Kargo
+                    </button>
+                  )}
                 </div>
               </div>
 

@@ -648,6 +648,8 @@ async def evaluate_availability(
     db: AsyncSession,
     supplier: Supplier,
 ) -> list[dict]:
+    # Kargo kapali tedarikci icin kargo musaitligi de sorgulanamaz.
+    svc.ensure_delivery_type_allowed(supplier, body.delivery_type)
     result = await db.execute(
         select(ProductCategory).where(
             ProductCategory.id == body.product_category_id,

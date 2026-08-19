@@ -93,6 +93,8 @@ export interface SupplierDto {
   status: string;
   is_active: boolean;
   auto_approval_enabled: boolean;
+  /** Kargo teslimat tipi bu tedarikci icin acik mi (varsayilan kapali). */
+  cargo_enabled: boolean;
   min_block_minutes: number | null;
   max_block_minutes: number | null;
   weekly_quota: number | null;
@@ -130,7 +132,9 @@ export interface SupplierCatalogDto {
     weekly_quota: number | null;
     monthly_quota: number | null;
     auto_approval_enabled: boolean;
+    cargo_enabled: boolean;
   };
+  /** Yalnizca tedarikciye ACIK tipler; kargo kapaliysa sadece "standard". */
   delivery_types: string[];
   cargo_windows: string[];
   cargo_default_min_block_minutes: number;

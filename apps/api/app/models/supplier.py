@@ -46,6 +46,12 @@ class Supplier(Base, UUIDPkMixin, TimestampMixin, FacilityScopedMixin):
         str_enum(SupplierStatus), default=SupplierStatus.active
     )
     auto_approval_enabled: Mapped[bool] = mapped_column(sa.Boolean, default=False)
+    # Kargo teslimat tipi tedarikci bazinda ACILIR (varsayilan KAPALI).
+    # Kapaliyken tedarikci portalinda "Kargo" secenegi hic gorunmez ve
+    # servis katmani kargo randevusunu reddeder; standart her zaman aciktir.
+    cargo_enabled: Mapped[bool] = mapped_column(
+        sa.Boolean, default=False, server_default=sa.false()
+    )
     min_block_minutes: Mapped[int | None] = mapped_column(sa.Integer)
     max_block_minutes: Mapped[int | None] = mapped_column(sa.Integer)
     weekly_quota: Mapped[int | None] = mapped_column(sa.Integer)

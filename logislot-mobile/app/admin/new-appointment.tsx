@@ -63,7 +63,7 @@ export default function AdminNewAppointment() {
   const [vehicleOverrideId, setVehicleOverrideId] = useState<string | null>(null);
   const [plate, setPlate] = useState("");
   const [driver, setDriver] = useState("");
-  const [isCargo, setIsCargo] = useState(false);
+  const [cargoSelected, setIsCargo] = useState(false);
   const [cargoWindow, setCargoWindow] = useState<CargoWindow>("morning");
   const [date, setDate] = useState(addDaysISO(todayISO(), 1));
   const [duration, setDuration] = useState<number | null>(null);
@@ -77,6 +77,10 @@ export default function AdminNewAppointment() {
   const [formError, setFormError] = useState<string | null>(null);
 
   const supplier = supplierList.data?.find((s) => s.id === supplierId) ?? null;
+  // Kargo tedarikçi bazında açılır; kapalı tedarikçide seçenek görünmez ve
+  // tedarikçi değişince önceki seçim otomatik düşer.
+  const cargoAllowed = supplier?.cargo_enabled ?? false;
+  const isCargo = cargoSelected && cargoAllowed;
   const allowedCategories = (categoryList.data ?? []).filter(
     (c) => c.is_active && (supplier?.allowed_product_category_ids ?? []).includes(c.id),
   );
@@ -302,14 +306,16 @@ export default function AdminNewAppointment() {
               </Text>
               <View style={{ flexDirection: "row", gap: spacing.sm }}>
                 <Chip label="Standart" selected={!isCargo} onPress={() => setIsCargo(false)} />
-                <Chip
-                  label="Kargo"
-                  selected={isCargo}
-                  onPress={() => {
-                    setIsCargo(true);
-                    setRecurringEnabled(false);
-                  }}
-                />
+                {cargoAllowed && (
+                  <Chip
+                    label="Kargo"
+                    selected={isCargo}
+                    onPress={() => {
+                      setIsCargo(true);
+                      setRecurringEnabled(false);
+                    }}
+                  />
+                )}
               </View>
             </View>
 

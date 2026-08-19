@@ -78,7 +78,7 @@ export default function NewAppointmentWizard() {
   const [vehicleOverrideId, setVehicleOverrideId] = useState<string | null>(null);
   const [plate, setPlate] = useState("");
   const [driver, setDriver] = useState("");
-  const [isCargo, setIsCargo] = useState(false);
+  const [cargoSelected, setIsCargo] = useState(false);
   const [cargoWindow, setCargoWindow] = useState<CargoWindow>("morning");
 
   // Adım 3 — zaman
@@ -95,6 +95,10 @@ export default function NewAppointmentWizard() {
   const categories = catalog.data?.product_categories ?? [];
   const vehicles = catalog.data?.vehicle_categories ?? [];
   const limits = catalog.data?.limits;
+  // Kargo yalnizca yonetim bu tedarikci icin actiysa katalogda gelir;
+  // gelmiyorsa secenek hic gosterilmez (standart her zaman acik).
+  const cargoAllowed = (catalog.data?.delivery_types ?? []).includes("cargo");
+  const isCargo = cargoSelected && cargoAllowed;
   const category = categories.find((c) => c.id === categoryId) ?? null;
   const defaultVehicleId = category?.default_vehicle_category_id ?? null;
   const effectiveVehicleId = vehicleOverrideId ?? defaultVehicleId;
@@ -462,13 +466,15 @@ export default function NewAppointmentWizard() {
                   selected={!isCargo}
                   onPress={() => setIsCargo(false)}
                 />
-                <SelectCard
-                  title="Kargo"
-                  subtitle="Belirsiz varış"
-                  selected={isCargo}
-                  accent={colors.cargo}
-                  onPress={() => setIsCargo(true)}
-                />
+                {cargoAllowed && (
+                  <SelectCard
+                    title="Kargo"
+                    subtitle="Belirsiz varış"
+                    selected={isCargo}
+                    accent={colors.cargo}
+                    onPress={() => setIsCargo(true)}
+                  />
+                )}
               </View>
             </View>
             {isCargo && (

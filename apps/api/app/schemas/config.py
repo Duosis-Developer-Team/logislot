@@ -241,6 +241,8 @@ class SupplierCreate(BaseModel):
     weekly_quota: int | None = Field(default=None, ge=0)
     monthly_quota: int | None = Field(default=None, ge=0)
     auto_approval_enabled: bool = False
+    # Kargo teslimat tipi yalnizca acikca izin verilirse kullanilabilir.
+    cargo_enabled: bool = False
     is_active: bool = True
     notes: str | None = None
     # Hesap yonetimi: varsayilan olarak contact_email ile portal hesabi acilir.
@@ -267,6 +269,7 @@ class SupplierPatch(BaseModel):
     weekly_quota: int | None = Field(default=None, ge=0)
     monthly_quota: int | None = Field(default=None, ge=0)
     auto_approval_enabled: bool | None = None
+    cargo_enabled: bool | None = None
     is_active: bool | None = None
     notes: str | None = None
 

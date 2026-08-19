@@ -297,7 +297,7 @@ Girişte tedarikçi doğrudan randevu listesine düşer: sayaç kartları (Yakla
 
 ![Sihirbaz adım 1](screenshots/v1/21-tedarikci-sihirbaz-adim1.png)
 
-**Adım 2 — Araç & Teslimat:** araç kategorisi (kategorinin varsayılanı otomatik gelir), plaka, sürücü; teslimat tipi **Standart** veya **Kargo** (kargo seçilirse saat yerine sabah/öğleden sonra/tüm gün penceresi seçilir):
+**Adım 2 — Araç & Teslimat:** araç kategorisi (kategorinin varsayılanı otomatik gelir), plaka, sürücü; teslimat tipi **Standart** — ve yalnızca yönetim bu tedarikçi için kargoyu açtıysa ek seçenek olarak **Kargo** (kargo seçilirse saat yerine sabah/öğleden sonra/tüm gün penceresi seçilir). Kargo kapalı tedarikçide seçenek hiç görünmez:
 
 ![Sihirbaz adım 2](screenshots/v1/22-tedarikci-sihirbaz-adim2.png)
 
@@ -389,7 +389,7 @@ Ayarlar merkezi tüm konfigürasyon alanlarına açılır (girişler kullanıcı
 
 ![Takvim istisnaları](screenshots/v1/38-yonetim-takvim-istisnalari.png)
 
-**Tedarikçiler** — firma kartı, izinli kategoriler, otomatik onay, süre/kota limitleri ve **portal hesabı yönetimi** (oluştur / parola sıfırla / aktif-pasif):
+**Tedarikçiler** — firma kartı, izinli kategoriler, otomatik onay, **teslimat tipleri** (standart her tedarikçide açıktır; **kargo** yalnızca bu karttan açılırsa tedarikçide görünür), süre/kota limitleri ve **portal hesabı yönetimi** (oluştur / parola sıfırla / aktif-pasif):
 
 ![Tedarikçiler](screenshots/v1/39-yonetim-tedarikciler.png)
 

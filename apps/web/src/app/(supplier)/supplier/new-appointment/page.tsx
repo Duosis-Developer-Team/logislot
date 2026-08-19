@@ -90,7 +90,7 @@ export default function NewAppointmentWizard() {
   const [vehicleOverrideId, setVehicleOverrideId] = useState<string | null>(null);
   const [plate, setPlate] = useState("");
   const [driver, setDriver] = useState("");
-  const [isCargo, setIsCargo] = useState(false);
+  const [cargoSelected, setIsCargo] = useState(false);
   const [cargoWindow, setCargoWindow] = useState<CargoWindow>("morning");
 
   // Adim 3 — zaman
@@ -108,6 +108,11 @@ export default function NewAppointmentWizard() {
   const categories = catalog.data?.product_categories ?? [];
   const vehicles = catalog.data?.vehicle_categories ?? [];
   const limits = catalog.data?.limits;
+  // Kargo yalnizca yonetim bu tedarikci icin actiysa katalogda gelir;
+  // gelmiyorsa secenek hic gosterilmez (standart her zaman acik).
+  const cargoAllowed = (catalog.data?.delivery_types ?? []).includes("cargo");
+  // Yonetim kargoyu kapatirsa acik sihirbazdaki secim de otomatik duser.
+  const isCargo = cargoSelected && cargoAllowed;
   const category = categories.find((c) => c.id === categoryId) ?? null;
 
   const defaultVehicleId = category?.default_vehicle_category_id ?? null;
@@ -425,7 +430,7 @@ export default function NewAppointmentWizard() {
 
             <div>
               <Label>Teslimat Tipi</Label>
-              <div className="grid grid-cols-2 gap-2">
+              <div className={cn("grid gap-2", cargoAllowed ? "grid-cols-2" : "grid-cols-1")}>
                 <button
                   type="button"
                   onClick={() => setIsCargo(false)}
@@ -439,19 +444,21 @@ export default function NewAppointmentWizard() {
                   <div className="font-medium">Standart Randevu</div>
                   <div className="text-xs text-muted-foreground">Kesin saat aralığı</div>
                 </button>
-                <button
-                  type="button"
-                  onClick={() => setIsCargo(true)}
-                  className={cn(
-                    "rounded-lg border p-3 text-left text-sm",
-                    isCargo ? "border-cargo bg-cargo/5 ring-1 ring-cargo/30" : "border-border",
-                  )}
-                >
-                  <div className="flex items-center gap-1 font-medium">
-                    <Package className="h-3.5 w-3.5 text-cargo" /> Kargo
-                  </div>
-                  <div className="text-xs text-muted-foreground">Belirsiz varış</div>
-                </button>
+                {cargoAllowed && (
+                  <button
+                    type="button"
+                    onClick={() => setIsCargo(true)}
+                    className={cn(
+                      "rounded-lg border p-3 text-left text-sm",
+                      isCargo ? "border-cargo bg-cargo/5 ring-1 ring-cargo/30" : "border-border",
+                    )}
+                  >
+                    <div className="flex items-center gap-1 font-medium">
+                      <Package className="h-3.5 w-3.5 text-cargo" /> Kargo
+                    </div>
+                    <div className="text-xs text-muted-foreground">Belirsiz varış</div>
+                  </button>
+                )}
               </div>
             </div>
           </CardContent>
