@@ -1,0 +1,45 @@
+# ============================================================================
+# DEMO SENARYO VERISI — OTOMATIK DEPLOY'UN PARCASI DEGILDIR, kustomization'a
+# dahil DEGILDIR ve YALNIZCA BILINCLI olarak elle uygulanir:
+#   kubectl -n logislot-dev delete job logislot-demo-scenarios --ignore-not-found
+#   kubectl -n logislot-dev apply -f k8s/base/demo-scenarios-job.yaml
+#   kubectl -n logislot-dev logs job/logislot-demo-scenarios
+#
+# `app.seed`ten farki: seed BIR KEREliktir (tenant varsa hic calismaz), bu is
+# ise YENIDEN CALISTIRILABILIR ve TARIH-GORELIDIR — her kosuda "bugun"un
+# programini bugune yeniden yazar. Sunum oncesi demo ortamini tazelemek icin
+# kullanilir.
+#
+# Yalnizca kendi urettigi satirlari (uuid5 kimlikli) siler; organik veriye
+# dokunmaz. Yine de demo hesaplar (Demo123!) olusturur — GERCEK MUSTERI
+# verisi olan bir ortamda KOSTURULMAZ.
+# ============================================================================
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: logislot-demo-scenarios
+  labels:
+    app.kubernetes.io/name: logislot-demo-scenarios
+    app.kubernetes.io/part-of: logislot
+spec:
+  backoffLimit: 0
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: logislot-demo-scenarios
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: demo-scenarios
+          image: ghcr.io/duosis-developer-team/logislot-api:dev
+          command: ["python", "-m", "app.demo_scenarios", "--slug", "bta"]
+          envFrom:
+            - configMapRef: { name: logislot-config }
+            - secretRef: { name: logislot-secrets }
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi

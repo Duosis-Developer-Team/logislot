@@ -2,6 +2,7 @@
 # BILINCLI olarak dahil edilmeyenler:
 # - secret.example.yaml (gercek secret kubectl ile olusturulur)
 # - migration-job.yaml / seed-job.yaml (elle, sirayla kosulur)
+# - demo-scenarios-job.yaml (elle; sunum oncesi demo verisini tazeler)
 # - networkpolicy.yaml (opsiyonel; CNI destegi dogrulanmadan uygulanmaz)
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization

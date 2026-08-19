@@ -17,6 +17,7 @@
 | logislot-scheduler | Deployment (1, Recreate) | api image | — | `python -m app.maintenance.scheduler` |
 | logislot-migration | Job (elle) | api image | — | `alembic upgrade head` |
 | logislot-seed | Job (elle, **bilinçli**) | api image | — | `python -m app.seed` (demo verisi!) |
+| logislot-demo-scenarios | Job (elle, **bilinçli**) | api image | — | `python -m app.demo_scenarios` — sunum verisini **tazeler**; tekrar çalıştırılabilir, tarih-göreli |
 | logislot-bootstrap-admin | Job (elle) | api image | — | `python -m app.bootstrap_admin` — **üretim için**: tek platform yöneticisi, demo verisi yok |
 | logislot ingress | Ingress (class: nginx) | — | — | host-bazlı: `logislot-<env>.local` → web, `logislot-<env>-api.local` → api |
 | logislot-*-nodeport | Service (NodePort) | — | dev 30080/30081, prod 30082/30083 | domain'siz pratik erişim |
@@ -214,7 +215,31 @@ kubectl -n logislot-dev rollout status deploy/logislot-api deploy/logislot-web d
 # 8. (YALNIZCA demo/pilot verisi isteniyorsa, BILINCLI karar):
 kubectl -n logislot-dev apply -f k8s/base/seed-job.yaml   # PROD'da seed = bilinçli karar!
 kubectl -n logislot-dev logs -f job/logislot-seed
+
+# 9. (YALNIZCA demo ortami; sunum oncesi veriyi tazelemek icin):
+kubectl -n logislot-dev delete job logislot-demo-scenarios --ignore-not-found
+kubectl -n logislot-dev apply -f k8s/base/demo-scenarios-job.yaml
+kubectl -n logislot-dev logs -f job/logislot-demo-scenarios
 ```
+
+### Demo senaryo verisi (`logislot-demo-scenarios`)
+
+`app.seed` bir kereliktir: tenant varsa hiç çalışmaz, dolayısıyla kurulu bir
+ortamda tarihler eskir. `app.demo_scenarios` bu boşluğu doldurur —
+**tekrar çalıştırılabilir** ve **tarih-göreli**dir:
+
+* Katalog (araç/ürün kategorisi, Rampa 4, 6 yeni tedarikçi + portal hesapları)
+  doğal anahtarıyla aranır; varsa dokunulmaz, yoksa eklenir.
+* Randevu/seri/bildirim/takvim istisnası her koşuda silinip yeniden yazılır;
+  "bugün" hep gerçekten bugündür. Silme yalnızca kendi ürettiği `uuid5`
+  kimliklere dokunur — organik veri korunur.
+* Yazmadan önce tesisin kendi kurallarına göre doğrular: çalışma saatleri,
+  takvim istisnaları, rampa-ürün/araç uyumu, aynı rampada çakışma ve
+  tedarikçi haftalık kotası. Uymayan satır uygun slota kaydırılır, olmazsa
+  düşürülür ve iş çıktısında raporlanır.
+
+Önce denemek için: `python -m app.demo_scenarios --dry-run` (hiçbir şey yazmaz).
+
 
 NOT: 4. adım API'yi migration'dan önce başlatır; API migrationsız şemada
 `/health`'e cevap verir ama ilk migration tamamlanana dek işlevsel değildir.
