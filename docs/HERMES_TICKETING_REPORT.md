@@ -175,6 +175,21 @@ birebir aynı kalması gereken iki dosya yan yana dursun. Ayrıca
 `COPY` satırlarını okuyup migration'ların import ettiği birinci-taraf modüllerin
 imaja girdiğini doğrular (negatif senaryoyla test edildi — gerçekten kırmızı veriyor).
 
+İkinci deploy denemesi de düştü:
+`IdentifierError: Identifier 'fk_support_ticket_message_projections_ticket_id_support_ticket_projections' exceeds maximum length of 63 characters`.
+
+Adlandırma sözleşmesinin (`fk_%(table_name)s_%(column_0_name)s_%(referred_table_name)s`)
+bu tablo adları için ürettiği ad Postgres'in 63 karakter sınırını aşıyor. SQLAlchemy
+**modelde** adı sessizce kısaltıp sonuna hash ekliyor (`..._support_4aab`), elle yazılan
+**migration** ise aynı adı üretemiyor ve hata veriyor. SQLite identifier uzunluğu
+sınırlamadığı için testler bunu göremiyordu.
+
+Düzeltme: dört uzun FK'ye **hem modelde hem DDL'de birebir aynı kısa ad** verildi
+(`fk_support_ticket_messages_ticket_id` vb.). Guard'lar:
+`test_model_and_migration_produce_identical_constraint_names` (model ile migration
+adları birebir eşleşmeli, sessiz kısaltma yasak) ve
+`test_every_table_compiles_against_postgres`. İkisi de negatif senaryoyla sınandı.
+
 ## 10. Bilinen sınırlar
 
 1. **Hermes dev endpoint'i yok** → gerçek cross-app E2E koşulamadı. Kod contract

@@ -225,3 +225,65 @@ def test_migrations_only_import_modules_that_ship_in_the_image():
         "Migrationlar imaja KOPYALANMAYAN modulleri import ediyor: "
         + ", ".join(offenders)
     )
+
+
+def test_model_and_migration_produce_identical_constraint_names():
+    """Model ile migration AYNI kisit adlarini uretmeli.
+
+    Yeni tenant semalari tablolari MODELDEN (`create_all`), mevcut semalar
+    MIGRATION'dan alir. Adlar ayrisirsa ayni surumdeki iki tenant farkli
+    kisit adlariyla yasar ve sonraki bir `ALTER ... DROP CONSTRAINT` yalnizca
+    birinde calisir.
+
+    Bu test ayrica SESSIZ KISALTMAYI yakalar: adlandirma sozlesmesinin
+    uretecegi ad Postgres'in 63 karakter sinirini asarsa SQLAlchemy onu
+    kisaltip sonuna hash ekler (`..._4aab`), elle yazilan migration ise ayni
+    adi asla uretemez. 2026-08-25'te dev migration job'i tam olarak bu yuzden
+    `IdentifierError` ile dustu — SQLite sinir uygulamadigi icin testler
+    goremiyordu.
+    """
+    import re
+
+    from sqlalchemy.dialects import postgresql
+    from sqlalchemy.schema import CreateIndex, CreateTable
+
+    from app.models import Base, ticketing_ddl
+
+    ddl_source = pathlib.Path(ticketing_ddl.__file__).read_text()
+    dialect = postgresql.dialect()
+
+    for name in TICKET_TABLES:
+        table = Base.metadata.tables[name]
+        compiled = str(CreateTable(table).compile(dialect=dialect))
+        for line in compiled.splitlines():
+            if "CONSTRAINT" not in line:
+                continue
+            label = line.strip().split()[1]
+            assert len(label) <= 63, f"{name}: '{label}' 63 karakteri asiyor"
+            assert not re.search(r"_[0-9a-f]{4}$", label), (
+                f"{name}: '{label}' SESSIZCE kisaltilmis — kisit adini "
+                "modelde ACIKCA verin, yoksa migration ayni adi uretemez"
+            )
+            assert f'"{label}"' in ddl_source, (
+                f"{name}: model '{label}' uretiyor ama migration DDL'inde yok"
+            )
+
+        for index in table.indexes:
+            CreateIndex(index).compile(dialect=dialect)
+            assert len(index.name or "") <= 63, f"{name}: index '{index.name}' cok uzun"
+
+
+def test_every_table_compiles_against_postgres():
+    """Tum tablolar Postgres lehcesinde derlenebilmeli.
+
+    Test paketi SQLite'ta kosar ve SQLite identifier uzunlugu SINIRLAMAZ;
+    bu yuzden yalnizca `create_all` gecmesi bir sey KANITLAMAZ.
+    """
+    from sqlalchemy.dialects import postgresql
+    from sqlalchemy.schema import CreateTable
+
+    from app.models import control_plane_tables, tenant_plane_tables
+
+    dialect = postgresql.dialect()
+    for table in control_plane_tables() + tenant_plane_tables():
+        CreateTable(table).compile(dialect=dialect)

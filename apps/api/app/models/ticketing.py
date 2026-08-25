@@ -147,7 +147,16 @@ class SupportTicketMessageProjection(Base, UUIDPkMixin):
 
     ticket_id: Mapped[uuid.UUID] = mapped_column(
         sa.Uuid,
-        sa.ForeignKey("support_ticket_projections.id", ondelete="CASCADE"),
+        # Kisit adi ACIKCA verilir. Adlandirma sozlesmesinin uretecegi ad
+        # Postgres'in 63 karakter sinirini asar; SQLAlchemy onu SESSIZCE
+        # kisaltip sonuna hash ekler, elle yazilan migration ise ayni adi
+        # uretemez. Iki taraf ayrisinca "yeni sema modelden, eski sema
+        # migrationdan" kurali bozulur (bkz. app/models/ticketing_ddl.py).
+        sa.ForeignKey(
+            "support_ticket_projections.id",
+            ondelete="CASCADE",
+            name="fk_support_ticket_messages_ticket_id",
+        ),
         index=True,
     )
     remote_message_id: Mapped[uuid.UUID | None] = mapped_column(sa.Uuid)
@@ -191,12 +200,21 @@ class SupportTicketAttachmentProjection(Base, UUIDPkMixin):
 
     ticket_id: Mapped[uuid.UUID | None] = mapped_column(
         sa.Uuid,
-        sa.ForeignKey("support_ticket_projections.id", ondelete="CASCADE"),
+        # Kisa ACIK ad — sozlesme adi 63 karakteri asar (bkz. yukarisi).
+        sa.ForeignKey(
+            "support_ticket_projections.id",
+            ondelete="CASCADE",
+            name="fk_support_ticket_attachments_ticket_id",
+        ),
         index=True,
     )
     message_id: Mapped[uuid.UUID | None] = mapped_column(
         sa.Uuid,
-        sa.ForeignKey("support_ticket_message_projections.id", ondelete="SET NULL"),
+        sa.ForeignKey(
+            "support_ticket_message_projections.id",
+            ondelete="SET NULL",
+            name="fk_support_ticket_attachments_message_id",
+        ),
     )
     #: Hermes upload oturumunun kimligi; ticket olusturulmadan once vardir.
     upload_id: Mapped[uuid.UUID] = mapped_column(sa.Uuid)
@@ -244,7 +262,11 @@ class SupportTicketOutbox(Base, UUIDPkMixin):
     command_id: Mapped[uuid.UUID] = mapped_column(sa.Uuid, default=uuid.uuid4)
     ticket_id: Mapped[uuid.UUID] = mapped_column(
         sa.Uuid,
-        sa.ForeignKey("support_ticket_projections.id", ondelete="CASCADE"),
+        sa.ForeignKey(
+            "support_ticket_projections.id",
+            ondelete="CASCADE",
+            name="fk_support_ticket_outbox_ticket_id",
+        ),
         index=True,
     )
     #: Yerel mesaj satiri (public_reply komutlarinda) — ack gelince

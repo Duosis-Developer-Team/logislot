@@ -186,10 +186,7 @@ def create_ticket_tables() -> None:
         sa.ForeignKeyConstraint(
             ["ticket_id"],
             ["support_ticket_projections.id"],
-            name=(
-                "fk_support_ticket_message_projections_ticket_id_"
-                "support_ticket_projections"
-            ),
+            name="fk_support_ticket_messages_ticket_id",
             ondelete="CASCADE",
         ),
         sa.PrimaryKeyConstraint("id", name="pk_support_ticket_message_projections"),
@@ -237,19 +234,13 @@ def create_ticket_tables() -> None:
         sa.ForeignKeyConstraint(
             ["ticket_id"],
             ["support_ticket_projections.id"],
-            name=(
-                "fk_support_ticket_attachment_projections_ticket_id_"
-                "support_ticket_projections"
-            ),
+            name="fk_support_ticket_attachments_ticket_id",
             ondelete="CASCADE",
         ),
         sa.ForeignKeyConstraint(
             ["message_id"],
             ["support_ticket_message_projections.id"],
-            name=(
-                "fk_support_ticket_attachment_projections_message_id_"
-                "support_ticket_message_projections"
-            ),
+            name="fk_support_ticket_attachments_message_id",
             ondelete="SET NULL",
         ),
         sa.PrimaryKeyConstraint("id", name="pk_support_ticket_attachment_projections"),
@@ -296,7 +287,7 @@ def create_ticket_tables() -> None:
         sa.ForeignKeyConstraint(
             ["ticket_id"],
             ["support_ticket_projections.id"],
-            name="fk_support_ticket_outbox_ticket_id_support_ticket_projections",
+            name="fk_support_ticket_outbox_ticket_id",
             ondelete="CASCADE",
         ),
         sa.PrimaryKeyConstraint("id", name="pk_support_ticket_outbox"),
