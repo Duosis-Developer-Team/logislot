@@ -36,6 +36,7 @@ app/schemas/ticketing.py
 app/services/{ticket_service,ticket_projection_service,ticket_routing_service}.py
 app/routers/{tickets,platform_ticketing,hermes_support_webhook}.py
 app/maintenance/{ticket_delivery,ticket_reconciliation,ticket_inbox}.py
+app/models/ticketing_ddl.py            (iki alembic zincirinin PAYLASTIGI DDL)
 alembic/versions/b7e2d94c1f30_ticketing_control_plane.py
 alembic_tenant/versions/0003_support_ticket_tables.py
 alembic_tenant/versions/0004_ticket_role_permissions.py
@@ -141,7 +142,7 @@ Uygulama bittikten sonra `/code-review high` koşuldu; bulguların tamamı gider
 
 | Bulgu | Düzeltme |
 |---|---|
-| Control migration tenant tablolarını `public`'e kurmuyordu → taşınmamış tenant'ta her ticket ucu 500 | DDL `alembic_shared/ticketing_tables.py`'ye çıkarıldı; **iki zincir de** aynı fonksiyonu çağırır (test: `test_both_chains_use_the_same_ticket_ddl`) |
+| Control migration tenant tablolarını `public`'e kurmuyordu → taşınmamış tenant'ta her ticket ucu 500 | DDL `app/models/ticketing_ddl.py`'ye çıkarıldı; **iki zincir de** aynı fonksiyonu çağırır (test: `test_both_chains_use_the_same_ticket_ddl`) |
 | `HermesApiError` `ApiError` değildi → Hermes yapılandırılmamışken ham 500 | `register_hermes_error_handler` ile standart zarf (503 geçici / 502 kalıcı) |
 | Mesaj benimseme, eşleşmeyen metinle **orijinal açıklamayı eziyordu** | Yalnızca `is_pending` satırlar benimsenir; ilk açıklama korunur |
 | `requeue_orphan_creates` dead-letter'a düşmüş create'i diriltiyordu | Create komutu **varsa** (durumu ne olursa olsun) yeniden üretilmez |
@@ -159,6 +160,20 @@ Uygulama bittikten sonra `/code-review high` koşuldu; bulguların tamamı gider
 | Dropzone anahtarı çakışabiliyordu | Süreç ömürlü sayaç |
 | Arama her tuşta istek atıp listeyi karartıyordu | 300 ms debounce + `keepPreviousData` |
 | `tenant_slug` detay yanıtında yoktu | Backend'e eklendi |
+
+### Dev deploy'da yakalanan ek regresyon
+
+İlk push'ta dev migration job'ı `ModuleNotFoundError: No module named 'alembic_shared'`
+ile düştü. Sebep: paylaşılan DDL üst seviyede yeni bir paket olarak açılmıştı, ama
+imaj yalnızca `app`, `alembic`, `alembic_tenant`, `scripts` dizinlerini kopyalar ve
+`pyproject.toml` yalnızca `app*` paketlerini kurar. Yerelde (cwd `apps/api`) çalışıyor,
+imajda çalışmıyordu.
+
+Düzeltme: modül `app/models/ticketing_ddl.py`'ye taşındı — modelin **yanına**, ki
+birebir aynı kalması gereken iki dosya yan yana dursun. Ayrıca
+`test_migrations_only_import_modules_that_ship_in_the_image` eklendi: Dockerfile'ın
+`COPY` satırlarını okuyup migration'ların import ettiği birinci-taraf modüllerin
+imaja girdiğini doğrular (negatif senaryoyla test edildi — gerçekten kırmızı veriyor).
 
 ## 10. Bilinen sınırlar
 

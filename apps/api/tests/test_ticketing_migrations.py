@@ -178,14 +178,50 @@ def test_both_chains_use_the_same_ticket_ddl():
     ).read_text()
 
     for source, name in ((control, "control"), (tenant, "tenant")):
-        assert "from alembic_shared.ticketing_tables import" in source, name
+        assert "from app.models.ticketing_ddl import" in source, name
         assert "create_ticket_tables()" in source, name
         assert "drop_ticket_tables()" in source, name
 
 
 def test_shared_ddl_covers_every_ticket_table():
-    from alembic_shared import ticketing_tables
+    from app.models import ticketing_ddl
 
-    source = pathlib.Path(ticketing_tables.__file__).read_text()
+    source = pathlib.Path(ticketing_ddl.__file__).read_text()
     for name in TICKET_TABLES:
         assert f'op.create_table(\n        "{name}"' in source, name
+
+
+def test_migrations_only_import_modules_that_ship_in_the_image():
+    """Migrationlar YALNIZCA imaja giren birinci-taraf modulleri import etmeli.
+
+    Yerelde her sey calisir (cwd `apps/api`), fakat imaj yalnizca Dockerfile'in
+    KOPYALADIGI dizinleri tasir. Ust seviyede yeni bir paket acmak migration
+    job'ini `ModuleNotFoundError` ile dusurur — 2026-08-25'te tam olarak boyle
+    oldu ve dev deploy'u kirdi. Bu test o sinifi yerelde yakalar.
+    """
+    import re
+
+    root = pathlib.Path(".")
+    dockerfile = (root / "Dockerfile").read_text()
+    copied = set(re.findall(r"^COPY\s+(\S+)\s", dockerfile, flags=re.MULTILINE))
+
+    #: Depoda var olan ust seviye dizinler = birinci-taraf paket adaylari.
+    first_party = {
+        entry.name
+        for entry in root.iterdir()
+        if entry.is_dir() and not entry.name.startswith((".", "__"))
+    }
+
+    offenders: list[str] = []
+    for chain in ("alembic/versions", "alembic_tenant/versions"):
+        for migration in pathlib.Path(chain).glob("*.py"):
+            source = migration.read_text()
+            for module in re.findall(r"^\s*from\s+([\w.]+)\s+import", source, re.MULTILINE):
+                top = module.split(".")[0]
+                if top in first_party and top not in copied:
+                    offenders.append(f"{migration}: {module}")
+
+    assert not offenders, (
+        "Migrationlar imaja KOPYALANMAYAN modulleri import ediyor: "
+        + ", ".join(offenders)
+    )

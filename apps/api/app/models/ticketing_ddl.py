@@ -1,9 +1,15 @@
-"""Destek ticket tablolarinin TEK DDL tanimi.
+"""Destek ticket tablolarinin TEK DDL tanimi (iki alembic zinciri de kullanir).
 
-Hem control-plane hem tenant-plane zinciri bu fonksiyonlari cagirir; boylece
-"kendi semasindaki tenant" ile "ortak semadaki tenant" ayni tablo seklini alir.
-Model (`app/models/ticketing.py`) ile de birebir ayni olmak zorundadir: yeni
-semalar tablolari `create_all` ile MODELDEN alir.
+Hem control-plane (`alembic/`) hem tenant-plane (`alembic_tenant/`) zinciri bu
+fonksiyonlari cagirir; boylece "kendi semasindaki tenant" ile "ortak semadaki
+tenant" ayni tablo seklini alir. `app/models/ticketing.py` ile de birebir ayni
+olmak zorundadir: yeni semalar tablolari `create_all` ile MODELDEN alir.
+
+NEDEN `app/` ALTINDA: imaj yalnizca `app`, `alembic`, `alembic_tenant` ve
+`scripts` dizinlerini kopyalar; `pyproject.toml` da yalnizca `app*` paketlerini
+kurar. Ust seviyede yeni bir paket acmak, yerelde calisip IMAJDA
+`ModuleNotFoundError` ile migration job'ini dusurur — 2026-08-25'te tam olarak
+boyle oldu. Migrationlarin paylastigi her sey `app.` altinda yasar.
 """
 
 import sqlalchemy as sa

@@ -30,8 +30,8 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
 from alembic import op
-from alembic_shared.ticketing_tables import create_ticket_tables, drop_ticket_tables
 from app.core.permissions import PlatformPermission, TenantPermission
+from app.models.ticketing_ddl import create_ticket_tables, drop_ticket_tables
 
 revision = "b7e2d94c1f30"
 down_revision = "a1c9d4e07b31"

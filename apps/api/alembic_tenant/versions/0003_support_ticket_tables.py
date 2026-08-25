@@ -16,7 +16,7 @@ Revision ID: 0003_support_ticket_tables
 Revises: 0002_supplier_cargo_enabled
 """
 
-from alembic_shared.ticketing_tables import create_ticket_tables, drop_ticket_tables
+from app.models.ticketing_ddl import create_ticket_tables, drop_ticket_tables
 
 revision = "0003_support_ticket_tables"
 down_revision = "0002_supplier_cargo_enabled"
