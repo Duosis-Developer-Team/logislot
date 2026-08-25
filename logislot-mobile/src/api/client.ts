@@ -18,6 +18,8 @@ export interface ApiEnvelope<T> {
   success: boolean;
   data: T;
   error: { code: string; message: string; details?: unknown } | null;
+  /** Sayfalama gibi yan bilgiler (`{"total": 128}`); tüm uçlarda bulunmaz. */
+  meta?: Record<string, unknown>;
 }
 
 export class ApiError extends Error {
@@ -122,7 +124,7 @@ export function setUnauthorizedHandler(fn: (() => void) | null): void {
 }
 
 interface RequestOptions {
-  method?: "GET" | "POST" | "PATCH" | "DELETE";
+  method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
   body?: unknown;
   facilityId?: string | null;
 }
@@ -200,6 +202,20 @@ export async function apiRequest<T>(
   path: string,
   options: RequestOptions = {},
 ): Promise<T> {
+  return (await apiEnvelope<T>(path, options)).data;
+}
+
+/**
+ * `apiRequest` ile aynı akış, fakat ZARFIN TAMAMINI döndürür.
+ *
+ * Sayfalı uçlarda `meta.total` gerekir; ona erişmenin tek yolu zarftır.
+ * İki ayrı istek yolu yazmak yerine `apiRequest` bunun üzerine kuruludur —
+ * böylece 401 yenileme mantığı TEK yerde kalır.
+ */
+export async function apiEnvelope<T>(
+  path: string,
+  options: RequestOptions = {},
+): Promise<ApiEnvelope<T>> {
   let token = accessToken;
   let response = await rawRequest(path, options, token);
 
@@ -223,7 +239,7 @@ export async function apiRequest<T>(
       err.details,
     );
   }
-  return envelope.data;
+  return envelope;
 }
 
 /** Envelope'suz düz metin yanıtlar (CSV raporları) — aynı auth/refresh akışı. */

@@ -19,6 +19,8 @@ export interface ApiEnvelope<T> {
   success: boolean;
   data: T;
   error: { code: string; message: string; details?: unknown } | null;
+  /** Sayfalama gibi yan bilgiler (`{"total": 128}`); tum uclarda bulunmaz. */
+  meta?: Record<string, unknown>;
 }
 
 export class ApiError extends Error {
@@ -32,7 +34,7 @@ export class ApiError extends Error {
 }
 
 interface RequestOptions {
-  method?: "GET" | "POST" | "PATCH" | "DELETE";
+  method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
   body?: unknown;
   token?: string | null;
   facilityId?: string | null;
@@ -59,6 +61,20 @@ export async function apiRequest<T>(
   path: string,
   options: RequestOptions = {},
 ): Promise<T> {
+  return (await apiEnvelope<T>(path, options)).data;
+}
+
+/**
+ * `apiRequest` ile ayni akis, fakat ZARFIN TAMAMINI dondurur.
+ *
+ * Sayfali uclarda `meta.total` gerekir; onu almanin tek yolu zarfa erismektir.
+ * Iki ayri istek yolu yazmak yerine `apiRequest` bunun uzerine kuruludur —
+ * boylece 401 yenileme mantigi TEK yerde kalir.
+ */
+export async function apiEnvelope<T>(
+  path: string,
+  options: RequestOptions = {},
+): Promise<ApiEnvelope<T>> {
   let token = options.token ?? getStoredToken();
   let response = await rawRequest(path, options, token);
 
@@ -96,7 +112,7 @@ export async function apiRequest<T>(
       err.details,
     );
   }
-  return envelope.data;
+  return envelope;
 }
 
 /**
@@ -237,6 +253,34 @@ export const authApi = {
   /** Sunucu tarafi oturum iptali (logout-everywhere). En iyi caba; hata firlatabilir. */
   logout: () => apiRequest<{ logged_out: boolean }>("/auth/logout", { method: "POST" }),
 };
+
+/**
+ * Authorization basligiyla ham fetch — 401'de TEK-UCUS yenilemeyi kullanir.
+ *
+ * `apiRequest` JSON zarfi bekler; ikili icerik (dosya indirme) icin uygun
+ * degildir. Bu yardimci olmadan indirmeler kendi `fetch`'lerini yazar ve
+ * yenileme akisini ATLAR — sekmeyi bir sure acik birakmis kullanicinin
+ * indirmesi sessizce 401 alirdi.
+ */
+export async function authorizedFetch(
+  path: string,
+  init: RequestInit = {},
+): Promise<Response> {
+  const withAuth = (token: string | null): RequestInit => ({
+    ...init,
+    headers: {
+      ...(init.headers ?? {}),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  });
+
+  let response = await fetch(`${BASE_URL}${path}`, withAuth(getStoredToken()));
+  if (response.status === 401 && typeof window !== "undefined") {
+    const newToken = await refreshAccessToken();
+    if (newToken) response = await fetch(`${BASE_URL}${path}`, withAuth(newToken));
+  }
+  return response;
+}
 
 /** Token'li CSV indirme: yaniti blob olarak alir ve tarayicida kaydettirir. */
 export async function downloadCsv(path: string, filename: string): Promise<void> {

@@ -16,7 +16,8 @@ export default function PlatformLayout() {
         {(
           [
             ["plans", "Planlar"],
-            ["support", "Pilot Destek"],
+            ["support", "Sistem Sağlığı"],
+            ["ticket-routing", "Ticket Yönlendirmesi"],
             ["audit-logs", "Denetim İzleri"],
           ] as const
         ).map(([name, title]) => (

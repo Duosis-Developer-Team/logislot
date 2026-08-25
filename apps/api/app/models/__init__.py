@@ -30,6 +30,17 @@ from app.models.tenant_user import (
     TenantUser,
     facility_membership_roles,
 )
+from app.models.ticketing import (
+    SupportTicketAttachmentProjection,
+    SupportTicketMessageProjection,
+    SupportTicketOutbox,
+    SupportTicketProjection,
+)
+from app.models.ticketing_control import (
+    HermesGroupCatalogCache,
+    TicketRoutingConfig,
+    TicketWebhookInbox,
+)
 
 __all__ = [
     "Base",
@@ -67,6 +78,13 @@ __all__ = [
     "MaintenanceRun",
     "AuthSession",
     "AppointmentSeries",
+    "TicketRoutingConfig",
+    "HermesGroupCatalogCache",
+    "TicketWebhookInbox",
+    "SupportTicketProjection",
+    "SupportTicketMessageProjection",
+    "SupportTicketAttachmentProjection",
+    "SupportTicketOutbox",
 ]
 
 

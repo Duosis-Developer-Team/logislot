@@ -1,0 +1,23 @@
+{
+  "aggregate_version": 8,
+  "application_code": "logislot",
+  "data": {
+    "attachment": {
+      "file_name": "screen.png",
+      "id": "d4f2a6c8-70b1-4e39-9a52-6f8c1d3b0e47",
+      "mime_type": "image/png",
+      "scan_status": "clean",
+      "size_bytes": 123456,
+      "upload_id": "5a7c1e93-2f48-4b6d-8a11-3c9e7d0b4f25",
+      "visibility": "public"
+    }
+  },
+  "event_id": "00000000-0000-4000-8000-000000000008",
+  "event_type": "ticket.attachment_ready.v1",
+  "occurred_at": "2026-08-25T12:00:00Z",
+  "sequence": 8,
+  "source_tenant_id": "b1d9f7a2-6c3e-4a1b-9f52-8e0c4d7a1b62",
+  "source_ticket_id": "7d3c5b19-4e82-4f60-b1a7-9c2e8d5f3a40",
+  "ticket_id": "a91f3d57-6b20-4c8e-9d14-5e7a8c0b2f39",
+  "ticket_number": "TKT-000123"
+}

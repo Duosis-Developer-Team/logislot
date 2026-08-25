@@ -1,3 +1,5 @@
+import { Ionicons } from "@expo/vector-icons";
+import { router } from "expo-router";
 import { Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useSupplierProfile } from "@/api/supplier";
@@ -54,6 +56,23 @@ export default function SupplierProfile() {
           {data.auto_approval_enabled && (
             <Badge label="Otomatik onay aktif" color={colors.status.approved} />
           )}
+        </Card>
+
+        <SectionTitle title="Destek" />
+        <Card
+          onPress={() => router.push("/supplier/tickets")}
+          style={{ flexDirection: "row", alignItems: "center", gap: spacing.md }}
+        >
+          <Ionicons name="help-buoy-outline" size={22} color={colors.accent} />
+          <View style={{ flex: 1 }}>
+            <Text style={{ color: colors.text, fontSize: 15, fontWeight: "600" }}>
+              Destek Talepleri
+            </Text>
+            <Text style={{ color: colors.mutedText, fontSize: 12 }}>
+              Sorun bildirin, yanıtları takip edin
+            </Text>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color={colors.faintText} />
         </Card>
 
         <SectionTitle title="Hesap" />

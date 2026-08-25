@@ -28,6 +28,13 @@ services:
       LOGISLOT_LOGIN_RATE_LIMIT_ATTEMPTS: "50"
       # Drake katalog anahtari; k8s'te overlay configmap'inden gelir.
       LOGISLOT_METRICS_ENVIRONMENT: "dev"
+      # Hermes destek entegrasyonu. Yerel compose'ta BILEREK BOS: gercek bir
+      # Hermes olmadan ticket ozelligi yine calisir (talep yerelde kaydedilir,
+      # outbox'ta bekler). Deger vermek icin .env kullanin, bu dosyaya
+      # GERCEK TOKEN YAZMAYIN.
+      LOGISLOT_HERMES_SUPPORT_BASE_URL: "${LOGISLOT_HERMES_SUPPORT_BASE_URL:-}"
+      LOGISLOT_HERMES_SUPPORT_TOKEN: "${LOGISLOT_HERMES_SUPPORT_TOKEN:-}"
+      LOGISLOT_HERMES_SUPPORT_WEBHOOK_SECRET: "${LOGISLOT_HERMES_SUPPORT_WEBHOOK_SECRET:-}"
     ports:
       # Yerel makinelerde 8000/3000 sik dolu oldugu icin LogiSlot 8010/3010 kullanir.
       - "8010:8000"
@@ -49,6 +56,9 @@ services:
     environment:
       LOGISLOT_DATABASE_URL: postgresql+asyncpg://logislot:logislot@db:5432/logislot
       LOGISLOT_SECRET_KEY: dev-secret-change-me
+      # Ticket outbox/reconciliation isleri de bu surecte kosar.
+      LOGISLOT_HERMES_SUPPORT_BASE_URL: "${LOGISLOT_HERMES_SUPPORT_BASE_URL:-}"
+      LOGISLOT_HERMES_SUPPORT_TOKEN: "${LOGISLOT_HERMES_SUPPORT_TOKEN:-}"
     depends_on:
       db:
         condition: service_healthy

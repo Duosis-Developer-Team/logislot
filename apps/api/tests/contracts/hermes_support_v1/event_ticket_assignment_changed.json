@@ -1,0 +1,18 @@
+{
+  "aggregate_version": 4,
+  "application_code": "logislot",
+  "data": {
+    "assigned_group": {
+      "id": "8c4a6e20-51bd-4f3a-8f0d-7c9d2e4b6a11",
+      "name": "Application Support"
+    }
+  },
+  "event_id": "00000000-0000-4000-8000-000000000004",
+  "event_type": "ticket.assignment_changed.v1",
+  "occurred_at": "2026-08-25T12:00:00Z",
+  "sequence": 4,
+  "source_tenant_id": "b1d9f7a2-6c3e-4a1b-9f52-8e0c4d7a1b62",
+  "source_ticket_id": "7d3c5b19-4e82-4f60-b1a7-9c2e8d5f3a40",
+  "ticket_id": "a91f3d57-6b20-4c8e-9d14-5e7a8c0b2f39",
+  "ticket_number": "TKT-000123"
+}

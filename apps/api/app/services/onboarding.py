@@ -117,6 +117,11 @@ async def bootstrap_facility_defaults(db: AsyncSession, facility: Facility) -> d
                 TenantPermission.APPT_CANCEL,
                 TenantPermission.CALENDAR_VIEW,
                 TenantPermission.REPORT_VIEW,
+                # Destek ticketlari: acabilir ve yanitlayabilir, fakat tenant
+                # genelini goremez (view_all yonetim karari olarak sysadmin'de).
+                TenantPermission.TICKET_VIEW,
+                TenantPermission.TICKET_CREATE,
+                TenantPermission.TICKET_COMMENT,
             ],
             is_default=True,
             is_system=True,

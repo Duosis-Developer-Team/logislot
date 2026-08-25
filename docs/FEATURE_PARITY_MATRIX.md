@@ -3,7 +3,7 @@
 Durumlar: ✅ tam · 🟡 kısmi · ❌ yok · — kapsam dışı
 Güncelleme kuralı: her feature sprint'inde bu matris güncellenir (bkz. WEB_MOBILE_PARITY.md).
 
-_Son güncelleme: 2026-07-11 (Portal İzolasyonu: public selector yalnız Tedarikçi+Yönetim; Platform hidden web portalı — mobile'da bilinçli yok)_
+_Son güncelleme: 2026-08-25 (Hermes Ticket Hub entegrasyonu: müşteri destek portalı + Platform ticket yönlendirmesi)_
 
 | Feature | Backend | Web | Mobile | Status | Notes |
 |---|---|---|---|---|---|
@@ -39,12 +39,25 @@ _Son güncelleme: 2026-07-11 (Portal İzolasyonu: public selector yalnız Tedari
 | E-posta logları + resend | ✅ | ✅ | ✅ | OK | Filtre + sayfalama + tekil/toplu resend (toplu: user.manage) |
 | Denetim izleri | ✅ | ✅ | ✅ | OK | Filtre + sayfalama + before/after JSON detayı |
 | Bildirim zili + tercihler | ✅ | ✅ | ✅ | OK | Zil dashboard'da; tercihler Menü → Bildirim Tercihleri |
+| **Destek Ticketları (Hermes Ticket Hub)** — canonical sistem Hermes'tir; LogiSlot projeksiyon tutar |
+| Ticket listesi (durum sekmeleri + arama) | ✅ | ✅ | ✅ | OK | Web: kart listesi + arama; mobile: chip şeridi + kart listesi |
+| Ticket açma (kategori/etki/başlık/detay) | ✅ | ✅ | ✅ | OK | Hedef ekip READONLY gösterilir; grup seçici HİÇBİR yüzeyde yok |
+| Opsiyonel alanlar (adımlar/beklenen/gerçekleşen/hata kodu/zaman) | ✅ | ✅ | 🟡 | Partial | Mobile'da collapsible detay alanları v1'de yok; zorunlu alanlar tam |
+| Güvenli otomatik tanılama (allowlist) | ✅ | ✅ | ✅ | OK | Web: tarayıcı/OS/sayfa; mobile: cihaz/dil/zaman dilimi. Query string, cookie, token ASLA |
+| Ek dosya: sürükle-bırak + panodan yapıştır + seçici | ✅ | ✅ | ❌ | **Bilinçli erteleme** | Mobile'da native dosya seçici + izin akışı yeni bağımlılık gerektirir; kullanıcı web portalına yönlendirilir (ekranda yazılı) |
+| Ek dosya indirme (kısa ömürlü yetkili URL) | ✅ | ✅ | 🟡 | Partial | Mobile'da ek adı ve tarama durumu görünür; indirme web'de |
+| Ticket detay + public yazışma | ✅ | ✅ | ✅ | OK | İç notlar hiçbir yüzeye çıkmaz (backend + DB kısıtı) |
+| Yanıt yazma / yeniden açma / çözümü onaylama | ✅ | ✅ | ✅ | OK | Ağ hatasında metin korunur; outbox ile yeniden denenir |
+| Talep iptali (agent çalışmaya başlamadan) | ✅ | ✅ | ❌ | Backlog | Mobile'da v1 dışı; web'de mevcut |
+| Tedarikçi destek portalı (yalnız kendi talepleri) | ✅ | ✅ | ✅ | OK | Mobile: Profil → Destek Talepleri |
+| Bildirim (alındı/yanıt/bilgi bekleniyor/çözüldü) | ✅ | ✅ | ✅ | OK | Mevcut bildirim merkezine düşer; olay başına TEK bildirim |
 | **Platform** — hidden internal web portalı (:30086); mobile'da GİRİŞ YOKTUR (bilinçli karar, bkz. PORTAL_ISOLATION_AND_ROUTING.md) |
 | Genel bakış / kullanım (agregat, 30 gün) | ✅ | ✅ | — | Kapsam dışı | Mobile ekran kodu mevcut ama erişilemez (login yolu yok) |
 | Müşteri hesabı dizini + tek adımda açılış (kapsam + bootstrap + ilk yönetici) | ✅ | ✅ | — | Kapsam dışı | Ayrı tesis ekranı KALDIRILDI; eski rota yönlendirir |
 | Planlar + atama | ✅ | ✅ | — | Kapsam dışı | |
 | Dinamik plan limitleri (kota editörü) | ✅ | ✅ | — | Kapsam dışı | Boyut kataloğu backend'den; `max_tenants` atamada zorlanır |
-| Destek sağlığı | ✅ | ✅ | — | Kapsam dışı | |
+| Sistem sağlığı (eski adı "Pilot Destek") | ✅ | ✅ | — | Kapsam dışı | Ticket entegrasyonu sayaçları eklendi; ticket İÇERİĞİ gösterilmez |
+| Ticket yönlendirmesi (tenant → tek Hermes ekibi) | ✅ | ✅ | — | Kapsam dışı | Mobile ekran kodu mevcut ama erişilemez (platform login yolu yok) |
 | Platform denetim izleri | ✅ | ✅ | — | Kapsam dışı | |
 | **Ortak** |
 | Light/dark/system tema | — | ✅ | ✅ | OK | Aynı navy/blue palet |

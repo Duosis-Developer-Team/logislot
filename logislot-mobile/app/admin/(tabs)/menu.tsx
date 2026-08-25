@@ -37,6 +37,12 @@ const OPERATION_ENTRIES: MenuEntry[] = [
     route: "/admin/reports",
     permission: "report.view",
   },
+  {
+    title: "Destek Talepleri",
+    icon: "help-buoy-outline",
+    route: "/admin/tickets",
+    permission: "ticket.view",
+  },
 ];
 
 const CONFIG_ENTRIES: MenuEntry[] = [

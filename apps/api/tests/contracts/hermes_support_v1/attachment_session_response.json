@@ -1,0 +1,9 @@
+{
+  "expires_at": "2026-08-25T10:15:00Z",
+  "max_size_bytes": 15728640,
+  "required_headers": {
+    "Content-Type": "image/png"
+  },
+  "upload_id": "5a7c1e93-2f48-4b6d-8a11-3c9e7d0b4f25",
+  "upload_url": "https://storage.example.invalid/quarantine/5a7c1e93?X-Amz-Signature=redacted"
+}

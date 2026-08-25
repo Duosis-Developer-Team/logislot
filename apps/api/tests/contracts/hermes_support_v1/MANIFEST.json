@@ -1,0 +1,26 @@
+{
+  "contract": "hermes-support",
+  "files": {
+    "attachment_complete_response.json": "d20c9325e9f7b565023f64b39787f1e9ba7b58a799ffaba4b19c984e3fad57cf",
+    "attachment_session_request.json": "deb7f379a9fde68d324eef026e2b3fdd42b509d0a1a44e04a9602c093a06600a",
+    "attachment_session_response.json": "5f9b7b0b7b9cda1cd025ca185e10f753abf60ea61fc9334d9c3c97e95d0730de",
+    "error_response.json": "6ae3c60a8e4f9dbc5cad4766e690fb728e068b0010085907dc93dbe881727b94",
+    "event_ticket_assignment_changed.json": "59374a063a8e620ca7274244196fc136e98c6e834fc66174e1d2c0764ead3809",
+    "event_ticket_attachment_ready.json": "524b4ef344bf5eaa8bf41f2d53fbe9f5588dd519c1d5fa4a93fa6d1a1cd74f88",
+    "event_ticket_closed.json": "d3538fe35f06b5470d736a99acb4ca61c6e3f00f029abd9fb62f88ca7531bdf3",
+    "event_ticket_created.json": "d03102e6ab4bbcf599b936c4d52cad276f8e36ce3cd1e2bc1bc39ab0291c2839",
+    "event_ticket_public_message_added.json": "34ff984b22ff6adf155c7362d1ff9c8df7ad249772a18299d425fcc18bc6a05b",
+    "event_ticket_reopened.json": "37ffe674f1e88c6faedbebe50d6e3d3480541dcedfcddd1694428eb27c95cab0",
+    "event_ticket_resolved.json": "136b75a4ee6390a7d26f4d596d547ff44b6cbcd1e285ce48cfa4a406b15a0584",
+    "event_ticket_status_changed.json": "d4b844d3c7c6b75238477945fbb5d8fd12e037c0817b0209da57c1de568bb4fa",
+    "route_validate_request.json": "65fff82aadcf8602e999b99218d7169a7d425b3df12f281ef89f96201d3e454c",
+    "route_validate_response.json": "7d13d7d95e1618dc505e4c1262c6b33b1c999c8c385c41de4d3fb57c7b5033e8",
+    "routing_groups_response.json": "e03efcafadc3110fc8cf42bc30a6911f6081680428ff36454f76036962e31420",
+    "ticket_create_request.json": "bc0d77f0cf9d12a68fc1c1925073dc9235836e7c33a8283c4ba2e67f84c2bb11",
+    "ticket_create_response.json": "287129a2d0893f1a6609c2e7abe671b40b14037d3511e2cd31385b372d7afc77",
+    "ticket_snapshot_response.json": "3acc23630fce4add73ae17226e6018305a31aec47c10447b6f00c3d0367e5bf0"
+  },
+  "note": "Bu manifest iki repoda AYNIDIR. Bir fixture degisirse ozet degisir ve her iki taraftaki contract testi kirilir; tek tarafli sozlesme degisikligi boylece sessiz kalamaz.",
+  "source_document": "hermes-logislot-ticketing-cto-pack-v1.0/00_SHARED_PLATFORM/04_API_AND_EVENT_CONTRACT.md",
+  "version": "1.0"
+}

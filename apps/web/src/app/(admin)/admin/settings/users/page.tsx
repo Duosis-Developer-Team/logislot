@@ -61,6 +61,17 @@ const PERMISSION_GROUPS: { title: string; items: { code: string; label: string }
     ],
   },
   {
+    title: "Ticketlar",
+    items: [
+      { code: "ticket.view", label: "Destek taleplerini görüntüle" },
+      { code: "ticket.create", label: "Destek talebi oluştur" },
+      { code: "ticket.comment", label: "Talebe yanıt yaz / yeniden aç" },
+      // Varsayilan olarak YALNIZCA sistem yoneticisinde vardir: baskasinin
+      // destek yazismasi operasyonel bir ihtiyac degil, yonetim kararidir.
+      { code: "ticket.view_all", label: "Tüm kullanıcıların taleplerini görüntüle" },
+    ],
+  },
+  {
     title: "Yönetim",
     items: [
       { code: "user.manage", label: "Kullanıcıları yönet" },

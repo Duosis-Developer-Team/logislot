@@ -117,3 +117,125 @@ class DatastoreStatus(StrEnum):
     ready = "ready"
     #: Provision/tasima basarisiz — istekler yonlendirilmez, uyari uretilir.
     failed = "failed"
+
+
+# --- Destek ticketlari (Hermes canonical Ticket Hub ile ortak sozlesme) ---
+#
+# DIKKAT: asagidaki degerler Hermes ile PAYLASILAN sozlesmedir
+# (hermes-logislot-ticketing-cto-pack 00_SHARED_PLATFORM/04). Tek tarafli
+# degistirilemez; yeni deger eklemek additive'dir ve bilinmeyen degerler UI'da
+# "unknown" fallback ile gosterilir.
+
+
+class TicketCategory(StrEnum):
+    bug = "bug"
+    incident = "incident"
+    improvement = "improvement"
+    question = "question"
+    data_correction = "data_correction"
+
+
+class TicketImpact(StrEnum):
+    single_user = "single_user"
+    multiple_users = "multiple_users"
+    tenant_blocked = "tenant_blocked"
+    security_or_data_risk = "security_or_data_risk"
+
+
+class TicketStatus(StrEnum):
+    open = "open"
+    in_progress = "in_progress"
+    waiting_customer = "waiting_customer"
+    resolved = "resolved"
+    closed = "closed"
+    reopened = "reopened"
+    cancelled = "cancelled"
+
+
+class TicketResolutionCode(StrEnum):
+    fixed = "fixed"
+    workaround = "workaround"
+    configuration = "configuration"
+    not_reproducible = "not_reproducible"
+    duplicate = "duplicate"
+    wont_fix = "wont_fix"
+    answered = "answered"
+
+
+class TicketDeliveryStatus(StrEnum):
+    """Yerel projeksiyonun Hermes ile senkron durumu (LogiSlot'a ozel)."""
+
+    draft = "draft"
+    pending = "pending"
+    delivering = "delivering"
+    synced = "synced"
+    retrying = "retrying"
+    failed = "failed"
+
+
+class TicketOutboxStatus(StrEnum):
+    pending = "pending"
+    delivering = "delivering"
+    sent = "sent"
+    failed = "failed"
+    dead = "dead"
+
+
+class TicketCommandType(StrEnum):
+    create = "create"
+    public_reply = "public_reply"
+    reopen = "reopen"
+    confirm_close = "confirm_close"
+    cancel = "cancel"
+
+
+class TicketWebhookStatus(StrEnum):
+    received = "received"
+    processing = "processing"
+    processed = "processed"
+    failed = "failed"
+    dead = "dead"
+
+
+class TicketAttachmentScanStatus(StrEnum):
+    pending_scan = "pending_scan"
+    scanning = "scanning"
+    clean = "clean"
+    rejected = "rejected"
+    scan_failed = "scan_failed"
+
+
+class TicketMessageAuthorType(StrEnum):
+    requester = "requester"
+    agent = "agent"
+    system = "system"
+    integration = "integration"
+
+
+class TicketRequesterType(StrEnum):
+    """Yerel talep sahibinin tipi — supplier portal ile yonetim ayrisir."""
+
+    tenant_user = "tenant_user"
+    supplier_user = "supplier_user"
+
+
+#: Musterinin yanit yazabildigi statuler. `closed` ve `cancelled` disaridadir:
+#: kapali ticket duzenlenmez, yeni ticket veya yetkili reopen gerekir.
+TICKET_REPLYABLE_STATUSES = (
+    TicketStatus.open,
+    TicketStatus.in_progress,
+    TicketStatus.waiting_customer,
+    TicketStatus.resolved,
+    TicketStatus.reopened,
+)
+
+#: Musterinin iptal edebilecegi statuler (agent henuz calismaya baslamamis).
+TICKET_CANCELLABLE_STATUSES = (TicketStatus.open,)
+
+#: "Acik" kabul edilen statuler — reconciliation ve liste sekmeleri kullanir.
+TICKET_ACTIVE_STATUSES = (
+    TicketStatus.open,
+    TicketStatus.in_progress,
+    TicketStatus.waiting_customer,
+    TicketStatus.reopened,
+)

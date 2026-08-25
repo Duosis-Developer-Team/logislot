@@ -19,3 +19,9 @@ data:
   #   30080 entry · 30084 supplier · 30085 admin · 30086 hidden platform
   # Platformun CORS'ta olmasi normaldir — gizlilik UI'dadir, guvenlik RBAC'te.
   LOGISLOT_CORS_ORIGINS: '["http://84.247.180.172:30080","http://84.247.180.172:30084","http://84.247.180.172:30085","http://84.247.180.172:30086","http://84.247.180.173:30080","http://84.247.180.173:30084","http://84.247.180.173:30085","http://84.247.180.173:30086","http://localhost:3010"]'
+  # Hermes dev adresi. HENUZ TANIMLI DEGIL: Hermes tarafi paralel
+  # gelistiriliyor ve dev endpoint'i yayina alinmadi. Adres verilene kadar
+  # ticket ozelligi yerelde calisir (talepler outbox'ta bekler) ve Platform >
+  # Ticket Yonlendirmesi ekrani "Hermes yapilandirilmadi" gosterir.
+  LOGISLOT_HERMES_SUPPORT_BASE_URL: ""
+  LOGISLOT_HERMES_SUPPORT_CALLBACK_BASE_URL: "http://84.247.180.172:30081"

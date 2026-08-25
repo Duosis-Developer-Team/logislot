@@ -1,0 +1,53 @@
+{
+  "assigned_group": {
+    "id": "3f2b1c44-9d1e-4a58-9c77-2b7e5a0f1d33",
+    "name": "DevOps Team"
+  },
+  "attachments": [
+    {
+      "file_name": "screen.png",
+      "id": "d4f2a6c8-70b1-4e39-9a52-6f8c1d3b0e47",
+      "mime_type": "image/png",
+      "scan_status": "clean",
+      "size_bytes": 123456,
+      "upload_id": "5a7c1e93-2f48-4b6d-8a11-3c9e7d0b4f25",
+      "visibility": "public"
+    }
+  ],
+  "category": "bug",
+  "created_at": "2026-08-25T09:31:00Z",
+  "impact": "multiple_users",
+  "messages": [
+    {
+      "author_display_name": "Example User",
+      "author_type": "requester",
+      "body": "Kaydet butonundan sonra islem tamamlanmiyor ve sayfa bos donuyor.",
+      "body_format": "text",
+      "created_at": "2026-08-25T09:31:00Z",
+      "id": "1b2c3d4e-5f60-4718-8293-a4b5c6d7e8f9",
+      "visibility": "public"
+    },
+    {
+      "author_display_name": "Destek Ekibi",
+      "author_type": "agent",
+      "body": "Sorunu tespit ettik, duzeltme yayinlandi.",
+      "body_format": "text",
+      "created_at": "2026-08-25T11:45:00Z",
+      "id": "2c3d4e5f-6071-4829-93a4-b5c6d7e8f9a0",
+      "visibility": "public"
+    }
+  ],
+  "resolution": {
+    "code": "fixed",
+    "fix_version": "2026.8.4",
+    "resolved_at": "2026-08-25T12:00:00Z",
+    "resolved_by_group_name": "DevOps Team",
+    "summary": "Kaydet butonundaki dogrulama hatasi giderildi ve surum yayinlandi."
+  },
+  "source_ticket_id": "7d3c5b19-4e82-4f60-b1a7-9c2e8d5f3a40",
+  "status": "resolved",
+  "ticket_id": "a91f3d57-6b20-4c8e-9d14-5e7a8c0b2f39",
+  "ticket_number": "TKT-000123",
+  "updated_at": "2026-08-25T12:00:00Z",
+  "version": 8
+}

@@ -1,8 +1,14 @@
 "use client";
 
 /**
- * Pilot destek paneli (Sprint 11) — aksiyon bekleyenlerin agregat ozeti.
+ * Sistem sagligi paneli — aksiyon bekleyenlerin agregat ozeti.
  * PII icermez; operasyonel detay icin ilgili ekranlara link verir.
+ *
+ * AD KARARI: eskiden "Pilot Destek" idi. Musteri ticketlari geldiginden bu
+ * ad iki farkli seyi cagristiriyordu; sayfa SISTEM SAGLIGI, ticket kuyrugu
+ * DEGILDIR. Ticket icerigi bu ekrana hicbir kosulda tasinmaz — buradaki
+ * entegrasyon kartlari yalnizca SAYAC gosterir
+ * (00_SHARED_PLATFORM/06, bolum 8).
  */
 
 import Link from "next/link";
@@ -10,7 +16,8 @@ import { useQuery } from "@tanstack/react-query";
 import { ErrorState, LoadingState } from "@/components/config/states";
 import { Card, CardContent } from "@/components/ui/card";
 import { apiRequest } from "@/lib/api/client";
-import { cn } from "@/lib/utils";
+import { useTicketIntegrationHealth } from "@/lib/api/platform-ticketing";
+import { cn, formatDateTime } from "@/lib/utils";
 
 interface SchedulerJobStatus {
   last_status: string;
@@ -44,6 +51,9 @@ export default function SupportPage() {
     queryFn: () => apiRequest<SupportHealthDto>("/platform/support/health"),
     refetchInterval: 60_000,
   });
+  // Ticket entegrasyonu AYRI bir platform izni ister; yetkisi olmayan
+  // kullanicida kartlar gizlenir, sayfa kirilmaz.
+  const ticketHealth = useTicketIntegrationHealth();
 
   if (health.isLoading) return <LoadingState />;
   if (health.isError)
@@ -83,7 +93,7 @@ export default function SupportPage() {
   return (
     <div className="flex flex-col gap-4">
       <div>
-        <h1 className="text-xl font-bold">Pilot Destek</h1>
+        <h1 className="text-xl font-bold">Sistem Sağlığı</h1>
         <p className="text-sm text-muted-foreground">
           Platform genel sağlık ve aksiyon bekleyenler (yalnızca agregat; operasyonel
           detay/PII içermez). Her dakika yenilenir.
@@ -112,6 +122,76 @@ export default function SupportPage() {
           </Card>
         ))}
       </div>
+
+      {ticketHealth.data && (
+        <div className="flex flex-col gap-2">
+          <h2 className="text-sm font-semibold">Ticket Entegrasyonu</h2>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            {[
+              {
+                label: "Yönlendirmesiz müşteri",
+                value: ticketHealth.data.unconfigured_tenant_count,
+                alert: ticketHealth.data.unconfigured_tenant_count > 0,
+              },
+              {
+                label: "Bekleyen gönderim",
+                value: ticketHealth.data.outgoing.pending,
+                alert: false,
+              },
+              {
+                label: "Hatalı / ölü gönderim",
+                value:
+                  ticketHealth.data.outgoing.failed + ticketHealth.data.outgoing.dead,
+                alert:
+                  ticketHealth.data.outgoing.failed + ticketHealth.data.outgoing.dead > 0,
+              },
+              {
+                label: "İşlenmemiş webhook",
+                value:
+                  (ticketHealth.data.webhook_inbox.received ?? 0) +
+                  (ticketHealth.data.webhook_inbox.failed ?? 0),
+                alert: (ticketHealth.data.webhook_inbox.failed ?? 0) > 0,
+              },
+            ].map((card) => (
+              <Card key={card.label}>
+                <CardContent className="p-4 text-center">
+                  <div
+                    className={cn(
+                      "text-2xl font-bold",
+                      card.alert ? "text-status-rejected" : "text-foreground",
+                    )}
+                  >
+                    {card.value}
+                  </div>
+                  <div className="mt-0.5 text-[11px] text-muted-foreground">
+                    {card.label}
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Hermes bağlantısı:{" "}
+            {ticketHealth.data.hermes_configured ? "yapılandırıldı" : "yapılandırılmadı"}{" "}
+            · ekip listesi son alım:{" "}
+            {ticketHealth.data.catalog_last_fetched_at
+              ? formatDateTime(ticketHealth.data.catalog_last_fetched_at)
+              : "—"}
+            {ticketHealth.data.catalog_stale && " (eski)"} · son mutabakat:{" "}
+            {ticketHealth.data.jobs.ticket_reconciliation?.last_finished_at
+              ? formatDateTime(
+                  ticketHealth.data.jobs.ticket_reconciliation.last_finished_at,
+                )
+              : "henüz koşmadı"}
+          </p>
+          <Link
+            href="/platform/ticket-routing"
+            className="text-sm text-primary underline-offset-2 hover:underline"
+          >
+            Ticket yönlendirmesini yönet →
+          </Link>
+        </div>
+      )}
 
       <div className="flex flex-col gap-2">
         <h2 className="text-sm font-semibold">Scheduler</h2>

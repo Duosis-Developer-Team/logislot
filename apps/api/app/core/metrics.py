@@ -169,6 +169,90 @@ class PrometheusMiddleware:
             logger.debug("metrik kaydedilemedi", exc_info=True)
 
 
+# --- Ticket entegrasyonu metrikleri --------------------------------------
+#
+# Bunlar Drake sozlesmesinin ILK IKI metrigine EK'tir; onlarin adlarina veya
+# etiketlerine dokunmazlar. Etiket kumesi yine bilerek sabit kardinalitede:
+# tenant/ticket/hata metni ETIKET DEGIL, structured log alanidir
+# (00_SHARED_PLATFORM/06, bolum 6).
+
+TICKET_CREATED = Counter(
+    "ticket_created_total",
+    "Yerel olarak olusturulan destek ticketlari.",
+    (*_BASE_LABELS, "category", "requester_type"),
+)
+
+TICKET_DELIVERY_ATTEMPT = Counter(
+    "ticket_delivery_attempt_total",
+    "Ticket komut/olay teslimat denemeleri.",
+    (*_BASE_LABELS, "direction", "result"),
+)
+
+TICKET_WEBHOOK_SIGNATURE_FAILURE = Counter(
+    "ticket_webhook_signature_failure_total",
+    "Reddedilen webhook imzalari.",
+    (*_BASE_LABELS, "reason"),
+)
+
+TICKET_WEBHOOK_EVENT = Counter(
+    "ticket_webhook_event_total",
+    "Islenen webhook olaylari (uygulandi/no-op/bosluk).",
+    (*_BASE_LABELS, "outcome"),
+)
+
+TICKET_AUTHZ_DENIED = Counter(
+    "ticket_authz_denied_total",
+    "Ticket yuzeylerinde reddedilen yetkisiz erisimler.",
+    (*_BASE_LABELS, "surface", "reason"),
+)
+
+
+def _base_label_values() -> tuple[str, str, str]:
+    """Sozlesme etiketleri — ayarlardan okunur, cagri basina hesaplanmaz."""
+    global _base_values
+    if _base_values is None:
+        from app.core.config import get_settings
+
+        settings = get_settings()
+        _base_values = (
+            settings.metrics_project,
+            settings.metrics_environment,
+            settings.metrics_service,
+        )
+    return _base_values
+
+
+_base_values: tuple[str, str, str] | None = None
+
+
+def _safe_inc(counter: Counter, *labels: str) -> None:
+    """Metrik kaydi ASLA is akisini dusurmez."""
+    try:
+        counter.labels(*_base_label_values(), *labels).inc()
+    except Exception:  # pragma: no cover
+        logger.debug("ticket metrigi kaydedilemedi", exc_info=True)
+
+
+def record_ticket_created(category: str, requester_type: str) -> None:
+    _safe_inc(TICKET_CREATED, category, requester_type)
+
+
+def record_ticket_delivery(direction: str, result: str) -> None:
+    _safe_inc(TICKET_DELIVERY_ATTEMPT, direction, result)
+
+
+def record_webhook_signature_failure(reason: str) -> None:
+    _safe_inc(TICKET_WEBHOOK_SIGNATURE_FAILURE, reason)
+
+
+def record_webhook_event(outcome: str) -> None:
+    _safe_inc(TICKET_WEBHOOK_EVENT, outcome)
+
+
+def record_ticket_authz_denied(surface: str, reason: str) -> None:
+    _safe_inc(TICKET_AUTHZ_DENIED, surface, reason)
+
+
 _metrics_server_started = False
 
 

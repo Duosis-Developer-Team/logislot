@@ -199,6 +199,9 @@ async def seed_data(db, tenant_id: uuid.UUID | None = None) -> dict:
             TenantPermission.APPT_CANCEL,
             TenantPermission.CALENDAR_VIEW,
             TenantPermission.REPORT_VIEW,  # kendi rampalarinin raporunu gorebilir
+            TenantPermission.TICKET_VIEW,
+            TenantPermission.TICKET_CREATE,
+            TenantPermission.TICKET_COMMENT,
         ],
         is_default=True,
         is_system=True,

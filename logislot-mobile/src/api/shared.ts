@@ -120,3 +120,124 @@ export function resolveDurationRange(
 export function formatDurationRange(min: number, max: number | null): string {
   return max == null ? `min ${min} dk` : `${min}–${max} dk`;
 }
+
+// --- Destek ticketlari (Hermes Ticket Hub sozlesmesi) ---
+//
+// Degerler Hermes ile PAYLASILAN sozlesmedendir (apps/api/app/core/enums.py ve
+// 00_SHARED_PLATFORM/04). Yeni deger eklemek additive'dir; bilinmeyen bir deger
+// UI'da ham koduyla gosterilir ve ekrani KIRMAZ.
+
+export const TICKET_STATUSES = [
+  "open",
+  "in_progress",
+  "waiting_customer",
+  "resolved",
+  "closed",
+  "reopened",
+  "cancelled",
+] as const;
+
+export type TicketStatus = (typeof TICKET_STATUSES)[number];
+
+export const TICKET_STATUS_LABELS: Record<TicketStatus, string> = {
+  open: "Açık",
+  in_progress: "İşlemde",
+  waiting_customer: "Sizden Bilgi Bekleniyor",
+  resolved: "Çözüldü",
+  closed: "Kapatıldı",
+  reopened: "Yeniden Açıldı",
+  cancelled: "İptal Edildi",
+};
+
+export const TICKET_CATEGORIES = [
+  "bug",
+  "incident",
+  "improvement",
+  "question",
+  "data_correction",
+] as const;
+
+export type TicketCategory = (typeof TICKET_CATEGORIES)[number];
+
+export const TICKET_CATEGORY_LABELS: Record<TicketCategory, string> = {
+  bug: "Hata",
+  incident: "Kesinti / Arıza",
+  improvement: "İyileştirme Talebi",
+  question: "Soru",
+  data_correction: "Veri Düzeltme",
+};
+
+export const TICKET_CATEGORY_HINTS: Record<TicketCategory, string> = {
+  bug: "Beklenen gibi çalışmayan bir ekran veya işlem",
+  incident: "Çalışmayı durduran kesinti veya erişim sorunu",
+  improvement: "Yeni özellik veya mevcut akışın iyileştirilmesi",
+  question: "Kullanım sorusu veya bilgi talebi",
+  data_correction: "Yanlış girilmiş kaydın düzeltilmesi",
+};
+
+export const TICKET_IMPACTS = [
+  "single_user",
+  "multiple_users",
+  "tenant_blocked",
+  "security_or_data_risk",
+] as const;
+
+export type TicketImpact = (typeof TICKET_IMPACTS)[number];
+
+export const TICKET_IMPACT_LABELS: Record<TicketImpact, string> = {
+  single_user: "Tek kullanıcı etkileniyor",
+  multiple_users: "Birden çok kullanıcı etkileniyor",
+  tenant_blocked: "İşlemlerimiz durdu",
+  security_or_data_risk: "Güvenlik veya veri kaybı riski",
+};
+
+export const TICKET_RESOLUTION_CODE_LABELS: Record<string, string> = {
+  fixed: "Düzeltildi",
+  workaround: "Geçici çözüm sağlandı",
+  configuration: "Yapılandırma ile çözüldü",
+  not_reproducible: "Tekrarlanamadı",
+  duplicate: "Aynı talep daha önce açılmış",
+  wont_fix: "Değişiklik yapılmayacak",
+  answered: "Yanıtlandı",
+};
+
+/** Yerel gönderim durumu — Hermes'in değil, LogiSlot'un alanıdır. */
+export const TICKET_DELIVERY_STATUS_LABELS: Record<string, string> = {
+  draft: "Taslak",
+  pending: "Gönderiliyor",
+  delivering: "Gönderiliyor",
+  synced: "Senkron",
+  retrying: "Yeniden deneniyor",
+  failed: "Gönderilemedi",
+};
+
+/** Müşteri listesindeki sekmeler; backend `status_group` parametresiyle eşleşir. */
+export const TICKET_STATUS_GROUPS = [
+  { key: "open", label: "Açık" },
+  { key: "in_progress", label: "İşlemde" },
+  { key: "waiting_customer", label: "Sizden Bilgi Bekliyor" },
+  { key: "closed", label: "Çözüldü / Kapalı" },
+] as const;
+
+export type TicketStatusGroup = (typeof TICKET_STATUS_GROUPS)[number]["key"];
+
+/** V1 ek dosya allowlist'i — SVG/HTML/script/arşiv bilerek yok. */
+export const TICKET_ATTACHMENT_MIME_TYPES = [
+  "image/png",
+  "image/jpeg",
+  "image/webp",
+  "application/pdf",
+  "text/plain",
+] as const;
+
+export function ticketStatusLabel(status: string): string {
+  return TICKET_STATUS_LABELS[status as TicketStatus] ?? status;
+}
+
+export function ticketCategoryLabel(category: string): string {
+  return TICKET_CATEGORY_LABELS[category as TicketCategory] ?? category;
+}
+
+export function ticketImpactLabel(impact: string): string {
+  return TICKET_IMPACT_LABELS[impact as TicketImpact] ?? impact;
+}

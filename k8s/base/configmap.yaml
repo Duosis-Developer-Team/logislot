@@ -23,3 +23,15 @@ data:
   # Asagidaki iki deger overlay'de gercek erisim adresiyle degistirilir.
   LOGISLOT_PUBLIC_WEB_URL: "http://REPLACE_ME"
   LOGISLOT_CORS_ORIGINS: '["http://REPLACE_ME"]'
+  # --- Hermes ticket entegrasyonu (secret OLMAYAN kisim) ---
+  # Gercek adres overlay'de patch'lenir. BOS ise ticket ozelligi yerelde
+  # calisir, Hermes'e gonderim denenmez ve platform sagligi bunu gosterir.
+  LOGISLOT_HERMES_SUPPORT_BASE_URL: ""
+  LOGISLOT_HERMES_SUPPORT_APPLICATION_CODE: "logislot"
+  LOGISLOT_HERMES_SUPPORT_WEBHOOK_KEY_ID: "v1"
+  LOGISLOT_HERMES_SUPPORT_TIMEOUT_SECONDS: "8"
+  LOGISLOT_HERMES_SUPPORT_CATALOG_TTL_SECONDS: "300"
+  LOGISLOT_TICKETING_ENABLED: "true"
+  LOGISLOT_TICKET_OUTBOX_INTERVAL_SECONDS: "20"
+  LOGISLOT_TICKET_RECONCILIATION_INTERVAL_SECONDS: "900"
+  LOGISLOT_TICKET_INBOX_RECOVERY_INTERVAL_SECONDS: "300"
