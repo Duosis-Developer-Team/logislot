@@ -34,43 +34,51 @@
 # Bkz. docs/PORTAL_ISOLATION_AND_ROUTING.md "Public giris yolu".
 #
 # HERMES ETKILENMEZ: farkli controller, farkli namespace, farkli NodePort.
+#
+# DISARIYA ACILIS — CLOUDFLARE
+#   Kullanici -> Cloudflare (443, edge sertifikasi)
+#             -> origin 84.247.180.172:8443
+#             -> iptables REDIRECT 8443 -> 30772 (ingress-nginx HTTPS)
+#             -> bu Ingress -> ilgili portal Service'i
+#   80/443'e HIC DOKUNULMAZ; onlar Hermes'in. Yonlendirmeyi kuran betik:
+#   scripts/logislot-port-redirect.sh
+#
+#   Cloudflare'in origin'e baglanabildigi portlar sinirlidir; ingress-nginx'in
+#   kendi NodePort'lari (31412/30772) o listede olmadigi icin 8080/8443
+#   uzerinden yonlendirme sart. Cloudflare tarafinda Origin Rule ile origin
+#   portu 8443'e ayarlanir.
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: logislot
   annotations:
-    cert-manager.io/cluster-issuer: letsencrypt-prod
-    # HTTPS'e zorunlu yonlendirme. cert-manager sertifikayi uretene kadar
-    # gecen kisa surede tarayici uyari gosterebilir; kalici durum HTTPS.
-    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    # HTTPS'e zorunlu yonlendirmeyi CLOUDFLARE yapiyor (Always Use HTTPS).
+    # Burada da acik olsaydi Cloudflare<->origin arasinda yonlendirme
+    # dongusu riski dogardi; kapali dogru davranistir.
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
     # Ek dosya yuklemeleri icin (varsayilan 1m fazla dusuk kalirdi).
     nginx.ingress.kubernetes.io/proxy-body-size: "16m"
 spec:
   ingressClassName: nginx
-  tls:
-  # logislot.com DNS'i baglandiginda ACIN. Su an kayitlari YOK (apex hala
-  # registrar park sayfasina bakiyor), acik birakmak Let's Encrypt tarafinda
-  # surekli basarisiz HTTP-01 denemesi uretirdi.
-  #   - hosts:
-  #       - logislot.com
-  #       - www.logislot.com
-  #       - yonetim.logislot.com
-  #       - tedarikci.logislot.com
-  #       - admin.logislot.com
-  #       - api.logislot.com
-  #       - cknb.logislot.com
-  #       - cknbtedarik.logislot.com
-  #     secretName: logislot-tls-logislot-com
-    - hosts:
-        - logislot.io
-        - www.logislot.io
-        - yonetim.logislot.io
-        - tedarikci.logislot.io
-        - admin.logislot.io
-        - api.logislot.io
-        - cknb.logislot.io
-        - cknbtedarik.logislot.io
-      secretName: logislot-tls-logislot-io
+  # TLS BURADA YOK — public sertifikayi CLOUDFLARE saglıyor.
+  #
+  # Mimari: kullanici -> Cloudflare (edge sertifikasi, 443) -> origin
+  # (84.247.180.172:8443 -> NodePort 30772). Cloudflare SSL modu "Full"
+  # (strict DEGIL) oldugu icin origin'in self-signed sertifikasi yeterlidir;
+  # trafik yine sifrelidir.
+  #
+  # cert-manager/Let's Encrypt BILEREK kullanilmiyor: HTTP-01 dogrulamasi
+  # 80 portundan erisim ister, o port Hermes'in. Cloudflare zaten sertifikayi
+  # ustlendigi icin bu bagimlilik tamamen kalkti.
+  #
+  # Full (STRICT) istenirse: Cloudflare Origin CA sertifikasi uretilip
+  # `logislot-tls-logislot-io` secret'i olarak yaratilir ve asagidaki blok
+  # acilir. Baska bir sey degismez.
+  #   tls:
+  #     - hosts: [logislot.io, www.logislot.io, yonetim.logislot.io,
+  #               tedarikci.logislot.io, admin.logislot.io, api.logislot.io,
+  #               cknb.logislot.io, cknbtedarik.logislot.io]
+  #       secretName: logislot-tls-logislot-io
   rules:
     # ---------- logislot.com ----------
     # Public web sitesi / portal secici (entry)
