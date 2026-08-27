@@ -188,7 +188,7 @@ export default function UsersPage() {
         });
         showFlash("success", "Kullanıcı güncellendi. Rol değişiklikleri kullanıcının bir sonraki girişinde/yenilemesinde etkinleşir.");
       } else {
-        await userMutations.save.mutateAsync({
+        const created = await userMutations.save.mutateAsync({
           body: {
             name: values.name,
             email: values.email,
@@ -198,9 +198,11 @@ export default function UsersPage() {
             temporary_password: values.temporary_password || undefined,
           },
         });
+        // Parola SUNUCUDAN okunur: bos birakildiysa rastgele uretilmistir ve
+        // bir daha gosterilemez, bu yuzden yoneticiye burada gosterilir.
         showFlash(
           "success",
-          `Kullanıcı oluşturuldu. Geçici parola: ${values.temporary_password || "Demo123!"}`,
+          `Kullanıcı oluşturuldu. Geçici parola: ${created.temporary_password ?? values.temporary_password}`,
         );
       }
       setUserDrawer({ open: false, editing: null });
@@ -534,7 +536,7 @@ export default function UsersPage() {
               <Label>Geçici Parola</Label>
               <Input
                 {...userForm.register("temporary_password")}
-                placeholder="Boş bırakılırsa: Demo123!"
+                placeholder="Boş bırakılırsa rastgele üretilir"
               />
               <p className="mt-1 text-xs text-muted-foreground">
                 Kullanıcı ilk girişinden sonra parolasını değiştirmelidir.

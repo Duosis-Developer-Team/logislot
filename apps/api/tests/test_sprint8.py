@@ -55,9 +55,15 @@ async def test_user_create_login_and_duplicate_email(client, seeded):
     assert created["is_active"] is True
     assert [r["name"] for r in created["roles"]] == ["Izleyici / Planlama"]
 
-    # Gecici parola (varsayilan) ile login olabilir
-    token = await login(client, "/auth/login", "planlama@cakesbakes.com")
-    assert token
+    # Parola gonderilmedi: sunucu RASTGELE uretir (sabit varsayilan yok) ve
+    # yalnizca bu yanitta doner. Donen parolayla login olunabilmeli.
+    temp = created["temporary_password"]
+    assert temp and temp != "Demo123!"
+    response = await client.post(
+        "/auth/login", json={"email": "planlama@cakesbakes.com", "password": temp}
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["data"]["access_token"]
 
     # E-posta GLOBAL unique
     response = await client.post(
