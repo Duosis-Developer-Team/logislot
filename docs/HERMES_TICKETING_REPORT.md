@@ -192,9 +192,31 @@ adları birebir eşleşmeli, sessiz kısaltma yasak) ve
 
 ## 10. Bilinen sınırlar
 
-1. **Hermes dev endpoint'i yok** → gerçek cross-app E2E koşulamadı. Kod contract
-   fixture'ları + `httpx.MockTransport` ile doğrulandı. `LOGISLOT_HERMES_SUPPORT_BASE_URL`
-   dev overlay'inde bilerek boş.
+1. ~~Hermes dev endpoint'i yok~~ **ÇÖZÜLDÜ (28 Ağu 2026).** Her iki ortam da canlı
+   Hermes'e bağlı ve doğrulandı:
+
+   | | dev | prod |
+   |---|---|---|
+   | Hermes kurulumu | `hermes-dev` | `hermes-test` |
+   | Base URL | `http://core-service.hermes-dev.svc.cluster.local/api/integrations/v1` (küme içi) | `https://hermes.duosis.com/api/integrations/v1` |
+   | Client ID | `ba6d802a-…` | `8efe5764-…` |
+
+   Doğrulananlar: (a) S2S `GET /support/routing-groups` → 200, gerçek gruplar
+   (prod'da "Logislot Support Team" dahil); (b) Hermes'in kendi webhook secret'ı
+   ile imzalanmış olay → 200, bozuk imza → 401. Token ve webhook secret cluster
+   secret'ında, repoda DEĞİL; base URL ve client_id gizli değil ve overlay'de
+   durmak ZORUNDA (aşağı bkz.).
+
+   **Kalan tek adım karşı tarafta:** Hermes'in LogiSlot'un callback adresini
+   (`https://api.logislot.io/integrations/hermes-support/v1/events`) kayıtlı
+   tutması. LogiSlot ucu hazır ve fail-closed; gerçek uçtan uca akış bir tenant
+   + kayıtlı route gerektirir.
+
+   **TUZAK — deploy config'i ezer:** `deploy.yml` `kubectl apply -k` çalıştırır,
+   bu configmap'i de uygular. Base URL/client_id cluster'a elle girilmişti ve
+   overlay'de boş duruyordu; bir deploy dev'in base URL'ini silmiş, entegrasyon
+   sessizce kapanmıştı (Platform ekranı "Hermes yapılandırılmadı" gösterir, hata
+   vermez — bu yüzden fark edilmedi). Değerler artık overlay'de.
 2. **Mobile ek dosya yükleme yok** — bilinçli erteleme, parite matrisine işlendi.
 3. **E2E paketi bu makinede koşturulamadı** (Docker çalışmıyor); `e2e.yml` yalnızca
    PR/manuel tetikte koşar, `dev`'e push'ta koşmaz.

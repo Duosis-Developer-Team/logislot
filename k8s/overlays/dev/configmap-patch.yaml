@@ -19,9 +19,16 @@ data:
   #   30080 entry · 30084 supplier · 30085 admin · 30086 hidden platform
   # Platformun CORS'ta olmasi normaldir — gizlilik UI'dadir, guvenlik RBAC'te.
   LOGISLOT_CORS_ORIGINS: '["http://84.247.180.172:30080","http://84.247.180.172:30084","http://84.247.180.172:30085","http://84.247.180.172:30086","http://84.247.180.173:30080","http://84.247.180.173:30084","http://84.247.180.173:30085","http://84.247.180.173:30086","http://localhost:3010"]'
-  # Hermes dev adresi. HENUZ TANIMLI DEGIL: Hermes tarafi paralel
-  # gelistiriliyor ve dev endpoint'i yayina alinmadi. Adres verilene kadar
-  # ticket ozelligi yerelde calisir (talepler outbox'ta bekler) ve Platform >
-  # Ticket Yonlendirmesi ekrani "Hermes yapilandirilmadi" gosterir.
-  LOGISLOT_HERMES_SUPPORT_BASE_URL: ""
+  # Hermes Ticket Hub baglantisi. Bu iki deger GIZLI DEGIL ve BURADA durmali:
+  # `kubectl apply -k` configmap'i de uygular, yani repoda bos birakilirsa her
+  # deploy canlidaki dolu degeri EZER ve ticket entegrasyonu sessizce kapanir.
+  # (Tam olarak bu yasandi: degerler cluster'a elle girilmisti, dev'de bir
+  # deploy base URL'i silmisti ve kimse fark etmemisti.)
+  # Gizli olan iki deger secret'ta durur ve repoya GIRMEZ:
+  #   LOGISLOT_HERMES_SUPPORT_TOKEN, LOGISLOT_HERMES_SUPPORT_WEBHOOK_SECRET
+  # TUZAK: base_url `/v1` ile biter; sonuna `/support` EKLEMEYIN
+  # (`/v1/support/support/...` 404 verir — dev'de tam olarak bu yasandi).
+  # Dev, hermes-dev'e KUME ICINDEN gider: disari cikip geri donmez.
+  LOGISLOT_HERMES_SUPPORT_BASE_URL: "http://core-service.hermes-dev.svc.cluster.local/api/integrations/v1"
+  LOGISLOT_HERMES_SUPPORT_CLIENT_ID: "ba6d802a-662c-45d5-b919-d454b5fbf98a"
   LOGISLOT_HERMES_SUPPORT_CALLBACK_BASE_URL: "http://84.247.180.172:30081"

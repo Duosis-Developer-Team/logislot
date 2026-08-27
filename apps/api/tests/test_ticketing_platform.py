@@ -95,6 +95,42 @@ async def test_group_catalog_is_fetched_through_backend_and_cached(
     assert len(hermes.requests) == before
 
 
+async def test_concurrent_catalog_refresh_does_not_500(
+    client, seeded, session_maker, monkeypatch
+):
+    """Es zamanli iki tazeleme yarissa da UNIQUE ihlali olmamali.
+
+    `refresh_catalog` mevcut satirlari OKUR, sonra eksikleri EKLER. Platform
+    ekrani ayni anda birkac istek attigi icin (grup listesi + tenant detayi)
+    iki tazeleme yarisabilir: ikisi de bos katalog gorur, ikisi de ayni grubu
+    INSERT eder ve kaybeden taraf uq_hermes_group_catalog_app_group ihlaliyle
+    500 doner.
+
+    Yaris burada DETERMINISTIK olarak kurulur: ilk tazeleme satirlari yazar,
+    ikincisi `cached_groups`'u bos gorecek sekilde calistirilir — yani kendi
+    snapshot'ini digeri commit etmeden once almis olan kaybeden taraf.
+    """
+    from app.services import ticket_routing_service as routing
+
+    hermes_with_catalog()
+    async with session_maker() as db:
+        await routing.refresh_catalog(db)
+
+    async def _stale_snapshot(db, **kwargs):
+        return []
+
+    monkeypatch.setattr(routing, "cached_groups", _stale_snapshot)
+    async with session_maker() as db:
+        await routing.refresh_catalog(db)
+
+    monkeypatch.undo()
+    async with session_maker() as db:
+        rows = list((await db.execute(sa.select(HermesGroupCatalogCache))).scalars())
+    # Yaris cift kayit da BIRAKMAMALI.
+    assert len(rows) == 2
+    assert {r.name for r in rows} == {"DevOps Team", "Application Support"}
+
+
 async def test_catalog_failure_keeps_last_known_list_with_error_code(
     client, seeded, session_maker
 ):
@@ -159,6 +195,51 @@ async def test_save_route_validates_remotely_and_versions(client, seeded, sessio
         headers=auth_headers(token),
     )
     assert second.json()["data"]["route_version"] == 2
+
+
+async def test_concurrent_first_route_save_conflicts_instead_of_500(
+    client, seeded, session_maker, monkeypatch
+):
+    """Ilk route'u iki yonetici ayni anda kaydederse 500 degil 409 gelmeli.
+
+    `save_route` de katalog tazelemesiyle ayni sinifta: once OKUR (`config is
+    None`), sonra EKLER. Iki istek yarisirsa ikisi de INSERT eder ve kaybeden
+    taraf uq_ticket_routing_configs_tenant_app ihlaline duser. Dogru sonuc
+    zaten tanimli olan surum catismasidir.
+
+    Yaris deterministik kurulur: kayit zaten varken `get_route_config` bos
+    donecek sekilde calistirilir — kendi okumasini digeri commit etmeden once
+    yapmis olan kaybeden taraf.
+    """
+    from app.services import ticket_routing_service as routing
+
+    hermes_with_catalog()
+    token = await platform_token(client)
+    tenant_id = seeded["tenant"].id
+
+    first = await client.put(
+        f"/platform/ticket-routing/{tenant_id}",
+        json={"hermes_group_id": GROUP_ID},
+        headers=auth_headers(token),
+    )
+    assert first.status_code == 200, first.text
+
+    async def _stale_read(db, tid):
+        return None
+
+    monkeypatch.setattr(routing, "get_route_config", _stale_read)
+    losing = await client.put(
+        f"/platform/ticket-routing/{tenant_id}",
+        json={"hermes_group_id": OTHER_GROUP_ID},
+        headers=auth_headers(token),
+    )
+    assert losing.status_code == 409, losing.text
+    assert losing.json()["error"]["code"] == "ROUTE_VERSION_CONFLICT"
+
+    monkeypatch.undo()
+    async with session_maker() as db:
+        rows = list((await db.execute(sa.select(TicketRoutingConfig))).scalars())
+    assert len(rows) == 1  # yaris cift kayit birakmadi
 
 
 async def test_stale_expected_version_conflicts(client, seeded, session_maker):
