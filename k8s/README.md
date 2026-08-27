@@ -21,6 +21,7 @@
 | logislot-bootstrap-admin | Job (elle) | api image | — | `python -m app.bootstrap_admin` — **üretim için**: tek platform yöneticisi, demo verisi yok |
 | logislot ingress | Ingress (class: nginx) | — | — | host-bazlı: `logislot-<env>.local` → web, `logislot-<env>-api.local` → api |
 | logislot-*-nodeport | Service (NodePort) | — | dev 30080/30081, prod 30082/30083 | domain'siz pratik erişim |
+| logislot-web-{supplier,admin,platform} | Deployment + Service | 1 | dev 30084-30086, prod 30087-30089 | portal izolasyonu (tek image, farklı `LOGISLOT_PORTAL_MODE`) |
 
 ## Ortamlar (tam izolasyon)
 
@@ -33,6 +34,8 @@
 | PVC | 5Gi (kendi namespace'inde) | 10Gi (kendi namespace'inde) |
 | Secret | `logislot-secrets` (DEV_* GitHub secrets) | `logislot-secrets` (PROD_* GitHub secrets) |
 | Web/API NodePort | 30080 / 30081 | 30082 / 30083 |
+| Portal NodePort'lari | tedarikci 30084 · yonetim 30085 · gizli admin 30086 | tedarikci 30087 · yonetim 30088 · gizli admin 30089 |
+| Alan adi | yok (IP:port) | `logislot.com` + `logislot.io` (host-bazli ingress) |
 | Docs | açık | kapalı |
 | Environment | development | production |
 

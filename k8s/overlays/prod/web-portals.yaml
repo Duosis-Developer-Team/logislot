@@ -1,0 +1,194 @@
+# Portal izolasyonu (PROD) — TEK web image'i, dort ayri LOGISLOT_PORTAL_MODE.
+#
+# ADLANDIRMA TUZAGI (once bunu okuyun):
+#   PORTAL_MODE=admin    -> YONETIM paneli (tenant yoneticisi)  -> yonetim.logislot.com
+#   PORTAL_MODE=platform -> ADMIN paneli   (LogiSlot super-admin) -> admin.logislot.com
+# Yani kod icindeki "admin" musterinin yonetim paneli, "platform" ise bizim
+# gizli admin panelimizdir. Ikisini karistirmak, gizli paneli musteri
+# subdomain'ine acmak demek olurdu.
+#
+# NodePort'lar dev ile CAKISMAZ (dev: 30080/84/85/86, prod: 30082/87/88/89).
+# Port'lar dogrudan erisim/hata ayiklama icindir; MUSTERI URL'lerinde port
+# GORUNMEZ — host-bazli Ingress 80/443'te ayni Service'lere yonlendirir.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: logislot-web-supplier
+  labels:
+    app.kubernetes.io/name: logislot-web-supplier
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: logislot-web-supplier
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: logislot-web-supplier
+    spec:
+      containers:
+        - name: web
+          image: ghcr.io/duosis-developer-team/logislot-web:prod
+          ports:
+            - name: http
+              containerPort: 3000
+          env:
+            - name: LOGISLOT_PORTAL_MODE
+              value: "supplier"
+            - name: LOGISLOT_ENTRY_URL
+              value: "https://logislot.com"
+          resources:
+            requests: { cpu: 100m, memory: 192Mi }
+            limits: { cpu: 500m, memory: 512Mi }
+          startupProbe:
+            httpGet: { path: /login, port: http }
+            failureThreshold: 30
+            periodSeconds: 2
+          readinessProbe:
+            httpGet: { path: /login, port: http }
+            periodSeconds: 10
+            timeoutSeconds: 3
+          livenessProbe:
+            httpGet: { path: /login, port: http }
+            periodSeconds: 20
+            timeoutSeconds: 3
+          securityContext:
+            allowPrivilegeEscalation: false
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: logislot-web-admin
+  labels:
+    app.kubernetes.io/name: logislot-web-admin
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: logislot-web-admin
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: logislot-web-admin
+    spec:
+      containers:
+        - name: web
+          image: ghcr.io/duosis-developer-team/logislot-web:prod
+          ports:
+            - name: http
+              containerPort: 3000
+          env:
+            - name: LOGISLOT_PORTAL_MODE
+              value: "admin"
+            - name: LOGISLOT_ENTRY_URL
+              value: "https://logislot.com"
+          resources:
+            requests: { cpu: 100m, memory: 192Mi }
+            limits: { cpu: 500m, memory: 512Mi }
+          startupProbe:
+            httpGet: { path: /login, port: http }
+            failureThreshold: 30
+            periodSeconds: 2
+          readinessProbe:
+            httpGet: { path: /login, port: http }
+            periodSeconds: 10
+            timeoutSeconds: 3
+          livenessProbe:
+            httpGet: { path: /login, port: http }
+            periodSeconds: 20
+            timeoutSeconds: 3
+          securityContext:
+            allowPrivilegeEscalation: false
+---
+# GIZLI admin (platform) portali — public entry'den LINKLENMEZ.
+# Gizlilik guvenlik degildir; gercek koruma backend RBAC'tedir.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: logislot-web-platform
+  labels:
+    app.kubernetes.io/name: logislot-web-platform
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: logislot-web-platform
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: logislot-web-platform
+    spec:
+      containers:
+        - name: web
+          image: ghcr.io/duosis-developer-team/logislot-web:prod
+          ports:
+            - name: http
+              containerPort: 3000
+          env:
+            - name: LOGISLOT_PORTAL_MODE
+              value: "platform"
+          resources:
+            requests: { cpu: 100m, memory: 192Mi }
+            limits: { cpu: 500m, memory: 512Mi }
+          startupProbe:
+            httpGet: { path: /login, port: http }
+            failureThreshold: 30
+            periodSeconds: 2
+          readinessProbe:
+            httpGet: { path: /login, port: http }
+            periodSeconds: 10
+            timeoutSeconds: 3
+          livenessProbe:
+            httpGet: { path: /login, port: http }
+            periodSeconds: 20
+            timeoutSeconds: 3
+          securityContext:
+            allowPrivilegeEscalation: false
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: logislot-web-supplier-service
+  labels:
+    app.kubernetes.io/name: logislot-web-supplier
+spec:
+  type: NodePort
+  selector:
+    app.kubernetes.io/name: logislot-web-supplier
+  ports:
+    - name: http
+      port: 3000
+      targetPort: 3000
+      nodePort: 30087
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: logislot-web-admin-service
+  labels:
+    app.kubernetes.io/name: logislot-web-admin
+spec:
+  type: NodePort
+  selector:
+    app.kubernetes.io/name: logislot-web-admin
+  ports:
+    - name: http
+      port: 3000
+      targetPort: 3000
+      nodePort: 30088
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: logislot-web-platform-service
+  labels:
+    app.kubernetes.io/name: logislot-web-platform
+spec:
+  type: NodePort
+  selector:
+    app.kubernetes.io/name: logislot-web-platform
+  ports:
+    - name: http
+      port: 3000
+      targetPort: 3000
+      nodePort: 30089

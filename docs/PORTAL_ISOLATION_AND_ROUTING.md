@@ -159,19 +159,53 @@ API/scheduler/postgres değişmedi. Prod overlay'e DOKUNULMADI (prod apply yok).
   durumdadır (index yönlendirmez, login yolu yok, RoleGuard platform
   user_type ister).
 
-## Domain migration planı
+## Prod portları ve alan adları (2026-08-27)
 
-Domain alındığında aynı yapı subdomain'lere taşınır (kod değişikliği minimal —
-env URL'leri değişir):
+Prod, dev'le **aynı** `LOGISLOT_PORTAL_MODE` mimarisini kullanır; yalnızca
+portlar ve host'lar farklıdır. Dev'e hiç dokunulmadı.
 
-```
-https://logislot.com            → entry (public selector)
-https://supplier.logislot.com   → supplier portal
-https://app.logislot.com        → admin portal
-https://platform.logislot.com   → HIDDEN platform (selector'da yine yok)
-https://api.logislot.com        → API (opsiyonel)
-```
+| Port (prod) | Portal | `PORTAL_MODE` | Deployment |
+|---|---|---|---|
+| 30082 | Public entry (web sitesi) | `entry` | `logislot-web` |
+| 30087 | Tedarikçi portalı | `supplier` | `logislot-web-supplier` |
+| 30088 | Yönetim portalı | `admin` | `logislot-web-admin` |
+| 30089 | **Gizli** admin paneli | `platform` | `logislot-web-platform` |
+| 30083 | API | — | `logislot-api` |
 
-Geçiş adımları: (1) Ingress host kuralları + TLS, (2) deployment env
-URL'lerini subdomain'lere çevir, (3) CORS origins güncelle, (4) NodePort'ları
-kapat/daralt. `LOGISLOT_PORTAL_MODE` mimarisi aynen kalır.
+> **Adlandırma tuzağı:** kodda `admin` modu **müşterinin yönetim panelidir**
+> (`yonetim.logislot.com`), `platform` modu ise **bizim gizli admin
+> panelimizdir** (`admin.logislot.com`). İkisini karıştırmak, gizli paneli bir
+> müşteri subdomain'ine açmak demek olur.
+
+### Host → portal eşlemesi
+
+Müşteri URL'lerinde **port yoktur**; 80/443'teki ingress Host başlığına göre
+dağıtır (`k8s/overlays/prod/ingress-patch.yaml`). `logislot.com` ve
+`logislot.io` **birebir aynı** kural setine sahiptir.
+
+| Host | Gider |
+|---|---|
+| `logislot.com`, `www.logislot.com` | entry |
+| `yonetim.logislot.com` | yönetim portalı |
+| `tedarikci.logislot.com` | tedarikçi portalı |
+| `admin.logislot.com` | gizli admin paneli |
+| `api.logislot.com` | API |
+| `cknb.logislot.com` | yönetim portalı (Cakes & Bakes alias) |
+| `cknbtedarik.logislot.com` | tedarikçi portalı (Cakes & Bakes alias) |
+
+**Tenant alias'ları ayrı bir uygulama değildir.** `cknb.*` ile
+`yonetim.*` **aynı** deployment'a gider; tenant, giriş yapan kullanıcının
+kimliğinden çözülür — host'tan değil. Yeni müşteri alias'ı eklemek =
+ingress'e iki kural + iki DNS kaydı. Kod değişmez.
+
+### Geçişin iki adımı (sıra önemlidir)
+
+1. **DNS + sertifika yayına girer.** Ingress kuralları zaten hazır.
+2. **Ancak ondan sonra** `vars.PROD_NEXT_PUBLIC_API_URL` →
+   `https://api.logislot.com` yapılır ve prod web imajı **yeniden build**
+   edilir. Bu değer build-time'dır (Next.js bundle'ına gömülür).
+
+Adım 2 adım 1'den önce yapılırsa prod web, çözülmeyen bir adrese istek atar
+ve tamamen kullanılamaz hale gelir. Bu yüzden CORS listesinde geçiş boyunca
+**hem** alan adları **hem** eski IP:port kökenleri bulunur; geçiş bitince IP
+satırları silinir.

@@ -1,9 +1,14 @@
-# PROD konfigurasyonu. NEXT_PUBLIC_API_URL build-time'dir — CI'da
-# vars.PROD_NEXT_PUBLIC_API_URL ile verilir (varsayilan:
-# http://84.247.180.172:30083). Domain gelince:
-#   LOGISLOT_PUBLIC_WEB_URL=https://logislot.example.com
-#   LOGISLOT_CORS_ORIGINS=["https://logislot.example.com"]
-#   + web image'i https://logislot-api.example.com ile YENIDEN build.
+# PROD konfigurasyonu.
+#
+# NEXT_PUBLIC_API_URL BUILD-TIME'dir (Next.js bundle'ina gomulur) ve
+# ConfigMap'ten DEGIL, CI'daki `vars.PROD_NEXT_PUBLIC_API_URL` degiskeninden
+# gelir. Domain gecisi bu yuzden IKI adimdir:
+#   1) DNS + sertifika yayina girer,
+#   2) vars.PROD_NEXT_PUBLIC_API_URL = https://api.logislot.com yapilir ve
+#      prod web imaji YENIDEN build edilir.
+# Adim 2 adim 1'den once yapilirsa prod web, cozulmeyen bir adrese istek
+# atar ve tamamen kullanilamaz hale gelir. Bu yuzden bu promosyonda degisken
+# BILEREK eski (IP:port) degerinde birakildi.
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -16,5 +21,46 @@ data:
   # bosalir. ci.yml -> manifests bu degeri dogrular.
   LOGISLOT_METRICS_ENVIRONMENT: "prod"
   LOGISLOT_ENABLE_DOCS: "false"
-  LOGISLOT_PUBLIC_WEB_URL: "http://84.247.180.172:30082"
-  LOGISLOT_CORS_ORIGINS: '["http://84.247.180.172:30082","http://84.247.180.173:30082"]'
+  # E-posta sablonlarindaki portal linki. Domain yayina girdiginde musteri
+  # e-postalarinda IP:port gormesin diye simdiden alan adi.
+  LOGISLOT_PUBLIC_WEB_URL: "https://logislot.com"
+  # CORS — GECIS LISTESI.
+  #
+  # Hem YENI alan adlari hem ESKI IP:port kokenleri birlikte duruyor. Sebep:
+  # prod web bundle'i hala `http://84.247.180.172:30083`e istek atiyor
+  # (build-time; yukariya bakin). Eski kokenleri simdi cikarmak, DNS gecisi
+  # tamamlanana kadar prod'u kirardi. Gecis bitince IP satirlari SILINIR.
+  LOGISLOT_CORS_ORIGINS: >-
+    ["https://logislot.com","https://www.logislot.com",
+    "https://yonetim.logislot.com","https://tedarikci.logislot.com",
+    "https://admin.logislot.com","https://cknb.logislot.com",
+    "https://cknbtedarik.logislot.com",
+    "https://logislot.io","https://www.logislot.io",
+    "https://yonetim.logislot.io","https://tedarikci.logislot.io",
+    "https://admin.logislot.io","https://cknb.logislot.io",
+    "https://cknbtedarik.logislot.io",
+    "http://logislot.com","http://www.logislot.com",
+    "http://yonetim.logislot.com","http://tedarikci.logislot.com",
+    "http://admin.logislot.com","http://cknb.logislot.com",
+    "http://cknbtedarik.logislot.com",
+    "http://logislot.io","http://www.logislot.io",
+    "http://yonetim.logislot.io","http://tedarikci.logislot.io",
+    "http://admin.logislot.io","http://cknb.logislot.io",
+    "http://cknbtedarik.logislot.io",
+    "http://84.247.180.172:30082","http://84.247.180.173:30082",
+    "http://84.247.180.172:30087","http://84.247.180.173:30087",
+    "http://84.247.180.172:30088","http://84.247.180.173:30088",
+    "http://84.247.180.172:30089","http://84.247.180.173:30089"]
+  # Hermes ticket entegrasyonu: prod'da HENUZ BAGLI DEGIL.
+  # Base URL bos oldugu surece talepler yerelde kaydedilir ve outbox'ta
+  # bekler; hicbir kayit kaybolmaz (bkz. docs/HERMES_TICKETING_REPORT.md).
+  # Baglanti icin gereken degerler karsi ekipten alinacak:
+  #   LOGISLOT_HERMES_SUPPORT_BASE_URL  = https://hermes.duosis.com/api/integrations/v1
+  #   LOGISLOT_HERMES_SUPPORT_CLIENT_ID = <Hermes integration client>
+  #   + secret: TOKEN ve WEBHOOK_SECRET
+  # TUZAK: base_url `/v1` ile biter; sonuna `/support` EKLEMEYIN
+  # (`/v1/support/support/...` 404 verir — dev'de tam olarak bu yasandi).
+  LOGISLOT_HERMES_SUPPORT_BASE_URL: ""
+  # Hermes'in bu kuruluma olay gonderecegi adres (yalnizca dokumantasyon;
+  # Hermes cagriyi kendi kayitli config'inden yapar).
+  LOGISLOT_HERMES_SUPPORT_CALLBACK_BASE_URL: "https://api.logislot.com"
