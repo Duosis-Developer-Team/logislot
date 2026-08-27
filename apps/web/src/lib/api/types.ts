@@ -395,6 +395,8 @@ export interface TicketConfigDto {
     reason: string | null;
   };
   attachments: {
+    /** Destek merkezi ek yuklemeyi kapattiysa false — alan hic gosterilmez. */
+    enabled: boolean;
     max_files: number;
     max_file_size_bytes: number;
     max_total_bytes: number;

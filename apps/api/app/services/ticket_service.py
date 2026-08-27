@@ -16,6 +16,7 @@ karsiligi olan bir "view_all" izni bilerek YOKTUR.
 from __future__ import annotations
 
 import logging
+import time
 import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -39,7 +40,11 @@ from app.core.enums import (
 )
 from app.core.errors import ApiError, ForbiddenError, NotFoundError
 from app.integrations import hermes_contract as contract
-from app.integrations.hermes_support_client import HermesApiError, get_hermes_client
+from app.integrations.hermes_support_client import (
+    PEER_SUPPORT_NOT_CONFIGURED,
+    HermesApiError,
+    get_hermes_client,
+)
 from app.models import (
     SupportTicketAttachmentProjection,
     SupportTicketMessageProjection,
@@ -749,6 +754,33 @@ def next_backoff(attempts: int) -> datetime:
 # ------------------------------------------------------------------ ekler
 
 
+#: Hermes'in ek yukleme yetenegi SORULABILIR bir uc degil — yalnizca deneyince
+#: ogreniliyor (`support_not_configured`, 503). Gorulunce kisa sure hatirlanir
+#: ki ticket formu kullaniciya calismayacak bir alan gostermesin.
+#:
+#: Elle cevrilecek bir ayar BILEREK yok: boyle bir bayrak Hermes ozelligi
+#: acildiginda unutulur ve ekler sessizce kapali kalirdi (Hermes base URL'inde
+#: tam olarak bu yasandi). Kayit suresi dolunca yetenek yeniden denenir, yani
+#: karsi taraf acinca ekler KENDILIGINDEN geri gelir.
+_attachments_unavailable_until: float = 0.0
+
+
+def attachments_available() -> bool:
+    """Hermes yakin zamanda "ek yukleme kapali" demediyse True."""
+    return time.monotonic() >= _attachments_unavailable_until
+
+
+def _remember_attachments_unavailable() -> None:
+    global _attachments_unavailable_until
+    ttl = get_settings().hermes_support_catalog_ttl_seconds
+    _attachments_unavailable_until = time.monotonic() + ttl
+    logger.warning(
+        "Hermes ek yuklemeyi kabul etmiyor (support_not_configured); "
+        "ticket formunda ek alani %s saniye gizlenecek.",
+        ttl,
+    )
+
+
 async def create_attachment_session(
     db: AsyncSession,
     requester: TicketRequester,
@@ -779,13 +811,18 @@ async def create_attachment_session(
         )
 
     client = get_hermes_client()
-    session = await client.create_upload_session(
-        source_tenant_id=requester.tenant_id,
-        file_name=_safe_file_name(file_name),
-        size_bytes=size_bytes,
-        declared_mime_type=declared_mime_type,
-        sha256=sha256,
-    )
+    try:
+        session = await client.create_upload_session(
+            source_tenant_id=requester.tenant_id,
+            file_name=_safe_file_name(file_name),
+            size_bytes=size_bytes,
+            declared_mime_type=declared_mime_type,
+            sha256=sha256,
+        )
+    except HermesApiError as exc:
+        if exc.code == PEER_SUPPORT_NOT_CONFIGURED:
+            _remember_attachments_unavailable()
+        raise
     try:
         upload_id = uuid.UUID(str(session["upload_id"]))
     except (KeyError, ValueError, TypeError) as exc:

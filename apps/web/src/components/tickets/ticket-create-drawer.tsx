@@ -257,19 +257,28 @@ export function TicketCreateDrawer({
             </div>
           </details>
 
-          <div>
-            <Label>Ekran görüntüsü / dosya</Label>
-            <AttachmentDropzone
-              attachments={attachments}
-              onChange={setAttachments}
-              upload={api.uploadAttachment}
-              maxFiles={config.attachments.max_files}
-              maxFileSizeBytes={config.attachments.max_file_size_bytes}
-              maxTotalBytes={config.attachments.max_total_bytes}
-              allowedMimeTypes={config.attachments.allowed_mime_types}
-              disabled={!routeReady}
-            />
-          </div>
+          {config.attachments.enabled ? (
+            <div>
+              <Label>Ekran görüntüsü / dosya</Label>
+              <AttachmentDropzone
+                attachments={attachments}
+                onChange={setAttachments}
+                upload={api.uploadAttachment}
+                maxFiles={config.attachments.max_files}
+                maxFileSizeBytes={config.attachments.max_file_size_bytes}
+                maxTotalBytes={config.attachments.max_total_bytes}
+                allowedMimeTypes={config.attachments.allowed_mime_types}
+                disabled={!routeReady}
+              />
+            </div>
+          ) : (
+            /* Destek merkezi ek yuklemeyi kapatmis. Alani gostermek kullaniciyi
+               dosya secip hata almaya birakirdi; talep ek olmadan gonderilebilir. */
+            <p className="rounded-xl border border-border bg-muted/50 px-3 py-2.5 text-xs text-muted-foreground">
+              Destek merkezi şu anda dosya eki kabul etmiyor. Talebinizi ek olmadan
+              gönderebilirsiniz; sorunu açıklama alanında ayrıntılandırın.
+            </p>
+          )}
 
           <details
             open={diagnosticsOpen}

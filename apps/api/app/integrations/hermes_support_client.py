@@ -32,6 +32,11 @@ logger = logging.getLogger("logislot.hermes.client")
 #: yalnizca validate ucundaki gecici uyum dalini tetiklemek icin taninir.
 _PEER_VALIDATION_ERROR = "validation_error"
 
+#: Hermes kurulumunda ek yukleme kapali (TICKET_ATTACHMENTS_ENABLED=false).
+#: Sozlesmedeki kod listesinde YOK; bizim tarafta bir sey bozuk degildir, bu
+#: yuzden kullaniciya "hata" degil "su anda kabul edilmiyor" denir.
+PEER_SUPPORT_NOT_CONFIGURED = "support_not_configured"
+
 #: Loglara/hata mesajlarina sizabilecek desenler. Mesajlar kullaniciya ve
 #: audit'e gidebildigi icin temizlik ISTEMCIDE yapilir — cagiran her yerde
 #: hatirlanmasi gereken bir kural birakmak guvenilmez olurdu.
@@ -573,5 +578,9 @@ def _user_message(exc: HermesApiError) -> str:
         ),
         contract.ERROR_ATTACHMENT_NOT_READY: (
             "Dosya henuz hazir degil; guvenlik kontrolu tamamlaninca kullanilabilir."
+        ),
+        PEER_SUPPORT_NOT_CONFIGURED: (
+            "Destek merkezi su anda dosya eki kabul etmiyor. Talebinizi ek "
+            "olmadan gonderebilirsiniz."
         ),
     }.get(exc.code, "Destek merkezi istegi tamamlayamadi.")

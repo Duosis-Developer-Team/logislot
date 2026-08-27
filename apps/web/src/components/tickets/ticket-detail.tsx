@@ -389,15 +389,23 @@ export function TicketDetail({
                 placeholder="Destek ekibine iletmek istediğiniz bilgi…"
                 className="w-full rounded-lg border border-border bg-card p-3 text-sm"
               />
-              <AttachmentDropzone
-                attachments={attachments}
-                onChange={setAttachments}
-                upload={api.uploadAttachment}
-                maxFiles={config.attachments.max_files}
-                maxFileSizeBytes={config.attachments.max_file_size_bytes}
-                maxTotalBytes={config.attachments.max_total_bytes}
-                allowedMimeTypes={config.attachments.allowed_mime_types}
-              />
+              {config.attachments.enabled ? (
+                <AttachmentDropzone
+                  attachments={attachments}
+                  onChange={setAttachments}
+                  upload={api.uploadAttachment}
+                  maxFiles={config.attachments.max_files}
+                  maxFileSizeBytes={config.attachments.max_file_size_bytes}
+                  maxTotalBytes={config.attachments.max_total_bytes}
+                  allowedMimeTypes={config.attachments.allowed_mime_types}
+                />
+              ) : (
+                /* Destek merkezi ek yuklemeyi kapatmis — yanit yine gonderilebilir. */
+                <p className="text-xs text-muted-foreground">
+                  Destek merkezi şu anda dosya eki kabul etmiyor; yanıtınızı ek
+                  olmadan gönderebilirsiniz.
+                </p>
+              )}
               {error && (
                 <p role="alert" className="text-xs text-destructive">
                   {error} — yazdıklarınız korunuyor.
