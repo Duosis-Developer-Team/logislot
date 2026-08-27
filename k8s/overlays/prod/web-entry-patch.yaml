@@ -16,11 +16,11 @@ spec:
             - name: LOGISLOT_PORTAL_MODE
               value: "entry"
             - name: LOGISLOT_ENTRY_URL
-              value: "https://logislot.com"
+              value: "https://logislot.io"
             - name: LOGISLOT_SUPPLIER_URL
-              value: "https://tedarikci.logislot.com/login"
+              value: "https://tedarikci.logislot.io/login"
             - name: LOGISLOT_ADMIN_URL
-              value: "https://yonetim.logislot.com/login"
+              value: "https://yonetim.logislot.io/login"
           startupProbe:
             httpGet: { path: /, port: http }
             failureThreshold: 30

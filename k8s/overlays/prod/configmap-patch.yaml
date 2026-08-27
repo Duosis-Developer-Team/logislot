@@ -2,7 +2,8 @@
 #
 # NEXT_PUBLIC_API_URL BUILD-TIME'dir (Next.js bundle'ina gomulur) ve
 # ConfigMap'ten DEGIL, CI'daki `vars.PROD_NEXT_PUBLIC_API_URL` degiskeninden
-# gelir. 27 Agu 2026'da `https://api.logislot.com` yapildi.
+# gelir. 27 Agu 2026'da `https://api.logislot.io` yapildi.
+# (Once .com secilmisti; DNS .io'ya baglandigi icin cevrildi.)
 #
 # Bu yuzden prod gecisi IKI DEPLOY'dur ve SIRA onemlidir:
 #   Asama 1 — ingress + portallar. Web imaji HALA IP:port API'sine bakar,
@@ -26,7 +27,7 @@ data:
   LOGISLOT_ENABLE_DOCS: "false"
   # E-posta sablonlarindaki portal linki. Domain yayina girdiginde musteri
   # e-postalarinda IP:port gormesin diye simdiden alan adi.
-  LOGISLOT_PUBLIC_WEB_URL: "https://logislot.com"
+  LOGISLOT_PUBLIC_WEB_URL: "https://logislot.io"
   # CORS — GECIS LISTESI.
   #
   # Hem YENI alan adlari hem ESKI IP:port kokenleri birlikte duruyor.
@@ -67,4 +68,4 @@ data:
   LOGISLOT_HERMES_SUPPORT_BASE_URL: ""
   # Hermes'in bu kuruluma olay gonderecegi adres (yalnizca dokumantasyon;
   # Hermes cagriyi kendi kayitli config'inden yapar).
-  LOGISLOT_HERMES_SUPPORT_CALLBACK_BASE_URL: "https://api.logislot.com"
+  LOGISLOT_HERMES_SUPPORT_CALLBACK_BASE_URL: "https://api.logislot.io"

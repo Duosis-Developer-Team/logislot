@@ -204,8 +204,8 @@ controller'ın NodePort'ları host'un 80/443'üne bağlı değil. Doğrulama
 (DNS'siz, Host başlığıyla):
 
 ```
-curl -H "Host: logislot.com" http://84.247.180.172:31412/   # LogiSlot gelir
-curl -H "Host: logislot.com" http://84.247.180.172/         # Hermes gelir (catch-all)
+curl -H "Host: logislot.io" http://84.247.180.172:31412/   # LogiSlot gelir
+curl -H "Host: logislot.io" http://84.247.180.172/         # Hermes gelir (catch-all)
 ```
 
 Portsuz URL için bir node'da `80→31412`, `443→30772` yönlendirmesi gerekir —
@@ -222,15 +222,18 @@ gerekir. Bu, Hermes'i de ilgilendirdiği için sahibiyle kararlaştırılmalıd�
 **DNS yayına girdikten sonra**. `.com` ve `.io` ayrı sertifikalardır; biri
 doğrulanamazsa diğeri etkilenmez.
 
+**Birincil alan adı `logislot.io`** (27 Ağu 2026). `.com`un kuralları da
+yerinde ama DNS'i bağlanmadığı için sertifikası kapalı.
+
 | Host | Gider |
 |---|---|
-| `logislot.com`, `www.logislot.com` | entry |
-| `yonetim.logislot.com` | yönetim portalı |
-| `tedarikci.logislot.com` | tedarikçi portalı |
-| `admin.logislot.com` | gizli admin paneli |
-| `api.logislot.com` | API |
-| `cknb.logislot.com` | yönetim portalı (Cakes & Bakes alias) |
-| `cknbtedarik.logislot.com` | tedarikçi portalı (Cakes & Bakes alias) |
+| `logislot.io`, `www.logislot.io` | entry |
+| `yonetim.logislot.io` | yönetim portalı |
+| `tedarikci.logislot.io` | tedarikçi portalı |
+| `admin.logislot.io` | gizli admin paneli |
+| `api.logislot.io` | API |
+| `cknb.logislot.io` | yönetim portalı (Cakes & Bakes alias) |
+| `cknbtedarik.logislot.io` | tedarikçi portalı (Cakes & Bakes alias) |
 
 **Tenant alias'ları ayrı bir uygulama değildir.** `cknb.*` ile
 `yonetim.*` **aynı** deployment'a gider; tenant, giriş yapan kullanıcının
@@ -246,7 +249,7 @@ geçiş tek deploy değildir:
 | Aşama | İçerik | Ne zaman onaylanır | Prod'un durumu |
 |---|---|---|---|
 | 1 | Ingress + 4 portal + migration'lar. Web imajı **hâlâ** IP:port API'sine bakar. | DNS'ten **önce** olabilir | Çalışmaya devam eder |
-| 2 | `https://api.logislot.com` ile derlenmiş web imajı | **Yalnızca DNS çözülmeye başladıktan sonra** | Alan adları tam çalışır |
+| 2 | `https://api.logislot.io` ile derlenmiş web imajı | **Yalnızca DNS çözülmeye başladıktan sonra** | Alan adları tam çalışır |
 
 **İkisini tek deploy'da birleştirmeyin.** Birleştirilirse, DNS yayılana kadar
 prod web çözülmeyen bir adrese istek atar ve IP:port üzerinden bile
