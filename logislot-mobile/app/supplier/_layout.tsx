@@ -33,6 +33,16 @@ export default function SupplierLayout() {
             headerBackTitle: "Geri",
           }}
         />
+        <Stack.Screen
+          name="tickets"
+          options={{
+            headerShown: true,
+            title: "Destek",
+            headerStyle: { backgroundColor: colors.card },
+            headerTintColor: colors.text,
+            headerBackTitle: "Geri",
+          }}
+        />
       </Stack>
     </RoleGuard>
   );

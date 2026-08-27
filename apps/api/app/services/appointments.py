@@ -53,6 +53,29 @@ class InvalidTransitionError(ApiError):
         )
 
 
+def allowed_delivery_types(supplier: Supplier) -> list[str]:
+    """Tedarikcinin kullanabilecegi teslimat tipleri.
+
+    Standart HER tedarikcide aciktir. Kargo yalnizca yonetim o tedarikci
+    icin `cargo_enabled` anahtarini actiysa listeye girer (urun karari
+    2026-08: kargo otomatik gelmez, acilirsa gorunur).
+    """
+    types = [DeliveryType.standard.value]
+    if supplier.cargo_enabled:
+        types.append(DeliveryType.cargo.value)
+    return types
+
+
+def ensure_delivery_type_allowed(supplier: Supplier, delivery_type: DeliveryType) -> None:
+    """Kargo kapali tedarikci kargo randevusu olusturamaz (UI + API savunmasi)."""
+    if delivery_type == DeliveryType.cargo and not supplier.cargo_enabled:
+        raise ApiError(
+            "CARGO_NOT_ENABLED",
+            "Bu tedarikci icin kargo teslimati acik degil",
+            422,
+        )
+
+
 async def acquire_facility_lock(db: AsyncSession, facility_id: uuid.UUID) -> None:
     """Facility bazli PostgreSQL advisory lock (transaction-scoped).
 
@@ -218,6 +241,10 @@ async def create_appointment(
     # (admin on-behalf dahil; portal tarafinda auth katmani zaten engeller).
     if supplier.status != SupplierStatus.active:
         raise ApiError("SUPPLIER_INACTIVE", "Pasif tedarikci randevu olusturamaz", 403)
+
+    # Kargo tedarikci bazinda acilir; kapaliyken admin adina olusturma dahil
+    # hicbir yoldan kargo randevusu olusmaz.
+    ensure_delivery_type_allowed(supplier, delivery_type)
 
     # Eszamanlilik: kilit altinda son-an availability degerlendirmesi yapilir;
     # ayni tesise paralel create/revise istekleri serialize edilir.

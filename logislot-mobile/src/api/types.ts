@@ -93,6 +93,8 @@ export interface SupplierDto {
   status: string;
   is_active: boolean;
   auto_approval_enabled: boolean;
+  /** Kargo teslimat tipi bu tedarikci icin acik mi (varsayilan kapali). */
+  cargo_enabled: boolean;
   min_block_minutes: number | null;
   max_block_minutes: number | null;
   weekly_quota: number | null;
@@ -130,7 +132,9 @@ export interface SupplierCatalogDto {
     weekly_quota: number | null;
     monthly_quota: number | null;
     auto_approval_enabled: boolean;
+    cargo_enabled: boolean;
   };
+  /** Yalnizca tedarikciye ACIK tipler; kargo kapaliysa sadece "standard". */
   delivery_types: string[];
   cargo_windows: string[];
   cargo_default_min_block_minutes: number;
@@ -635,4 +639,170 @@ export interface PlatformUsageDto {
     active_users: number;
     last_activity_at: string | null;
   }[];
+}
+
+// --- Destek ticketlari ---
+//
+// Backend `app/routers/tickets.py` cikti sekliyle birebir. Bu dosya
+// `apps/web/src/lib/api/types.ts` ile SENKRON tutulur (parite kurali).
+
+export interface TicketMessageDto {
+  id: string;
+  author_type: "requester" | "agent" | "system" | "integration";
+  author_display_name: string | null;
+  body: string;
+  body_format: string;
+  created_at: string | null;
+  /** Yerel kayit henuz destek merkezine ulasmadi. */
+  is_pending: boolean;
+}
+
+export interface TicketAttachmentDto {
+  id: string;
+  file_name: string;
+  mime_type: string | null;
+  size_bytes: number | null;
+  scan_status: "pending_scan" | "scanning" | "clean" | "rejected" | "scan_failed";
+  message_id: string | null;
+  downloadable: boolean;
+}
+
+export interface TicketResolutionDto {
+  summary: string | null;
+  code: string | null;
+  fix_version: string | null;
+  resolved_at: string | null;
+  resolved_by_group_name: string | null;
+}
+
+export interface TicketRowDto {
+  id: string;
+  /** Kanonik numara (TKT-…). Hermes'ten gelene kadar null. */
+  ticket_number: string | null;
+  title: string;
+  category: string;
+  impact: string;
+  status: string;
+  delivery_status: string;
+  requester_name: string | null;
+  requester_type: "tenant_user" | "supplier_user";
+  supplier_name: string | null;
+  group_name: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+  resolved_at: string | null;
+  sync_gap: boolean;
+  last_sync_error_code: string | null;
+}
+
+export interface TicketDetailDto extends TicketRowDto {
+  description: string;
+  reproduction_steps: string | null;
+  expected_result: string | null;
+  actual_result: string | null;
+  error_code: string | null;
+  correlation_id: string | null;
+  occurred_at: string | null;
+  client_context: Record<string, string>;
+  resolution: TicketResolutionDto | null;
+  messages: TicketMessageDto[];
+  attachments: TicketAttachmentDto[];
+  last_sync_at: string | null;
+  permissions: { can_reply: boolean; can_reopen: boolean; can_cancel: boolean };
+}
+
+export interface TicketConfigDto {
+  enabled: boolean;
+  can_create: boolean;
+  can_comment: boolean;
+  can_view_all: boolean;
+  routing: {
+    ready: boolean;
+    /** Yalnizca GOSTERIM adi; grup kimligi tarayiciya hic gonderilmez. */
+    group_display_name: string | null;
+    verified_at: string | null;
+    reason: string | null;
+  };
+  attachments: {
+    max_files: number;
+    max_file_size_bytes: number;
+    max_total_bytes: number;
+    allowed_mime_types: string[];
+  };
+}
+
+export interface TicketUploadSessionDto {
+  upload_id: string;
+  upload_url: string;
+  required_headers: Record<string, string>;
+  expires_at: string | null;
+  max_size_bytes: number | null;
+}
+
+// --- Platform: ticket yonlendirmesi ---
+
+export interface HermesGroupDto {
+  id: string;
+  name: string;
+  description: string | null;
+  member_count: number | null;
+  is_active: boolean;
+  fetched_at: string | null;
+}
+
+export type TicketRouteStatus =
+  | "unconfigured"
+  | "disabled"
+  | "needs_verification"
+  | "error"
+  | "ready";
+
+export interface TicketRouteRowDto {
+  tenant_id: string;
+  tenant_name: string;
+  tenant_slug: string;
+  tenant_status: string;
+  configured: boolean;
+  status: TicketRouteStatus;
+  hermes_group_id: string | null;
+  hermes_group_name: string | null;
+  route_version: number;
+  is_active: boolean;
+  last_verified_at: string | null;
+  last_error_code: string | null;
+  last_error_at: string | null;
+  /** Icerik ICERMEZ; yalnizca adet. */
+  delivery: { pending: number; failed: number; dead: number };
+}
+
+export interface TicketRouteDetailDto extends Omit<TicketRouteRowDto, "delivery"> {
+  groups: HermesGroupDto[];
+  catalog_stale: boolean;
+  catalog_error_code: string | null;
+  delivery: { pending: number; failed: number; dead: number };
+}
+
+export interface TicketIntegrationHealthDto {
+  enabled: boolean;
+  hermes_configured: boolean;
+  webhook_secret_configured: boolean;
+  tenant_count: number;
+  configured_tenant_count: number;
+  unconfigured_tenant_count: number;
+  route_error_count: number;
+  catalog_group_count: number;
+  catalog_last_fetched_at: string | null;
+  catalog_stale: boolean;
+  outgoing: { pending: number; failed: number; dead: number };
+  webhook_inbox: Record<string, number>;
+  jobs: Record<
+    string,
+    {
+      last_status: string;
+      last_finished_at: string | null;
+      processed_count: number;
+      error_message: string | null;
+    } | null
+  >;
+  checked_at: string;
 }

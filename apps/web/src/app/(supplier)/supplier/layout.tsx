@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarDays, CirclePlus, UserRound } from "lucide-react";
+import { CalendarDays, CirclePlus, LifeBuoy, UserRound } from "lucide-react";
 import Link from "next/link";
 import { LoadingState } from "@/components/config/states";
 import { LogiSlotLogo } from "@/components/brand/logo";
@@ -12,6 +12,10 @@ import { SessionProvider, useSession } from "@/lib/auth/session";
 const NAV: AppNavItem[] = [
   { href: "/supplier/appointments", label: "Randevularım", icon: CalendarDays },
   { href: "/supplier/new-appointment", label: "Yeni Randevu", icon: CirclePlus },
+  // Tedarikci portal izinleri rol tablosuyla degil sabit portal setiyle
+  // yonetildiginden (bkz. SupplierPortalPermission.DEFAULT) menu kosulsuzdur;
+  // yetki yine backend'de dogrulanir.
+  { href: "/supplier/tickets", label: "Destek", icon: LifeBuoy },
   { href: "/supplier/profile", label: "Profil", icon: UserRound },
 ];
 

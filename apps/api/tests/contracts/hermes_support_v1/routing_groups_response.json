@@ -1,0 +1,19 @@
+{
+  "catalog_version": "W/\"catalog-2026-08-25T10:00:00Z\"",
+  "items": [
+    {
+      "description": "Infrastructure and delivery",
+      "id": "3f2b1c44-9d1e-4a58-9c77-2b7e5a0f1d33",
+      "member_count": 4,
+      "name": "DevOps Team",
+      "updated_at": "2026-08-25T10:00:00Z"
+    },
+    {
+      "description": "Product and application issues",
+      "id": "8c4a6e20-51bd-4f3a-8f0d-7c9d2e4b6a11",
+      "member_count": 7,
+      "name": "Application Support",
+      "updated_at": "2026-08-24T08:30:00Z"
+    }
+  ]
+}

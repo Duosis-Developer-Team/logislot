@@ -1,22 +1,193 @@
-# Placeholder host'lar — gercek domain gelince guncellenir.
-# /etc/hosts testi: 84.247.180.172 logislot-prod.local logislot-prod-api.local
+# PROD host-bazli yonlendirme — MUSTERI URL'LERINDE PORT YOKTUR.
+#
+# NodePort'lar (30082/30083/30087/30088/30089) durmaya devam eder ama onlar
+# dogrudan erisim/hata ayiklama icindir. Musteri trafigi 80/443'ten gelir ve
+# Host basligina gore asagidaki Service'lere dagitilir.
+#
+# ONEMLI — ADLANDIRMA: `yonetim.*` PORTAL_MODE=admin'e, `admin.*` ise
+# PORTAL_MODE=platform'a gider. Kod icindeki "admin" MUSTERININ yonetim
+# paneli, "platform" bizim gizli admin panelimizdir.
+#
+# TENANT ALIAS'LARI: cknb/cknbtedarik ayri bir uygulama DEGILDIR; ayni
+# yonetim/tedarikci portallerine giden marka alias'lardir. Tenant, giris
+# yapan kullanicinin kimliginden cozulur — host'tan DEGIL. Yeni bir musteri
+# alias'i eklemek = buraya iki satir + iki DNS kaydi.
+#
+# INGRESS CLASS: kumede 80/443'u ingress-nginx karsiliyor ve su an TUM
+# host'lari Hermes'e (varsayilan backend) dusuruyor. Asagidaki kurallar
+# yalnizca LISTELENEN host'lari LogiSlot'a alir; Hermes'in trafigi
+# ETKILENMEZ. Class adi denetleyicininkiyle ayni olmazsa bu Ingress sessizce
+# YOK SAYILIR (zararsiz, ama calismaz) — dogrulamak icin:
+#   kubectl get ingressclass
+#
+# TLS: denetleyici su an kendi SAHTE sertifikasini sunuyor (issuer
+# "Kubernetes Ingress Controller Fake Certificate"), yani hicbir host icin
+# gecerli sertifika yok. cert-manager + ClusterIssuer dogrulaninca asagidaki
+# iki blogu ACIN ve `ssl-redirect`i "true" yapin. O ana kadar HTTP calisir,
+# HTTPS ise guvenilmeyen sertifika uyarisi verir.
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: logislot
+  annotations:
+    # Gecerli sertifika gelene kadar zorunlu HTTPS yonlendirmesi KAPALI:
+    # acik olsaydi kullanici her istekte sertifika uyarisina carpardi.
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+    # cert-manager dogrulaninca ACIN (ve asagidaki tls: blogunu da):
+    # cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/proxy-body-size: "16m"
 spec:
+  ingressClassName: nginx
+  # TLS — cert-manager hazir olunca ACIN:
+  # tls:
+  #   - hosts:
+  #       - logislot.com
+  #       - www.logislot.com
+  #       - yonetim.logislot.com
+  #       - tedarikci.logislot.com
+  #       - admin.logislot.com
+  #       - api.logislot.com
+  #       - cknb.logislot.com
+  #       - cknbtedarik.logislot.com
+  #     secretName: logislot-tls-logislot-com
+  #   - hosts:
+  #       - logislot.io
+  #       - www.logislot.io
+  #       - yonetim.logislot.io
+  #       - tedarikci.logislot.io
+  #       - admin.logislot.io
+  #       - api.logislot.io
+  #       - cknb.logislot.io
+  #       - cknbtedarik.logislot.io
+  #     secretName: logislot-tls-logislot-io
   rules:
-    - host: logislot-prod.local
+    # ---------- logislot.com ----------
+    # Public web sitesi / portal secici (entry)
+    - host: logislot.com
       http:
         paths:
           - path: /
             pathType: Prefix
             backend:
               service: { name: logislot-web, port: { name: http } }
-    - host: logislot-prod-api.local
+    # Public web sitesi (www alias)
+    - host: www.logislot.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service: { name: logislot-web, port: { name: http } }
+    # YONETIM paneli (PORTAL_MODE=admin)
+    - host: yonetim.logislot.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service: { name: logislot-web-admin-service, port: { name: http } }
+    # TEDARIKCI portali (PORTAL_MODE=supplier)
+    - host: tedarikci.logislot.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service: { name: logislot-web-supplier-service, port: { name: http } }
+    # GIZLI admin paneli (PORTAL_MODE=platform)
+    - host: admin.logislot.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service: { name: logislot-web-platform-service, port: { name: http } }
+    # Backend API (tarayici DOGRUDAN cagirir)
+    - host: api.logislot.com
       http:
         paths:
           - path: /
             pathType: Prefix
             backend:
               service: { name: logislot-api, port: { name: http } }
+    # Cakes & Bakes'e ozel yonetim alias'i
+    - host: cknb.logislot.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service: { name: logislot-web-admin-service, port: { name: http } }
+    # Cakes & Bakes'e ozel tedarikci alias'i
+    - host: cknbtedarik.logislot.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service: { name: logislot-web-supplier-service, port: { name: http } }
+    # ---------- logislot.io ----------
+    # Public web sitesi / portal secici (entry)
+    - host: logislot.io
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service: { name: logislot-web, port: { name: http } }
+    # Public web sitesi (www alias)
+    - host: www.logislot.io
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service: { name: logislot-web, port: { name: http } }
+    # YONETIM paneli (PORTAL_MODE=admin)
+    - host: yonetim.logislot.io
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service: { name: logislot-web-admin-service, port: { name: http } }
+    # TEDARIKCI portali (PORTAL_MODE=supplier)
+    - host: tedarikci.logislot.io
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service: { name: logislot-web-supplier-service, port: { name: http } }
+    # GIZLI admin paneli (PORTAL_MODE=platform)
+    - host: admin.logislot.io
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service: { name: logislot-web-platform-service, port: { name: http } }
+    # Backend API (tarayici DOGRUDAN cagirir)
+    - host: api.logislot.io
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service: { name: logislot-api, port: { name: http } }
+    # Cakes & Bakes'e ozel yonetim alias'i
+    - host: cknb.logislot.io
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service: { name: logislot-web-admin-service, port: { name: http } }
+    # Cakes & Bakes'e ozel tedarikci alias'i
+    - host: cknbtedarik.logislot.io
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service: { name: logislot-web-supplier-service, port: { name: http } }

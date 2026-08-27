@@ -17,13 +17,17 @@ dependencies = [
     "email-validator>=2.0",
     # Prometheus/Drake gozlemlenebilirligi (bkz. app/core/metrics.py)
     "prometheus-client>=0.20",
+    # Hermes destek entegrasyonu (backend-to-backend HTTP). Onceden yalnizca
+    # dev bagimliligiydi (test istemcisi); artik calisma zamaninda kullanildigi
+    # icin uretim listesinde — imajda bulunmamasi ticket teslimatini sessizce
+    # ImportError'a dusururdu.
+    "httpx>=0.27",
 ]
 
 [project.optional-dependencies]
 dev = [
     "pytest>=8.2",
     "pytest-asyncio>=0.23",
-    "httpx>=0.27",
     "aiosqlite>=0.20",
     "ruff>=0.5",
     "greenlet>=3.0",

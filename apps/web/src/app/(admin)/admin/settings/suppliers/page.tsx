@@ -1,7 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { BadgeCheck, KeyRound } from "lucide-react";
+import { BadgeCheck, KeyRound, Package } from "lucide-react";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -108,6 +108,7 @@ export default function SuppliersPage() {
 
   const [allowedCategories, setAllowedCategories] = useState<string[]>([]);
   const [autoApprove, setAutoApprove] = useState(false);
+  const [cargoEnabled, setCargoEnabled] = useState(false);
   const [editActive, setEditActive] = useState(true);
   const [createAccount, setCreateAccount] = useState(true);
   const [accountActive, setAccountActive] = useState(true);
@@ -123,6 +124,7 @@ export default function SuppliersPage() {
     });
     setAllowedCategories([]);
     setAutoApprove(false);
+    setCargoEnabled(false);
     setEditActive(true);
     setCreateAccount(true);
     setFormError(null);
@@ -147,6 +149,7 @@ export default function SuppliersPage() {
     });
     setAllowedCategories(row.allowed_product_category_ids);
     setAutoApprove(row.auto_approval_enabled);
+    setCargoEnabled(row.cargo_enabled);
     setEditActive(row.is_active);
     setAccountActive(row.account_active ?? true);
     setFormError(null);
@@ -168,6 +171,7 @@ export default function SuppliersPage() {
       weekly_quota: num(values.weekly_quota),
       monthly_quota: num(values.monthly_quota),
       auto_approval_enabled: autoApprove,
+      cargo_enabled: cargoEnabled,
       is_active: editActive,
       notes: values.notes || null,
     };
@@ -280,6 +284,7 @@ export default function SuppliersPage() {
               <TH>Firma</TH>
               <TH>İletişim</TH>
               <TH>İzinli Kategoriler</TH>
+              <TH>Teslimat</TH>
               <TH>Süre / Kota</TH>
               <TH>Onay</TH>
               <TH>Hesap</TH>
@@ -305,6 +310,16 @@ export default function SuppliersPage() {
                         {categoryName(id)}
                       </Badge>
                     ))}
+                  </div>
+                </TD>
+                <TD>
+                  <div className="flex flex-wrap gap-1">
+                    <Badge className="bg-muted text-muted-foreground">Standart</Badge>
+                    {row.cargo_enabled && (
+                      <Badge className="bg-cargo/15 text-cargo">
+                        <Package className="h-3 w-3" /> Kargo
+                      </Badge>
+                    )}
                   </div>
                 </TD>
                 <TD className="whitespace-nowrap text-xs text-muted-foreground">
@@ -428,6 +443,24 @@ export default function SuppliersPage() {
               onChange={setAutoApprove}
               label="Otomatik onay — talepler beklemeden onaylanır"
             />
+          </Section>
+
+          <Section title="Teslimat Tipleri">
+            <div className="flex items-center gap-2 text-sm">
+              <Badge className="bg-muted text-muted-foreground">Standart</Badge>
+              <span className="text-xs text-muted-foreground">
+                her tedarikçide açıktır, kapatılamaz.
+              </span>
+            </div>
+            <Switch
+              checked={cargoEnabled}
+              onChange={setCargoEnabled}
+              label="Kargo teslimatı — varış saati belirsiz gönderiler"
+            />
+            <p className="text-xs text-muted-foreground">
+              Kapalıyken tedarikçi portalında &quot;Kargo&quot; seçeneği hiç görünmez; tedarikçi
+              yalnızca standart randevu oluşturabilir. Mevcut kargo randevuları etkilenmez.
+            </p>
           </Section>
 
           <Section title="Blokaj & Kota">

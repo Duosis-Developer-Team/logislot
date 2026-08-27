@@ -12,7 +12,12 @@ import { spacing } from "@/theme/tokens";
 
 const ENTRIES: { title: string; icon: keyof typeof Ionicons.glyphMap; route: string }[] = [
   { title: "Planlar", icon: "layers-outline", route: "/platform/plans" },
-  { title: "Pilot Destek", icon: "medkit-outline", route: "/platform/support" },
+  { title: "Sistem Sağlığı", icon: "medkit-outline", route: "/platform/support" },
+  {
+    title: "Ticket Yönlendirmesi",
+    icon: "git-branch-outline",
+    route: "/platform/ticket-routing",
+  },
   { title: "Denetim İzleri", icon: "document-text-outline", route: "/platform/audit-logs" },
 ];
 

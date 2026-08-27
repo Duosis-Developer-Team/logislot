@@ -23,7 +23,7 @@ from sqlalchemy.orm import selectinload
 from app.core.db import get_control_db, get_db
 from app.core.enums import ActorType, UserStatus
 from app.core.errors import ApiError, NotFoundError
-from app.core.permissions import TenantPermission
+from app.core.permissions import TenantPermission, expand_tenant_permissions
 from app.core.responses import ok
 from app.core.security import hash_password
 from app.models import Dock, FacilityMembership, Role, TenantUser
@@ -441,7 +441,9 @@ async def create_role(
         name=body.name,
         display_name=body.display_name,
         description=body.description,
-        permissions_json=sorted(set(body.permission_codes)),
+        # Bagimliliklar backend'de tamamlanir: UI'dan 'ticket.create' tek
+        # basina gelse bile rol 'ticket.view' olmadan kaydedilmez.
+        permissions_json=expand_tenant_permissions(body.permission_codes),
         is_active=body.is_active,
     )
     db.add(role)
@@ -504,7 +506,7 @@ async def patch_role(
             )
     if "permission_codes" in changes:
         _validate_permission_codes(changes["permission_codes"])
-        role.permissions_json = sorted(set(changes.pop("permission_codes")))
+        role.permissions_json = expand_tenant_permissions(changes.pop("permission_codes"))
     for key in ("name", "display_name", "description", "is_active"):
         if key in changes:
             setattr(role, key, changes[key])

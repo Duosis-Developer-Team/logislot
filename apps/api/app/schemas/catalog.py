@@ -70,6 +70,8 @@ class SupplierOut(OrmModel):
     status: str
     is_active: bool = True
     auto_approval_enabled: bool
+    #: Kargo teslimat tipi bu tedarikci icin acik mi (varsayilan kapali).
+    cargo_enabled: bool = False
     min_block_minutes: int | None = None
     max_block_minutes: int | None = None
     weekly_quota: int | None = None

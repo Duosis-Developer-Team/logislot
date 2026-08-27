@@ -6,6 +6,7 @@ import {
   Gauge,
   LifeBuoy,
   ScrollText,
+  Ticket,
 } from "lucide-react";
 import Link from "next/link";
 import { LoadingState } from "@/components/config/states";
@@ -23,7 +24,8 @@ const NAV: AppNavItem[] = [
   { href: "/platform/tenants", label: "Müşteri Hesapları", icon: Building2 },
   { href: "/platform/usage", label: "Kullanım & Sağlık", icon: Gauge },
   { href: "/platform/plans", label: "Planlar", icon: CreditCard },
-  { href: "/platform/support", label: "Destek", icon: LifeBuoy },
+  { href: "/platform/support", label: "Sistem Sağlığı", icon: LifeBuoy },
+  { href: "/platform/ticket-routing", label: "Ticket Yönlendirmesi", icon: Ticket },
   { href: "/platform/audit-logs", label: "Denetim İzleri", icon: ScrollText },
 ];
 

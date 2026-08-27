@@ -7,6 +7,9 @@ resources:
   - namespace.yaml
   - ../../base
   - nodeport-services.yaml
+  # Portal izolasyonu: tedarikci(30087)/yonetim(30088)/gizli admin(30089)
+  # deployment+service'leri. Ayni web image'i farkli LOGISLOT_PORTAL_MODE ile.
+  - web-portals.yaml
 images:
   - name: ghcr.io/duosis-developer-team/logislot-api
     newTag: prod
@@ -16,3 +19,5 @@ patches:
   - path: configmap-patch.yaml
   - path: ingress-patch.yaml
   - path: resources-patch.yaml
+  # Mevcut logislot-web (30082) -> public ENTRY modu.
+  - path: web-entry-patch.yaml

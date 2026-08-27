@@ -20,6 +20,7 @@ export default function AdminLayout() {
             ["series", "Tekrarlayan Seriler"],
             ["notifications", "Bildirimler"],
             ["reports", "Raporlar"],
+            ["tickets", "Destek Talepleri"],
             ["settings/categories", "Ürün Kategorileri"],
             ["settings/vehicle-categories", "Araç Kategorileri"],
             ["settings/docks", "Rampalar"],

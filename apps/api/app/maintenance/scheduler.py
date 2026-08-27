@@ -24,6 +24,9 @@ from app.core.db import session_scope
 from app.core.enums import ActorType
 from app.core.tenancy_runtime import CONTROL_LOCATION, TenantLocation
 from app.maintenance.cleanup_notifications import cleanup_notifications
+from app.maintenance.ticket_delivery import deliver_pending
+from app.maintenance.ticket_inbox import recover_inbox
+from app.maintenance.ticket_reconciliation import reconcile, requeue_orphan_creates
 from app.models import MaintenanceRun
 from app.services.audit import record_audit
 from app.services.email import process_due_retries
@@ -32,6 +35,14 @@ logger = logging.getLogger("logislot.scheduler")
 
 JOB_EMAIL_RETRY = "email_retry"
 JOB_NOTIFICATION_CLEANUP = "notification_cleanup"
+#: Hermes ticket entegrasyonu isleri (bkz. app/maintenance/ticket_*.py).
+JOB_TICKET_OUTBOX = "ticket_outbox_delivery"
+JOB_TICKET_RECONCILIATION = "ticket_reconciliation"
+JOB_TICKET_INBOX_RECOVERY = "ticket_inbox_recovery"
+
+#: YALNIZCA control-plane'de kosan isler. Webhook inbox'i control semasindadir;
+#: her tenant icin ayri kosturmak ayni satirlari defalarca islemeye calisirdi.
+CONTROL_ONLY_JOBS = frozenset({JOB_TICKET_INBOX_RECOVERY})
 
 
 async def try_job_lock(db: AsyncSession, job_name: str, scope: str = "") -> bool:
@@ -71,9 +82,28 @@ async def _notification_cleanup_worker(db: AsyncSession) -> dict:
     return {"processed": deleted, "metadata": {"deleted": deleted}}
 
 
+async def _ticket_outbox_worker(db: AsyncSession) -> dict:
+    return await deliver_pending(db)
+
+
+async def _ticket_reconciliation_worker(db: AsyncSession) -> dict:
+    result = await reconcile(db)
+    requeued = await requeue_orphan_creates(db)
+    if requeued:
+        result["metadata"] = {**(result.get("metadata") or {}), "requeued": requeued}
+    return result
+
+
+async def _ticket_inbox_worker(db: AsyncSession) -> dict:
+    return await recover_inbox(db)
+
+
 WORKERS = {
     JOB_EMAIL_RETRY: _email_retry_worker,
     JOB_NOTIFICATION_CLEANUP: _notification_cleanup_worker,
+    JOB_TICKET_OUTBOX: _ticket_outbox_worker,
+    JOB_TICKET_RECONCILIATION: _ticket_reconciliation_worker,
+    JOB_TICKET_INBOX_RECOVERY: _ticket_inbox_worker,
 }
 
 
@@ -123,6 +153,13 @@ async def execute_job(
     return run
 
 
+async def locations_for_job(job_name: str) -> list[TenantLocation]:
+    """Bir isin kosacagi veri alanlari."""
+    if job_name in CONTROL_ONLY_JOBS:
+        return [CONTROL_LOCATION]
+    return await scheduler_locations()
+
+
 async def scheduler_locations() -> list[TenantLocation]:
     """Bakim islerinin kosacagi tum veri alanlari.
 
@@ -143,7 +180,7 @@ async def _loop(job_name: str, interval_seconds: int) -> None:
     logger.info("scheduler job '%s' basladi (aralik: %ss)", job_name, interval_seconds)
     while True:
         try:
-            locations = await scheduler_locations()
+            locations = await locations_for_job(job_name)
         except Exception:
             # Kayit okunamadi: hicbir sey yapmamaktansa control-plane'de kos.
             logger.exception("tenant veri alanlari listelenemedi; control-plane'e dusuluyor")
@@ -166,10 +203,19 @@ async def main() -> None:
     if not settings.scheduler_enabled:
         logger.warning("LOGISLOT_SCHEDULER_ENABLED=false — scheduler cikiyor")
         return
-    await asyncio.gather(
+    loops = [
         _loop(JOB_EMAIL_RETRY, settings.email_retry_interval_seconds),
         _loop(JOB_NOTIFICATION_CLEANUP, settings.notification_cleanup_interval_seconds),
-    )
+    ]
+    if settings.ticketing_enabled:
+        loops += [
+            _loop(JOB_TICKET_OUTBOX, settings.ticket_outbox_interval_seconds),
+            _loop(JOB_TICKET_RECONCILIATION, settings.ticket_reconciliation_interval_seconds),
+            _loop(JOB_TICKET_INBOX_RECOVERY, settings.ticket_inbox_recovery_interval_seconds),
+        ]
+    else:
+        logger.warning("LOGISLOT_TICKETING_ENABLED=false — ticket isleri kosmayacak")
+    await asyncio.gather(*loops)
 
 
 if __name__ == "__main__":

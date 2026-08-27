@@ -7,7 +7,7 @@ ID'ler API'den korlemesine kabul edilmez.
 import uuid
 from dataclasses import dataclass
 
-from fastapi import Depends, Path
+from fastapi import Depends, Header, Path
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -129,4 +129,100 @@ async def get_supplier_context(
         identity=identity,
         permissions=set(),
         supplier=supplier,
+    )
+
+
+# ---------------------------------------------------------------- ticketlar
+
+
+async def get_ticket_requester(
+    identity: Identity = Depends(get_identity),
+    db: AsyncSession = Depends(get_db),
+    x_facility_id: uuid.UUID | None = Header(default=None, alias="X-Facility-Id"),
+):
+    """Ticket uclarinin kimlik/kapsam baglami.
+
+    Ticket rotalari path'te `facility_id` TASIMAZ (sozlesme `/tickets` diyor ve
+    1 tenant = 1 tesis). Kapsam yine de dogrulanir: baslikta bir tesis
+    geldiyse uyelik aranir, gelmediyse kullanicinin varsayilan/tek uyeligi
+    kullanilir. ID'ler korlemesine kabul EDILMEZ.
+
+    Izinler tesis uyeligindeki rollerden gelir; tedarikci hesabi icin
+    sabit portal izin setinden.
+    """
+    from app.core.config import get_settings
+    from app.core.enums import TicketRequesterType
+    from app.core.metrics import record_ticket_authz_denied
+    from app.core.permissions import SupplierPortalPermission, TenantPermission
+    from app.services.ticket_service import TicketFeatureDisabledError, TicketRequester
+
+    if not get_settings().ticketing_enabled:
+        raise TicketFeatureDisabledError()
+
+    if identity.user_type == "supplier":
+        supplier_user: SupplierUser = identity.user  # type: ignore[assignment]
+        supplier = supplier_user.supplier
+        permissions = set(SupplierPortalPermission.DEFAULT)
+        return TicketRequester(
+            type=TicketRequesterType.supplier_user,
+            id=supplier_user.id,
+            name=supplier_user.name,
+            email=supplier_user.email,
+            tenant_id=supplier.tenant_id,
+            facility_id=supplier.facility_id,
+            can_view_all=False,
+            can_create=SupplierPortalPermission.TICKET_CREATE in permissions,
+            can_comment=SupplierPortalPermission.TICKET_COMMENT_OWN in permissions,
+            supplier_id=supplier.id,
+            supplier_name=supplier.company_name,
+        )
+
+    if identity.user_type != "tenant":
+        record_ticket_authz_denied("tickets", "wrong_principal")
+        raise ForbiddenError("Ticket ekranlari platform kullanicilarina kapalidir")
+
+    user: TenantUser = identity.user  # type: ignore[assignment]
+    memberships = list(
+        (
+            await db.execute(
+                select(FacilityMembership)
+                .options(selectinload(FacilityMembership.roles))
+                .where(FacilityMembership.tenant_user_id == user.id)
+            )
+        ).scalars()
+    )
+    if not memberships:
+        record_ticket_authz_denied("tickets", "no_membership")
+        raise ForbiddenError("Bir tesise uyeliginiz yok")
+
+    membership = None
+    if x_facility_id is not None:
+        membership = next(
+            (m for m in memberships if m.facility_id == x_facility_id), None
+        )
+        if membership is None:
+            record_ticket_authz_denied("tickets", "facility_not_member")
+            raise ForbiddenError("Bu tesise erisim yetkiniz yok")
+    if membership is None and user.default_facility_id is not None:
+        membership = next(
+            (m for m in memberships if m.facility_id == user.default_facility_id), None
+        )
+    if membership is None:
+        membership = memberships[0]
+
+    permissions = membership.permissions
+    if TenantPermission.TICKET_VIEW not in permissions:
+        record_ticket_authz_denied("tickets", "missing_permission")
+        raise ForbiddenError("Ticket goruntuleme yetkiniz yok")
+
+    return TicketRequester(
+        type=TicketRequesterType.tenant_user,
+        id=user.id,
+        name=user.name,
+        email=user.email,
+        tenant_id=membership.tenant_id,
+        facility_id=membership.facility_id,
+        can_view_all=TenantPermission.TICKET_VIEW_ALL in permissions,
+        can_create=TenantPermission.TICKET_CREATE in permissions,
+        can_comment=TenantPermission.TICKET_COMMENT in permissions,
     )

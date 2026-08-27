@@ -55,6 +55,7 @@ export default function SuppliersScreen() {
   const [notes, setNotes] = useState("");
   const [allowedCategories, setAllowedCategories] = useState<string[]>([]);
   const [autoApprove, setAutoApprove] = useState(false);
+  const [cargoEnabled, setCargoEnabled] = useState(false);
   const [isActive, setIsActive] = useState(true);
   const [createAccount, setCreateAccount] = useState(true);
   const [accountActive, setAccountActive] = useState(true);
@@ -77,6 +78,7 @@ export default function SuppliersScreen() {
     setNotes("");
     setAllowedCategories([]);
     setAutoApprove(false);
+    setCargoEnabled(false);
     setIsActive(true);
     setCreateAccount(true);
     setAccountEmail("");
@@ -100,6 +102,7 @@ export default function SuppliersScreen() {
     setNotes(row.notes ?? "");
     setAllowedCategories(row.allowed_product_category_ids);
     setAutoApprove(row.auto_approval_enabled);
+    setCargoEnabled(row.cargo_enabled);
     setIsActive(row.is_active);
     setAccountActive(row.account_active ?? true);
     setAccountEmail(row.account_email ?? "");
@@ -138,6 +141,7 @@ export default function SuppliersScreen() {
       weekly_quota: numOrNull(weeklyQuota),
       monthly_quota: numOrNull(monthlyQuota),
       auto_approval_enabled: autoApprove,
+      cargo_enabled: cargoEnabled,
       is_active: isActive,
       notes: notes || null,
     };
@@ -253,6 +257,7 @@ export default function SuppliersScreen() {
                 label={row.auto_approval_enabled ? "Otomatik onay" : "Manuel onay"}
                 color={row.auto_approval_enabled ? colors.status.approved : colors.mutedText}
               />
+              {row.cargo_enabled && <Badge label="Kargo açık" color={colors.cargo} />}
               {row.account_email ? (
                 <Badge
                   label={row.account_active ? "Aktif hesap" : "Pasif hesap"}
@@ -338,6 +343,17 @@ export default function SuppliersScreen() {
             hint="Talepler beklemeden onaylanır."
             value={autoApprove}
             onValueChange={setAutoApprove}
+          />
+
+          <SectionTitle title="Teslimat Tipleri" />
+          <Text style={{ color: colors.faintText, fontSize: 12 }}>
+            Standart teslimat her tedarikçide açıktır ve kapatılamaz.
+          </Text>
+          <SwitchRow
+            label="Kargo teslimatı"
+            hint="Kapalıyken tedarikçi portalında Kargo seçeneği hiç görünmez."
+            value={cargoEnabled}
+            onValueChange={setCargoEnabled}
           />
 
           <SectionTitle title="Blokaj & Kota" />

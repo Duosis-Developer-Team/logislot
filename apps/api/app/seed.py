@@ -199,6 +199,9 @@ async def seed_data(db, tenant_id: uuid.UUID | None = None) -> dict:
             TenantPermission.APPT_CANCEL,
             TenantPermission.CALENDAR_VIEW,
             TenantPermission.REPORT_VIEW,  # kendi rampalarinin raporunu gorebilir
+            TenantPermission.TICKET_VIEW,
+            TenantPermission.TICKET_CREATE,
+            TenantPermission.TICKET_COMMENT,
         ],
         is_default=True,
         is_system=True,
@@ -344,6 +347,8 @@ async def seed_data(db, tenant_id: uuid.UUID | None = None) -> dict:
         category_label="Kargo",
         contact_name="Mehmet Can", contact_email="destek@hizlikargo.example.com",
         auto_approval_enabled=False,
+        # Kargo teslimati YALNIZCA acilan tedarikcide gorunur (demo ornegi).
+        cargo_enabled=True,
         weekly_quota=2,  # kota sinirina yakin demo ornegi (1 kargo randevusu seed'li)
         allowed_product_categories=[pc_genel, pc_ambalaj],
         notes="Sehir disi kargo teslimatlari; varis saati belirsiz olabilir.",

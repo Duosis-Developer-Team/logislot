@@ -86,6 +86,52 @@ class Settings(BaseSettings):
     # Drake'in servis anahtari (.drake/project.yaml ile birebir ayni olmali).
     metrics_service: str = "logislot-api"
 
+    # --- Hermes Ticket Hub entegrasyonu ---
+    # Hermes canonical destek sistemidir; LogiSlot yalnizca consumer'dir.
+    # Bu ayarlarin HICBIRI tarayiciya (NEXT_PUBLIC_*) verilmez.
+    #
+    # base_url BOS ise entegrasyon "yapilandirilmamis" sayilir: ticket
+    # olusturma yerelde CALISMAYA DEVAM eder (outbox birikir), Hermes'e
+    # gonderim denenmez ve platform sagligi bunu acikca gosterir. Sessiz
+    # basarisizlik yerine gorunur bir "yapilandirilmadi" durumu tercih edildi.
+    hermes_support_base_url: str = ""
+    #: Bu LogiSlot kurulumunun Hermes'teki immutable application kodu.
+    hermes_support_application_code: str = "logislot"
+    hermes_support_client_id: str = ""
+    #: Backend-to-backend service token. YALNIZCA secret'tan gelir.
+    hermes_support_token: str = ""
+    #: Gelen webhook imzasinin dogrulandigi paylasilan sir (HMAC-SHA256).
+    hermes_support_webhook_secret: str = ""
+    #: Rotasyon sirasinda ikinci (eski/yeni) anahtar kisa sure kabul edilir.
+    hermes_support_webhook_secret_previous: str = ""
+    hermes_support_webhook_key_id: str = "v1"
+    #: Imzali govdedeki timestamp bu pencerenin disindaysa istek REDDEDILIR.
+    hermes_support_webhook_tolerance_seconds: int = 300
+    #: Webhook govde siniri; asan istek okunmadan reddedilir.
+    hermes_support_webhook_max_body_bytes: int = 262144
+    hermes_support_timeout_seconds: float = 8.0
+    #: Grup katalogu onbellek omru (platform ekrani her acilista Hermes'e
+    #: gitmesin diye). Cache OTORITE DEGILDIR; save/create dogrulamasi
+    #: her zaman uzak servise sorar.
+    hermes_support_catalog_ttl_seconds: int = 300
+    #: LogiSlot'un Hermes'e bildirdigi callback taban adresi (yalnizca
+    #: dokumantasyon/health amacli; Hermes kendi config'inden cagirir).
+    hermes_support_callback_base_url: str = ""
+
+    # --- Ticket ozelligi ---
+    #: Kapaliyken tenant/tedarikci ticket uclari 404 gibi degil, acik bir
+    #: "ozellik kapali" yaniti dondurur ve nav gizlenir (rollback yolu).
+    ticketing_enabled: bool = True
+    ticket_attachment_max_files: int = 5
+    ticket_attachment_max_file_size_bytes: int = 15_728_640  # 15 MB
+    ticket_attachment_max_total_bytes: int = 52_428_800  # 50 MB
+    #: Outbox teslimat dongusu; webhook gecikme hedefi 60 sn oldugundan kisa.
+    ticket_outbox_interval_seconds: int = 20
+    ticket_reconciliation_interval_seconds: int = 900
+    ticket_inbox_recovery_interval_seconds: int = 300
+    #: Bir komut bu kadar denemeden sonra dead-letter'a duser (bkz. 06/2).
+    ticket_outbox_max_attempts: int = 10
+
     # Maintenance scheduler (Sprint 11): email retry + bildirim temizligi
     scheduler_enabled: bool = True
     email_retry_interval_seconds: int = 300

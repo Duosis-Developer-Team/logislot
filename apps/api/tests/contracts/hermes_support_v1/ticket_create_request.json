@@ -1,0 +1,40 @@
+{
+  "actual_result": "Sayfa bos doner",
+  "attachment_upload_ids": [
+    "5a7c1e93-2f48-4b6d-8a11-3c9e7d0b4f25"
+  ],
+  "category": "bug",
+  "client_context": {
+    "app_version": "git-sha",
+    "browser": "Chrome 140",
+    "environment": "prod",
+    "locale": "tr-TR",
+    "os": "Windows 11",
+    "page_path": "/appointments/new",
+    "timezone": "Europe/Istanbul"
+  },
+  "contract_version": "1.0",
+  "correlation_id": "c0ffee00-1111-4222-8333-444455556666",
+  "description": "Kaydet butonundan sonra islem tamamlanmiyor ve sayfa bos donuyor.",
+  "error_code": "LS-API-409",
+  "expected_result": "Randevu kaydedilir",
+  "impact": "multiple_users",
+  "occurred_at": "2026-08-25T09:30:00Z",
+  "reproduction_steps": "1. Randevu ekranini ac 2. Formu doldur 3. Kaydet",
+  "requester": {
+    "display_name": "Example User",
+    "email": "user@example.com",
+    "id": "2e6a9c07-8b45-4d13-a9f6-0c7b2d4e8a51"
+  },
+  "route": {
+    "group_id": "3f2b1c44-9d1e-4a58-9c77-2b7e5a0f1d33",
+    "route_version": 3
+  },
+  "source_tenant": {
+    "display_name": "BTA",
+    "id": "b1d9f7a2-6c3e-4a1b-9f52-8e0c4d7a1b62",
+    "slug": "bta"
+  },
+  "source_ticket_id": "7d3c5b19-4e82-4f60-b1a7-9c2e8d5f3a40",
+  "title": "Randevu kaydinda hata aliyorum"
+}

@@ -250,6 +250,125 @@ async def test_supplier_catalog(client, seeded):
     assert "morning" in data["cargo_windows"]
 
 
+# ---------- Kargo teslimat izni (tedarikci bazinda) ----------
+
+
+async def test_catalog_delivery_types_follow_cargo_flag(client, seeded):
+    """Kargo kapaliyken katalogda YALNIZCA standart listelenir."""
+    closed = auth_headers(await login(client, "/auth/supplier-login", "tedarikci@anadoluun.com"))
+    data = (await client.get("/supplier/catalog", headers=closed)).json()["data"]
+    assert data["delivery_types"] == ["standard"]
+    assert data["limits"]["cargo_enabled"] is False
+
+    # seed'de kargo yalnizca bu tedarikci icin acik
+    opened = auth_headers(await login(client, "/auth/supplier-login", "tedarikci@hizlikargo.com"))
+    data = (await client.get("/supplier/catalog", headers=opened)).json()["data"]
+    assert data["delivery_types"] == ["standard", "cargo"]
+    assert data["limits"]["cargo_enabled"] is True
+
+
+async def test_cargo_rejected_when_supplier_flag_closed(client, seeded):
+    """UI gizlese de API savunur: kapali tedarikcinin kargo istegi 422."""
+    token = auth_headers(await login(client, "/auth/supplier-login", "tedarikci@anadoluun.com"))
+    day = next_weekday()
+    body = {
+        "product_category_id": str(seeded["product_categories"]["unlu"].id),
+        "product_name": "Kargo Denemesi",
+        "quantity": 1,
+        "target_date": day.isoformat(),
+        "delivery_type": "cargo",
+        "cargo_window": "morning",
+    }
+    response = await client.post("/supplier/appointments", headers=token, json=body)
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "CARGO_NOT_ENABLED"
+
+    # Musaitlik sorgusu da ayni kurala tabidir
+    response = await client.post(
+        "/supplier/availability/evaluate",
+        headers=token,
+        json={
+            "product_category_id": str(seeded["product_categories"]["unlu"].id),
+            "target_date": day.isoformat(),
+            "delivery_type": "cargo",
+            "cargo_window": "morning",
+        },
+    )
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "CARGO_NOT_ENABLED"
+
+    # Standart teslimat kapali tedarikcide DAIMA calisir
+    response = await client.post(
+        "/supplier/appointments",
+        headers=token,
+        json={
+            **body,
+            "delivery_type": "standard",
+            "cargo_window": None,
+            "start_at": f"{day.isoformat()}T10:00:00+03:00",
+            "duration_minutes": 60,
+        },
+    )
+    assert response.status_code == 200, response.text
+
+
+async def test_admin_opens_cargo_then_supplier_can_use_it(client, seeded):
+    """Yonetim anahtari acinca secenek katalogda belirir ve create gecer."""
+    headers = await admin(client)
+    fid = seeded["facility"].id
+    supplier_id = seeded["suppliers"]["un"].id
+
+    response = await client.patch(
+        f"/facilities/{fid}/suppliers/{supplier_id}",
+        headers=headers,
+        json={"cargo_enabled": True},
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["data"]["cargo_enabled"] is True
+
+    token = auth_headers(await login(client, "/auth/supplier-login", "tedarikci@anadoluun.com"))
+    data = (await client.get("/supplier/catalog", headers=token)).json()["data"]
+    assert "cargo" in data["delivery_types"]
+
+    day = next_weekday()
+    response = await client.post(
+        "/supplier/appointments",
+        headers=token,
+        json={
+            "product_category_id": str(seeded["product_categories"]["unlu"].id),
+            "product_name": "Kargo Denemesi",
+            "quantity": 1,
+            "target_date": day.isoformat(),
+            "delivery_type": "cargo",
+            "cargo_window": "morning",
+        },
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["data"]["delivery_type"] == "cargo"
+
+
+async def test_admin_on_behalf_cargo_blocked_when_closed(client, seeded):
+    """Admin tedarikci ADINA acsa bile kapali tedarikcide kargo olusmaz."""
+    headers = await admin(client)
+    fid = seeded["facility"].id
+    day = next_weekday()
+    response = await client.post(
+        f"/facilities/{fid}/appointments",
+        headers=headers,
+        json={
+            "supplier_id": str(seeded["suppliers"]["un"].id),
+            "product_category_id": str(seeded["product_categories"]["unlu"].id),
+            "product_name": "Kargo Denemesi",
+            "quantity": 1,
+            "target_date": day.isoformat(),
+            "delivery_type": "cargo",
+            "cargo_window": "morning",
+        },
+    )
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "CARGO_NOT_ENABLED"
+
+
 async def test_catalog_hides_deactivated_category(client, seeded):
     headers = await admin(client)
     fid = seeded["facility"].id

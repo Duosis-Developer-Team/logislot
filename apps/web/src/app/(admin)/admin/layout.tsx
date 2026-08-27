@@ -6,6 +6,7 @@ import {
   CalendarDays,
   ClipboardList,
   LayoutDashboard,
+  LifeBuoy,
   LineChart,
   Repeat,
   Settings2,
@@ -44,6 +45,12 @@ const NAV: (AppNavItem & { permission?: string | string[] })[] = [
   },
   { href: "/admin/series", label: "Seriler", icon: Repeat, permission: "appt.view" },
   { href: "/admin/reports", label: "Raporlar", icon: LineChart, permission: "report.view" },
+  {
+    href: "/admin/tickets",
+    label: "Destek Talepleri",
+    icon: LifeBuoy,
+    permission: "ticket.view",
+  },
   {
     href: "/admin/settings",
     label: "Yönetim",
