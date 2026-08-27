@@ -183,6 +183,21 @@ Müşteri URL'lerinde **port yoktur**; 80/443'teki ingress Host başlığına g�
 dağıtır (`k8s/overlays/prod/ingress-patch.yaml`). `logislot.com` ve
 `logislot.io` **birebir aynı** kural setine sahiptir.
 
+> **Ingress class `nginx-test`'tir, `nginx` değil.** Kümede üç class var ama
+> internete açık olan tek controller `ingress-nginx-test` (ADDRESS
+> `84.247.180.172`, node1'de iptables 80→30880 / 443→30443). `nginx` ve
+> `drake-nginx` yalnızca küme içi ClusterIP'tedir. Yanlış class'a yazmak
+> **sessiz** bir hatadır: `kubectl get ingress` dolu görünür, alan adı
+> dışarıdan hiç açılmaz.
+>
+> Hermes etkilenmez: `hermes-test-ingress` host `*` catch-all'dır ve nginx
+> exact host'u catch-all'dan önce eşleştirir.
+
+**TLS:** cert-manager kurulu, `letsencrypt-prod` ClusterIssuer'ı Ready
+(preflight ile doğrulandı). Sertifika HTTP-01 ile otomatik üretilir, yani
+**DNS yayına girdikten sonra**. `.com` ve `.io` ayrı sertifikalardır; biri
+doğrulanamazsa diğeri etkilenmez.
+
 | Host | Gider |
 |---|---|
 | `logislot.com`, `www.logislot.com` | entry |
