@@ -229,7 +229,11 @@ async def test_revise_validates_availability_and_writes_history(client, seeded):
 
     first, day = await create_appointment_via_api(client, seeded, supplier_token, 9)
     second, _ = await create_appointment_via_api(client, seeded, supplier_token, 11)
-    assert first["dock_id"] == second["dock_id"]  # ikisi de en az dolu R1'e atanir
+    # Ikisinin AYNI rampaya dusmesi VARSAYILMAZ: otomatik atama gun ici dolulugu
+    # baz alir, seed randevulari da bugunun haftasina gore kayar — 28 Agu 2026'da
+    # test tam bu yuzden dustu. Zaten gerekli degil; asagidaki 1. adim `second`i
+    # acikca `first`in rampasina revize ederek cakismayi olusturur. Atamanin
+    # dengeleme davranisi kendi testinde: test_auto_assignment_prefers_least_busy_dock.
 
     base = f"/facilities/{fid}/appointments/{second['id']}"
 

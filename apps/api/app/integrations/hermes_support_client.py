@@ -28,6 +28,10 @@ from app.integrations import hermes_contract as contract
 
 logger = logging.getLogger("logislot.hermes.client")
 
+#: Hermes'in sema dogrulama hata kodu. Sozlesmedeki kodlardan biri DEGIL;
+#: yalnizca validate ucundaki gecici uyum dalini tetiklemek icin taninir.
+_PEER_VALIDATION_ERROR = "validation_error"
+
 #: Loglara/hata mesajlarina sizabilecek desenler. Mesajlar kullaniciya ve
 #: audit'e gidebildigi icin temizlik ISTEMCIDE yapilir — cagiran her yerde
 #: hatirlanmasi gereken bir kural birakmak guvenilmez olurdu.
@@ -273,17 +277,58 @@ class HermesSupportClient:
         group_id: uuid.UUID,
         correlation_id: uuid.UUID | None = None,
     ) -> dict[str, Any]:
-        response = await self._request(
-            "POST",
-            contract.ROUTE_VALIDATE_PATH,
-            json_body={
-                "contract_version": contract.CONTRACT_VERSION,
-                "application_code": self.application_code,
-                "source_tenant_id": str(source_tenant_id),
-                "group_id": str(group_id),
-            },
-            correlation_id=correlation_id,
-        )
+        """Route dogrulamasi. Once SOZLESME govdesi, gerekirse uyum govdesi.
+
+        GECICI UYUM KATMANI (28 Agu 2026). Hermes'in `/support/routes/validate`
+        uygulamasi ortak fixture'dan (`route_validate_request.json`, iki repoda
+        birebir ayni) SAPIYOR:
+
+          sozlesme : {application_code, contract_version, group_id, source_tenant_id}
+          Hermes   : {source_tenant: {id}, group_id}
+                     — `application_code` ve `contract_version` "Extra inputs
+                       are not permitted" ile 422 reddedilir.
+
+        Sapma Hermes'in KENDI iclerinde de tutarsiz: ayni kurulumun
+        `POST /support/tickets` ucu `contract_version` ve `source_tenant`
+        nesnesini sorunsuz kabul ediyor. Yani duzeltilmesi gereken taraf
+        Hermes; fixture TEK TARAFLI DEGISTIRILMEZ.
+
+        Bu yuzden kanonik govde ONCE denenir (sozlesme otorite olarak kalir) ve
+        yalnizca `validation_error` gelirse bir kez uyum govdesiyle tekrarlanir.
+        Hermes ucu duzeltince ilk deneme gecer ve bu dal kendiliginden olur —
+        o zaman blok silinebilir.
+        """
+        canonical = {
+            "contract_version": contract.CONTRACT_VERSION,
+            "application_code": self.application_code,
+            "source_tenant_id": str(source_tenant_id),
+            "group_id": str(group_id),
+        }
+        try:
+            response = await self._request(
+                "POST",
+                contract.ROUTE_VALIDATE_PATH,
+                json_body=canonical,
+                correlation_id=correlation_id,
+            )
+        except HermesApiError as exc:
+            if exc.code != _PEER_VALIDATION_ERROR:
+                raise
+            logger.warning(
+                "Hermes /support/routes/validate sozlesme govdesini reddetti "
+                "(%s); uyum govdesiyle tekrarlaniyor. Hermes ucu duzelince bu "
+                "yedek dal kaldirilmali.",
+                exc.code,
+            )
+            response = await self._request(
+                "POST",
+                contract.ROUTE_VALIDATE_PATH,
+                json_body={
+                    "source_tenant": {"id": str(source_tenant_id)},
+                    "group_id": str(group_id),
+                },
+                correlation_id=correlation_id,
+            )
         return response.data
 
     # ---------- ekler ----------
