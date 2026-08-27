@@ -27,13 +27,13 @@ import { useSession } from "@/auth/session";
 import { LogiSlotLogo } from "@/components/brand";
 import { Button, Card, Field } from "@/components/ui";
 import { useTheme } from "@/theme/theme";
+import { demoCredentialsFor } from "@/lib/demo-mode";
 import { spacing } from "@/theme/tokens";
 
 interface PortalScreenConfig {
   title: string;
   subtitle: string;
   icon: keyof typeof Ionicons.glyphMap;
-  demo: string;
   target: string;
   expectedUserType: "supplier" | "tenant";
   wrongRoleMessage: string;
@@ -45,7 +45,6 @@ const CONFIGS: Record<"supplier" | "admin", PortalScreenConfig> = {
     subtitle:
       "Teslimat randevularınızı oluşturun, takip edin ve güncel durumları görüntüleyin.",
     icon: "car-outline",
-    demo: "tedarikci@anadoluun.com",
     target: "/supplier/appointments",
     expectedUserType: "supplier",
     wrongRoleMessage:
@@ -55,7 +54,6 @@ const CONFIGS: Record<"supplier" | "admin", PortalScreenConfig> = {
     title: "Yönetim Paneli",
     subtitle: "Rampa takvimini, onay süreçlerini ve tesis operasyonlarını yönetin.",
     icon: "business-outline",
-    demo: "admin@cakesbakes.com",
     target: "/admin/dashboard",
     expectedUserType: "tenant",
     wrongRoleMessage:
@@ -68,8 +66,10 @@ export function PortalLoginScreen({ portal }: { portal: "supplier" | "admin" }) 
   const session = useSession();
   const insets = useSafeAreaInsets();
   const config = CONFIGS[portal];
-  const [email, setEmail] = useState(config.demo);
-  const [password, setPassword] = useState("Demo123!");
+  // Demo modu kapaliyken (prod build) form bos baslar.
+  const demo = demoCredentialsFor(portal);
+  const [email, setEmail] = useState(demo?.email ?? "");
+  const [password, setPassword] = useState(demo?.password ?? "");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -212,9 +212,11 @@ export function PortalLoginScreen({ portal }: { portal: "supplier" | "admin" }) 
 
           <Button title="Giriş Yap" onPress={() => void handleSubmit()} loading={loading} />
 
-          <Text style={{ color: colors.faintText, fontSize: 12, textAlign: "center" }}>
-            Demo hesap: {config.demo} / Demo123!
-          </Text>
+          {demo ? (
+            <Text style={{ color: colors.faintText, fontSize: 12, textAlign: "center" }}>
+              Demo hesap: {demo.email} / {demo.password}
+            </Text>
+          ) : null}
         </Card>
 
         <Pressable

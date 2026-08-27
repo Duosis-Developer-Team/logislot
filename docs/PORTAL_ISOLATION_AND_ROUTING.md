@@ -200,9 +200,14 @@ gerek de yok: kullanıcı her zaman `https://logislot.io` görür.
 
 **Neden 8443?** Cloudflare origin'e yalnızca belirli portlardan bağlanır
 (HTTPS: 443, 8443, 2053, 2083, 2087, 2096). ingress-nginx'in kendi
-NodePort'ları (31412/30772) bu listede **yok**, o yüzden yönlendirme şart.
-Kuran betik: `scripts/logislot-port-redirect.sh` (varsayılan **rapor**,
-`--apply` çakışmada durur).
+NodePort'ları (31412/30772) bu listede **yok**, o yüzden aradaki proxy şart.
+
+**Neden `socat`, neden iptables değil:** `REDIRECT 8443→30772` denendi ve
+çalışmadı — `ingress-nginx-controller` node2'de hostNetwork ile çalışıyor,
+dolayısıyla zincir `netfilter NAT → IPVS → node2:443 masquerade` oluyor ve
+çift NAT paketi cevapsız bırakıyor. Hermes'te aynı desenin çalışmasının
+sebebi endpoint'inin **aynı node'daki** bir pod olması. Ayrıntı ve kurulum:
+`k8s/origin-proxy/README.md`.
 
 **Class seçiminin gerçek kriteri controller'ın izlediği namespace'tir:**
 

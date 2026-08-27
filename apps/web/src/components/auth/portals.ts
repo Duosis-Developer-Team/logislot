@@ -12,7 +12,6 @@ export interface PortalConfig {
   /** Portal-specific login sayfası alt başlığı. */
   subtitle: string;
   icon: LucideIcon;
-  demo: string;
   target: string;
   buttonLabel: string;
   /** Login sonrası /auth/me.user_type bu değer olmalı; değilse oturum düşer. */
@@ -32,7 +31,6 @@ export const PORTALS: PortalConfig[] = [
     subtitle:
       "Teslimat randevularınızı oluşturun, takip edin ve güncel durumları görüntüleyin.",
     icon: Truck,
-    demo: "tedarikci@anadoluun.com",
     target: "/supplier/appointments",
     buttonLabel: "Tedarikçi Portalı'na Giriş",
     expectedUserType: "supplier",
@@ -46,7 +44,6 @@ export const PORTALS: PortalConfig[] = [
     description: "Takvim, onay ve tesis yönetimi",
     subtitle: "Rampa takvimini, onay süreçlerini ve tesis operasyonlarını yönetin.",
     icon: Building2,
-    demo: "admin@cakesbakes.com",
     target: "/admin/dashboard",
     buttonLabel: "Yönetim Paneli'ne Giriş",
     expectedUserType: "tenant",
@@ -60,7 +57,6 @@ export const PORTALS: PortalConfig[] = [
     description: "Tenant, kullanım ve plan yönetimi",
     subtitle: "Tenant, tesis, plan ve sistem sağlığı süreçlerini yönetin.",
     icon: Globe2,
-    demo: "admin@logislot.com",
     target: "/platform/tenants",
     buttonLabel: "Platform Yönetimi'ne Giriş",
     expectedUserType: "platform",
