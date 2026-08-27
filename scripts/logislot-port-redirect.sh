@@ -1,21 +1,33 @@
 #!/usr/bin/env bash
-# LogiSlot icin 80/443 -> ingress-nginx NodePort yonlendirmesi.
+# LogiSlot icin 8080/8443 -> ingress-nginx NodePort yonlendirmesi.
 #
-# NEDEN GEREKLI
-#   `logislot-prod`daki Ingress'i yalnizca `ingress-nginx` controller'i gorur
-#   (digeri `--watch-namespace=hermes-test` ile sinirli). O controller'in
-#   Service'i NodePort: 80:31412, 443:30772. Alan adlarinin PORTSUZ calismasi
-#   icin host'un 80/443'unun bu portlara dusmesi gerekir.
+# NEDEN BU PORTLAR (80/443 DEGIL)
+#   node1'in 80/443'u Hermes'e ayrilmis durumda (iptables -> 30880/30443) ve
+#   bir node'un 80/443'u ayni anda iki yere gidemez. LogiSlot Cloudflare'in
+#   ARKASINDA duracagi icin buna gerek de yok: kullanici her zaman
+#   `https://logislot.io` (443) gorur, Cloudflare origin'e BASKA bir porttan
+#   baglanir.
+#
+#   8080 ve 8443 secildi cunku Cloudflare'in origin'e baglanabildigi portlar
+#   SINIRLIDIR: HTTP 80/8080/8880/2052/2082/2086/2095, HTTPS
+#   443/8443/2053/2083/2087/2096. ingress-nginx'in kendi NodePort'lari
+#   (31412/30772) bu listede YOKTUR — Cloudflare onlara dogrudan baglanamaz,
+#   bu yuzden yonlendirme sart.
 #
 #   Hermes ayni sorunu ayni yontemle cozdu: /usr/local/sbin/
 #   hermes-port-redirect.sh (80->30880, 443->30443). Bu betik onun LogiSlot
-#   karsiligidir.
+#   karsiligidir ve HERMES'IN PORTLARINA DOKUNMAZ.
+#
+# CLOUDFLARE TARAFINDA GEREKENLER
+#   1. Kayitlar "Proxied" (turuncu bulut) olmali.
+#   2. Origin Rule: bu host'lar icin origin portu 8443.
+#   3. SSL/TLS modu "Full" (strict DEGIL) — ingress kendi self-signed
+#      sertifikasini sunar, Cloudflare dogrulamaz ama trafik sifrelidir.
+#      Public sertifikayi Cloudflare kendi edge'inde saglar.
 #
 # DIKKAT — CAKISMA
-#   Bir node'un 80/443'u AYNI ANDA iki yere gidemez. Bu betigi Hermes'in
-#   yonlendirmesi olan bir node'da calistirmak Hermes'in o node uzerinden
-#   erisimini KESER. Bu yuzden betik varsayilan olarak YALNIZCA RAPOR verir;
-#   uygulamak icin acikca `--apply` gerekir ve cakisma bulursa durur.
+#   Betik yine de kontrol eder: hedef portlar baska bir servise gidiyorsa
+#   DURUR. Varsayilan mod YALNIZCA RAPOR verir; uygulamak icin `--apply`.
 #
 # KULLANIM
 #   ./logislot-port-redirect.sh              # ne yapacagini yazar, DEGISTIRMEZ
@@ -30,6 +42,10 @@ set -euo pipefail
 
 HTTP_NODEPORT=31412   # ingress-nginx-controller :80
 HTTPS_NODEPORT=30772  # ingress-nginx-controller :443
+# Disaridan dinlenecek portlar. Cloudflare'in origin'e baglanabildigi
+# listeden secildi; 80/443 BILEREK kullanilmiyor (onlar Hermes'in).
+LISTEN_HTTP="${LOGISLOT_LISTEN_HTTP:-8080}"
+LISTEN_HTTPS="${LOGISLOT_LISTEN_HTTPS:-8443}"
 CHAIN="LOGISLOT-REDIRECT"
 
 MODE="${1:-report}"
@@ -41,25 +57,25 @@ need_root() {
 # Bizim zincirimiz DISINDA 80/443'u baska yere goturen kural var mi?
 find_conflicts() {
   iptables -t nat -S PREROUTING 2>/dev/null |
-    grep -E -- "--dport (80|443) " |
+    grep -E -- "--dport ($LISTEN_HTTP|$LISTEN_HTTPS) " |
     grep -v -- "-j $CHAIN" || true
 }
 
 case "$MODE" in
   report)
-    echo "== Mevcut 80/443 nat kurallari =="
-    iptables -t nat -S PREROUTING 2>/dev/null | grep -E -- "--dport (80|443) " || echo "(yok)"
+    echo "== Node'un mevcut nat kurallari (80/443 dahil, bilgi icin) =="
+    iptables -t nat -S PREROUTING 2>/dev/null | grep -E -- "--dport (80|443|$LISTEN_HTTP|$LISTEN_HTTPS) " || echo "(yok)"
     echo
     echo "== Bu betik uygulasaydi =="
-    echo "  80  -> $HTTP_NODEPORT"
-    echo "  443 -> $HTTPS_NODEPORT"
+    echo "  $LISTEN_HTTP  -> $HTTP_NODEPORT   (Cloudflare HTTP origin)"
+    echo "  $LISTEN_HTTPS -> $HTTPS_NODEPORT  (Cloudflare HTTPS origin)"
+    echo "  80/443'e DOKUNULMAZ — onlar Hermes'in."
     echo
     CONFLICTS="$(find_conflicts)"
     if [[ -n "$CONFLICTS" ]]; then
-      echo "!! CAKISMA: bu node'un 80/443'u zaten baska bir yere gidiyor."
+      echo "!! CAKISMA: $LISTEN_HTTP/$LISTEN_HTTPS zaten baska bir yere gidiyor."
       echo "$CONFLICTS" | sed 's/^/   /'
-      echo "   Buyuk olasilikla Hermes. BASKA BIR NODE secin ya da once"
-      echo "   sahibiyle konusun; --apply bu durumda calismaz."
+      echo "   Baska port secin: LOGISLOT_LISTEN_HTTPS=2053 ./$(basename "$0") --apply"
     else
       echo "Cakisma yok; --apply guvenli gorunuyor."
     fi
@@ -77,12 +93,14 @@ case "$MODE" in
     # Kendi zincirimiz: silmesi ve denetlemesi kolay olsun.
     iptables -t nat -N "$CHAIN" 2>/dev/null || true
     iptables -t nat -F "$CHAIN"
-    iptables -t nat -A "$CHAIN" -p tcp --dport 80  -j REDIRECT --to-port "$HTTP_NODEPORT"
-    iptables -t nat -A "$CHAIN" -p tcp --dport 443 -j REDIRECT --to-port "$HTTPS_NODEPORT"
+    iptables -t nat -A "$CHAIN" -p tcp --dport "$LISTEN_HTTP"  -j REDIRECT --to-port "$HTTP_NODEPORT"
+    iptables -t nat -A "$CHAIN" -p tcp --dport "$LISTEN_HTTPS" -j REDIRECT --to-port "$HTTPS_NODEPORT"
     # PREROUTING'e YALNIZCA bir kez bagla (idempotent).
     iptables -t nat -C PREROUTING -p tcp -j "$CHAIN" 2>/dev/null ||
       iptables -t nat -I PREROUTING 1 -p tcp -j "$CHAIN"
-    echo "Uygulandi: 80->$HTTP_NODEPORT, 443->$HTTPS_NODEPORT"
+    echo "Uygulandi: $LISTEN_HTTP->$HTTP_NODEPORT, $LISTEN_HTTPS->$HTTPS_NODEPORT"
+    echo "Dogrulama (baska bir makineden):"
+    echo "  curl -k -H 'Host: logislot.io' https://<node-ip>:$LISTEN_HTTPS/"
     ;;
 
   --remove)

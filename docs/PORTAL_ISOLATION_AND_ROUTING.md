@@ -183,62 +183,52 @@ Müşteri URL'lerinde **port yoktur**; 80/443'teki ingress Host başlığına g�
 dağıtır (`k8s/overlays/prod/ingress-patch.yaml`). `logislot.com` ve
 `logislot.io` **birebir aynı** kural setine sahiptir.
 
-### Public giriş yolu (class seçiminin gerçek kriteri)
+### Public giriş yolu — Cloudflare önde
 
-Class seçerken bakılacak şey **adı değil, controller'ın hangi namespace'leri
-izlediğidir**:
+```
+kullanıcı ──443──> Cloudflare (edge sertifikası)
+                      │
+                      └──8443──> 84.247.180.172
+                                   │ iptables REDIRECT
+                                   └──30772──> ingress-nginx (class nginx)
+                                                 └──> logislot Ingress → portal Service
+```
+
+**80/443'e hiç dokunulmuyor** — onlar Hermes'in (`iptables 80→30880, 443→30443`).
+Bir node'un 80/443'ü aynı anda iki yere gidemez; Cloudflare önde olduğu için
+gerek de yok: kullanıcı her zaman `https://logislot.io` görür.
+
+**Neden 8443?** Cloudflare origin'e yalnızca belirli portlardan bağlanır
+(HTTPS: 443, 8443, 2053, 2083, 2087, 2096). ingress-nginx'in kendi
+NodePort'ları (31412/30772) bu listede **yok**, o yüzden yönlendirme şart.
+Kuran betik: `scripts/logislot-port-redirect.sh` (varsayılan **rapor**,
+`--apply` çakışmada durur).
+
+**Class seçiminin gerçek kriteri controller'ın izlediği namespace'tir:**
 
 | controller | class | `--watch-namespace` | Service |
 |---|---|---|---|
 | `ingress-nginx` | `nginx` | yok = **hepsi** | NodePort `80:31412`, `443:30772` |
-| `ingress-nginx-test` | `nginx-test` | **`hermes-test`** | NodePort `80:30880`, `443:30443` |
-| `drake-nginx` | `drake-nginx` | — | — |
+| `ingress-nginx-test` | `nginx-test` | **`hermes-test`** | `80:30880`, `443:30443` |
 
-`nginx-test` node1'de 80/443'ü karşılıyor olsa da **yalnızca `hermes-test`**
-namespace'ini izler; `logislot-prod`daki bir Ingress'i hiçbir zaman görmez.
-27 Ağu 2026'da "public port onda" diye class `nginx-test` yapıldı, deploy
-edildi ve host'lar yine Hermes'in catch-all'ına düştü. Class `nginx`'tir.
+`nginx-test` node1'de 80/443'ü karşılıyor olsa da yalnızca `hermes-test`
+namespace'ini izler; `logislot-prod`daki Ingress'i hiçbir zaman görmez.
+27 Ağu 2026'da "public port onda" diye ona geçildi, deploy edildi, host'lar
+yine Hermes'in catch-all'ına düştü. **Class `nginx`.**
 
-**Kalan adım — 80/443 eşlemesi.** Ingress artık doğru controller'da, ama o
-controller'ın NodePort'ları host'un 80/443'üne bağlı değil. Doğrulama
-(DNS'siz, Host başlığıyla):
+**Sertifika Cloudflare'de.** cert-manager/Let's Encrypt kullanılmıyor: HTTP-01
+doğrulaması 80 portundan erişim ister, o port Hermes'in. Cloudflare SSL modu
+**Full (strict değil)** — origin'in self-signed sertifikası yeterli, trafik
+yine şifreli. Full (strict) istenirse Cloudflare Origin CA sertifikası
+`logislot-tls-logislot-io` secret'ı olarak yaratılıp ingress'teki `tls:`
+bloğu açılır.
+
+Doğrulama (DNS'siz, Host başlığıyla):
 
 ```
 curl -H "Host: logislot.io" http://84.247.180.172:31412/   # LogiSlot gelir
 curl -H "Host: logislot.io" http://84.247.180.172/         # Hermes gelir (catch-all)
 ```
-
-Portsuz URL için bir node'da `80→31412`, `443→30772` yönlendirmesi gerekir —
-Hermes'in `hermes-port-redirect.service` ile yaptığının aynısı. Hazır betik:
-`scripts/logislot-port-redirect.sh` (varsayılan olarak **yalnızca rapor**
-verir; `--apply` çakışma bulursa durur).
-
-**Bir node'un 80/443'ü aynı anda iki yere gidemez.** node1'inki Hermes'e
-ayrılmış durumda, dolayısıyla LogiSlot için ayrı bir node ya da ayrı bir IP
-gerekir. Bu, Hermes'i de ilgilendirdiği için sahibiyle kararlaştırılmalıdır.
-
-**TLS:** cert-manager kurulu, `letsencrypt-prod` ClusterIssuer'ı Ready
-(preflight ile doğrulandı). Sertifika HTTP-01 ile otomatik üretilir, yani
-**DNS yayına girdikten sonra**. `.com` ve `.io` ayrı sertifikalardır; biri
-doğrulanamazsa diğeri etkilenmez.
-
-**Birincil alan adı `logislot.io`** (27 Ağu 2026). `.com`un kuralları da
-yerinde ama DNS'i bağlanmadığı için sertifikası kapalı.
-
-| Host | Gider |
-|---|---|
-| `logislot.io`, `www.logislot.io` | entry |
-| `yonetim.logislot.io` | yönetim portalı |
-| `tedarikci.logislot.io` | tedarikçi portalı |
-| `admin.logislot.io` | gizli admin paneli |
-| `api.logislot.io` | API |
-| `cknb.logislot.io` | yönetim portalı (Cakes & Bakes alias) |
-| `cknbtedarik.logislot.io` | tedarikçi portalı (Cakes & Bakes alias) |
-
-**Tenant alias'ları ayrı bir uygulama değildir.** `cknb.*` ile
-`yonetim.*` **aynı** deployment'a gider; tenant, giriş yapan kullanıcının
-kimliğinden çözülür — host'tan değil. Yeni müşteri alias'ı eklemek =
-ingress'e iki kural + iki DNS kaydı. Kod değişmez.
 
 ### Geçiş: iki ayrı deploy, sıra önemlidir
 
