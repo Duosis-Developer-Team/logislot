@@ -2,13 +2,16 @@
 #
 # NEXT_PUBLIC_API_URL BUILD-TIME'dir (Next.js bundle'ina gomulur) ve
 # ConfigMap'ten DEGIL, CI'daki `vars.PROD_NEXT_PUBLIC_API_URL` degiskeninden
-# gelir. Domain gecisi bu yuzden IKI adimdir:
-#   1) DNS + sertifika yayina girer,
-#   2) vars.PROD_NEXT_PUBLIC_API_URL = https://api.logislot.com yapilir ve
-#      prod web imaji YENIDEN build edilir.
-# Adim 2 adim 1'den once yapilirsa prod web, cozulmeyen bir adrese istek
-# atar ve tamamen kullanilamaz hale gelir. Bu yuzden bu promosyonda degisken
-# BILEREK eski (IP:port) degerinde birakildi.
+# gelir. 27 Agu 2026'da `https://api.logislot.com` yapildi.
+#
+# Bu yuzden prod gecisi IKI DEPLOY'dur ve SIRA onemlidir:
+#   Asama 1 — ingress + portallar. Web imaji HALA IP:port API'sine bakar,
+#             yani prod calismaya devam eder. DNS'ten ONCE onaylanabilir.
+#   Asama 2 — yeni API adresiyle derlenmis web imaji. YALNIZCA DNS
+#             cozulmeye basladiktan SONRA onaylanmalidir.
+# Asama 2 erken onaylanirsa prod web cozulmeyen bir adrese istek atar ve
+# tamamen kullanilamaz hale gelir. Ikisini tek deploy'da birlestirmek de
+# ayni sonucu verirdi; bu yuzden bilerek ayrildilar.
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -26,10 +29,11 @@ data:
   LOGISLOT_PUBLIC_WEB_URL: "https://logislot.com"
   # CORS — GECIS LISTESI.
   #
-  # Hem YENI alan adlari hem ESKI IP:port kokenleri birlikte duruyor. Sebep:
-  # prod web bundle'i hala `http://84.247.180.172:30083`e istek atiyor
-  # (build-time; yukariya bakin). Eski kokenleri simdi cikarmak, DNS gecisi
-  # tamamlanana kadar prod'u kirardi. Gecis bitince IP satirlari SILINIR.
+  # Hem YENI alan adlari hem ESKI IP:port kokenleri birlikte duruyor.
+  # Asama 1'de bundle hala IP:port API'sine gider (IP kokenleri sart);
+  # Asama 2'den sonra da IP:port uzerinden acilan sayfa alan adindaki API'yi
+  # cagirir, dolayisiyla IP kokeni yine gerekir. Bu satirlar ancak IP:port
+  # erisimi tamamen birakildiginda SILINIR.
   LOGISLOT_CORS_ORIGINS: >-
     ["https://logislot.com","https://www.logislot.com",
     "https://yonetim.logislot.com","https://tedarikci.logislot.com",
