@@ -266,3 +266,79 @@ async def test_hermes_failure_returns_standard_error_envelope(client, seeded, se
     )
     assert created.status_code == 200
     assert created.json()["data"]["delivery_status"] == "pending"
+
+
+async def test_validate_route_sends_contract_body_first():
+    """Kanonik govde ONCE gider; sozlesme otorite olarak kalir."""
+    import json as _json
+
+    from tests.hermes_stub import json_response, make_client
+
+    seen: list[dict] = []
+
+    def handler(request):
+        seen.append(_json.loads(request.content))
+        return json_response(200, fixture("route_validate_response"))
+
+    client = make_client(handler)
+    await client.validate_route(source_tenant_id=uuid.uuid4(), group_id=uuid.uuid4())
+
+    assert len(seen) == 1
+    assert set(seen[0]) == set(fixture("route_validate_request"))
+
+
+async def test_validate_route_falls_back_when_peer_rejects_contract_body():
+    """Hermes kanonik govdeyi 422 ile reddederse uyum govdesiyle BIR KEZ denenir.
+
+    Hermes'in bu ucu ortak fixture'dan sapiyor (`application_code` ve
+    `contract_version` "Extra inputs are not permitted"). Fixture tek tarafli
+    degistirilemeyecegi icin istemci once sozlesmeyi dener, sonra uyum
+    govdesine duser. Hermes duzelince ILK deneme gecer ve yedek dal olur.
+    """
+    import json as _json
+
+    from tests.hermes_stub import error_response, json_response, make_client
+
+    seen: list[dict] = []
+
+    def handler(request):
+        body = _json.loads(request.content)
+        seen.append(body)
+        if "source_tenant_id" in body:
+            return error_response(422, "validation_error", retryable=False)
+        return json_response(200, fixture("route_validate_response"))
+
+    client = make_client(handler)
+    result = await client.validate_route(
+        source_tenant_id=uuid.uuid4(), group_id=uuid.uuid4()
+    )
+
+    assert result["valid"] is True
+    assert len(seen) == 2
+    # 1) sozlesme govdesi, 2) Hermes'in kabul ettigi govde
+    assert set(seen[0]) == set(fixture("route_validate_request"))
+    assert set(seen[1]) == {"source_tenant", "group_id"}
+    assert set(seen[1]["source_tenant"]) == {"id"}
+
+
+async def test_validate_route_does_not_retry_other_errors():
+    """Yedek dal YALNIZCA sema hatasinda acilir; `group_inactive` tekrarlanmaz."""
+    import json as _json
+
+    import pytest
+
+    from app.integrations.hermes_support_client import HermesApiError
+    from tests.hermes_stub import error_response, make_client
+
+    seen: list[dict] = []
+
+    def handler(request):
+        seen.append(_json.loads(request.content))
+        return error_response(400, contract.ERROR_GROUP_INACTIVE, retryable=False)
+
+    client = make_client(handler)
+    with pytest.raises(HermesApiError) as exc:
+        await client.validate_route(source_tenant_id=uuid.uuid4(), group_id=uuid.uuid4())
+
+    assert exc.value.code == contract.ERROR_GROUP_INACTIVE
+    assert len(seen) == 1
