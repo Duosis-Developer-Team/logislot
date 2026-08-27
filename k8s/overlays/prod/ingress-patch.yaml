@@ -48,16 +48,19 @@ metadata:
 spec:
   ingressClassName: nginx
   tls:
-    - hosts:
-        - logislot.com
-        - www.logislot.com
-        - yonetim.logislot.com
-        - tedarikci.logislot.com
-        - admin.logislot.com
-        - api.logislot.com
-        - cknb.logislot.com
-        - cknbtedarik.logislot.com
-      secretName: logislot-tls-logislot-com
+  # logislot.com DNS'i baglandiginda ACIN. Su an kayitlari YOK (apex hala
+  # registrar park sayfasina bakiyor), acik birakmak Let's Encrypt tarafinda
+  # surekli basarisiz HTTP-01 denemesi uretirdi.
+  #   - hosts:
+  #       - logislot.com
+  #       - www.logislot.com
+  #       - yonetim.logislot.com
+  #       - tedarikci.logislot.com
+  #       - admin.logislot.com
+  #       - api.logislot.com
+  #       - cknb.logislot.com
+  #       - cknbtedarik.logislot.com
+  #     secretName: logislot-tls-logislot-com
     - hosts:
         - logislot.io
         - www.logislot.io
