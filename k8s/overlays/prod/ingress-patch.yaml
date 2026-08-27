@@ -55,17 +55,16 @@ spec:
         - cknb.logislot.com
         - cknbtedarik.logislot.com
       secretName: logislot-tls-logislot-com
-  # logislot.io DNS'i hazir olunca ACIN (yukaridakinin altina, ayni girintiyle):
-  #   - hosts:
-  #       - logislot.io
-  #       - www.logislot.io
-  #       - yonetim.logislot.io
-  #       - tedarikci.logislot.io
-  #       - admin.logislot.io
-  #       - api.logislot.io
-  #       - cknb.logislot.io
-  #       - cknbtedarik.logislot.io
-  #     secretName: logislot-tls-logislot-io
+    - hosts:
+        - logislot.io
+        - www.logislot.io
+        - yonetim.logislot.io
+        - tedarikci.logislot.io
+        - admin.logislot.io
+        - api.logislot.io
+        - cknb.logislot.io
+        - cknbtedarik.logislot.io
+      secretName: logislot-tls-logislot-io
   rules:
     # ---------- logislot.com ----------
     # Public web sitesi / portal secici (entry)

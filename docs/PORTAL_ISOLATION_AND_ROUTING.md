@@ -213,14 +213,31 @@ doğrulanamazsa diğeri etkilenmez.
 kimliğinden çözülür — host'tan değil. Yeni müşteri alias'ı eklemek =
 ingress'e iki kural + iki DNS kaydı. Kod değişmez.
 
-### Geçişin iki adımı (sıra önemlidir)
+### Geçiş: iki ayrı deploy, sıra önemlidir
 
-1. **DNS + sertifika yayına girer.** Ingress kuralları zaten hazır.
-2. **Ancak ondan sonra** `vars.PROD_NEXT_PUBLIC_API_URL` →
-   `https://api.logislot.com` yapılır ve prod web imajı **yeniden build**
-   edilir. Bu değer build-time'dır (Next.js bundle'ına gömülür).
+`NEXT_PUBLIC_API_URL` **build-time**'dır (Next.js bundle'ına gömülür), yani
+"API artık alan adında" bilgisi ancak **yeni bir imaj** ile gelir. Bu yüzden
+geçiş tek deploy değildir:
 
-Adım 2 adım 1'den önce yapılırsa prod web, çözülmeyen bir adrese istek atar
-ve tamamen kullanılamaz hale gelir. Bu yüzden CORS listesinde geçiş boyunca
-**hem** alan adları **hem** eski IP:port kökenleri bulunur; geçiş bitince IP
-satırları silinir.
+| Aşama | İçerik | Ne zaman onaylanır | Prod'un durumu |
+|---|---|---|---|
+| 1 | Ingress + 4 portal + migration'lar. Web imajı **hâlâ** IP:port API'sine bakar. | DNS'ten **önce** olabilir | Çalışmaya devam eder |
+| 2 | `https://api.logislot.com` ile derlenmiş web imajı | **Yalnızca DNS çözülmeye başladıktan sonra** | Alan adları tam çalışır |
+
+**İkisini tek deploy'da birleştirmeyin.** Birleştirilirse, DNS yayılana kadar
+prod web çözülmeyen bir adrese istek atar ve IP:port üzerinden bile
+açılmaz — yani prod tamamen düşer.
+
+Aşama 1 ile 2 arasında alan adları HTTP'de açılır ama API çağrıları
+**mixed-content** nedeniyle tarayıcı tarafından engellenir (HTTPS sayfa →
+HTTP API). Bu ara durum beklenendir; IP:port erişimi bu sırada sorunsuz
+çalışmaya devam eder.
+
+CORS listesi geçiş boyunca **hem** alan adlarını **hem** eski IP:port
+kökenlerini taşır. Aşama 2'den sonra bile IP:port üzerinden açılan sayfa
+alan adındaki API'yi çağırdığı için IP kökenleri gereklidir; ancak IP:port
+erişimi tamamen bırakılınca silinebilirler.
+
+**Sertifikalar:** `.com` ve `.io` **ayrı** sertifikalardır. Tek sertifikada
+toplansalardı bir host doğrulanamadığında tümü başarısız olurdu; ayrı
+oldukları için `.io`nun DNS'i geç gelse bile `.com` etkilenmez.
