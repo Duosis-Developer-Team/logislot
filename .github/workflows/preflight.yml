@@ -52,6 +52,36 @@ jobs:
 
           say() { echo; echo "===== $* ====="; }
 
+          # --- Kume geneli: ingress + TLS (alan adi gecisi icin) -------------
+          # Bu blok NAMESPACE kontrolunden ONCE calisir: sorulari kume
+          # kapsamlidir ve namespace henuz yokken de cevaplanabilmelidir.
+          #
+          # Neden gerekli: alan adlarini 80/443'e baglamak icin (a) Ingress'in
+          # hangi class'a yazilacagini, (b) gecerli sertifikayi kimin
+          # uretecegini bilmek sart. Ikisi de yalnizca kumede gorunur.
+
+          say "INGRESS CLASS'LARI (Ingress hangi ada yazilmali)"
+          kubectl get ingressclass -o wide 2>/dev/null || echo "(okunamadi)"
+
+          say "CERT-MANAGER KURULU MU"
+          if kubectl get crd clusterissuers.cert-manager.io >/dev/null 2>&1; then
+            echo "EVET — cert-manager CRD'si bulundu."
+            echo "--- ClusterIssuer'lar (ingress anotasyonunda kullanilacak ad) ---"
+            kubectl get clusterissuer 2>/dev/null || echo "(clusterissuer okunamadi)"
+            echo "--- cert-manager pod'lari ---"
+            kubectl get pods -A 2>/dev/null | grep -i cert-manager | head -10 || echo "(pod bulunamadi)"
+          else
+            echo "HAYIR — cert-manager CRD'si YOK."
+            echo "-> Gecerli TLS icin ya cert-manager kurulmali ya da elle"
+            echo "   olusturulmus bir TLS secret'i kullanilmali. O ana kadar"
+            echo "   denetleyici kendi SAHTE sertifikasini sunar."
+          fi
+
+          say "MEVCUT INGRESS'LER (host cakismasi var mi)"
+          # Ayni host'u iki Ingress talep ederse davranis belirsizlesir;
+          # LogiSlot'un alacagi host'lar baska bir Ingress'te GORUNMEMELI.
+          kubectl get ingress -A 2>/dev/null || echo "(ingress listesi okunamadi)"
+
           say "NAMESPACE"
           if ! kubectl get namespace "$NAMESPACE" >/dev/null 2>&1; then
             echo "YOK — ilk deploy namespace'i olusturacak (bos kurulum)."
