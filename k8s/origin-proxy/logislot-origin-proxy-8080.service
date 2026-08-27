@@ -1,0 +1,25 @@
+# LogiSlot origin proxy — Cloudflare HTTP origin bu porta baglanir.
+#
+# NEDEN iptables DEGIL: node1:8080 -> REDIRECT 31412 -> IPVS -> node2:443
+# zincirinde netfilter NAT ile IPVS ust uste NAT yapiyor ve paket cevapsiz
+# kaliyor (denendi: 8080 zaman asimina dustu, REDIRECT sayaci artiyordu ama
+# SYN-ACK donmuyordu). socat YENI bir TCP baglantisi actigi icin bu catisma
+# hic olusmuyor.
+#
+# NEDEN 80/443 DEGIL: onlar Hermes'in (iptables 80->30880, 443->30443) ve bir
+# node'un 80/443'u ayni anda iki yere gidemez. Cloudflare origin'e sinirli
+# portlardan baglanir (HTTP: 80, 8080, 8880, 2052, 2082, 2086, 2095); 8080 secildi.
+#
+# Hedef 31412 = ingress-nginx-controller (class `nginx`) HTTP NodePort'u.
+[Unit]
+Description=LogiSlot origin proxy 8080 -> ingress-nginx 31412
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+ExecStart=/usr/bin/socat TCP-LISTEN:8080,fork,reuseaddr,backlog=128 TCP:84.247.180.172:31412
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target
