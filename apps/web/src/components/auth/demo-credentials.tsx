@@ -9,10 +9,10 @@ import { cn } from "@/lib/utils";
  */
 export function DemoCredentials({
   email,
-  password = "Demo123!",
+  password,
 }: {
   email: string;
-  password?: string;
+  password: string;
 }) {
   const [copied, setCopied] = useState(false);
 

@@ -19,6 +19,7 @@ import { LogiSlotIcon, LogiSlotLogo } from "@/components/brand/logo";
 import { ThemeToggle } from "@/components/shell/theme-toggle";
 import { apiRequest, authApi, clearSession, storeSession } from "@/lib/api/client";
 import type { MeDto } from "@/lib/api/types";
+import { demoCredentialsFor } from "@/lib/demo-mode";
 
 export function PortalLoginPage({
   portal,
@@ -30,8 +31,10 @@ export function PortalLoginPage({
 }) {
   const router = useRouter();
   const config = PORTALS.find((p) => p.key === portal)!;
-  const [email, setEmail] = useState(config.demo);
-  const [password, setPassword] = useState("Demo123!");
+  // Demo modu kapaliyken (prod) form bos baslar.
+  const demo = demoCredentialsFor(portal);
+  const [email, setEmail] = useState(demo?.email ?? "");
+  const [password, setPassword] = useState(demo?.password ?? "");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 

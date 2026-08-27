@@ -6,6 +6,7 @@ import { DemoCredentials } from "@/components/auth/demo-credentials";
 import { type PortalConfig } from "@/components/auth/portals";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
+import { demoCredentialsFor } from "@/lib/demo-mode";
 
 /**
  * Premium login form kartı — 48px inputlar, parola göster/gizle, buton durumları,
@@ -31,6 +32,8 @@ export function LoginFormCard({
   onSubmit: (e: React.FormEvent) => void;
 }) {
   const [show, setShow] = useState(false);
+  // Demo modu kapaliyken (prod build) null doner ve ipucu hic render edilmez.
+  const demo = demoCredentialsFor(active.key);
 
   return (
     <form onSubmit={onSubmit} className="flex flex-col gap-4">
@@ -94,7 +97,9 @@ export function LoginFormCard({
         )}
       </Button>
 
-      <DemoCredentials email={active.demo} />
+      {demo ? (
+        <DemoCredentials email={demo.email} password={demo.password} />
+      ) : null}
     </form>
   );
 }

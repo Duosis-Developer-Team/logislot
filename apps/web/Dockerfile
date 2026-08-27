@@ -15,6 +15,11 @@ COPY apps/web ./apps/web
 COPY packages/shared ./packages/shared
 ARG NEXT_PUBLIC_API_URL=http://localhost:8000
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+# Login ekranindaki "Demo hesap" ipucu ve form on-doldurma. Degerler kaynakta
+# DEGIL, burada verilir; bos birakilirsa (prod varsayilani) demo e-posta/parola
+# uretilen bundle'a hic girmez. Dev build'i CI'da JSON gecer.
+ARG NEXT_PUBLIC_DEMO_CREDENTIALS=
+ENV NEXT_PUBLIC_DEMO_CREDENTIALS=$NEXT_PUBLIC_DEMO_CREDENTIALS
 RUN npm run build -w @logislot/web
 
 FROM node:22-alpine AS runner
