@@ -56,16 +56,18 @@ data:
     "http://84.247.180.172:30087","http://84.247.180.173:30087",
     "http://84.247.180.172:30088","http://84.247.180.173:30088",
     "http://84.247.180.172:30089","http://84.247.180.173:30089"]
-  # Hermes ticket entegrasyonu: prod'da HENUZ BAGLI DEGIL.
-  # Base URL bos oldugu surece talepler yerelde kaydedilir ve outbox'ta
-  # bekler; hicbir kayit kaybolmaz (bkz. docs/HERMES_TICKETING_REPORT.md).
-  # Baglanti icin gereken degerler karsi ekipten alinacak:
-  #   LOGISLOT_HERMES_SUPPORT_BASE_URL  = https://hermes.duosis.com/api/integrations/v1
-  #   LOGISLOT_HERMES_SUPPORT_CLIENT_ID = <Hermes integration client>
-  #   + secret: TOKEN ve WEBHOOK_SECRET
+  # Hermes Ticket Hub baglantisi. Bu iki deger GIZLI DEGIL ve BURADA durmali:
+  # `kubectl apply -k` configmap'i de uygular, yani repoda bos birakilirsa her
+  # deploy canlidaki dolu degeri EZER ve ticket entegrasyonu sessizce kapanir.
+  # (Tam olarak bu yasandi: degerler cluster'a elle girilmisti, dev'de bir
+  # deploy base URL'i silmisti ve kimse fark etmemisti.)
+  # Gizli olan iki deger secret'ta durur ve repoya GIRMEZ:
+  #   LOGISLOT_HERMES_SUPPORT_TOKEN, LOGISLOT_HERMES_SUPPORT_WEBHOOK_SECRET
   # TUZAK: base_url `/v1` ile biter; sonuna `/support` EKLEMEYIN
   # (`/v1/support/support/...` 404 verir — dev'de tam olarak bu yasandi).
-  LOGISLOT_HERMES_SUPPORT_BASE_URL: ""
+  # Prod, hermes-test kurulumuna baglanir (Hermes'in verdigi adres).
+  LOGISLOT_HERMES_SUPPORT_BASE_URL: "https://hermes.duosis.com/api/integrations/v1"
+  LOGISLOT_HERMES_SUPPORT_CLIENT_ID: "8efe5764-eb20-46cf-9c01-66e7c004005f"
   # Hermes'in bu kuruluma olay gonderecegi adres (yalnizca dokumantasyon;
   # Hermes cagriyi kendi kayitli config'inden yapar).
   LOGISLOT_HERMES_SUPPORT_CALLBACK_BASE_URL: "https://api.logislot.io"
