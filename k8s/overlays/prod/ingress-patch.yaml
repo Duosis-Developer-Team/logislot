@@ -13,24 +13,27 @@
 # yapan kullanicinin kimliginden cozulur — host'tan DEGIL. Yeni bir musteri
 # alias'i eklemek = buraya iki satir + iki DNS kaydi.
 #
-# INGRESS CLASS — `nginx` DEGIL, `nginx-test`. Sasirtici ama dogru:
-# kumede uc class var ve YALNIZCA biri internete acik.
+# INGRESS CLASS — `nginx`. Kumede uc controller var; SECIM KRITERI class adi
+# degil, controller'in HANGI NAMESPACE'LERI izledigidir:
 #
-#   class        controller                 ADDRESS          durum
-#   nginx        k8s.io/ingress-nginx       10.233.61.129    KUME ICI (disaridan erisilemez)
-#   drake-nginx  k8s.io/drake-nginx         10.233.63.63     KUME ICI
-#   nginx-test   k8s.io/ingress-nginx-test  84.247.180.172   PUBLIC 80/443
+#   controller           class        watch-namespace   Service (NodePort)
+#   ingress-nginx        nginx        (yok = HEPSI)     80:31412  443:30772
+#   ingress-nginx-test   nginx-test   hermes-test       80:30880  443:30443
+#   drake-nginx          drake-nginx  -                 -
 #
-# `nginx-test` adi "test" cagristirsa da public denetleyici odur: node1'deki
-# iptables yonlendirmesi 80->30880 ve 443->30443 onun NodePort'larina gider ve
-# `hermes.duosis.com` gibi GERCEK host'lari o servis eder. `nginx` class'ina
-# yazsaydik Ingress olusur, `kubectl get ingress` dolu gorunur ama alan
-# adlari disaridan HIC ACILMAZDI — sessiz basarisizlik.
+# `nginx-test` node1'de 80/443'u karsiliyor olsa da `--watch-namespace=
+# hermes-test` ile SINIRLIDIR: `logislot-prod`daki bir Ingress'i HICBIR ZAMAN
+# gormez. 27 Agu 2026'da "public port onda" diye class `nginx-test` yapildi,
+# deploy edildi ve host'lar yine Hermes'in catch-all'ina dustu — sebep tam
+# olarak buydu. Class TEKRAR `nginx` yapildi.
 #
-# HERMES ETKILENMEZ: `hermes-test-ingress` host `*` (catch-all) kuralidir;
-# nginx exact host'u catch-all'dan ONCE eslestirir. Yani yalnizca asagida
-# LISTELENEN host'lar LogiSlot'a gelir, geri kalan her sey bugunku gibi
-# Hermes'e gider.
+# KALAN ADIM: Ingress artik dogru controller'da, ama o controller'in
+# NodePort'lari (31412/30772) host'un 80/443'une BAGLI DEGIL. Alan adlarinin
+# PORTSUZ calismasi icin bir node'da 80->31412 / 443->30772 yonlendirmesi
+# gerekir — Hermes'in `hermes-port-redirect.service` ile yaptiginin aynisi.
+# Bkz. docs/PORTAL_ISOLATION_AND_ROUTING.md "Public giris yolu".
+#
+# HERMES ETKILENMEZ: farkli controller, farkli namespace, farkli NodePort.
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -43,7 +46,7 @@ metadata:
     # Ek dosya yuklemeleri icin (varsayilan 1m fazla dusuk kalirdi).
     nginx.ingress.kubernetes.io/proxy-body-size: "16m"
 spec:
-  ingressClassName: nginx-test
+  ingressClassName: nginx
   tls:
     - hosts:
         - logislot.com

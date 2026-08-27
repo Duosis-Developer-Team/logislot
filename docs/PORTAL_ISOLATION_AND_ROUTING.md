@@ -183,15 +183,39 @@ Müşteri URL'lerinde **port yoktur**; 80/443'teki ingress Host başlığına g�
 dağıtır (`k8s/overlays/prod/ingress-patch.yaml`). `logislot.com` ve
 `logislot.io` **birebir aynı** kural setine sahiptir.
 
-> **Ingress class `nginx-test`'tir, `nginx` değil.** Kümede üç class var ama
-> internete açık olan tek controller `ingress-nginx-test` (ADDRESS
-> `84.247.180.172`, node1'de iptables 80→30880 / 443→30443). `nginx` ve
-> `drake-nginx` yalnızca küme içi ClusterIP'tedir. Yanlış class'a yazmak
-> **sessiz** bir hatadır: `kubectl get ingress` dolu görünür, alan adı
-> dışarıdan hiç açılmaz.
->
-> Hermes etkilenmez: `hermes-test-ingress` host `*` catch-all'dır ve nginx
-> exact host'u catch-all'dan önce eşleştirir.
+### Public giriş yolu (class seçiminin gerçek kriteri)
+
+Class seçerken bakılacak şey **adı değil, controller'ın hangi namespace'leri
+izlediğidir**:
+
+| controller | class | `--watch-namespace` | Service |
+|---|---|---|---|
+| `ingress-nginx` | `nginx` | yok = **hepsi** | NodePort `80:31412`, `443:30772` |
+| `ingress-nginx-test` | `nginx-test` | **`hermes-test`** | NodePort `80:30880`, `443:30443` |
+| `drake-nginx` | `drake-nginx` | — | — |
+
+`nginx-test` node1'de 80/443'ü karşılıyor olsa da **yalnızca `hermes-test`**
+namespace'ini izler; `logislot-prod`daki bir Ingress'i hiçbir zaman görmez.
+27 Ağu 2026'da "public port onda" diye class `nginx-test` yapıldı, deploy
+edildi ve host'lar yine Hermes'in catch-all'ına düştü. Class `nginx`'tir.
+
+**Kalan adım — 80/443 eşlemesi.** Ingress artık doğru controller'da, ama o
+controller'ın NodePort'ları host'un 80/443'üne bağlı değil. Doğrulama
+(DNS'siz, Host başlığıyla):
+
+```
+curl -H "Host: logislot.com" http://84.247.180.172:31412/   # LogiSlot gelir
+curl -H "Host: logislot.com" http://84.247.180.172/         # Hermes gelir (catch-all)
+```
+
+Portsuz URL için bir node'da `80→31412`, `443→30772` yönlendirmesi gerekir —
+Hermes'in `hermes-port-redirect.service` ile yaptığının aynısı. Hazır betik:
+`scripts/logislot-port-redirect.sh` (varsayılan olarak **yalnızca rapor**
+verir; `--apply` çakışma bulursa durur).
+
+**Bir node'un 80/443'ü aynı anda iki yere gidemez.** node1'inki Hermes'e
+ayrılmış durumda, dolayısıyla LogiSlot için ayrı bir node ya da ayrı bir IP
+gerekir. Bu, Hermes'i de ilgilendirdiği için sahibiyle kararlaştırılmalıdır.
 
 **TLS:** cert-manager kurulu, `letsencrypt-prod` ClusterIssuer'ı Ready
 (preflight ile doğrulandı). Sertifika HTTP-01 ile otomatik üretilir, yani

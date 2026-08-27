@@ -77,6 +77,23 @@ jobs:
             echo "   denetleyici kendi SAHTE sertifikasini sunar."
           fi
 
+          say "PUBLIC GIRIS YOLU (hangi controller 80/443'u karsiliyor)"
+          # Bir Ingress'in disaridan calismasi icin class YETMEZ: controller
+          # o namespace'i IZLIYOR olmali (--watch-namespace) ve Service'i
+          # disariya acilmis olmali. Ikisinden biri eksikse Ingress olusur,
+          # `get ingress` dolu gorunur, ama host disaridan ACILMAZ.
+          for NS in ingress-nginx ingress-nginx-test; do
+            echo "--- namespace: $NS ---"
+            kubectl -n "$NS" get deploy,ds -o wide 2>/dev/null || echo "(yok)"
+            echo "  controller argumanlari:"
+            kubectl -n "$NS" get deploy,ds -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{range .spec.template.spec.containers[*]}{.args}{"\n"}{end}{end}' 2>/dev/null | tr ',' '\n' | grep -iE "watch-namespace|ingress-class|publish|controller-class|default-backend" || echo "  (ilgili argüman yok = tum namespace'leri izler)"
+            echo "  servisler:"
+            kubectl -n "$NS" get svc -o wide 2>/dev/null || echo "  (yok)"
+          done
+
+          say "LOGISLOT INGRESS'I DETAYI (kabul edildi mi, olay var mi)"
+          kubectl -n "$NAMESPACE" describe ingress logislot 2>/dev/null | tail -40 || echo "(ingress yok)"
+
           say "MEVCUT INGRESS'LER (host cakismasi var mi)"
           # Ayni host'u iki Ingress talep ederse davranis belirsizlesir;
           # LogiSlot'un alacagi host'lar baska bir Ingress'te GORUNMEMELI.
