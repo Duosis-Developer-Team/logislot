@@ -18,6 +18,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import sqlalchemy as sa
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
@@ -51,6 +52,35 @@ async def cached_groups(
         .order_by(HermesGroupCatalogCache.name)
     )
     return list(result.scalars())
+
+
+async def _upsert_group(
+    db: AsyncSession, *, app_code: str, group_id: uuid.UUID, values: dict[str, Any]
+) -> None:
+    """Katalog satirini INSERT ... ON CONFLICT DO UPDATE ile yazar.
+
+    `refresh_catalog` mevcut satirlari once OKUR sonra eksikleri EKLER. Platform
+    ekrani ayni anda birkac istek attigi icin (grup listesi + tenant detayi) iki
+    tazeleme yarisabilir: ikisi de ayni grubu gormeden INSERT eder ve kaybeden
+    taraf `uq_hermes_group_catalog_app_group` ihlaliyle 500 dondururdu. Upsert
+    yarisi kisitin kendisiyle cozer — kaybeden taraf ayni degerleri yazar,
+    yeniden deneme ya da kilit gerekmez.
+    """
+    if db.get_bind().dialect.name == "postgresql":
+        from sqlalchemy.dialects.postgresql import insert
+    else:  # SQLite (test paketi) de ON CONFLICT destekler.
+        from sqlalchemy.dialects.sqlite import insert
+
+    stmt = insert(HermesGroupCatalogCache).values(
+        application_code=app_code, group_id=group_id, **values
+    )
+    await db.execute(
+        stmt.on_conflict_do_update(
+            index_elements=["application_code", "group_id"],
+            # `onupdate=now()` Core upsert'te otomatik islemez, acikca yazilir.
+            set_={**values, "updated_at": sa.func.now()},
+        )
+    )
 
 
 def catalog_is_stale(rows: list[HermesGroupCatalogCache]) -> bool:
@@ -97,18 +127,24 @@ async def refresh_catalog(
             logger.warning("Hermes katalogunda gecersiz grup kimligi atlandi")
             continue
         seen.add(group_id)
+        member_count = item.get("member_count")
+        values: dict[str, Any] = {
+            "name": str(item.get("name") or "")[:255],
+            "description": item.get("description"),
+            "member_count": int(member_count) if isinstance(member_count, int) else None,
+            "is_active": True,
+            "catalog_version": result.catalog_version or result.etag,
+            "remote_updated_at": _parse_dt(item.get("updated_at")),
+            "fetched_at": datetime.now(UTC),
+        }
         row = existing.get(group_id)
         if row is None:
-            row = HermesGroupCatalogCache(application_code=app_code, group_id=group_id)
-            db.add(row)
-        row.name = str(item.get("name") or "")[:255]
-        row.description = item.get("description")
-        member_count = item.get("member_count")
-        row.member_count = int(member_count) if isinstance(member_count, int) else None
-        row.is_active = True
-        row.catalog_version = result.catalog_version or result.etag
-        row.remote_updated_at = _parse_dt(item.get("updated_at"))
-        row.fetched_at = datetime.now(UTC)
+            # Bu tazeleme grubu GORMEDI; ayni anda kosan baska bir tazeleme
+            # onu eklemis olabilir, o yuzden duz INSERT degil upsert.
+            await _upsert_group(db, app_code=app_code, group_id=group_id, values=values)
+        else:
+            for field, value in values.items():
+                setattr(row, field, value)
 
     for group_id, row in existing.items():
         if group_id not in seen and row.is_active:
@@ -296,7 +332,20 @@ async def save_route(
         after=_audit_snapshot(config),
         metadata={"correlation_id": str(correlation_id) if correlation_id else None},
     )
-    await db.commit()
+    try:
+        await db.commit()
+    except IntegrityError as exc:
+        # Ayni tenant icin ILK route'u iki yonetici (ya da cift tiklama) ayni
+        # anda kaydetti: ikisi de `config is None` gordu ve ikisi de INSERT
+        # etti. Bu, katalog tazelemesindeki SELECT-sonra-INSERT yarisinin ayni
+        # sinifi; burada dogru sonuc zaten tanimli olan surum catismasidir —
+        # yoneticiye 500 yerine "sayfayi yenileyin" denir.
+        await db.rollback()
+        raise RouteConfigError(
+            "route_version_conflict",
+            "Yonlendirme baska bir yonetici tarafindan guncellendi; sayfayi yenileyin.",
+            409,
+        ) from exc
     await db.refresh(config)
     return config
 
