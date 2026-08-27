@@ -140,6 +140,9 @@ async def _config_payload(requester) -> dict:
             "reason": route.reason,
         },
         "attachments": {
+            # Hermes ek yuklemeyi kapatmissa form alani hic gosterilmez:
+            # kullaniciyi dosya secip hata almaya birakmanin anlami yok.
+            "enabled": svc.attachments_available(),
             "max_files": settings.ticket_attachment_max_files,
             "max_file_size_bytes": settings.ticket_attachment_max_file_size_bytes,
             "max_total_bytes": settings.ticket_attachment_max_total_bytes,

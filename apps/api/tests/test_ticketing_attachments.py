@@ -418,3 +418,51 @@ async def test_reply_cannot_steal_attachment_from_another_ticket(
     )
     assert response.status_code == 409
     assert response.json()["error"]["code"] == "TICKET_ATTACHMENT_IN_USE"
+
+
+async def test_peer_with_attachments_off_gets_clear_message_and_hides_field(
+    client, seeded, session_maker
+):
+    """Hermes ek yuklemeyi kapattiysa: anlasilir mesaj + formda alan gizlenir.
+
+    Hermes `support_not_configured` (503) donuyor. Bu kod SOZLESMEDE YOK, bu
+    yuzden eskiden isimsiz fallback'e dusuyor ve kullaniciya "Destek merkezi
+    istegi tamamlayamadi." deniyordu — ne oldugunu, ne yapacagini anlatmayan
+    bir metin. Ustelik form ek alanini gostermeye devam ediyordu.
+
+    Yetenek Hermes'in KENDI cevabindan ogrenilir ve kisa sure hatirlanir; elle
+    cevrilecek bir bayrak yok, karsi taraf acinca kendiliginden geri gelir.
+    """
+    from app.integrations.hermes_support_client import PEER_SUPPORT_NOT_CONFIGURED
+    from app.services import ticket_service as svc
+    from tests.hermes_stub import error_response
+
+    await _route(session_maker, seeded["tenant"].id)
+    hermes = RecordingHermes()
+    hermes.on(
+        "/support/attachments/sessions",
+        error_response(503, PEER_SUPPORT_NOT_CONFIGURED, retryable=True),
+    )
+    hermes.install()
+    token = await login(client, "/auth/login", "admin@cakesbakes.com")
+
+    # Once: yetenek bilinmiyor, alan aciktir.
+    config = await client.get("/tickets/config", headers=auth_headers(token))
+    assert config.json()["data"]["attachments"]["enabled"] is True
+
+    response = await client.post(
+        "/tickets/attachments/sessions", json=SESSION_BODY, headers=auth_headers(token)
+    )
+    assert response.status_code == 503
+    message = response.json()["error"]["message"]
+    assert "dosya eki kabul etmiyor" in message
+    assert "ek olmadan" in message.lower()
+
+    # Sonra: ayni cevap bir daha alinmasin diye alan gizlenir.
+    config = await client.get("/tickets/config", headers=auth_headers(token))
+    assert config.json()["data"]["attachments"]["enabled"] is False
+
+    # Kayit SURELIDIR: suresi dolunca yetenek yeniden denenir.
+    svc._attachments_unavailable_until = 0.0
+    config = await client.get("/tickets/config", headers=auth_headers(token))
+    assert config.json()["data"]["attachments"]["enabled"] is True
