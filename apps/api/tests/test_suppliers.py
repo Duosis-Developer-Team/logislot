@@ -537,14 +537,20 @@ async def test_quota_near_limit_supplier(client, seeded):
             },
         )
 
-    first = await create("Koli 1")
-    # seed'deki kargo randevusu ayni haftadaysa kota dolar; degilse ilk create gecer
-    if first.status_code == 200:
-        second = await create("Koli 2")
-        assert second.status_code == 422
-        assert second.json()["error"]["code"] == "SUPPLIER_QUOTA_EXCEEDED"
+    # Kotanin ne zaman dolacagi seed randevusunun BUGUNUN haftasina dusup
+    # dusmedigine bagliydi ve test belirli gunlerde duyuyordu (28 Agu 2026'da
+    # tam bu yasandi: seed randevusu baska haftaya dustu, iki create de gecti,
+    # 422 ucuncude gelecekti). Onemli olan kotanin BIR NOKTADA devreye girmesi.
+    WEEKLY_QUOTA = 2
+    statuses = []
+    for attempt in range(WEEKLY_QUOTA + 1):
+        response = await create(f"Koli {attempt + 1}")
+        statuses.append(response.status_code)
+        if response.status_code == 422:
+            assert response.json()["error"]["code"] == "SUPPLIER_QUOTA_EXCEEDED"
+            break
     else:
-        assert first.json()["error"]["code"] == "SUPPLIER_QUOTA_EXCEEDED"
+        raise AssertionError(f"haftalik kota hic devreye girmedi: {statuses}")
 
 
 # ---------- Users/Roles readonly ----------
