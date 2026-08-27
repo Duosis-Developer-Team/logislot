@@ -4,10 +4,26 @@ Cloudflare'in origin'e bağlandığı portu ingress-nginx'e taşıyan iki system
 birimi. **Kurulu ve çalışıyor** (node1 = `84.247.180.172`).
 
 ```
-kullanıcı ──443──> Cloudflare ──8443──> node1:8443 (socat)
-                                          └──> node1:30772 (ingress-nginx HTTPS NodePort)
-                                                 └──> logislot Ingress → portal Service
+kullanıcı ──443──> Cloudflare ──8443──> node1:8443 (nginx stream, ssl_preread)
+                                          ├─ TLS  ──> node1:30772 (ingress HTTPS NodePort)
+                                          └─ düz  ──> node1:31412 (ingress HTTP  NodePort)
+                                                        └──> logislot Ingress → portal Service
 ```
+
+## Neden 8443 iki protokolü birden kabul ediyor
+
+Cloudflare'in origin'e **hangi protokolle** bağlanacağını panel ayarı
+(`SSL/TLS → encryption mode`) belirler: Flexible → düz HTTP, Full → TLS.
+Tek protokol dinleyen bir origin, o ayar değişince **sessizce kırılır**.
+
+Nitekim yaşandı: panelde "Full" seçili görünürken Cloudflare düz HTTP
+gönderdi ve ingress `400 The plain HTTP request was sent to HTTPS port`
+döndürdü. Sayfa Hermes değil, nginx hatası veriyordu — teşhisi zorlaştıran
+tam olarak buydu.
+
+`ssl_preread` bağlantının ilk baytlarına bakıp TLS olup olmadığını anlar ve
+uygun ingress portuna yollar. Böylece origin **panel ayarından bağımsız**
+çalışır; Flexible↔Full geçişi kesinti yaratmaz.
 
 ## Neden socat, neden iptables değil
 
@@ -41,17 +57,31 @@ listede **yok**, o yüzden bu proxy şart.
 ## Kurulum
 
 ```bash
-scp k8s/origin-proxy/logislot-origin-proxy-*.service root@84.247.180.172:/etc/systemd/system/
-ssh root@84.247.180.172 'systemctl daemon-reload && \
-  systemctl enable --now logislot-origin-proxy-8443 logislot-origin-proxy-8080'
+# nginx stream modülü (bir kez)
+ssh root@84.247.180.172 'apt-get install -y --no-install-recommends libnginx-mod-stream'
+
+# 8443 dinleyicisi
+scp k8s/origin-proxy/nginx-stream-logislot.conf \
+    root@84.247.180.172:/etc/nginx/stream-enabled/logislot.conf
+ssh root@84.247.180.172 'grep -q stream-enabled /etc/nginx/nginx.conf || \
+  printf "\nstream {\n    include /etc/nginx/stream-enabled/*.conf;\n}\n" >> /etc/nginx/nginx.conf
+  rm -f /etc/nginx/sites-enabled/default
+  nginx -t && systemctl enable --now nginx'
+
+# 8080 (yedek düz-HTTP yolu)
+scp k8s/origin-proxy/logislot-origin-proxy-8080.service root@84.247.180.172:/etc/systemd/system/
+ssh root@84.247.180.172 'systemctl daemon-reload && systemctl enable --now logislot-origin-proxy-8080'
 ```
 
 ## Doğrulama
 
 ```bash
-curl -k -H "Host: logislot.io"     https://84.247.180.172:8443/        # LogiSlot
-curl -k -H "Host: api.logislot.io" https://84.247.180.172:8443/health  # {"status":"ok"}
-curl -k https://84.247.180.172/                                        # Hermes (bozulmamalı)
+# TLS ile (Cloudflare "Full")
+curl -k -H "Host: api.logislot.io" https://84.247.180.172:8443/health   # {"status":"ok"}
+# düz HTTP ile (Cloudflare "Flexible")
+curl    -H "Host: api.logislot.io" http://84.247.180.172:8443/health    # {"status":"ok"}
+# Hermes bozulmamalı
+curl -k https://84.247.180.172/                                         # Hermes
 ```
 
 ## Cloudflare tarafı
@@ -70,6 +100,6 @@ curl -k https://84.247.180.172/                                        # Hermes 
 ## Geri alma
 
 ```bash
-ssh root@84.247.180.172 'systemctl disable --now logislot-origin-proxy-8443 logislot-origin-proxy-8080'
+ssh root@84.247.180.172 'systemctl disable --now nginx logislot-origin-proxy-8080'
 ```
 Hermes'in kurallarına hiç dokunulmaz.
