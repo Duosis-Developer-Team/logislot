@@ -19,6 +19,7 @@ from sqlalchemy.orm import selectinload
 from app.core.db import get_control_db, get_db
 from app.core.enums import ActorType, SupplierStatus, UserStatus
 from app.core.errors import ApiError
+from app.core.passwords import generate_temporary_password
 from app.core.permissions import TenantPermission
 from app.core.ratelimit import enforce_rate_limit
 from app.core.responses import ok
@@ -69,11 +70,6 @@ _SUPPLIER_RELATIONS = (
     selectinload(Supplier.allowed_product_categories),
     selectinload(Supplier.users),
 )
-
-#: Demo ortami varsayilan parolasi. PRODUCTION NOTU: gercek ortamda rastgele
-#: gecici parola uretilip e-posta ile iletilmeli; sabit varsayilan KULLANILMAMALI.
-DEFAULT_ACCOUNT_PASSWORD = "Demo123!"
-
 
 class SupplierNotificationPolicyPatch(BaseModel):
     in_app_enabled: bool | None = None
@@ -236,6 +232,7 @@ async def create_supplier(
     db.add(supplier)
     await db.flush()
 
+    account_password: str | None = None
     if body.create_account:
         account_email = body.account_email or body.contact_email
         if account_email is None:
@@ -244,10 +241,10 @@ async def create_supplier(
                 "Portal hesabi icin account_email veya contact_email gerekli",
                 422,
             )
+        # Parola verilmediyse RASTGELE uretilir; sabit varsayilan yok.
+        account_password = body.account_password or generate_temporary_password()
         await _create_account(
-            db, ctx, supplier, str(account_email),
-            body.account_password or DEFAULT_ACCOUNT_PASSWORD,
-            control_db,
+            db, ctx, supplier, str(account_email), account_password, control_db,
         )
 
     _audit(
@@ -257,7 +254,11 @@ async def create_supplier(
     )
     await db.commit()
     supplier = await _load_supplier(db, ctx, supplier.id)
-    return ok(_supplier_out(supplier))
+    out = _supplier_out(supplier)
+    if account_password is not None:
+        # Uretilen gecici parola yalnizca bu yanitta doner; yonetici iletir.
+        out["account_password"] = account_password
+    return ok(out)
 
 
 @router.get("/suppliers/{supplier_id}")

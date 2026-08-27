@@ -130,8 +130,10 @@ export function useUserMutations(facilityId: string | null) {
   };
 
   const save = useMutation({
+    // POST yaniti ayrica temporary_password tasir: parola alani bos birakildiginda
+    // sunucu rastgele uretir (sabit varsayilan YOK), degeri yalnizca burada goruruz.
     mutationFn: ({ id, body }: { id?: string; body: unknown }) =>
-      apiRequest<FacilityUserDto>(
+      apiRequest<FacilityUserDto & { temporary_password?: string }>(
         id ? `/facilities/${facilityId}/users/${id}` : `/facilities/${facilityId}/users`,
         { method: id ? "PATCH" : "POST", body },
       ),

@@ -23,6 +23,7 @@ from sqlalchemy.orm import selectinload
 from app.core.db import get_control_db, get_db
 from app.core.enums import ActorType, UserStatus
 from app.core.errors import ApiError, NotFoundError
+from app.core.passwords import generate_temporary_password
 from app.core.permissions import TenantPermission, expand_tenant_permissions
 from app.core.responses import ok
 from app.core.security import hash_password
@@ -35,8 +36,6 @@ from app.tenancy.directory import claim_email
 
 router = APIRouter(prefix="/facilities/{facility_id}", tags=["users"])
 
-#: Demo gecici parolasi — production notu Sprint 3 ile ayni (rastgele + e-posta).
-DEFAULT_TEMP_PASSWORD = "Demo123!"
 
 
 # ---------- semalar ----------
@@ -252,12 +251,15 @@ async def create_user(
     # id ONCE uretilir: dizin kaydi kullanicidan once alinir ve ikisinin
     # ayni kimligi tasimasi gerekir (bkz. tenancy/directory.py).
     user_id = uuid.uuid4()
+    # Parola verilmediyse RASTGELE uretilir; sabit varsayilan yok. Uretilen deger
+    # yalnizca bu yanitta doner (kaydedilmez), yonetici kullaniciya kendisi iletir.
+    temporary_password = body.temporary_password or generate_temporary_password()
     user = TenantUser(
         id=user_id,
         tenant_id=ctx.tenant_id,
         name=body.name,
         email=str(body.email),
-        password_hash=hash_password(body.temporary_password or DEFAULT_TEMP_PASSWORD),
+        password_hash=hash_password(temporary_password),
         # Gecici parola: ilk giriste degistirme zorunlu (Sprint 9)
         must_change_password=True,
         status=UserStatus.active if body.is_active else UserStatus.inactive,
@@ -295,7 +297,7 @@ async def create_user(
         await db.commit()
         claim.confirm()
     membership = await _membership_of(db, ctx, user.id)
-    return ok(_user_out(membership))
+    return ok({**_user_out(membership), "temporary_password": temporary_password})
 
 
 @router.get("/users/{user_id}")

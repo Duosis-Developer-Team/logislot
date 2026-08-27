@@ -180,18 +180,21 @@ export default function SuppliersPage() {
         await save.mutateAsync({ id: drawer.editing.id, body: base });
         showFlash("success", "Tedarikçi güncellendi.");
       } else {
-        await save.mutateAsync({
+        // Yanit, hesap acildiysa account_password tasir: parola alani bos
+        // birakildiginda sunucu rastgele uretir (sabit varsayilan YOK) ve deger
+        // bir daha gosterilemez, bu yuzden yoneticiye burada gosterilir.
+        const created = (await save.mutateAsync({
           body: {
             ...base,
             create_account: createAccount,
             account_email: values.account_email || null,
             account_password: values.account_password || null,
           },
-        });
+        })) as SupplierDto & { account_password?: string };
         showFlash(
           "success",
           createAccount
-            ? "Tedarikçi ve portal hesabı oluşturuldu."
+            ? `Tedarikçi ve portal hesabı oluşturuldu. Geçici parola: ${created.account_password ?? values.account_password}`
             : "Tedarikçi oluşturuldu (hesapsız).",
         );
       }
@@ -550,7 +553,7 @@ export default function SuppliersPage() {
                       <Label>Geçici Parola</Label>
                       <Input
                         type="password"
-                        placeholder="Boşsa Demo123! atanır (yalnızca demo)"
+                        placeholder="Boşsa rastgele üretilir"
                         {...form.register("account_password")}
                       />
                     </div>

@@ -13,6 +13,44 @@ from tests.test_isolation import _create_other_tenant
 # ---------- Supplier CRUD ----------
 
 
+async def test_account_password_is_generated_not_a_fixed_default(client, seeded):
+    """Parola verilmezse RASTGELE uretilir; sabit `Demo123!` varsayilani YOKTUR.
+
+    Sabit varsayilan prod'da gercek bir acikti: parola alani bos birakilan her
+    hesap ayni, herkesin bildigi parolayla dogar. Uretilen deger yalnizca create
+    yanitinda doner (kaydedilmez), yonetici kullaniciya kendisi iletir.
+    """
+    headers = await admin(client)
+    base = f"/facilities/{seeded['facility'].id}/suppliers"
+
+    response = await client.post(
+        base, headers=headers,
+        json={
+            "company_name": "Rastgele Parola A.S.",
+            "code": "SUP-RND",
+            "account_email": "portal@rastgele.example.com",
+        },
+    )
+    assert response.status_code == 200, response.text
+    generated = response.json()["data"]["account_password"]
+    assert generated and generated != "Demo123!"
+
+    # Eski sabit varsayilan ARTIK calismiyor.
+    response = await client.post(
+        "/auth/supplier-login",
+        json={"email": "portal@rastgele.example.com", "password": "Demo123!"},
+    )
+    assert response.status_code == 401
+
+    # Uretilen parola calisiyor.
+    response = await client.post(
+        "/auth/supplier-login",
+        json={"email": "portal@rastgele.example.com", "password": generated},
+    )
+    assert response.status_code == 200, response.text
+
+
+
 async def test_supplier_crud_cycle(client, seeded, session_maker):
     headers = await admin(client)
     fid = seeded["facility"].id
