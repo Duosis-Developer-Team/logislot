@@ -65,6 +65,8 @@ interface FormState {
   primary_contact_email: string;
   default_timezone: string;
   address: string;
+  admin_host: string;
+  supplier_host: string;
 }
 
 const EMPTY_FORM: FormState = {
@@ -76,6 +78,8 @@ const EMPTY_FORM: FormState = {
   primary_contact_email: "",
   default_timezone: "Europe/Istanbul",
   address: "",
+  admin_host: "",
+  supplier_host: "",
 };
 
 export default function TenantsPage() {
@@ -132,6 +136,8 @@ export default function TenantsPage() {
       primary_contact_email: row.primary_contact_email ?? "",
       default_timezone: row.default_timezone,
       address: row.address ?? "",
+      admin_host: row.admin_host ?? "",
+      supplier_host: row.supplier_host ?? "",
     });
     setSlugTouched(true);
     setFormError(null);
@@ -160,6 +166,8 @@ export default function TenantsPage() {
             primary_contact_name: form.primary_contact_name || null,
             primary_contact_email: form.primary_contact_email || null,
             address: form.address || null,
+            admin_host: form.admin_host.trim(),
+            supplier_host: form.supplier_host.trim(),
           },
         });
         showFlash("success", "Müşteri hesabı güncellendi.");
@@ -174,6 +182,8 @@ export default function TenantsPage() {
             primary_contact_email: form.primary_contact_email || null,
             default_timezone: form.default_timezone,
             address: form.address || null,
+            admin_host: form.admin_host.trim() || null,
+            supplier_host: form.supplier_host.trim() || null,
             bootstrap_defaults: bootstrap,
             initial_admin: createAdmin
               ? {
@@ -383,6 +393,36 @@ export default function TenantsPage() {
                 onChange={(e) => set("primary_contact_email", e.target.value)}
                 placeholder="Opsiyonel"
               />
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-3 rounded-lg border border-border p-4">
+            <div>
+              <p className="text-sm font-medium">Markalı alan adları</p>
+              <p className="text-xs text-muted-foreground">
+                Doldurulursa bu müşterinin kullanıcıları giriş yaptıktan sonra
+                otomatik olarak buraya yönlendirilir. Önce alan adının DNS kaydı
+                ve ingress girdisi açılmış olmalı — aksi halde kullanıcı
+                ulaşılamayan bir adrese gider. Boş bırakılırsa yönlendirme yapılmaz.
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>Yönetim paneli</Label>
+                <Input
+                  value={form.admin_host}
+                  onChange={(e) => set("admin_host", e.target.value)}
+                  placeholder="cknb.logislot.io"
+                />
+              </div>
+              <div>
+                <Label>Tedarikçi portalı</Label>
+                <Input
+                  value={form.supplier_host}
+                  onChange={(e) => set("supplier_host", e.target.value)}
+                  placeholder="cknbtedarik.logislot.io"
+                />
+              </div>
             </div>
           </div>
 

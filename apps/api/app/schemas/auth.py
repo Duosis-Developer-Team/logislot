@@ -17,6 +17,12 @@ class RefreshRequest(BaseModel):
     refresh_token: str
 
 
+class HandoffConsumeRequest(BaseModel):
+    """Markali alan adina devir kodu. Kodun KENDISI kimlik dogrulayicidir."""
+
+    code: str = Field(min_length=16, max_length=128)
+
+
 class TokenPair(BaseModel):
     access_token: str
     refresh_token: str

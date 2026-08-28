@@ -263,3 +263,55 @@ erişimi tamamen bırakılınca silinebilirler.
 **Sertifikalar:** `.com` ve `.io` **ayrı** sertifikalardır. Tek sertifikada
 toplansalardı bir host doğrulanamadığında tümü başarısız olurdu; ayrı
 oldukları için `.io`nun DNS'i geç gelse bile `.com` etkilenmez.
+
+## Tenant'a özel (markalı) alan adları
+
+Bir müşteri kendi alt alanını isterse (`cknb.logislot.io`, `cknbtedarik.logislot.io`),
+kullanıcıları **genel** alan adından giriş yaptığında oraya otomatik devredilir.
+
+**Kaydı platform yöneticisi girer:** `tenants.admin_host` / `tenants.supplier_host`
+(Platform > Müşteri hesabı formu). Boş bırakılırsa hiçbir yönlendirme yapılmaz —
+mevcut tenant'lar etkilenmez.
+
+**Kayıt tek başına yetmez.** Wildcard DNS **yok**; her alan adı için ayrıca:
+1. Cloudflare'de A/CNAME kaydı (proxied),
+2. `k8s/overlays/<env>/ingress-patch.yaml` içinde host girdisi,
+3. `LOGISLOT_CORS_ORIGINS` içinde origin.
+
+Üçü açılmadan alan adına girilen değer kullanıcıyı **ulaşılamayan bir adrese**
+gönderir. Bu yüzden alan formatı sunucuda doğrulanır (şema/port/yol temizlenir,
+hostname biçimi zorunlu) ama varlığı doğrulanamaz — sıralama platform
+yöneticisinin sorumluluğundadır.
+
+### Oturum neden "devrediliyor"?
+
+Oturum `localStorage`'da tutulur ve localStorage **origin'e bağlıdır**:
+`yonetim.logislot.io` üzerinde açılan oturumu `cknb.logislot.io` okuyamaz. Düz bir
+yönlendirme kullanıcıyı login ekranına geri düşürürdü.
+
+Token'ı URL'e koymak yerine (adres çubuğundaki token geçmişe, eklentilere, ekran
+paylaşımına sızar ve uzun ömürlüdür) kısa ömürlü bir kod devredilir:
+
+```
+yonetim.logislot.io   POST /auth/login          -> tokens + branded_host
+                      POST /auth/handoff/issue  -> {code, host, expires_in: 30}
+                      redirect https://cknb.logislot.io/handoff?code=…&next=/admin/dashboard
+
+cknb.logislot.io      POST /auth/handoff/consume -> YENİ token çifti
+                      router.replace(next)       (kod geçmişte kalmaz)
+```
+
+Kodu koruyan dört şey ve dördü de gerekli:
+
+| | |
+|---|---|
+| Yalnızca sha256 özeti saklanır | Veritabanını okuyan geçerli kod üretemez |
+| 30 saniye ömür | URL'e düşen kodun kullanılabilir kalma süresi |
+| Atomik tek kullanım | Tek `UPDATE … RETURNING`; aynı kod iki oturuma dönüşemez |
+| Hedef origin'e bağlı | `Origin` başlığı zorunlu; çalınan kod başka yerden kullanılamaz |
+
+Kod üretildikten sonra hesap pasifleştirilmişse devir tamamlanmaz
+(`_ensure_user_active`). Devir başarısız olursa kullanıcı **bulunduğu** alan
+adında çalışmaya devam eder — markalı URL kozmetiktir, uğruna giriş bozulmaz.
+
+Testler: `apps/api/tests/test_branded_host_handoff.py`.

@@ -37,17 +37,20 @@ from app.models import (
     PrincipalDirectory,
     Supplier,
     SupplierUser,
+    Tenant,
     TenantUser,
 )
 from app.schemas.auth import (
     ChangePasswordRequest,
     FacilitySummary,
+    HandoffConsumeRequest,
     LoginRequest,
     MeResponse,
     NotificationPreferencesPatch,
     RefreshRequest,
     TokenPair,
 )
+from app.services import auth_handoff
 from app.services.audit import record_audit
 from app.services.auth_sessions import open_session, revoke_user_sessions, rotate_session
 from app.tenancy.directory import tenant_for_email
@@ -157,6 +160,28 @@ async def _audit_login(
     await db.commit()
 
 
+#: Portal -> tenant kaydindaki markali alan adi kolonu.
+_BRANDED_HOST_FIELD = {"tenant": "admin_host", "supplier": "supplier_host"}
+
+
+async def _branded_host(
+    control_db: AsyncSession, user_type: str, tenant_id: uuid.UUID | None
+) -> str | None:
+    """Bu kullanicinin portali icin tenant'a ozel alan adi (yoksa None).
+
+    Platform kullanicilarinin tenant'i yoktur; markali alan adi da yoktur.
+    """
+    field = _BRANDED_HOST_FIELD.get(user_type)
+    if field is None or tenant_id is None:
+        return None
+    host = (
+        await control_db.execute(
+            select(getattr(Tenant, field)).where(Tenant.id == tenant_id)
+        )
+    ).scalar_one_or_none()
+    return host or None
+
+
 async def _token_pair(
     db: AsyncSession,
     request: Request,
@@ -198,7 +223,12 @@ async def tenant_login(
         await _audit_login(db, "tenant", user.id, True, body.email)
         pair = await _token_pair(db, request, user.id, "tenant", user.tenant_id)
         await db.commit()
-        return ok({**pair.model_dump(), "must_change_password": user.must_change_password})
+        return ok({
+            **pair.model_dump(),
+            "must_change_password": user.must_change_password,
+            # Tenant'in markali alan adi varsa istemci oraya devreder.
+            "branded_host": await _branded_host(control_db, "tenant", user.tenant_id),
+        })
 
 
 @router.post("/supplier-login")
@@ -234,7 +264,13 @@ async def supplier_login(
             db, request, user.id, "supplier", user.supplier.tenant_id
         )
         await db.commit()
-        return ok({**pair.model_dump(), "must_change_password": user.must_change_password})
+        return ok({
+            **pair.model_dump(),
+            "must_change_password": user.must_change_password,
+            "branded_host": await _branded_host(
+                control_db, "supplier", user.supplier.tenant_id
+            ),
+        })
 
 
 @router.post("/platform-login")
@@ -296,6 +332,73 @@ async def refresh(body: RefreshRequest, request: Request):
         return ok(
             TokenPair(access_token=access, refresh_token=new_refresh_token).model_dump()
         )
+
+
+# ------------------------------------------------- alan adlari arasi devir
+
+
+@router.post("/handoff/issue")
+async def handoff_issue(
+    identity: Identity = Depends(get_identity),
+    control_db: AsyncSession = Depends(get_control_db),
+):
+    """Markali alan adina gecis icin tek kullanimlik kod uretir.
+
+    Hedef alan adini ISTEMCI SECMEZ: tenant kaydindan okunur. Aksi halde
+    saldirgan kendi kontrolundeki bir adrese gecerli kod cikartabilirdi.
+    """
+    host = await _branded_host(control_db, identity.user_type, identity.tenant_id)
+    if host is None:
+        raise ApiError("NO_BRANDED_HOST", "Bu hesap icin markali alan adi tanimli degil", 400)
+    code = await auth_handoff.issue_code(
+        control_db,
+        user_type=identity.user_type,
+        user_id=identity.id,
+        tenant_id=identity.tenant_id,
+        target_host=host,
+    )
+    return ok({
+        "code": code,
+        "host": host,
+        "expires_in": auth_handoff.CODE_TTL_SECONDS,
+    })
+
+
+@router.post("/handoff/consume")
+async def handoff_consume(body: HandoffConsumeRequest, request: Request):
+    """Devir kodunu YENI bir oturumla takas eder.
+
+    Kimlik dogrulamasi YOKTUR — hedef origin'in henuz oturumu yoktur, kodun
+    kendisi kimlik dogrulayicidir. Bu yuzden kod tek kullanimlik, saniyeler
+    omurlu ve yalnizca hedef origin'den tuketilebilir.
+    """
+    enforce_rate_limit(request, "handoff_consume", client_ip(request) or "-", times=20)
+
+    # `Origin` ZORUNLU: kod yalnizca hedef alan adinin sayfasindan tuketilebilir.
+    # Basligi olmayan bir istemci (calinan kodu curl ile deneyen biri) gecemez.
+    origin = request.headers.get("origin") or ""
+    origin_host = origin.split("://", 1)[-1].split("/", 1)[0].split(":", 1)[0]
+    if not origin_host:
+        raise UnauthorizedError("Gecersiz devir kodu")
+
+    async with control_session() as control_db:
+        row = await auth_handoff.consume_code(
+            control_db, code=body.code, origin_host=origin_host
+        )
+    if row is None:
+        raise UnauthorizedError("Gecersiz devir kodu")
+
+    location = (
+        CONTROL_LOCATION
+        if row.tenant_id is None
+        else await location_for_tenant(row.tenant_id)
+    )
+    async with session_scope(location) as db:
+        # Kod uretildikten sonra hesap pasiflestirilmis olabilir.
+        await _ensure_user_active(db, row.user_type, row.user_id)
+        pair = await _token_pair(db, request, row.user_id, row.user_type, row.tenant_id)
+        await db.commit()
+        return ok(pair.model_dump())
 
 
 async def _tenant_of_token(

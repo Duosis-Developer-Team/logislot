@@ -6,6 +6,7 @@ Alembic autogenerate ve testlerdeki create_all icin her model burada import edil
 from app.models.appointment import Appointment, AppointmentRevision
 from app.models.appointment_series import AppointmentSeries
 from app.models.audit import AuditLog
+from app.models.auth_handoff import AuthHandoffCode
 from app.models.auth_session import AuthSession
 from app.models.base import CONTROL_SCHEMA, Base
 from app.models.catalog import ProductCategory, VehicleCategory
@@ -76,6 +77,7 @@ __all__ = [
     "AuditLog",
     "EmailLog",
     "MaintenanceRun",
+    "AuthHandoffCode",
     "AuthSession",
     "AppointmentSeries",
     "TicketRoutingConfig",

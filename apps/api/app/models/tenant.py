@@ -62,6 +62,13 @@ class Tenant(Base, UUIDPkMixin, TimestampMixin):
         sa.Uuid, sa.ForeignKey("control.plans.id", ondelete="SET NULL")
     )
     notes: Mapped[str | None] = mapped_column(sa.Text)
+    #: Tenant'a ozel markali alan adlari (orn. cknb.logislot.io /
+    #: cknbtedarik.logislot.io). BOS BIRAKILABILIR: doluysa kullanici o tenant'in
+    #: kimligiyle giris yaptiginda genel alan adindan buraya yonlendirilir.
+    #: Kayit tek basina yeterli DEGILDIR — alan adinin DNS'i ve ingress girdisi
+    #: de acilmis olmali; wildcard yok.
+    admin_host: Mapped[str | None] = mapped_column(sa.String(255))
+    supplier_host: Mapped[str | None] = mapped_column(sa.String(255))
 
     assigned_plan: Mapped[Plan | None] = relationship()
     facilities: Mapped[list["Facility"]] = relationship(back_populates="tenant")
