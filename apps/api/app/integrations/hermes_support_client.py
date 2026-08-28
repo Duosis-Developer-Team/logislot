@@ -457,13 +457,23 @@ class HermesSupportClient:
         return response.data
 
     async def get_ticket_by_source(
-        self, *, source_ticket_id: uuid.UUID, correlation_id: uuid.UUID | None = None
+        self,
+        *,
+        source_ticket_id: uuid.UUID,
+        source_tenant_id: uuid.UUID | None = None,
+        correlation_id: uuid.UUID | None = None,
     ) -> dict[str, Any]:
-        response = await self._request(
-            "GET",
-            contract.ticket_by_source_path(str(source_ticket_id)),
-            correlation_id=correlation_id,
-        )
+        """Kaynak kimligiyle ticket snapshot'i.
+
+        `source_tenant_id` sozlesmede (bolum 7) YAZMIYOR ama Hermes ZORUNLU
+        tutuyor; verilmedigi surece 422 doner ve mutabakat — yani kacan
+        olaylarin guvenlik agi — hic calismaz. Tenant kapsami istemek makul
+        oldugu icin gonderiliyor; cagiran tenant'i zaten biliyor.
+        """
+        path = contract.ticket_by_source_path(str(source_ticket_id))
+        if source_tenant_id is not None:
+            path = f"{path}?source_tenant_id={source_tenant_id}"
+        response = await self._request("GET", path, correlation_id=correlation_id)
         return response.data
 
     async def get_ticket(

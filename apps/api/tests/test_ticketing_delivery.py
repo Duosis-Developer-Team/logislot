@@ -583,3 +583,35 @@ async def test_payload_omits_route_version_when_hermes_version_unknown(
     )
     assert "route_version" not in payload["route"]
     assert payload["route"]["group_id"] == str(GROUP_ID)
+
+
+async def test_snapshot_lookup_carries_tenant_scope(client, seeded, session_maker):
+    """Snapshot cagrisi `source_tenant_id` TASIR.
+
+    Sozlesme (bolum 7) bunu yazmiyor ama Hermes zorunlu tutuyor: parametre
+    olmadan 422 doner ve mutabakat — kacan olaylarin guvenlik agi — hic
+    calismaz. Prod'da tam bu yasandi: dusen bir yanit onarilamadi.
+    """
+    ticket_id = await _create_ticket(client, session_maker, seeded)
+    async with session_maker() as db:
+        ticket = (
+            await db.execute(
+                sa.select(SupportTicketProjection).where(
+                    SupportTicketProjection.id == uuid.UUID(ticket_id)
+                )
+            )
+        ).scalar_one()
+        ticket.remote_ticket_id = uuid.uuid4()
+        ticket.sync_gap = True
+        await db.commit()
+
+    hermes = RecordingHermes()
+    hermes.on("by-source", json_response(200, fixture("ticket_snapshot_response")))
+    hermes.install()
+
+    async with session_maker() as db:
+        await reconcile(db)
+
+    lookups = [r for r in hermes.requests if "by-source" in str(r.url)]
+    assert lookups, "mutabakat snapshot cagrisi yapmaliydi"
+    assert f"source_tenant_id={seeded['tenant'].id}" in str(lookups[0].url)

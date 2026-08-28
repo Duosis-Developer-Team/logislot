@@ -92,7 +92,9 @@ async def reconcile(db: AsyncSession, *, limit: int = BATCH_SIZE) -> dict[str, A
     failures = 0
     for ticket in candidates:
         try:
-            snapshot = await client.get_ticket_by_source(source_ticket_id=ticket.id)
+            snapshot = await client.get_ticket_by_source(
+                source_ticket_id=ticket.id, source_tenant_id=ticket.tenant_id
+            )
         except HermesApiError as exc:
             failures += 1
             record_ticket_delivery("snapshot", "failure")
