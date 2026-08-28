@@ -64,3 +64,4 @@ _Son güncelleme: 2026-08-25 (Hermes Ticket Hub entegrasyonu: müşteri destek p
 | Marka logo/ikon assetleri | — | ✅ | ✅ | OK | Aynı assetler; app icon + splash dahil |
 | Shared types/contract | ✅ | ✅ | 🟡 | Partial | Şimdilik senkron kopya (types/shared/email-labels); shared paket çıkarımı backlog |
 | Push bildirimleri (mobile-native) | ❌ | — | ❌ | Backlog | Backend push altyapısı gerekiyor; in-app bildirim merkezi mevcut |
+| Markalı alan adı yönlendirmesi | ✅ | ✅ | — | N/A | Tarayıcıya özgü: mobilde adres çubuğu yok, uygulama API'ye doğrudan bağlanır. Oturum devri (`/auth/handoff/*`) yalnızca origin sınırı olan web için gerekli. |

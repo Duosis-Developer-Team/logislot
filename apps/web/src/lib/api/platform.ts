@@ -19,6 +19,9 @@ export interface PlatformTenantDto {
   primary_contact_name: string | null;
   primary_contact_email: string | null;
   default_timezone: string;
+  /** Tenant'a ozel alan adlari; bos ise giris sonrasi yonlendirme yapilmaz. */
+  admin_host: string | null;
+  supplier_host: string | null;
   assigned_plan_id: string | null;
   created_at: string;
   /** Operasyonel kapsam kimligi (eski kayitlarda null olabilir). */

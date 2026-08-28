@@ -3,11 +3,12 @@
 ILKE: Platform katmani operasyonel/PII detay dondurmez; yalnizca agregat.
 """
 
+import re
 import uuid
 from datetime import date, datetime
 
 from fastapi import APIRouter, Depends, Query
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, field_validator
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -58,6 +59,26 @@ _UNSET = object()
 # ---------- semalar ----------
 
 
+#: Markali alan adi icin kabul edilen bicim: yalnizca hostname.
+#: Yanlis girilen bir deger kullaniciyi olmayan bir adrese yonlendirir, bu
+#: yuzden sema/port/yol temizlenir ve bicim dogrulanir.
+_HOST_RE = re.compile(r"^(?=.{1,253}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$")
+
+
+def _normalize_host(value: str | None) -> str | None:
+    if value is None:
+        return None
+    host = value.strip().lower()
+    if not host:
+        return None  # bos birakmak "markali alan adi yok" demektir
+    host = host.split("://", 1)[-1].split("/", 1)[0].split(":", 1)[0]
+    if not _HOST_RE.match(host):
+        raise ValueError(
+            "Gecerli bir alan adi girin (orn. cknb.logislot.io); sema, port ve yol yazmayin"
+        )
+    return host
+
+
 class TenantCreate(BaseModel):
     """Musteri hesabi = tenant + (otomatik) tesis.
 
@@ -75,6 +96,11 @@ class TenantCreate(BaseModel):
     primary_contact_phone: str | None = None
     default_timezone: str = "Europe/Istanbul"
     notes: str | None = None
+    #: Tenant'a ozel markali alan adlari. BOS BIRAKILABILIR; doluysa kullanici
+    #: genel alan adindan giris yaptiginda buraya devredilir. Kayit tek basina
+    #: yetmez: alan adinin DNS'i ve ingress girdisi de acilmis olmalidir.
+    admin_host: str | None = Field(default=None, max_length=255)
+    supplier_host: str | None = Field(default=None, max_length=255)
     # --- operasyonel kapsam (tesis) ---
     address: str | None = None
     #: Varsayilan konfigurasyonu (arac/urun kategorisi, Rampa 1, sistem
@@ -83,6 +109,11 @@ class TenantCreate(BaseModel):
     #: Ayni istekte ilk yonetici hesabi; gecici parola yanitta BIR kez doner.
     initial_admin: "InitialAdmin | None" = None
     plan_override_id: uuid.UUID | None = None
+
+    @field_validator("admin_host", "supplier_host")
+    @classmethod
+    def _hosts(cls, value: str | None) -> str | None:
+        return _normalize_host(value)
 
 
 class TenantPatch(BaseModel):
@@ -93,9 +124,19 @@ class TenantPatch(BaseModel):
     primary_contact_phone: str | None = None
     assigned_plan_id: uuid.UUID | None = None
     notes: str | None = None
+    #: Tenant'a ozel markali alan adlari. BOS BIRAKILABILIR; doluysa kullanici
+    #: genel alan adindan giris yaptiginda buraya devredilir. Kayit tek basina
+    #: yetmez: alan adinin DNS'i ve ingress girdisi de acilmis olmalidir.
+    admin_host: str | None = Field(default=None, max_length=255)
+    supplier_host: str | None = Field(default=None, max_length=255)
     # Tesis alanlari — tenant=tesis oldugu icin ayni formdan guncellenir.
     address: str | None = None
     default_timezone: str | None = None
+
+    @field_validator("admin_host", "supplier_host")
+    @classmethod
+    def _hosts(cls, value: str | None) -> str | None:
+        return _normalize_host(value)
 
 
 class InitialAdmin(BaseModel):
@@ -157,6 +198,8 @@ def _tenant_out(t: Tenant, facility: "Facility | None" = None) -> dict:
         "primary_contact_name": t.primary_contact_name,
         "primary_contact_email": t.primary_contact_email,
         "default_timezone": t.default_timezone,
+        "admin_host": t.admin_host,
+        "supplier_host": t.supplier_host,
         "assigned_plan_id": str(t.assigned_plan_id) if t.assigned_plan_id else None,
         "created_at": t.created_at.isoformat(),
         # Operasyonel kapsam (1-1). Eski kayitlarda tesis yoksa None kalir.

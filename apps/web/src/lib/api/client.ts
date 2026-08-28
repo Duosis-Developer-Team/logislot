@@ -41,7 +41,13 @@ interface RequestOptions {
 }
 
 /** Refresh denenmeyecek auth yollari (sonsuz dongu koruması). */
-const AUTH_PATHS = ["/auth/login", "/auth/supplier-login", "/auth/platform-login", "/auth/refresh"];
+const AUTH_PATHS = [
+  "/auth/login",
+  "/auth/supplier-login",
+  "/auth/platform-login",
+  "/auth/refresh",
+  "/auth/handoff/consume",
+];
 
 async function rawRequest(path: string, options: RequestOptions, token: string | null) {
   const headers: Record<string, string> = {
@@ -234,12 +240,28 @@ export const authApi = {
       access_token: string;
       refresh_token: string;
       must_change_password: boolean;
+      /** Tenant'a ozel alan adi (orn. cknb.logislot.io); tanimsizsa null. */
+      branded_host: string | null;
     }>(endpoint, {
       method: "POST",
       // portal: backend'de opsiyonel portal-aware dogrulama (backward-compat).
       body: { email, password, portal },
     });
   },
+  /** Markali alan adina gecis icin tek kullanimlik devir kodu (oturum gerekir). */
+  issueHandoff: () =>
+    apiRequest<{ code: string; host: string; expires_in: number }>(
+      "/auth/handoff/issue",
+      { method: "POST" },
+    ),
+  /** Devir kodunu YENI bir oturumla takas eder (hedef alan adindan cagrilir). */
+  consumeHandoff: (code: string) =>
+    apiRequest<{ access_token: string; refresh_token: string }>(
+      "/auth/handoff/consume",
+      // Hedef origin'de oturum YOK: token gonderilmez, 401 refresh denenmez
+      // (asagidaki AUTH_PATHS listesine bu yol da dahildir).
+      { method: "POST", body: { code } },
+    ),
   changePassword: (currentPassword: string, newPassword: string) =>
     apiRequest<{
       access_token: string;

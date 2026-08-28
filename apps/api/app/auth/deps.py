@@ -49,6 +49,19 @@ class Identity:
     def id(self) -> uuid.UUID:
         return self.user.id
 
+    @property
+    def tenant_id(self) -> uuid.UUID | None:
+        """Kimligin ait oldugu tenant. Platform kullanicisi icin None.
+
+        Tedarikci hesabinin tenant'i firmasindan gelir; `supplier` iliskisi
+        `get_identity` icinde zaten yuklenir.
+        """
+        if self.user_type == "tenant":
+            return self.user.tenant_id  # type: ignore[union-attr]
+        if self.user_type == "supplier":
+            return self.user.supplier.tenant_id  # type: ignore[union-attr]
+        return None
+
 
 async def get_identity(
     request: Request,

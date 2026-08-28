@@ -38,6 +38,34 @@ export function PortalLoginPage({
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
+  /** Tenant'in markali alan adi varsa oturumu oraya DEVREDER.
+   *
+   * Oturum `localStorage`'da ve ORIGIN'e bagli oldugu icin duz bir yonlendirme
+   * kullaniciyi login ekranina geri dusururdu. Bunun yerine kisa omurlu, tek
+   * kullanimlik bir kod alinir; hedef alan adi onu token ile takas eder. Token
+   * hicbir zaman URL'e konmaz.
+   *
+   * Devir basarisiz olursa (kod alinamadi, alan adi yanlis girilmis) kullanici
+   * BULUNDUGU alan adinda calismaya devam eder — markali URL kozmetiktir,
+   * ugruna girisi bozmayiz.
+   */
+  async function handOffToBrandedHost(
+    brandedHost: string | null,
+    target: string,
+  ): Promise<boolean> {
+    if (!brandedHost || brandedHost === window.location.host) return false;
+    try {
+      const { code } = await authApi.issueHandoff();
+      const next = encodeURIComponent(target);
+      window.location.replace(
+        `https://${brandedHost}/handoff?code=${encodeURIComponent(code)}&next=${next}`,
+      );
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
@@ -55,6 +83,9 @@ export function PortalLoginPage({
         clearSession();
         setError(config.wrongRoleMessage);
         return;
+      }
+      if (await handOffToBrandedHost(tokens.branded_host, config.target)) {
+        return; // tarayıcı markalı alan adına gidiyor
       }
       router.push(config.target);
     } catch (err) {
