@@ -93,9 +93,16 @@ class SupportTicketProjection(Base, UUIDPkMixin, TimestampMixin, FacilityScopedM
     remote_status: Mapped[TicketStatus] = mapped_column(
         str_enum(TicketStatus), default=TicketStatus.open
     )
-    #: Uygulanmis en yuksek Hermes aggregate versiyonu. Sirasiz olaylarda
-    #: karar bu alana gore verilir (bkz. projection apply algoritmasi).
+    #: Hermes'in OPTIMISTIC-LOCK surumu. Olay basina ARTMAZ: ticket'in kac kez
+    #: degistigini soyler, kac olay yayildigini DEGIL. Yazma cagrilarindaki
+    #: `expected_version` icin saklanir; SIRALAMA icin KULLANILMAZ.
     aggregate_version: Mapped[int] = mapped_column(
+        sa.Integer, default=0, server_default="0"
+    )
+    #: Uygulanmis en yuksek olay sirasi. Siralama/bosluk karari BU alana gore
+    #: verilir: `sequence` ticket basina olay basina artar, `aggregate_version`
+    #: artmaz. Ikisini karistirmak yaniti sessizce dusuruyordu.
+    event_sequence: Mapped[int] = mapped_column(
         sa.Integer, default=0, server_default="0"
     )
     #: Olay atlandiginda isaretlenir; reconciliation snapshot cekip onarir.

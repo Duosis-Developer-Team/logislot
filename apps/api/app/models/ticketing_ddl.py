@@ -76,7 +76,10 @@ def create_ticket_tables() -> None:
         sa.Column("route_group_name", sa.String(length=255), nullable=True),
         sa.Column("route_version", sa.Integer(), nullable=True),
         sa.Column("remote_status", _enum(TicketStatus), nullable=False),
+        # Hermes'in optimistic-lock surumu — olay basina ARTMAZ.
         sa.Column("aggregate_version", sa.Integer(), nullable=False, server_default="0"),
+        # Siralama/bosluk karari BUNA gore verilir: ticket basina olay basina artar.
+        sa.Column("event_sequence", sa.Integer(), nullable=False, server_default="0"),
         sa.Column("sync_gap", sa.Boolean(), nullable=False, server_default=sa.false()),
         sa.Column("resolution_summary", sa.Text(), nullable=True),
         sa.Column("resolution_code", sa.String(length=40), nullable=True),

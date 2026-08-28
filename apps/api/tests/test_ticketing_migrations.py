@@ -54,7 +54,10 @@ def _sqlite_engine(tmp_path) -> sa.Engine:
 
 
 def test_tenant_head_is_ticket_revision():
-    assert tenant_head_revision() == "0004_ticket_role_permissions"
+    # Sabitlenmis head: yeni bir tenant migration'i eklendiginde bu satirin
+    # DEGISMESI gerekir. Amaci, tenant zincirine sessizce revizyon eklenmesini
+    # engellemek — tasinmis ve tasinmamis tenant'lar ayri zincirlerden gecer.
+    assert tenant_head_revision() == "0005_ticket_event_sequence"
 
 
 def test_upgrade_creates_all_ticket_tables_with_model_columns(tmp_path):

@@ -437,30 +437,29 @@ async def test_unknown_event_type_is_acked_not_failed(client, seeded, session_ma
     assert response.json()["status"] == "unknown_event"
 
 
-async def test_reply_is_applied_even_when_version_does_not_advance(
+async def test_ordering_uses_sequence_not_aggregate_version(
     client, seeded, session_maker
 ):
-    """Destek yaniti, surum ILERLEMESE de musteriye ULASIR.
+    """Ayni `aggregate_version`i tasiyan ikinci olay DUSMEZ.
 
-    Gercek vaka (28 Agu 2026, prod): Hermes `ticket.status_changed.v1` ve
-    `ticket.public_message_added.v1` olaylarina AYNI `aggregate_version=2`
-    degerini verdi. Surum kapisi "eski/esit olay" diye yaniti sessizce attı,
-    inbox satiri `processed` gorundu ve musteri destegin cevabini hic gormedi.
+    Zarf iki ayri sayi tasir:
+      sequence          -> ticket basina OLAY sayaci, her olayda artar
+      aggregate_version -> ticket'in optimistic-lock surumu, olay basina ARTMAZ
 
-    Sozlesme fixture'i monoton artis gosteriyor (mesaj olayi 3), yani sapma
-    karsi tarafta. Yine de kaybedilen sey MUSTERIYE GORUNEN ICERIK oldugu icin
-    burasi dayanikli olmali: eklemeli olaylar kendi kimlikleriyle idempotent,
-    dolayisiyla surum kapisina tabi degil.
+    Siralama `aggregate_version` ile yapildiginda ayni surumu tasiyan ikinci
+    olay "eski/esit" sayilip sessizce dusuyordu. Prod'da (28 Agu 2026) destek
+    yaniti boyle kayboldu: inbox `processed` gorundu, musteri yaniti hic
+    gormedi. Canli veride created ve attachment_ready ikisi de version 1'di.
     """
     ticket_id, ids = await _prepare_ticket(client, seeded, session_maker)
 
-    for name, version in (("event_ticket_created", 1), ("event_ticket_status_changed", 2)):
-        body = envelope_bytes(name, aggregate_version=version, **ids)
+    for name in ("event_ticket_created", "event_ticket_status_changed"):
+        body = envelope_bytes(name, **ids)
         assert (
             await client.post(WEBHOOK_PATH, content=body, headers=headers_for(body))
         ).status_code == 200
 
-    # Yanit, DURUM OLAYIYLA AYNI surumle geliyor.
+    # Yanit, DURUM OLAYIYLA AYNI lock surumunu tasiyor ama sirasi ilerlemis.
     body = envelope_bytes(
         "event_ticket_public_message_added", aggregate_version=2, **ids
     )
@@ -480,25 +479,53 @@ async def test_reply_is_applied_even_when_version_does_not_advance(
             m.body for m in ticket.messages if m.author_type.value == "agent"
         ]
     assert agent_bodies, "destek yaniti projeksiyona islenmeliydi"
-    # Durum surumu GERIYE gitmez.
+    assert ticket.event_sequence == 3
+    # Lock surumu GERIYE gitmez.
     assert ticket.aggregate_version == 2
 
 
-async def test_same_reply_twice_creates_one_message(client, seeded, session_maker):
-    """Surum kapisi kalkti diye tekrar KORUMASI kaybolmaz.
-
-    Eklemeli olaylar mesajin KENDI kimligiyle idempotenttir; ayni yanit iki kez
-    gelirse ikinci satir acilmaz.
-    """
+async def test_out_of_order_event_is_still_a_noop(client, seeded, session_maker):
+    """Siralama korumasi KAYBOLMADI: eski `sequence` yine NO-OP."""
     ticket_id, ids = await _prepare_ticket(client, seeded, session_maker)
-    body = envelope_bytes("event_ticket_created", **ids)
-    await client.post(WEBHOOK_PATH, content=body, headers=headers_for(body))
+    for name in ("event_ticket_created", "event_ticket_status_changed"):
+        body = envelope_bytes(name, **ids)
+        await client.post(WEBHOOK_PATH, content=body, headers=headers_for(body))
 
-    for event_id in ("00000000-0000-4000-8000-0000000000a1",
-                     "00000000-0000-4000-8000-0000000000a2"):
+    # Sirasi GERIDE bir olay: durum geri sarilmamali.
+    body = envelope_bytes(
+        "event_ticket_closed",
+        sequence=1,
+        event_id="00000000-0000-4000-8000-0000000000b1",
+        **ids,
+    )
+    response = await client.post(WEBHOOK_PATH, content=body, headers=headers_for(body))
+    assert response.json()["status"] == "noop"
+
+    async with session_maker() as db:
+        ticket = (
+            await db.execute(
+                sa.select(SupportTicketProjection).where(
+                    SupportTicketProjection.id == uuid.UUID(ticket_id)
+                )
+            )
+        ).scalar_one()
+    assert ticket.remote_status is not TicketStatus.closed
+
+
+async def test_same_reply_twice_creates_one_message(client, seeded, session_maker):
+    """Ayni yanit iki farkli olay kimligiyle gelse de TEK mesaj olur."""
+    ticket_id, ids = await _prepare_ticket(client, seeded, session_maker)
+    for name in ("event_ticket_created", "event_ticket_status_changed"):
+        body = envelope_bytes(name, **ids)
+        await client.post(WEBHOOK_PATH, content=body, headers=headers_for(body))
+
+    for event_id, sequence in (
+        ("00000000-0000-4000-8000-0000000000a1", 3),
+        ("00000000-0000-4000-8000-0000000000a2", 4),
+    ):
         body = envelope_bytes(
             "event_ticket_public_message_added",
-            aggregate_version=2,
+            sequence=sequence,
             event_id=event_id,
             **ids,
         )
@@ -515,4 +542,5 @@ async def test_same_reply_twice_creates_one_message(client, seeded, session_make
             )
         ).scalar_one()
         agent_messages = [m for m in ticket.messages if m.author_type.value == "agent"]
+    # Mesajin KENDI kimligi ayni: ikinci olay yeni satir acmaz.
     assert len(agent_messages) == 1
