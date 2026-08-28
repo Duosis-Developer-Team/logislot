@@ -28,7 +28,10 @@ async def configure_route(session_maker, tenant_id, *, is_active: bool = True) -
                 application_code="logislot",
                 hermes_group_id=GROUP_ID,
                 hermes_group_name_snapshot=GROUP_NAME,
+                # Bizim sayacimiz ile Hermes'in surumu BILEREK farkli: payload'a
+                # Hermes'inki gitmeli. Ayni sayi olsaydi test bunu goremezdi.
                 route_version=3,
+                hermes_route_version=7,
                 is_active=is_active,
             )
         )
@@ -138,7 +141,9 @@ async def test_create_writes_projection_message_and_outbox_together(
         outbox = list((await db.execute(sa.select(SupportTicketOutbox))).scalars())
     assert len(outbox) == 1
     assert outbox[0].command_type.value == "create"
-    assert outbox[0].payload_json["route"]["route_version"] == 3
+    # Payload'a HERMES'IN surumu (7) gider, bizim sayacimiz (3) DEGIL. Ikisini
+    # ayni saymak her teslimatta `route_stale` uretiyordu.
+    assert outbox[0].payload_json["route"]["route_version"] == 7
     assert outbox[0].payload_json["source_ticket_id"] == data["id"]
 
 

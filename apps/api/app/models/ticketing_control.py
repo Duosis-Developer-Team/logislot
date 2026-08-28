@@ -58,9 +58,15 @@ class TicketRoutingConfig(Base, UUIDPkMixin, TimestampMixin):
     hermes_group_id: Mapped[uuid.UUID] = mapped_column(sa.Uuid)
     #: Yalnizca GOSTERIM icin snapshot; yetkilendirme buna gore YAPILMAZ.
     hermes_group_name_snapshot: Mapped[str | None] = mapped_column(sa.String(255))
-    #: Her kayitta artan tam sayi — create payload'inda tasinir ve Hermes
-    #: eski bir route ile gelen istegi `route_stale` ile reddedebilir.
+    #: BIZIM sayacimiz. Platform ekranindaki iyimser kilit icin kullanilir
+    #: (`expected_route_version`); Hermes bu sayiyi TANIMAZ.
     route_version: Mapped[int] = mapped_column(sa.Integer, default=1, server_default="1")
+    #: HERMES'IN route surumu — dogrulama yanitindan gelir ve create payload'inda
+    #: bu tasinir. Ikisi bilerek AYRIDIR: Hermes kendi sayacini tutuyor ve bizim
+    #: sayimizla gelen istegi `route_stale` ile reddediyor (canli dogrulandi:
+    #: bizde 1, Hermes'te 5 -> her ticket teslimatta takildi). Bilinmiyorsa
+    #: None kalir ve payload'a route_version KONMAZ.
+    hermes_route_version: Mapped[int | None] = mapped_column(sa.Integer)
     is_active: Mapped[bool] = mapped_column(
         sa.Boolean, default=True, server_default=sa.true()
     )

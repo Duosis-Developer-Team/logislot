@@ -337,14 +337,19 @@ async def _handle_error(
     ticket.last_sync_at = now
 
     if exc.code in contract.ROUTE_RECOVERY_ERROR_CODES:
-        # Kurtarma yolu: retry firtinasi degil, insan aksiyonu bekleniyor.
-        # Komut kuyrukta KALIR; route tazelendikten sonra bir sonraki
-        # kosumda yeni idempotency anahtariyla gonderilir.
+        # Kurtarma yolu: retry firtinasi degil. Komut kuyrukta KALIR; route
+        # tazelendikten sonra bir sonraki kosumda yeni idempotency anahtariyla
+        # gonderilir.
         row.status = TicketOutboxStatus.failed
         row.next_attempt_at = now + timedelta(minutes=15)
         ticket.delivery_status = TicketDeliveryStatus.failed
         await _record_route_error(ticket.tenant_id, exc.code)
         await db.commit()
+        if exc.code == contract.ERROR_ROUTE_STALE:
+            # `route_stale` = Hermes kendi route surumunu degistirdi. Surumu
+            # simdi tazelersek sonraki kosum DOGRU degerle gider; aksi halde
+            # ayni hatayla suresiz doner ve teslimat insan aksiyonuna kilitlenir.
+            await _refresh_route_version(ticket.tenant_id)
         return "route_blocked"
 
     if exc.code == contract.ERROR_IDEMPOTENCY_CONFLICT:
@@ -372,6 +377,18 @@ async def _handle_error(
     )
     await db.commit()
     return "failed"
+
+
+async def _refresh_route_version(tenant_id: uuid.UUID) -> None:
+    """Hermes route surumunu tazeler. En iyi caba — teslimati DUSURMEZ."""
+    from app.core.db import control_session
+    from app.services.ticket_routing_service import refresh_remote_route_version
+
+    try:
+        async with control_session() as control_db:
+            await refresh_remote_route_version(control_db, tenant_id)
+    except Exception:  # noqa: BLE001 - tazeleme basarisizligi teslimati bozmamali
+        logger.exception("Route surumu tazelenemedi (tenant=%s)", tenant_id)
 
 
 async def _record_route_error(tenant_id: uuid.UUID, error_code: str) -> None:
