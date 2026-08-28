@@ -13,7 +13,7 @@
  *   sekilde oturum temizlenir ve /login'e yonlendirilir.
  */
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8010";
+export const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8010";
 
 export interface ApiEnvelope<T> {
   success: boolean;

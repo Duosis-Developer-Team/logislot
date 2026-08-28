@@ -9,7 +9,7 @@
  */
 
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { apiRequest, authorizedFetch } from "@/lib/api/client";
+import { BASE_URL, apiRequest, authorizedFetch, getStoredToken } from "@/lib/api/client";
 import type {
   TicketConfigDto,
   TicketDetailDto,
@@ -207,14 +207,42 @@ export function resolveMimeType(file: File): string {
 }
 
 /** Yukleme ilerlemesi icin XHR — fetch progress olayi sunmaz. */
+/**
+ * Dosyayi yukleme adresine PUT eder (ilerleme cubugu icin XHR).
+ *
+ * Adres KENDI API'mizin goreli yoludur (`/tickets/attachments/…/content`):
+ * Hermes'in verdigi adres tarayicidan kullanilamiyor (servis token'i ister,
+ * CORS izni vermez), o yuzden baytlar backend uzerinden geciyor. Bu yuzden
+ * istege oturum token'i EKLENIR — ama yalnizca adres bize aitse; ucuncu taraf
+ * bir adrese token gonderilmez.
+ */
+/** XHR yanitindaki API zarfindan kullaniciya gosterilebilir mesaji cikarir. */
+function errorMessageFrom(request: XMLHttpRequest): string | null {
+  try {
+    const body = JSON.parse(request.responseText) as {
+      error?: { message?: string };
+    };
+    return body.error?.message ?? null;
+  } catch {
+    return null;
+  }
+}
+
 function putWithProgress(
   session: TicketUploadSessionDto,
   file: File,
   onProgress?: (percent: number) => void,
 ): Promise<void> {
+  const isOwnApi = session.upload_url.startsWith("/");
+  const url = isOwnApi ? `${BASE_URL}${session.upload_url}` : session.upload_url;
   return new Promise((resolve, reject) => {
     const request = new XMLHttpRequest();
-    request.open("PUT", session.upload_url, true);
+    request.open("PUT", url, true);
+    if (isOwnApi) {
+      const token = getStoredToken();
+      if (token) request.setRequestHeader("Authorization", `Bearer ${token}`);
+      request.setRequestHeader("Content-Type", file.type || "application/octet-stream");
+    }
     Object.entries(session.required_headers ?? {}).forEach(([name, value]) =>
       request.setRequestHeader(name, value),
     );
@@ -223,11 +251,14 @@ function putWithProgress(
         onProgress(Math.round((event.loaded / event.total) * 100));
       }
     };
-    request.onload = () =>
-      request.status >= 200 && request.status < 300
-        ? resolve()
-        : reject(new Error("Dosya yüklenemedi"));
-    request.onerror = () => reject(new Error("Dosya yüklenemedi"));
+    request.onload = () => {
+      if (request.status >= 200 && request.status < 300) return resolve();
+      // Sebebi GOSTER: "Dosya yüklenemedi" kullaniciya ne oldugunu da ne
+      // yapacagini da anlatmiyordu. Kendi API'miz yapili zarf donuyor.
+      reject(new Error(errorMessageFrom(request) ?? "Dosya yüklenemedi"));
+    };
+    request.onerror = () =>
+      reject(new Error("Dosya yüklenemedi — bağlantı kurulamadı."));
     request.send(file);
   });
 }
