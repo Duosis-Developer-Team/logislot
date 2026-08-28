@@ -67,6 +67,7 @@ async def process_inbox_row(control_db: AsyncSession, row: TicketWebhookInbox) -
                 remote_ticket_id=row.remote_ticket_id,
                 remote_ticket_number=row.remote_ticket_number,
                 aggregate_version=row.aggregate_version,
+                sequence=row.sequence,
                 occurred_at=row.occurred_at,
                 data=data,
             )

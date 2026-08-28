@@ -4,9 +4,14 @@ BURASI SISTEMIN EN KIRILGAN YERIDIR: olaylar sirasiz gelebilir, tekrar
 edilebilir ve iki veritabani arasindaki adim atomik degildir. Uc kural bu
 yuzden pazarlik disidir:
 
-  1. `aggregate_version` monotondur. Eski/esit olay NO-OP'tur; atlanmis olay
-     korlemesine UYGULANMAZ, `sync_gap` isaretlenir ve snapshot ile onarilir.
-     "Yanlis durumu gostermektense biraz eski durumu gostermek" yeglenir.
+  1. Siralama `sequence` ile yapilir — ticket basina OLAY sayaci. Eski/esit
+     olay NO-OP'tur; atlanmis olay korlemesine UYGULANMAZ, `sync_gap`
+     isaretlenir ve snapshot ile onarilir. "Yanlis durumu gostermektense biraz
+     eski durumu gostermek" yeglenir.
+
+     `aggregate_version` SIRALAMA ALANI DEGILDIR: ticket'in optimistic-lock
+     surumudur ve olay basina artmaz (ayni surumu tasiyan iki olay normaldir).
+     Onu siralamada kullanmak, ayni surumlu ikinci olayi sessizce dusuruyordu.
   2. Bildirim, olay kimliginden TURETILEN sabit bir birincil anahtarla
      uretilir; ayni olay iki kez islenirse ikinci bildirim OLUSMAZ.
   3. Gelen payload'da ic not/gizli icerik izi varsa olay REDDEDILIR ve
@@ -39,16 +44,6 @@ from app.models import (
     SupportTicketAttachmentProjection,
     SupportTicketMessageProjection,
     SupportTicketProjection,
-)
-
-#: DURUM degil ICERIK tasiyan olaylar. Kendi kimlikleriyle idempotent
-#: olduklari icin `aggregate_version` kapisina tabi DEGILLERDIR — kapiya
-#: takilan bir mesaj sessizce kaybolur ve musteri destegin yanitini goremez.
-_ADDITIVE_EVENT_TYPES = frozenset(
-    {
-        contract.EVENT_TICKET_PUBLIC_MESSAGE_ADDED,
-        contract.EVENT_TICKET_ATTACHMENT_READY,
-    }
 )
 
 logger = logging.getLogger("logislot.ticket.projection")
@@ -107,6 +102,7 @@ async def apply_event(
     remote_ticket_id: uuid.UUID | None,
     remote_ticket_number: str | None,
     aggregate_version: int | None,
+    sequence: int | None,
     occurred_at: datetime | None,
     data: dict[str, Any],
 ) -> ApplyResult:
@@ -127,42 +123,44 @@ async def apply_event(
         # `source_tenant_unknown` olarak raporlar.
         return ApplyResult("noop")
 
-    current = ticket.aggregate_version or 0
-    # EKLEMELI olaylar (mesaj/ek) DURUM tasimaz, ICERIK tasir ve kendi
-    # kimlikleriyle zaten idempotenttir. Bu yuzden surum kapisi onlara
-    # UYGULANMAZ: kapiya takilan bir yanit sessizce kaybolurdu ve musteri
-    # destegin cevabini hic gormezdi.
+    # SIRALAMA `sequence` ILE YAPILIR, `aggregate_version` ILE DEGIL.
     #
-    # Gercek vaka: Hermes `status_changed` ve `public_message_added` olaylarina
-    # AYNI `aggregate_version=2` verdi. Sozlesme fixture'i monoton artis
-    # gosterir (mesaj olayi 3), yani sapma karsi tarafta — ama kaybedilen sey
-    # musteriye gorunen icerik oldugu icin burada da dayanikli olunur.
-    additive = event_type in _ADDITIVE_EVENT_TYPES
-    if aggregate_version is not None and not additive:
-        if aggregate_version <= current:
+    # Zarf iki ayri sayi tasir ve karistirmak veri kaybettirir:
+    #   sequence          -> ticket basina OLAY sayaci, her olayda artar
+    #   aggregate_version -> ticket'in optimistic-lock surumu, olay basina ARTMAZ
+    #
+    # Onceden `aggregate_version` kapisi kullaniliyordu. Ayni surumu tasiyan iki
+    # olay normaldir (canli: created ve attachment_ready ikisi de 1) ve ikincisi
+    # "eski/esit olay" sayilip SESSIZCE dusuyordu — inbox `processed` gorunuyor,
+    # musteri destegin yanitini hic gormuyordu.
+    #
+    # `aggregate_version` yine SAKLANIR: yazma cagrilarindaki `expected_version`
+    # icin ticket'in gercek surumudur.
+    current = ticket.event_sequence or 0
+    if sequence is not None:
+        if sequence <= current:
             return ApplyResult("noop", ticket_id=ticket.id)
-        if aggregate_version > current + 1:
+        if sequence > current + 1:
             ticket.sync_gap = True
             logger.warning(
-                "Ticket %s icin olay atlandi (beklenen %s, gelen %s)",
+                "Ticket %s icin olay atlandi (beklenen sequence %s, gelen %s)",
                 ticket.id,
                 current + 1,
-                aggregate_version,
+                sequence,
             )
             return ApplyResult("gap", ticket_id=ticket.id)
 
     _apply_identity(ticket, remote_ticket_id, remote_ticket_number)
     notified = await _apply_payload(db, ticket, event_id, event_type, data, occurred_at)
 
-    # Surum GERIYE gitmez: eklemeli bir olay eski/esit surumle geldiyse icerik
-    # uygulanir ama ticket'in durum surumu oldugu yerde kalir.
-    if aggregate_version is not None and aggregate_version > current:
+    if sequence is not None:
+        ticket.event_sequence = sequence
+    # Lock surumu GERIYE gitmez.
+    if aggregate_version is not None and aggregate_version > (
+        ticket.aggregate_version or 0
+    ):
         ticket.aggregate_version = aggregate_version
-    # Eklemeli olay ileri bir surumle geldiyse icerigi aldik ama ARADAKI durum
-    # olaylarini kacirdik; mutabakat snapshot ile onarsin.
-    gap_detected = (
-        additive and aggregate_version is not None and aggregate_version > current + 1
-    )
+    gap_detected = False
     ticket.remote_updated_at = occurred_at or datetime.now(UTC)
     ticket.last_sync_at = datetime.now(UTC)
     ticket.sync_gap = gap_detected
