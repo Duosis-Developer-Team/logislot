@@ -41,6 +41,16 @@ from app.models import (
     SupportTicketProjection,
 )
 
+#: DURUM degil ICERIK tasiyan olaylar. Kendi kimlikleriyle idempotent
+#: olduklari icin `aggregate_version` kapisina tabi DEGILLERDIR — kapiya
+#: takilan bir mesaj sessizce kaybolur ve musteri destegin yanitini goremez.
+_ADDITIVE_EVENT_TYPES = frozenset(
+    {
+        contract.EVENT_TICKET_PUBLIC_MESSAGE_ADDED,
+        contract.EVENT_TICKET_ATTACHMENT_READY,
+    }
+)
+
 logger = logging.getLogger("logislot.ticket.projection")
 security_logger = logging.getLogger("logislot.security")
 
@@ -118,7 +128,17 @@ async def apply_event(
         return ApplyResult("noop")
 
     current = ticket.aggregate_version or 0
-    if aggregate_version is not None:
+    # EKLEMELI olaylar (mesaj/ek) DURUM tasimaz, ICERIK tasir ve kendi
+    # kimlikleriyle zaten idempotenttir. Bu yuzden surum kapisi onlara
+    # UYGULANMAZ: kapiya takilan bir yanit sessizce kaybolurdu ve musteri
+    # destegin cevabini hic gormezdi.
+    #
+    # Gercek vaka: Hermes `status_changed` ve `public_message_added` olaylarina
+    # AYNI `aggregate_version=2` verdi. Sozlesme fixture'i monoton artis
+    # gosterir (mesaj olayi 3), yani sapma karsi tarafta — ama kaybedilen sey
+    # musteriye gorunen icerik oldugu icin burada da dayanikli olunur.
+    additive = event_type in _ADDITIVE_EVENT_TYPES
+    if aggregate_version is not None and not additive:
         if aggregate_version <= current:
             return ApplyResult("noop", ticket_id=ticket.id)
         if aggregate_version > current + 1:
@@ -134,11 +154,18 @@ async def apply_event(
     _apply_identity(ticket, remote_ticket_id, remote_ticket_number)
     notified = await _apply_payload(db, ticket, event_id, event_type, data, occurred_at)
 
-    if aggregate_version is not None:
+    # Surum GERIYE gitmez: eklemeli bir olay eski/esit surumle geldiyse icerik
+    # uygulanir ama ticket'in durum surumu oldugu yerde kalir.
+    if aggregate_version is not None and aggregate_version > current:
         ticket.aggregate_version = aggregate_version
+    # Eklemeli olay ileri bir surumle geldiyse icerigi aldik ama ARADAKI durum
+    # olaylarini kacirdik; mutabakat snapshot ile onarsin.
+    gap_detected = (
+        additive and aggregate_version is not None and aggregate_version > current + 1
+    )
     ticket.remote_updated_at = occurred_at or datetime.now(UTC)
     ticket.last_sync_at = datetime.now(UTC)
-    ticket.sync_gap = False
+    ticket.sync_gap = gap_detected
     if ticket.remote_ticket_id is not None:
         ticket.delivery_status = TicketDeliveryStatus.synced
         ticket.last_sync_error_code = None

@@ -12,6 +12,7 @@ import uuid
 
 import pytest
 import sqlalchemy as sa
+from sqlalchemy.orm import selectinload
 
 from app.core.config import get_settings
 from app.core.enums import TicketStatus, TicketWebhookStatus
@@ -434,3 +435,84 @@ async def test_unknown_event_type_is_acked_not_failed(client, seeded, session_ma
     response = await client.post(WEBHOOK_PATH, content=body, headers=headers_for(body))
     assert response.status_code == 200
     assert response.json()["status"] == "unknown_event"
+
+
+async def test_reply_is_applied_even_when_version_does_not_advance(
+    client, seeded, session_maker
+):
+    """Destek yaniti, surum ILERLEMESE de musteriye ULASIR.
+
+    Gercek vaka (28 Agu 2026, prod): Hermes `ticket.status_changed.v1` ve
+    `ticket.public_message_added.v1` olaylarina AYNI `aggregate_version=2`
+    degerini verdi. Surum kapisi "eski/esit olay" diye yaniti sessizce attı,
+    inbox satiri `processed` gorundu ve musteri destegin cevabini hic gormedi.
+
+    Sozlesme fixture'i monoton artis gosteriyor (mesaj olayi 3), yani sapma
+    karsi tarafta. Yine de kaybedilen sey MUSTERIYE GORUNEN ICERIK oldugu icin
+    burasi dayanikli olmali: eklemeli olaylar kendi kimlikleriyle idempotent,
+    dolayisiyla surum kapisina tabi degil.
+    """
+    ticket_id, ids = await _prepare_ticket(client, seeded, session_maker)
+
+    for name, version in (("event_ticket_created", 1), ("event_ticket_status_changed", 2)):
+        body = envelope_bytes(name, aggregate_version=version, **ids)
+        assert (
+            await client.post(WEBHOOK_PATH, content=body, headers=headers_for(body))
+        ).status_code == 200
+
+    # Yanit, DURUM OLAYIYLA AYNI surumle geliyor.
+    body = envelope_bytes(
+        "event_ticket_public_message_added", aggregate_version=2, **ids
+    )
+    response = await client.post(WEBHOOK_PATH, content=body, headers=headers_for(body))
+    assert response.status_code == 200
+    assert response.json()["status"] == "applied"
+
+    async with session_maker() as db:
+        ticket = (
+            await db.execute(
+                sa.select(SupportTicketProjection)
+                .options(selectinload(SupportTicketProjection.messages))
+                .where(SupportTicketProjection.id == uuid.UUID(ticket_id))
+            )
+        ).scalar_one()
+        agent_bodies = [
+            m.body for m in ticket.messages if m.author_type.value == "agent"
+        ]
+    assert agent_bodies, "destek yaniti projeksiyona islenmeliydi"
+    # Durum surumu GERIYE gitmez.
+    assert ticket.aggregate_version == 2
+
+
+async def test_same_reply_twice_creates_one_message(client, seeded, session_maker):
+    """Surum kapisi kalkti diye tekrar KORUMASI kaybolmaz.
+
+    Eklemeli olaylar mesajin KENDI kimligiyle idempotenttir; ayni yanit iki kez
+    gelirse ikinci satir acilmaz.
+    """
+    ticket_id, ids = await _prepare_ticket(client, seeded, session_maker)
+    body = envelope_bytes("event_ticket_created", **ids)
+    await client.post(WEBHOOK_PATH, content=body, headers=headers_for(body))
+
+    for event_id in ("00000000-0000-4000-8000-0000000000a1",
+                     "00000000-0000-4000-8000-0000000000a2"):
+        body = envelope_bytes(
+            "event_ticket_public_message_added",
+            aggregate_version=2,
+            event_id=event_id,
+            **ids,
+        )
+        assert (
+            await client.post(WEBHOOK_PATH, content=body, headers=headers_for(body))
+        ).status_code == 200
+
+    async with session_maker() as db:
+        ticket = (
+            await db.execute(
+                sa.select(SupportTicketProjection)
+                .options(selectinload(SupportTicketProjection.messages))
+                .where(SupportTicketProjection.id == uuid.UUID(ticket_id))
+            )
+        ).scalar_one()
+        agent_messages = [m for m in ticket.messages if m.author_type.value == "agent"]
+    assert len(agent_messages) == 1
