@@ -36,14 +36,36 @@ import type { TicketApi } from "@/lib/api/tickets";
 import type { TicketConfigDto, TicketDetailDto } from "@/lib/api/types";
 import { cn } from "@/lib/utils";
 
+//: Destek merkezinin (Hermes) sunucu tarafi alt sinirlari. Burada tutulur ki
+//: hem dogrulama hem sayac ayni sayiyi kullansin ve karsi taraf sinirlari
+//: degistirdiginde tek yerden guncellensin.
+const TITLE_MIN = 8;
+const DESCRIPTION_MIN = 20;
+
+/** "N karakter daha" ipucu — sinir surprizle submit aninda carpmasin. */
+function RemainingHint({ value, min }: { value: string; min: number }) {
+  const left = min - value.trim().length;
+  if (left <= 0) return null;
+  return (
+    <p className="mt-1 text-xs text-muted-foreground">{left} karakter daha gerekiyor</p>
+  );
+}
+
 const schema = z.object({
+  // Alt sinirlar LogiSlot'un tercihi DEGIL, destek merkezinin sunucu tarafi
+  // kuralidir (title >= 8, description >= 20; canli dogrulandi). Formda
+  // uygulanmasinin sebebi: kayit yerelde olusup teslimatta 422 ile
+  // dead-letter'a dusmesin — musteri "acildi" sanip destek hic gormezdi.
   title: z
     .string()
-    .min(8, "Başlık en az 8 karakter olmalı")
+    .min(TITLE_MIN, `Başlık en az ${TITLE_MIN} karakter olmalı (destek merkezi kuralı)`)
     .max(160, "Başlık en fazla 160 karakter olabilir"),
   description: z
     .string()
-    .min(20, "Sorunu en az 20 karakterle anlatın")
+    .min(
+      DESCRIPTION_MIN,
+      `Sorunu en az ${DESCRIPTION_MIN} karakterle anlatın (destek merkezi kuralı)`,
+    )
     .max(10000, "Açıklama çok uzun"),
   category: z.string().min(1, "Kategori seçin"),
   impact: z.string().min(1, "Etki seçin"),
@@ -179,6 +201,7 @@ export function TicketCreateDrawer({
               {...form.register("title")}
             />
             <FieldError message={form.formState.errors.title?.message} />
+            <RemainingHint value={form.watch("title") ?? ""} min={TITLE_MIN} />
           </div>
 
           <div>
@@ -192,6 +215,10 @@ export function TicketCreateDrawer({
               {...form.register("description")}
             />
             <FieldError message={form.formState.errors.description?.message} />
+            <RemainingHint
+              value={form.watch("description") ?? ""}
+              min={DESCRIPTION_MIN}
+            />
           </div>
 
           <div>

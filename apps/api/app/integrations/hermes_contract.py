@@ -150,6 +150,12 @@ ROUTE_RECOVERY_ERROR_CODES: Final = frozenset(
 )
 
 # --- Alan limitleri (Hermes ile ayni) ------------------------------------
+#
+# Alt sinirlar LogiSlot'un tercihi DEGIL, Hermes'in sunucu tarafi kuralidir
+# (canli dogrulandi: title < 8 ve description < 20 -> 422 validation_error).
+# Formda uygulanmalarinin sebebi kayit yerelde olusup teslimatta 422 ile
+# takilmasin: musteri "talep acildi" sanir, destek hicbir zaman gormezdi.
+# DUSURMEYIN — once Hermes tarafi gevsetilmeli, sonra buradaki sayi.
 
 TITLE_MIN_LENGTH: Final = 8
 TITLE_MAX_LENGTH: Final = 160

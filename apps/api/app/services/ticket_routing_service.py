@@ -311,7 +311,11 @@ async def save_route(
         or config.hermes_group_name_snapshot
     )
     config.is_active = is_active
+    # BIZIM sayacimiz (platform ekranindaki iyimser kilit). Hermes bunu tanimaz.
     config.route_version = (config.route_version or 0) + 1
+    # HERMES'IN surumu dogrulama yanitindan alinir; create payload'inda bu gider.
+    # Kendi sayimizi gondermek her teslimatta `route_stale` uretiyordu.
+    config.hermes_route_version = _remote_route_version(verification)
     config.last_verified_at = datetime.now(UTC)
     config.catalog_version = (
         cached_group.catalog_version if cached_group else config.catalog_version
@@ -348,6 +352,19 @@ async def save_route(
         ) from exc
     await db.refresh(config)
     return config
+
+
+def _remote_route_version(verification: dict[str, Any]) -> int | None:
+    """Dogrulama yanitindaki Hermes route surumu (yoksa None).
+
+    Hermes kendi sayacini tutar ve create payload'inda BASKA bir sayi gorurse
+    `route_stale` doner. Canli olarak yasandi: bizde 1, Hermes'te 5 idi ve her
+    ticket teslimatta takiliyordu.
+    """
+    raw = verification.get("route_version")
+    if isinstance(raw, bool) or not isinstance(raw, int):
+        return None
+    return raw
 
 
 async def _validate_remote(
@@ -435,6 +452,9 @@ async def test_route(
             config.last_verified_at = datetime.now(UTC)
             config.last_error_code = None
             config.last_error_at = None
+            # Hermes route surumunu TAZELE: karsi taraf surumu degistirdiyse
+            # teslimat `route_stale` ile takilir; Test bunu duzeltebilmeli.
+            config.hermes_route_version = _remote_route_version(result)
     except RouteConfigError as exc:
         ok_result = {
             "ok": False,
@@ -459,6 +479,33 @@ async def test_route(
     )
     await db.commit()
     return ok_result
+
+
+async def refresh_remote_route_version(
+    db: AsyncSession, tenant_id: uuid.UUID
+) -> int | None:
+    """Hermes'in route surumunu yeniden okuyup kaydeder (en iyi caba).
+
+    `route_stale` genelde karsi tarafin surumu degistirmesi demektir. Bunu elle
+    "Test"e birakmak teslimati insan aksiyonuna kilitlerdi; burada tazelenince
+    bir sonraki kosum dogru surumle gider ve akis KENDINI ONARIR.
+    """
+    config = await get_route_config(db, tenant_id)
+    if config is None or not config.is_active:
+        return None
+    try:
+        verification = await _validate_remote(
+            tenant_id=tenant_id, group_id=config.hermes_group_id, correlation_id=None
+        )
+    except (RouteConfigError, HermesApiError) as exc:
+        logger.warning("Route surumu tazelenemedi (%s)", getattr(exc, "code", exc))
+        return None
+    version = _remote_route_version(verification)
+    if version is not None and version != config.hermes_route_version:
+        config.hermes_route_version = version
+        await db.commit()
+        logger.info("Hermes route surumu %s olarak tazelendi", version)
+    return version
 
 
 async def mark_route_error(

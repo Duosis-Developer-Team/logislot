@@ -112,14 +112,15 @@ async def resolve_route(tenant_id: uuid.UUID) -> RouteSnapshot:
                 ready=False,
                 group_id=config.hermes_group_id,
                 group_name=config.hermes_group_name_snapshot,
-                route_version=config.route_version,
+                route_version=config.hermes_route_version,
                 reason="route_disabled",
             )
         return RouteSnapshot(
             ready=True,
             group_id=config.hermes_group_id,
             group_name=config.hermes_group_name_snapshot,
-            route_version=config.route_version,
+            # Payload'a HERMES'IN surumu gider, bizim sayacimiz degil.
+            route_version=config.hermes_route_version,
             verified_at=config.last_verified_at,
         )
 
@@ -432,9 +433,15 @@ def build_create_payload(
             "slug": tenant_slug,
             "display_name": tenant_display_name,
         },
+        # `route_version` HERMES'IN surumu; bilinmiyorsa alan HIC gonderilmez
+        # (null gondermek 422 uretirdi). Ilk dogrulamada doldurulur.
         "route": {
             "group_id": str(route.group_id),
-            "route_version": route.route_version,
+            **(
+                {"route_version": route.route_version}
+                if route.route_version is not None
+                else {}
+            ),
         },
         "requester": {
             "id": str(ticket.requester_id),

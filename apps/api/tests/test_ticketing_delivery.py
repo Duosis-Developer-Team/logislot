@@ -51,11 +51,14 @@ async def _route(session_maker, tenant_id, *, group_id=GROUP_ID, version=3):
                     hermes_group_id=group_id,
                     hermes_group_name_snapshot="DevOps Team",
                     route_version=version,
+                    # Payload'a giden HERMES'IN surumudur; bizim sayacimiz degil.
+                    hermes_route_version=version,
                 )
             )
         else:
             existing.hermes_group_id = group_id
             existing.route_version = version
+            existing.hermes_route_version = version
         await db.commit()
 
 
@@ -498,3 +501,85 @@ async def test_snapshot_never_overwrites_original_description(
     # Ozgun aciklama YERINDE; yeni metin AYRI bir satir olarak eklendi.
     assert any(b.endswith("sayfa bos donuyor.") for b in bodies)
     assert "Musteri adina agent tarafindan girilmis metin" in bodies
+
+
+async def test_route_stale_refreshes_hermes_version_without_human_action(
+    client, seeded, session_maker
+):
+    """`route_stale` sonrasi Hermes surumu KENDILIGINDEN tazelenir.
+
+    Hermes kendi route surumunu tutar. Bizim sayacimizi gondermek her teslimatta
+    `route_stale` uretiyordu (canli: bizde 1, Hermes'te 5). Surum yalnizca
+    Platform ekranindaki "Test" ile tazelenseydi teslimat insan aksiyonuna
+    kilitli kalirdi; burada dogrulama ucundan otomatik okunur.
+    """
+    import json
+
+    from app.integrations.hermes_support_client import set_client_factory
+    from tests.hermes_stub import make_client
+
+    await _create_ticket(client, session_maker, seeded)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        url = str(request.url)
+        if url.endswith("/routes/validate"):
+            # Hermes surumu ILERLEMIS durumda.
+            return json_response(200, {"valid": True, "group_active": True,
+                                       "group_name": "DevOps Team", "route_version": 9})
+        body = json.loads(request.content)
+        if body["route"].get("route_version") != 9:
+            return error_response(409, contract.ERROR_ROUTE_STALE)
+        return json_response(201, fixture("ticket_create_response"))
+
+    set_client_factory(lambda: make_client(handler))
+
+    async with session_maker() as db:
+        summary = await deliver_pending(db)
+    assert summary["metadata"]["route_blocked"] == 1
+
+    # Insan hicbir sey yapmadan surum tazelenmis olmali.
+    async with session_maker() as db:
+        config = (await db.execute(sa.select(TicketRoutingConfig))).scalar_one()
+    assert config.hermes_route_version == 9
+    # Bizim sayacimiz DEGISMEZ: o platform ekranindaki iyimser kilit icindir.
+    assert config.route_version == 3
+
+    async with session_maker() as db:
+        command = (await db.execute(sa.select(SupportTicketOutbox))).scalar_one()
+        command.next_attempt_at = datetime.now(UTC) - timedelta(seconds=1)
+        await db.commit()
+    async with session_maker() as db:
+        await deliver_pending(db)
+
+    ticket = (await _outbox(session_maker))[0]
+    assert ticket.status is TicketOutboxStatus.sent
+
+
+async def test_payload_omits_route_version_when_hermes_version_unknown(
+    client, seeded, session_maker
+):
+    """Surum bilinmiyorken alan HIC gonderilmez — null gondermek 422 uretirdi."""
+    from app.core.enums import TicketCategory, TicketImpact, TicketRequesterType
+    from app.services.ticket_service import RouteSnapshot, build_create_payload
+
+    payload = build_create_payload(
+        SupportTicketProjection(
+            id=uuid.uuid4(),
+            tenant_id=seeded["tenant"].id,
+            facility_id=uuid.uuid4(),
+            requester_type=TicketRequesterType.tenant_user,
+            requester_id=uuid.uuid4(),
+            requester_name="X",
+            requester_email="x@example.com",
+            title="Randevu kaydinda hata aliyorum",
+            description="Kaydet butonundan sonra islem tamamlanmiyor ve sayfa donuyor.",
+            category=TicketCategory.bug,
+            impact=TicketImpact.multiple_users,
+        ),
+        route=RouteSnapshot(ready=True, group_id=GROUP_ID, route_version=None),
+        tenant_slug="bta",
+        tenant_display_name="BTA",
+        attachment_upload_ids=[],
+    )
+    assert "route_version" not in payload["route"]
+    assert payload["route"]["group_id"] == str(GROUP_ID)
