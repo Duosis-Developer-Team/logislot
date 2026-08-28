@@ -72,11 +72,14 @@ async def test_upload_session_returns_short_lived_url_not_service_token(
     )
     assert response.status_code == 200, response.text
     data = response.json()["data"]
-    assert data["upload_url"].startswith("https://")
+    # Yukleme adresi LogiSlot'un KENDI proxy ucudur. Hermes'in verdigi adres
+    # tarayicidan kullanilamaz: servis token'i ister ve CORS izni vermez.
+    assert data["upload_url"] == f"/tickets/attachments/{data['upload_id']}/content"
     assert data["expires_at"]
     # Hermes servis kimligi tarayiciya ASLA gitmez.
     assert "test-service-token" not in response.text
-    assert "Authorization" not in data.get("required_headers", {})
+    assert "hermes.test" not in response.text
+    assert data["required_headers"] == {}
 
 
 async def test_disallowed_mime_type_is_refused_before_hermes(client, seeded, session_maker):
@@ -466,3 +469,118 @@ async def test_peer_with_attachments_off_gets_clear_message_and_hides_field(
     svc._attachments_unavailable_until = 0.0
     config = await client.get("/tickets/config", headers=auth_headers(token))
     assert config.json()["data"]["attachments"]["enabled"] is True
+
+
+# ------------------------------------------------------- yukleme proxy'si
+
+
+def _hermes_with_content() -> RecordingHermes:
+    hermes = RecordingHermes()
+    hermes.on(
+        "/support/attachments/sessions",
+        json_response(201, fixture("attachment_session_response")),
+    )
+    hermes.on("/content", json_response(200, {"upload_id": "x", "status": "scanning"}))
+    hermes.install()
+    return hermes
+
+
+async def _session(client, token):
+    return (
+        await client.post(
+            "/tickets/attachments/sessions", json=SESSION_BODY, headers=auth_headers(token)
+        )
+    ).json()["data"]
+
+
+async def test_upload_is_proxied_to_hermes_with_service_token(
+    client, seeded, session_maker
+):
+    """Baytlar LogiSlot uzerinden gecer; token istege TARAYICIDA degil BURADA eklenir.
+
+    Hermes'in yukleme ucu `Authorization: Bearer <servis token>` istiyor ve
+    preflight'ta `Access-Control-Allow-Origin` dondurmuyor — ikisi de tarayici
+    uploadini imkansiz kiliyor. Sozlesme (bolum 5) burada presigned bir URL
+    tarif ediyor; Hermes onu vermiyor.
+    """
+    await _route(session_maker, seeded["tenant"].id)
+    hermes = _hermes_with_content()
+    token = await login(client, "/auth/login", "admin@cakesbakes.com")
+    session = await _session(client, token)
+
+    response = await client.put(
+        session["upload_url"],
+        content=b"sahte-png-baytlari",
+        headers={**auth_headers(token), "Content-Type": "image/png"},
+    )
+    assert response.status_code == 200, response.text
+
+    sent = [r for r in hermes.requests if str(r.url).endswith("/content")]
+    assert len(sent) == 1
+    assert sent[0].headers["authorization"] == "Bearer test-service-token"
+    assert sent[0].content == b"sahte-png-baytlari"
+
+
+async def test_upload_requires_own_session(client, seeded, session_maker):
+    """Baskasinin yukleme oturumuna dosya YAZILAMAZ."""
+    await _route(session_maker, seeded["tenant"].id)
+    _hermes_with_content()
+    owner = await login(client, "/auth/login", "admin@cakesbakes.com")
+    session = await _session(client, owner)
+
+    other = await login(client, "/auth/supplier-login", "tedarikci@anadoluun.com")
+    response = await client.put(
+        session["upload_url"],
+        content=b"x",
+        headers={**auth_headers(other), "Content-Type": "image/png"},
+    )
+    assert response.status_code in (403, 404)
+
+
+async def test_upload_without_session_is_refused(client, seeded, session_maker):
+    await _route(session_maker, seeded["tenant"].id)
+    _hermes_with_content()
+    token = await login(client, "/auth/login", "admin@cakesbakes.com")
+    response = await client.put(
+        f"/tickets/attachments/{uuid.uuid4()}/content",
+        content=b"x",
+        headers={**auth_headers(token), "Content-Type": "image/png"},
+    )
+    assert response.status_code == 404
+
+
+async def test_oversized_body_is_cut_off_even_if_declared_small(
+    client, seeded, session_maker
+):
+    """`size_bytes` ISTEMCI BEYANIDIR; gercek govde sinira gore kesilir.
+
+    Beyana guvenilseydi 1 KB bildirip 1 GB gonderilebilir, bellek tuketimi
+    istemcinin eline gecerdi.
+    """
+    await _route(session_maker, seeded["tenant"].id)
+    hermes = _hermes_with_content()
+    token = await login(client, "/auth/login", "admin@cakesbakes.com")
+    session = await _session(client, token)
+
+    limit = get_settings().ticket_attachment_max_file_size_bytes
+    response = await client.put(
+        session["upload_url"],
+        content=b"a" * (limit + 1),
+        headers={**auth_headers(token), "Content-Type": "image/png"},
+    )
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "TICKET_ATTACHMENT_TOO_LARGE"
+    # Sinir asildiginda Hermes'e HIC gidilmez.
+    assert not [r for r in hermes.requests if str(r.url).endswith("/content")]
+
+
+async def test_anonymous_upload_is_refused(client, seeded, session_maker):
+    await _route(session_maker, seeded["tenant"].id)
+    _hermes_with_content()
+    token = await login(client, "/auth/login", "admin@cakesbakes.com")
+    session = await _session(client, token)
+
+    response = await client.put(
+        session["upload_url"], content=b"x", headers={"Content-Type": "image/png"}
+    )
+    assert response.status_code == 401

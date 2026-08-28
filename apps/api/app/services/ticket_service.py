@@ -789,11 +789,12 @@ async def create_attachment_session(
     size_bytes: int,
     declared_mime_type: str,
     sha256: str | None = None,
+    upload_prefix: str,
 ) -> dict[str, Any]:
     """Hermes'ten kisa omurlu bir yukleme oturumu alir ve metadatayi kaydeder.
 
-    Tarayiciya donen `upload_url` tek bir nesneye, kisa sureli ve tek islemlik
-    izin verir; Hermes SERVICE TOKEN'I tarayiciya hicbir zaman gitmez.
+    Donen `upload_url` LogiSlot'un KENDI proxy ucudur; Hermes servis token'i
+    tarayiciya hicbir zaman gitmez (bkz. upload_attachment_content).
     """
     settings = get_settings()
     if size_bytes > settings.ticket_attachment_max_file_size_bytes:
@@ -844,11 +845,53 @@ async def create_attachment_session(
     await db.commit()
     return {
         "upload_id": str(upload_id),
-        "upload_url": session.get("upload_url"),
-        "required_headers": session.get("required_headers") or {},
+        # Hermes'in verdigi adres tarayicidan KULLANILAMAZ (servis token'i ister,
+        # CORS izni yoktur), bu yuzden istemciye KENDI proxy ucumuzu veriyoruz.
+        # Hermes gercek bir presigned URL dondurmeye baslarsa burada tek satir
+        # degisir; istemci akisi ayni kalir.
+        "upload_url": f"{upload_prefix}/attachments/{upload_id}/content",
+        "required_headers": {},
         "expires_at": session.get("expires_at"),
         "max_size_bytes": session.get("max_size_bytes"),
     }
+
+
+async def upload_attachment_content(
+    db: AsyncSession,
+    requester: TicketRequester,
+    upload_id: uuid.UUID,
+    *,
+    content: bytes,
+    content_type: str,
+) -> dict[str, Any]:
+    """Tarayicidan gelen baytlari Hermes'e GECIRIR; hicbir yere yazmaz.
+
+    Sozlesme (bolum 5) `upload_url`'i presigned kabul eder, yani tarayici
+    dogrudan yuklemelidir. Hermes'in ucu ise `Authorization: Bearer <servis
+    token>` istiyor ve preflight'ta `Access-Control-Allow-Origin` dondurmuyor;
+    ikisi de tarayici uploadini imkansiz kiliyor. Servis token'i tarayiciya
+    CIKAMAYACAGI icin tek secenek baytlari buradan gecirmek.
+
+    Dosya LogiSlot'ta SAKLANMAZ: istek govdesi dogrudan Hermes'e yazilir.
+    """
+    attachment = (
+        await db.execute(
+            sa.select(SupportTicketAttachmentProjection).where(
+                SupportTicketAttachmentProjection.upload_id == upload_id,
+                # Baskasinin yukleme oturumuna dosya yazilamaz.
+                SupportTicketAttachmentProjection.uploaded_by_id == requester.id,
+            )
+        )
+    ).scalar_one_or_none()
+    if attachment is None:
+        raise NotFoundError("Yukleme oturumu bulunamadi")
+
+    client = get_hermes_client()
+    return await client.upload_attachment_content(
+        upload_id=upload_id,
+        content=content,
+        content_type=attachment.mime_type or content_type,
+    )
 
 
 #: V1 allowlist (00_SHARED_PLATFORM/01, bolum 3). SVG/HTML/script/arsiv YOK.

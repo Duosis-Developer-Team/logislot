@@ -190,6 +190,26 @@ Düzeltme: dört uzun FK'ye **hem modelde hem DDL'de birebir aynı kısa ad** ve
 adları birebir eşleşmeli, sessiz kısaltma yasak) ve
 `test_every_table_compiles_against_postgres`. İkisi de negatif senaryoyla sınandı.
 
+## 9b. Hermes uygulamasının sözleşmeden saptığı yerler
+
+Üçü de canlı olarak doğrulandı. Fixture'lar **tek taraflı değiştirilmedi**;
+LogiSlot sözleşmeye uyar ve gereken yerde geçici uyum katmanı taşır.
+
+| Uç | Sözleşme | Hermes | LogiSlot'ta ne var |
+|---|---|---|---|
+| `POST /support/routes/validate` | `{application_code, contract_version, group_id, source_tenant_id}` (`route_validate_request.json`) | `{source_tenant:{id}, group_id}`; diğer alanlar 422 "Extra inputs are not permitted" | Önce kanonik gövde; yalnızca `validation_error` gelirse bir kez uyum gövdesi |
+| `POST /support/attachments/sessions` → `upload_url` | "short-lived-presigned-url", `required_headers` ile tarayıcı **doğrudan** yükler (bölüm 5) | Normal entegrasyon ucu: `Authorization: Bearer <servis token>` ister, preflight'ta `Access-Control-Allow-Origin` **yok** | Baytlar LogiSlot üzerinden geçer (`PUT /tickets/attachments/{id}/content`); hiçbir yere yazılmaz |
+| Hata kodları | bölüm 240'taki liste | `validation_error`, `support_not_configured` listede yok | İkisi de tanınır ve kullanıcıya anlaşılır metin üretir |
+
+Hermes gerçek bir presigned URL döndürmeye başlarsa proxy gereksizleşir:
+`create_attachment_session` içinde `upload_url` satırı Hermes'in verdiğine
+döner, istemci akışı aynı kalır.
+
+**Not:** MinIO kümenin içinde (`minio.hermes-test.svc.cluster.local:9000`) ve
+dışarıdan erişilebilir değil; presigned bir S3 URL'i de bugün tarayıcıdan
+çalışmazdı. Karşı tarafın ya MinIO'yu CORS ile yayına alması ya da `/content`
+ucunu upload'a özel kısa ömürlü bir token kabul edecek hale getirmesi gerekir.
+
 ## 10. Bilinen sınırlar
 
 1. ~~Hermes dev endpoint'i yok~~ **ÇÖZÜLDÜ (28 Ağu 2026).** Her iki ortam da canlı

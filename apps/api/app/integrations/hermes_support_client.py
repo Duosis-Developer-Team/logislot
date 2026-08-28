@@ -338,6 +338,48 @@ class HermesSupportClient:
 
     # ---------- ekler ----------
 
+    async def upload_attachment_content(
+        self,
+        *,
+        upload_id: uuid.UUID,
+        content: bytes,
+        content_type: str,
+        correlation_id: uuid.UUID | None = None,
+    ) -> dict[str, Any]:
+        """Dosya baytlarini Hermes'e yazar (servis kimligiyle).
+
+        Tarayici bu ucu KENDISI cagiramaz: servis token'i ister ve CORS izni
+        vermez. Token tarayiciya cikamayacagi icin baytlar LogiSlot uzerinden
+        gecer. Hermes gercek bir presigned URL dondurmeye baslarsa bu adim
+        gereksizlesir.
+        """
+        if not self.configured:
+            raise HermesNotConfiguredError()
+        headers = self._headers(idempotency_key=None, correlation_id=correlation_id)
+        headers["Content-Type"] = content_type
+        try:
+            async with httpx.AsyncClient(
+                base_url=self.base_url, timeout=self._timeout, transport=self._transport
+            ) as client:
+                response = await client.put(
+                    contract.attachment_content_path(str(upload_id)),
+                    content=content,
+                    headers=headers,
+                )
+        except httpx.HTTPError as exc:
+            raise HermesApiError(
+                contract.ERROR_INTEGRATION_UNAVAILABLE,
+                f"Hermes'e ulasilamadi: {type(exc).__name__}",
+                retryable=True,
+            ) from exc
+        if response.status_code >= 400:
+            raise self._error_from(response)
+        try:
+            body = response.json() if response.content else {}
+        except ValueError:
+            body = {}
+        return body if isinstance(body, dict) else {}
+
     async def create_upload_session(
         self,
         *,

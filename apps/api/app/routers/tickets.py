@@ -16,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.core.db import get_db
+from app.core.errors import ApiError
 from app.core.metrics import record_ticket_created
 from app.core.ratelimit import enforce_rate_limit
 from app.core.responses import ok
@@ -307,6 +308,38 @@ async def cancel(
     return ok(_ticket_detail(ticket, requester))
 
 
+async def _proxy_upload(db, requester, upload_id: uuid.UUID, request: Request):
+    """Tarayicidan gelen dosyayi Hermes'e GECIRIR (hicbir yere yazmadan).
+
+    Neden proxy: Hermes'in yukleme ucu servis token'i istiyor ve CORS izni
+    vermiyor, yani tarayici dogrudan yukleyemiyor; token da tarayiciya
+    cikamaz. Ayrintili gerekce: ticket_service.upload_attachment_content.
+
+    Govde AKARAK okunur ve sinir asilinca ANINDA kesilir: `size_bytes` istemci
+    beyanidir, gercek govde onu asabilir. Sinirsiz okumak 15 MB'lik bir limitte
+    bellek tuketimini istemciye birakirdi.
+    """
+    limit = get_settings().ticket_attachment_max_file_size_bytes
+    chunks: list[bytes] = []
+    total = 0
+    async for chunk in request.stream():
+        total += len(chunk)
+        if total > limit:
+            raise ApiError(
+                "TICKET_ATTACHMENT_TOO_LARGE",
+                f"Dosya boyutu en fazla {limit // (1024 * 1024)} MB olabilir.",
+                400,
+            )
+        chunks.append(chunk)
+    return await svc.upload_attachment_content(
+        db,
+        requester,
+        upload_id,
+        content=b"".join(chunks),
+        content_type=request.headers.get("content-type") or "application/octet-stream",
+    )
+
+
 @router.post("/attachments/sessions")
 async def create_attachment_session(
     body: AttachmentSessionRequest,
@@ -321,8 +354,19 @@ async def create_attachment_session(
             size_bytes=body.size_bytes,
             declared_mime_type=body.declared_mime_type,
             sha256=body.sha256,
+            upload_prefix="/tickets",
         )
     )
+
+
+@router.put("/attachments/{upload_id}/content")
+async def upload_attachment_content(
+    upload_id: uuid.UUID,
+    request: Request,
+    requester=Depends(get_ticket_requester),
+    db: AsyncSession = Depends(get_db),
+):
+    return ok(await _proxy_upload(db, requester, upload_id, request))
 
 
 @router.post("/attachments/{upload_id}/complete")
@@ -463,8 +507,19 @@ async def supplier_attachment_session(
             size_bytes=body.size_bytes,
             declared_mime_type=body.declared_mime_type,
             sha256=body.sha256,
+            upload_prefix="/supplier/tickets",
         )
     )
+
+
+@supplier_router.put("/attachments/{upload_id}/content")
+async def supplier_upload_attachment_content(
+    upload_id: uuid.UUID,
+    request: Request,
+    requester=Depends(get_ticket_requester),
+    db: AsyncSession = Depends(get_db),
+):
+    return ok(await _proxy_upload(db, requester, upload_id, request))
 
 
 @supplier_router.post("/attachments/{upload_id}/complete")

@@ -26,6 +26,17 @@ ATTACHMENT_SESSIONS_PATH: Final = "/support/attachments/sessions"
 TICKETS_PATH: Final = "/support/tickets"
 
 
+def attachment_content_path(upload_id: str) -> str:
+    """Dosya baytlarinin yazildigi uc.
+
+    Sozlesme (bolum 5) `upload_url`'i "short-lived-presigned-url" olarak tarif
+    eder, yani tarayici DOGRUDAN yukler. Hermes'in bu ucu ise servis token'i
+    istiyor ve CORS izni vermiyor; bu yuzden baytlar LogiSlot uzerinden gecer
+    (bkz. ticket_service.upload_attachment_content).
+    """
+    return f"/support/attachments/{upload_id}/content"
+
+
 def attachment_complete_path(upload_id: str) -> str:
     return f"/support/attachments/{upload_id}/complete"
 
