@@ -199,6 +199,9 @@ LogiSlot sözleşmeye uyar ve gereken yerde geçici uyum katmanı taşır.
 |---|---|---|---|
 | `POST /support/routes/validate` | `{application_code, contract_version, group_id, source_tenant_id}` (`route_validate_request.json`) | `{source_tenant:{id}, group_id}`; diğer alanlar 422 "Extra inputs are not permitted" | Önce kanonik gövde; yalnızca `validation_error` gelirse bir kez uyum gövdesi |
 | `POST /support/attachments/sessions` → `upload_url` | "short-lived-presigned-url", `required_headers` ile tarayıcı **doğrudan** yükler (bölüm 5) | Normal entegrasyon ucu: `Authorization: Bearer <servis token>` ister, preflight'ta `Access-Control-Allow-Origin` **yok** | Baytlar LogiSlot üzerinden geçer (`PUT /tickets/attachments/{id}/content`); hiçbir yere yazılmaz |
+| `route.route_version` (create) | — (kimin sayacı olduğu yazılı değil) | Hermes kendi sürümünü tutar; başka bir sayı → `route_stale` | Hermes'in sürümü ayrı kolonda (`hermes_route_version`), doğrulama yanıtından alınır ve `route_stale`'de otomatik tazelenir |
+| `aggregate_version` (olaylar) | monoton artar (fixture: status 2, mesaj 3) | `status_changed` ve `public_message_added` **aynı** sürümü aldı (2) | Eklemeli olaylar (mesaj/ek) sürüm kapısına tabi değil; kendi kimlikleriyle idempotent |
+| `GET /support/tickets/by-source/{id}` | yalnızca path (bölüm 7) | `?source_tenant_id=` zorunlu; yoksa 422 | İstemci tenant kapsamını gönderir |
 | Hata kodları | bölüm 240'taki liste | `validation_error`, `support_not_configured` listede yok | İkisi de tanınır ve kullanıcıya anlaşılır metin üretir |
 
 Hermes gerçek bir presigned URL döndürmeye başlarsa proxy gereksizleşir:
