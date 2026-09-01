@@ -103,7 +103,13 @@ export const tr = {
       routeTargetPrefix: "Hedef ekip yönetim tarafından belirlenir:",
       successWithNumber: (number: string) => `Talep numaranız ${number}.`,
       successPending: "Talebiniz destek merkezine iletiliyor.",
+      successTitle: "Talebiniz alındı",
+      sentToTeam: (team: string) => `${team} ekibine iletildi.`,
       newTicket: "Yeni Talep Aç",
+      errorCode: "Hata kodu / mesajı",
+      submit: "Talebi Gönder",
+      viewTicket: "Talebi Görüntüle",
+      retryHint: "Yazdıklarınız korunuyor; tekrar deneyebilirsiniz.",
       remaining: (left: number) => `${left} karakter daha gerekiyor`,
     },
     detail: {

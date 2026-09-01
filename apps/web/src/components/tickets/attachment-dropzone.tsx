@@ -134,7 +134,7 @@ export function AttachmentDropzone({
         });
       }
     },
-    [patch, upload],
+    [patch, upload, t.tickets.attachments.uploadFailed],
   );
 
   const addFiles = useCallback(
@@ -194,6 +194,7 @@ export function AttachmentDropzone({
       allowedMimeTypes,
       disabled,
       maxFileSizeBytes,
+      t.tickets.attachments,
       maxFiles,
       maxTotalBytes,
       onChange,

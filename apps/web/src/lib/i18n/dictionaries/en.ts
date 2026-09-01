@@ -108,7 +108,13 @@ export const en: Dictionary = {
       routeTargetPrefix: "The target team is set by your administrators:",
       successWithNumber: (number: string) => `Your request number is ${number}.`,
       successPending: "Your request is on its way to the support centre.",
+      successTitle: "Request received",
+      sentToTeam: (team: string) => `Sent to the ${team} team.`,
       newTicket: "Raise a new request",
+      errorCode: "Error code / message",
+      submit: "Send request",
+      viewTicket: "View request",
+      retryHint: "Your text is kept — you can try again.",
       remaining: (left: number) => `${left} more characters needed`,
     },
     detail: {
