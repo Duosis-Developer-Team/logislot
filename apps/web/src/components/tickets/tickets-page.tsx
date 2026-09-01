@@ -23,6 +23,8 @@ import { Input } from "@/components/ui/input";
 import type { TicketApi } from "@/lib/api/tickets";
 import type { TicketRowDto } from "@/lib/api/types";
 import { cn, formatDateTime } from "@/lib/utils";
+import { useLabels } from "@/lib/i18n/labels";
+import { useFormat, useT } from "@/lib/i18n/provider";
 
 /** Degeri belirtilen gecikmeyle geciren kucuk yardimci. */
 function useDebounced<T>(value: T, delayMs: number): T {
@@ -48,6 +50,9 @@ export function TicketsPage({
   description,
   showRequester = false,
 }: TicketsPageProps) {
+  const t = useT();
+  const fmt = useFormat();
+  const labels = useLabels();
   const params = useSearchParams();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [statusGroup, setStatusGroup] = useState<string>("open");
@@ -72,11 +77,11 @@ export function TicketsPage({
     if (fromQuery) setSelectedId(fromQuery);
   }, [params]);
 
-  if (config.isLoading) return <LoadingState label="Destek ekranı hazırlanıyor…" />;
+  if (config.isLoading) return <LoadingState />;
   if (config.isError || !config.data) {
     return (
       <ErrorState
-        message="Destek ekranı yüklenemedi."
+        message={t.tickets.loadError}
         onRetry={() => config.refetch()}
       />
     );
@@ -85,8 +90,8 @@ export function TicketsPage({
   if (!config.data.enabled) {
     return (
       <EmptyState
-        title="Destek talepleri kapalı"
-        description="Bu kurulumda destek talebi özelliği devre dışı bırakılmış."
+        title={t.tickets.disabledTitle}
+        description={t.tickets.disabledDescription}
       />
     );
   }
@@ -128,11 +133,10 @@ export function TicketsPage({
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
             <span>
               <strong className="font-semibold">
-                Destek yönlendirmesi henüz yapılandırılmamış.
+                {t.tickets.routeNotReadyTitle}
               </strong>
               <span className="mt-0.5 block text-xs text-muted-foreground">
-                Yeni talep oluşturulamıyor. Platform yöneticinizin hedef destek
-                ekibini tanımlaması gerekiyor; mevcut talepleriniz etkilenmez.
+                {t.tickets.routeNotReadyText}
               </span>
             </span>
           </CardContent>
@@ -169,7 +173,7 @@ export function TicketsPage({
           />
           <Input
             className="pl-9"
-            placeholder="Talep numarası veya başlık ara…"
+            placeholder={t.tickets.searchPlaceholder}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             aria-label="Taleplerde ara"
@@ -180,14 +184,14 @@ export function TicketsPage({
       {list.isPending ? (
         <LoadingState />
       ) : list.isError ? (
-        <ErrorState message="Talepler yüklenemedi." onRetry={() => list.refetch()} />
+        <ErrorState message={t.tickets.listError} onRetry={() => list.refetch()} />
       ) : rows.length === 0 ? (
         <EmptyState
           title="Bu sekmede talep yok"
           description={
             search
-              ? `“${search}” için sonuç bulunamadı.`
-              : "Bir sorun yaşadığınızda buradan talep açabilirsiniz."
+              ? t.tickets.noResults(search)
+              : t.tickets.emptyHint
           }
           actionLabel={config.data.can_create ? "Yeni Talep" : undefined}
           onAction={config.data.can_create ? () => setCreateOpen(true) : undefined}
@@ -232,6 +236,8 @@ function TicketRow({
   showRequester: boolean;
   onOpen: () => void;
 }) {
+  const t = useT();
+  const fmt = useFormat();
   const resolved = ticket.status === "resolved";
   const closed = ticket.status === "closed" || ticket.status === "cancelled";
   return (
@@ -257,7 +263,7 @@ function TicketRow({
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <span className="font-mono text-xs text-muted-foreground">
-              {ticket.ticket_number ?? "Gönderiliyor…"}
+              {ticket.ticket_number ?? t.tickets.beingSent}
             </span>
             <TicketStatusBadge status={ticket.status} />
             <TicketDeliveryBadge
@@ -280,14 +286,14 @@ function TicketRow({
             {ticket.updated_at && (
               <>
                 <span aria-hidden>·</span>
-                <span>Güncelleme {formatDateTime(ticket.updated_at)}</span>
+                <span>{t.tickets.updatedAt} {fmt.dateTime(ticket.updated_at)}</span>
               </>
             )}
           </p>
         </div>
         {resolved && ticket.resolved_at && (
           <span className="text-xs font-medium text-status-approved">
-            Çözüldü · {formatDateTime(ticket.resolved_at)}
+            {t.tickets.resolvedAt} · {fmt.dateTime(ticket.resolved_at)}
           </span>
         )}
       </CardContent>
