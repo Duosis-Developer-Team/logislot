@@ -25,7 +25,8 @@ test("platform navigasyonunda tesis kavrami yok; eski rota yonlenir", async ({ p
   // Hesap acilisi TEK adim: kapsam + kurulum + ilk yonetici ayni formda.
   await page.getByRole("button", { name: /Yeni Müşteri Hesabı/ }).first().click();
   const form = page.getByRole("dialog");
-  await expect(form.getByText("Adres")).toBeVisible();
+  // `exact`: markali alan adi ipucundaki "adrese" kelimesi de eslesiyordu.
+  await expect(form.getByText("Adres", { exact: true })).toBeVisible();
   await expect(form.getByText(/Başlangıç konfigürasyonunu kur/)).toBeVisible();
   await expect(form.getByText(/İlk yönetici hesabını oluştur/)).toBeVisible();
 });

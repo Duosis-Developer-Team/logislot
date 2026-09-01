@@ -46,7 +46,8 @@ test("çoklu seçim alanları: izin araması, Enter güvenliği ve rampa seçimi
   await takvimGroup.getByRole("button", { name: "Tümünü seç" }).click();
   await expect(roleDrawer.getByText(/^2 \/ \d+ izin seçili$/)).toBeVisible();
 
-  await roleDrawer.getByRole("button", { name: "İptal" }).click();
+  // Vazgec butonu uygulama genelinde ortak metni (`t.common.cancel`) kullanir.
+  await roleDrawer.getByRole("button", { name: "Vazgeç" }).click();
   await expect(roleDrawer).toBeHidden();
 
   // ---------- 2) Rampa: sec -> kaydet -> geri al ----------
