@@ -1,4 +1,5 @@
 import { ArrowRight, Building2, Truck } from "lucide-react";
+import { useT } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
 
 /**
@@ -18,21 +19,21 @@ export function PortalAccessCards({
   /** Final CTA için daha sıkı dikey ritim. */
   compact?: boolean;
 }) {
+  const t = useT();
   const portals = [
     {
       key: "supplier",
-      title: "Tedarikçi Portalı",
-      description:
-        "Teslimat randevularınızı oluşturun, takip edin ve güncel durumları görüntüleyin.",
-      cta: "Tedarikçi Portalına Git",
+      title: t.auth.portals.supplier.title,
+      description: t.auth.portals.supplier.subtitle,
+      cta: t.landing.portalCards.supplierCta,
       icon: Truck,
       href: supplierUrl,
     },
     {
       key: "admin",
-      title: "Yönetim Paneli",
-      description: "Rampa takvimini, onay süreçlerini ve tesis operasyonlarını yönetin.",
-      cta: "Yönetim Paneline Git",
+      title: t.auth.portals.admin.title,
+      description: t.auth.portals.admin.subtitle,
+      cta: t.landing.portalCards.adminCta,
       icon: Building2,
       href: adminUrl,
     },

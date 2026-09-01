@@ -4,6 +4,7 @@ import { CheckCircle2, Send } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select } from "@/components/ui/input";
+import { useT } from "@/lib/i18n/provider";
 
 /**
  * Demo talep formu — strateji dokümanındaki "Demo / İletişim" sayfasının
@@ -20,16 +21,17 @@ export function DemoRequestForm({ contactEmail }: { contactEmail: string }) {
   const [facilities, setFacilities] = useState("1");
   const [message, setMessage] = useState("");
   const [sent, setSent] = useState(false);
+  const t = useT();
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const subject = `LogiSlot Demo Talebi — ${company || name}`;
+    const subject = `${t.landing.demoForm.subject} — ${company || name}`;
     const body = [
-      `Ad Soyad: ${name}`,
-      `Firma: ${company}`,
-      `Kurumsal e-posta: ${email}`,
-      phone ? `Telefon: ${phone}` : null,
-      `Tesis sayısı: ${facilities}`,
+      `${t.landing.demoForm.name}: ${name}`,
+      `${t.landing.demoForm.company}: ${company}`,
+      `${t.landing.demoForm.email}: ${email}`,
+      phone ? `${t.landing.demoForm.phone}: ${phone}` : null,
+      t.landing.demoForm.bodyFacilities(facilities),
       "",
       message ? `Not: ${message}` : null,
       "",
@@ -47,17 +49,16 @@ export function DemoRequestForm({ contactEmail }: { contactEmail: string }) {
     return (
       <div className="flex flex-col items-center gap-3 rounded-2xl border border-status-approved/30 bg-status-approved/5 p-8 text-center dark:bg-status-approved/10">
         <CheckCircle2 className="h-10 w-10 text-status-approved" />
-        <h3 className="text-lg font-bold">Talebiniz hazırlandı</h3>
+        <h3 className="text-lg font-bold">{t.landing.demoForm.sentTitle}</h3>
         <p className="max-w-sm text-sm leading-relaxed text-muted-foreground">
-          E-posta istemcinizde önceden doldurulmuş talep mesajı açıldı —
-          göndermeniz yeterli. Açılmadıysa talebinizi doğrudan{" "}
+          {t.landing.demoForm.sentLead}{" "}
           <a
             href={`mailto:${contactEmail}`}
             className="font-medium text-foreground underline decoration-border underline-offset-2"
           >
             {contactEmail}
-          </a>{" "}
-          adresine iletebilirsiniz.
+          </a>
+          {t.landing.demoForm.sentTail}
         </p>
       </div>
     );
@@ -67,24 +68,24 @@ export function DemoRequestForm({ contactEmail }: { contactEmail: string }) {
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
-          <Label htmlFor="demo-name">Ad Soyad</Label>
+          <Label htmlFor="demo-name">{t.landing.demoForm.name}</Label>
           <Input
             id="demo-name"
             value={name}
             onChange={(e) => setName(e.target.value)}
             required
-            placeholder="Örn. Ayşe Yılmaz"
+            placeholder={t.landing.demoForm.namePlaceholder}
             className="h-12"
           />
         </div>
         <div>
-          <Label htmlFor="demo-company">Firma</Label>
+          <Label htmlFor="demo-company">{t.landing.demoForm.company}</Label>
           <Input
             id="demo-company"
             value={company}
             onChange={(e) => setCompany(e.target.value)}
             required
-            placeholder="Firma unvanınız"
+            placeholder={t.landing.demoForm.companyPlaceholder}
             className="h-12"
           />
         </div>
@@ -115,7 +116,7 @@ export function DemoRequestForm({ contactEmail }: { contactEmail: string }) {
         </div>
       </div>
       <div>
-        <Label htmlFor="demo-facilities">Tesis Sayısı</Label>
+        <Label htmlFor="demo-facilities">{t.landing.demoForm.facilities}</Label>
         <Select
           id="demo-facilities"
           value={facilities}
@@ -128,23 +129,24 @@ export function DemoRequestForm({ contactEmail }: { contactEmail: string }) {
         </Select>
       </div>
       <div>
-        <Label htmlFor="demo-message">Operasyonunuzdan kısaca bahsedin (opsiyonel)</Label>
+        <Label htmlFor="demo-message">{t.landing.demoForm.message}</Label>
         <textarea
           id="demo-message"
           value={message}
           onChange={(e) => setMessage(e.target.value)}
           rows={4}
-          placeholder="Örn. Günde ~30 araç kabul ediyoruz; randevular telefonla yönetiliyor."
+          placeholder={t.landing.demoForm.messagePlaceholder}
           className="w-full rounded-lg border border-border bg-card p-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
         />
       </div>
       <Button type="submit" size="lg" className="mt-1 w-full">
         <Send className="h-4 w-4" />
-        Demo Talebi Gönder
+        {t.landing.demoForm.submit}
       </Button>
       <p className="text-center text-xs text-muted-foreground">
-        Gönderim, e-posta istemcinizde önceden doldurulmuş bir mesaj açar.
-        Talebinize <strong>1 iş günü</strong> içinde dönüş yapılır.
+        {t.landing.demoForm.noteLead}{" "}
+        <strong>{t.landing.demoForm.noteHighlight}</strong>
+        {t.landing.demoForm.noteTail}
       </p>
     </form>
   );
