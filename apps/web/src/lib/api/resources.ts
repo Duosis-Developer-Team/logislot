@@ -161,8 +161,13 @@ export function useUserMutations(facilityId: string | null) {
   // e-postayi serbest birakmaz. Yanlislikla acilmis hesabin listeyi ve o
   // e-postayi sonsuza kadar tutmasi gercek bir tikanmaydi.
   const deletePermanently = useMutation({
-    mutationFn: (id: string) =>
-      apiRequest(`/facilities/${facilityId}/users/${id}/permanent`, { method: "DELETE" }),
+    // `force`: iz birakmis kullanici varsayilan olarak reddedilir; yonetici
+    // uyariyi gorup israr ederse ikinci onayla silinir.
+    mutationFn: ({ id, force }: { id: string; force?: boolean }) =>
+      apiRequest(
+        `/facilities/${facilityId}/users/${id}/permanent${force ? "?force=true" : ""}`,
+        { method: "DELETE" },
+      ),
     onSuccess: invalidate,
   });
   const resetPassword = useMutation({

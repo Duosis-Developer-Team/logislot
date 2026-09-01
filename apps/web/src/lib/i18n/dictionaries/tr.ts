@@ -1128,6 +1128,12 @@ export const tr = {
         `"${name}" pasifleştirilecek. Portal girişi ve yeni randevu oluşturma durur.`,
     },
     users: {
+      goToSuppliers: "Tedarikçi Ekle",
+      supplierHint:
+        "Tedarikçiler burada değil: tedarikçi bir firmadır, tesis kullanıcısı değil. Firma bilgisi, izinli kategoriler, kota ve portal giriş hesabı Yönetim → Tedarikçiler ekranından yönetilir.",
+      deleteAnyway: "Yine de sil",
+      deleteUserForceMessage: (name: string) =>
+        `"${name}" operasyonda iz bırakmış. Yine de silinsin mi? Denetim kayıtları korunur; silinen hesabın adı ve e-postası silme kaydında saklanır. Bu işlem geri alınamaz.`,
       deletePermanently: "Kalıcı olarak sil",
       deleteUserTitle: "Kullanıcıyı kalıcı olarak sil",
       deleteUserMessage: (name: string) =>

@@ -955,6 +955,33 @@ async def test_permanent_delete_blocked_for_user_with_history(client, seeded):
     assert response.status_code == 409
     assert response.json()["error"]["code"] == "USER_HAS_HISTORY"
 
+    # Yonetici bilerek israr ederse silinir; denetim satirlari YERINDE kalir
+    # ve silme kaydi silinen hesabin kimligini tasir.
+    audit_before = await client.get(
+        f"/facilities/{fid}/audit-logs", params={"limit": 100}, headers=headers
+    )
+    assert audit_before.status_code == 200
+    count_before = len(audit_before.json()["data"]["items"])
+
+    response = await client.delete(
+        f"/facilities/{fid}/users/{user_id}/permanent",
+        params={"force": "true"},
+        headers=headers,
+    )
+    assert response.status_code == 200
+
+    listed = await client.get(f"/facilities/{fid}/users", headers=headers)
+    assert all(u["id"] != user_id for u in listed.json()["data"])
+
+    audit_after = await client.get(
+        f"/facilities/{fid}/audit-logs", params={"limit": 100}, headers=headers
+    )
+    items = audit_after.json()["data"]["items"]
+    assert len(items) >= count_before, "denetim izi silme sirasinda kaybolmamali"
+    deletion = [a for a in items if a["action"] == "user.delete"]
+    assert deletion, "silme denetim kaydi yazilmali"
+    assert "iz-birakan@ornek.com" in str(deletion[0])
+
 
 async def test_permanent_delete_rejects_self(client, seeded):
     headers = await admin(client)

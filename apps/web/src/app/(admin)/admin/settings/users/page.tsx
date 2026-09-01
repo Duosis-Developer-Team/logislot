@@ -1,7 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { KeyRound, ShieldCheck } from "lucide-react";
+import { Handshake, KeyRound, ShieldCheck } from "lucide-react";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -16,6 +16,7 @@ import { Drawer } from "@/components/ui/drawer";
 import { Input, Label } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
+import { useRouter } from "next/navigation";
 import { ApiError } from "@/lib/api/client";
 import {
   docks,
@@ -105,8 +106,9 @@ type RoleFormValues = z.infer<typeof roleSchema>;
 
 export default function UsersPage() {
   const t = useT();
+  const router = useRouter();
   const errorMessage = useApiErrorMessage();
-  const { activeFacilityId } = useSession();
+  const { activeFacilityId, can } = useSession();
   const users = useFacilityUsers(activeFacilityId);
   const roles = useFacilityRoles(activeFacilityId);
   const dockList = docks.useList(activeFacilityId);
@@ -140,6 +142,8 @@ export default function UsersPage() {
   // ---- onay/parola dialoglari ----
   const [deactivateUserTarget, setDeactivateUserTarget] = useState<FacilityUserDto | null>(null);
   const [deleteUserTarget, setDeleteUserTarget] = useState<FacilityUserDto | null>(null);
+  // Iz birakmis kullanicida sunucu once reddeder; ikinci onay `force` gonderir.
+  const [deleteNeedsForce, setDeleteNeedsForce] = useState(false);
   const [deactivateRoleTarget, setDeactivateRoleTarget] = useState<RoleDto | null>(null);
   const [resetTarget, setResetTarget] = useState<FacilityUserDto | null>(null);
   const [resetPassword, setResetPassword] = useState("");
@@ -298,12 +302,22 @@ export default function UsersPage() {
   async function onDeleteUserPermanently() {
     if (!deleteUserTarget) return;
     try {
-      await userMutations.deletePermanently.mutateAsync(deleteUserTarget.id);
+      await userMutations.deletePermanently.mutateAsync({
+        id: deleteUserTarget.id,
+        force: deleteNeedsForce,
+      });
       showFlash("success", t.admin.users.userDeleted(deleteUserTarget.name));
-    } catch (err) {
-      showFlash("error", errorMessage(err, t.admin.users.actionFailed));
-    } finally {
       setDeleteUserTarget(null);
+      setDeleteNeedsForce(false);
+    } catch (err) {
+      // Iz uyarisi bir CIKMAZ degil: dialog "yine de sil" haline gecer.
+      if (err instanceof ApiError && err.code === "USER_HAS_HISTORY") {
+        setDeleteNeedsForce(true);
+        return;
+      }
+      showFlash("error", errorMessage(err, t.admin.users.actionFailed));
+      setDeleteUserTarget(null);
+      setDeleteNeedsForce(false);
     }
   }
 
@@ -342,10 +356,26 @@ export default function UsersPage() {
             {t.admin.users.description}
           </p>
         </div>
-        <Button onClick={tab === "users" ? openUserCreate : openRoleCreate}>
-          {tab === "users" ? t.admin.users.newUser : t.admin.users.newRole}
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Tedarikci hesaplari BURADA yonetilmez (tedarikci bir sirkettir,
+              tesis kullanicisi degil) — ama yonetici once burada ariyor.
+              Kopru olmadiginda ekran cikmaz sokak gibi davraniyordu. */}
+          {can("supplier.manage") && (
+            <Button variant="secondary" onClick={() => router.push("/admin/settings/suppliers")}>
+              <Handshake className="h-4 w-4" /> {t.admin.users.goToSuppliers}
+            </Button>
+          )}
+          <Button onClick={tab === "users" ? openUserCreate : openRoleCreate}>
+            {tab === "users" ? t.admin.users.newUser : t.admin.users.newRole}
+          </Button>
+        </div>
       </div>
+
+      {can("supplier.manage") && (
+        <p className="rounded-lg border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+          {t.admin.users.supplierHint}
+        </p>
+      )}
 
       {flash && (
         <div
@@ -364,7 +394,7 @@ export default function UsersPage() {
         {(
           [
             { key: "users", label: t.admin.users.tabUsers(users.data?.length ?? 0) },
-            { key: "roles", label: `Roller (${roles.data?.length ?? 0})` },
+            { key: "roles", label: t.admin.users.tabRoles(roles.data?.length ?? 0) },
           ] as const
         ).map((t) => (
           <button
@@ -673,11 +703,22 @@ export default function UsersPage() {
       <ConfirmDialog
         open={deleteUserTarget !== null}
         title={t.admin.users.deleteUserTitle}
-        message={t.admin.users.deleteUserMessage(deleteUserTarget?.name ?? "")}
-        confirmLabel={t.admin.users.deletePermanently}
+        message={
+          deleteNeedsForce
+            ? t.admin.users.deleteUserForceMessage(deleteUserTarget?.name ?? "")
+            : t.admin.users.deleteUserMessage(deleteUserTarget?.name ?? "")
+        }
+        confirmLabel={
+          deleteNeedsForce
+            ? t.admin.users.deleteAnyway
+            : t.admin.users.deletePermanently
+        }
         loading={userMutations.deletePermanently.isPending}
         onConfirm={() => void onDeleteUserPermanently()}
-        onClose={() => setDeleteUserTarget(null)}
+        onClose={() => {
+          setDeleteUserTarget(null);
+          setDeleteNeedsForce(false);
+        }}
       />
 
       <ConfirmDialog
