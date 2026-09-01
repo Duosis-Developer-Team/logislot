@@ -10,10 +10,15 @@ Kararlar (raporda):
 - platform.* izinleri tenant rollerine ASLA atanamaz (whitelist disi -> 422).
 - DELETE = soft (is_active/status); pasif kullanici login+refresh edemez ve
   oturumlari dusurulur; parola reset oturumlari dusurur.
+- KALICI silme AYRI bir uctur (DELETE .../permanent) ve yalnizca HIC IZ
+  BIRAKMAMIS pasif hesaplar icin calisir. Yanlislikla acilan bir hesabin
+  listeyi kalici olarak kirletmesi gerekmiyor; is yapmis bir hesabin
+  silinmesi ise denetim izini anlamsizlastirirdi.
 """
 
 import uuid
 
+import sqlalchemy as sa
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy import or_, select
@@ -27,12 +32,22 @@ from app.core.passwords import generate_temporary_password
 from app.core.permissions import TenantPermission, expand_tenant_permissions
 from app.core.responses import ok
 from app.core.security import hash_password
-from app.models import Dock, FacilityMembership, Role, TenantUser
+from app.models import (
+    Appointment,
+    AppointmentRevision,
+    AuditLog,
+    Dock,
+    FacilityMembership,
+    Notification,
+    Role,
+    TenantUser,
+)
 from app.services.audit import record_audit
 from app.services.auth_sessions import revoke_user_sessions
 from app.services.config import ensure_unique_value, load_scoped_refs
 from app.tenancy.deps import FacilityContext, require_facility_permissions
 from app.tenancy.directory import claim_email
+from app.tenancy.directory import release as release_directory_entry
 
 router = APIRouter(prefix="/facilities/{facility_id}", tags=["users"])
 
@@ -377,6 +392,97 @@ async def deactivate_user(
     await db.commit()
     membership = await _membership_of(db, ctx, user_id)
     return ok(_user_out(membership))
+
+
+async def _ensure_no_footprint(
+    db: AsyncSession, ctx: FacilityContext, user_id: uuid.UUID
+) -> None:
+    """Kullanici operasyonel iz birakmissa KALICI silinemez.
+
+    Randevu ve denetim satirlari kullaniciya FK ile bagli DEGIL (ham uuid
+    tutulur); silinseydi kayitlar sessizce sahipsiz kalirdi. Bu yuzden iz
+    varsa pasiflestirme onerilir.
+    """
+    used = (
+        await db.execute(
+            select(Appointment.id)
+            .where(Appointment.created_by_id == user_id)
+            .limit(1)
+        )
+    ).first()
+    if used is None:
+        used = (
+            await db.execute(
+                select(AppointmentRevision.id)
+                .where(AppointmentRevision.revised_by_user_id == user_id)
+                .limit(1)
+            )
+        ).first()
+    if used is None:
+        used = (
+            await db.execute(
+                select(AuditLog.id).where(AuditLog.actor_id == user_id).limit(1)
+            )
+        ).first()
+    if used is not None:
+        raise ApiError(
+            "USER_HAS_HISTORY",
+            "Bu kullanici operasyonda iz birakmis; kalici olarak silinemez. "
+            "Pasif kalmasi gecmisin dogru okunmasi icin gereklidir.",
+            409,
+        )
+
+
+@router.delete("/users/{user_id}/permanent")
+async def delete_user_permanently(
+    user_id: uuid.UUID,
+    ctx: FacilityContext = Depends(require_facility_permissions(TenantPermission.USER_MANAGE)),
+    db: AsyncSession = Depends(get_db),
+    control_db: AsyncSession = Depends(get_control_db),
+):
+    """Yanlislikla acilmis, hic kullanilmamis PASIF hesabi tamamen kaldirir."""
+    membership = await _membership_of(db, ctx, user_id)
+    user = membership.user
+
+    if user_id == ctx.identity.id:
+        raise ApiError("SELF_DELETE", "Kendi hesabinizi silemezsiniz", 409)
+    if user.status == UserStatus.active:
+        raise ApiError(
+            "USER_ACTIVE",
+            "Once kullaniciyi pasiflestirin; kalici silme yalnizca pasif hesaplar icindir",
+            409,
+        )
+    await _ensure_not_last_admin(db, ctx, user_id)
+    await _ensure_no_footprint(db, ctx, user_id)
+
+    before = _user_out(membership)
+    await revoke_user_sessions(db, user_type="tenant", user_id=user_id)
+    # Denetim kaydi silinen kullanicinin ADI/e-postasini tasir: satir gidince
+    # "kim silindi" sorusunun cevabi yalnizca burada kalir.
+    _audit(
+        db, ctx,
+        action="user.delete", entity_type="tenant_user", entity_id=user_id,
+        before=before, after=None,
+    )
+    # Bagli satirlar ACIKCA silinir. `db.delete(user)` tek basina yetmez:
+    # SQLAlchemy iliskiyi "sil-degil-bosalt" olarak yorumlayip
+    # facility_memberships.tenant_user_id alanini NULL'a cekmeye calisir ve
+    # NOT NULL kisitina takilir — veritabani ON DELETE CASCADE tanimli olsa
+    # bile.
+    await db.execute(
+        sa.delete(Notification).where(Notification.recipient_user_id == user_id)
+    )
+    await db.execute(
+        sa.delete(FacilityMembership).where(
+            FacilityMembership.tenant_user_id == user_id
+        )
+    )
+    await db.delete(user)
+    await db.commit()
+    # Dizin satiri AYRI veritabanindadir ve elle birakilmalidir; aksi halde
+    # e-posta sonsuza kadar rezerve kalir ve tekrar kullanilamazdi.
+    await release_directory_entry(control_db, user_id)
+    return ok({"id": str(user_id), "deleted": True})
 
 
 @router.post("/users/{user_id}/reset-password")

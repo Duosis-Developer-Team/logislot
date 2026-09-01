@@ -1047,6 +1047,11 @@ export const en: Dictionary = {
       legendNow: "Now",
     },
     suppliers: {
+      accountNeedsEmail: "Enter an email for the portal account.",
+      accountCreated: (email: string, password: string) =>
+        `Portal account created. Sign in: ${email} · Temporary password: ${password}`,
+      accountPasswordHint: (suggested: string) =>
+        `Leave blank to use the suggested password: ${suggested}`,
       quotaLine: (weekly: string, monthly: string) => `${weekly}/week · ${monthly}/month`,
       accountActive: "Account active",
       accountInactive: "Account disabled",
@@ -1126,6 +1131,11 @@ export const en: Dictionary = {
         `"${name}" will be deactivated. Portal sign-in and new bookings will stop.`,
     },
     users: {
+      deletePermanently: "Delete permanently",
+      deleteUserTitle: "Delete this user permanently",
+      deleteUserMessage: (name: string) =>
+        `"${name}" will be removed completely and their email freed for reuse. This can't be undone. Users who have acted in the system can't be deleted — they stay deactivated.`,
+      userDeleted: (name: string) => `"${name}" was permanently deleted.`,
       fullName: "Full name",
       searchRole: "Search roles…",
       minPasswordPlaceholder: "At least 6 characters",

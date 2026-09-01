@@ -1044,6 +1044,11 @@ export const tr = {
       legendNow: "Şu an",
     },
     suppliers: {
+      accountNeedsEmail: "Portal hesabı için e-posta girin.",
+      accountCreated: (email: string, password: string) =>
+        `Portal hesabı açıldı. Giriş: ${email} · Geçici parola: ${password}`,
+      accountPasswordHint: (suggested: string) =>
+        `Boş bırakırsanız önerilen parola kullanılır: ${suggested}`,
       quotaLine: (weekly: string, monthly: string) => `${weekly}/hafta · ${monthly}/ay`,
       accountActive: "Aktif hesap",
       accountInactive: "Pasif hesap",
@@ -1123,6 +1128,11 @@ export const tr = {
         `"${name}" pasifleştirilecek. Portal girişi ve yeni randevu oluşturma durur.`,
     },
     users: {
+      deletePermanently: "Kalıcı olarak sil",
+      deleteUserTitle: "Kullanıcıyı kalıcı olarak sil",
+      deleteUserMessage: (name: string) =>
+        `"${name}" tamamen silinecek ve e-postası yeniden kullanılabilir olacak. Bu işlem geri alınamaz. Operasyonda iz bırakmış kullanıcılar silinemez; onlar pasif kalır.`,
+      userDeleted: (name: string) => `"${name}" kalıcı olarak silindi.`,
       fullName: "Ad Soyad",
       searchRole: "Rol ara…",
       minPasswordPlaceholder: "En az 6 karakter",

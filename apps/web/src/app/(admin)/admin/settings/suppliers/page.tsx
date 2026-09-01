@@ -129,6 +129,9 @@ export default function SuppliersPage() {
   const [accountActive, setAccountActive] = useState(true);
 
   const form = useForm<FormValues>({ resolver: zodResolver(formSchema) });
+  // Onerilen parola cekmece ACILIRKEN bir kez uretilir. Render sirasinda
+  // uretilseydi ekranda gosterilen parola ile gonderilen farkli olabilirdi.
+  const [generatedPassword, setGeneratedPassword] = useState("");
 
   function openCreate() {
     form.reset({
@@ -147,6 +150,7 @@ export default function SuppliersPage() {
   }
 
   function openEdit(row: SupplierDto) {
+    setGeneratedPassword(`LS-${Math.random().toString(36).slice(2, 10)}!`);
     form.reset({
       company_name: row.company_name,
       code: row.code,
@@ -235,6 +239,34 @@ export default function SuppliersPage() {
       setFormError(null);
     } catch (err) {
       setFormError(errorMessage(err, t.admin.suppliers.resetFailed));
+    }
+  }
+
+  /** Hesapsiz acilmis tedarikciye sonradan portal hesabi acar. */
+  async function onCreateAccountForExisting() {
+    if (!drawer.editing) return;
+    const email = form.getValues("account_email")?.trim();
+    const password = form.getValues("account_password")?.trim();
+    if (!email) {
+      setFormError(t.admin.suppliers.accountNeedsEmail);
+      return;
+    }
+    try {
+      await account.createAccount.mutateAsync({
+        id: drawer.editing.id,
+        email,
+        // Parola bos birakilirsa backend rastgele uretmez (uc parola bekler);
+        // burada uretmek, yoneticinin parolayi GORUP iletebilmesini saglar.
+        password: password || generatedPassword,
+      });
+      showFlash(
+        "success",
+        t.admin.suppliers.accountCreated(email, password || generatedPassword),
+      );
+      setFormError(null);
+      setDrawer({ open: false, editing: null });
+    } catch (err) {
+      setFormError(errorMessage(err, t.admin.suppliers.actionFailed));
     }
   }
 
@@ -554,9 +586,39 @@ export default function SuppliersPage() {
                   </div>
                 </div>
               ) : (
-                <p className="text-sm text-muted-foreground">
-                  {t.admin.suppliers.noAccount}
-                </p>
+                <div className="flex flex-col gap-3">
+                  <p className="text-sm text-muted-foreground">
+                    {t.admin.suppliers.noAccount}
+                  </p>
+                  <div>
+                    <Label>{t.admin.suppliers.accountEmail}</Label>
+                    <Input
+                      type="email"
+                      placeholder={t.admin.suppliers.accountEmailPlaceholder}
+                      {...form.register("account_email")}
+                    />
+                  </div>
+                  <div>
+                    <Label>{t.admin.suppliers.accountPassword}</Label>
+                    <Input
+                      type="text"
+                      placeholder={generatedPassword}
+                      {...form.register("account_password")}
+                    />
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {t.admin.suppliers.accountPasswordHint(generatedPassword)}
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    className="w-fit"
+                    disabled={account.createAccount.isPending}
+                    onClick={() => void onCreateAccountForExisting()}
+                  >
+                    <KeyRound className="h-4 w-4" /> {t.admin.suppliers.createAccount}
+                  </Button>
+                </div>
               )
             ) : (
               <div className="flex flex-col gap-3">

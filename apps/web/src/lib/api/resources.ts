@@ -84,6 +84,17 @@ export function useSupplierAccountActions(facilityId: string | null) {
         body: { new_password: password },
       }),
   });
+  // Hesapsiz olusturulmus tedarikciye SONRADAN portal hesabi acar. Backend
+  // ucu basindan beri vardi ama arayuz hic cagirmiyordu; hesapsiz acilan bir
+  // tedarikciye giris vermenin baska yolu yoktu.
+  const createAccount = useMutation({
+    mutationFn: ({ id, email, password }: { id: string; email: string; password: string }) =>
+      apiRequest(`/facilities/${facilityId}/suppliers/${id}/users`, {
+        method: "POST",
+        body: { email, password },
+      }),
+    onSuccess: invalidate,
+  });
   const setAccountStatus = useMutation({
     mutationFn: ({ id, isActive }: { id: string; isActive: boolean }) =>
       apiRequest(`/facilities/${facilityId}/suppliers/${id}/user-status`, {
@@ -92,7 +103,7 @@ export function useSupplierAccountActions(facilityId: string | null) {
       }),
     onSuccess: invalidate,
   });
-  return { resetPassword, setAccountStatus };
+  return { createAccount, resetPassword, setAccountStatus };
 }
 
 export function useFacilityUsers(facilityId: string | null) {
@@ -146,6 +157,14 @@ export function useUserMutations(facilityId: string | null) {
       }),
     onSuccess: invalidate,
   });
+  // Kalici silme AYRI uctur: DELETE .../users/:id yalnizca PASIFLESTIRIR ve
+  // e-postayi serbest birakmaz. Yanlislikla acilmis hesabin listeyi ve o
+  // e-postayi sonsuza kadar tutmasi gercek bir tikanmaydi.
+  const deletePermanently = useMutation({
+    mutationFn: (id: string) =>
+      apiRequest(`/facilities/${facilityId}/users/${id}/permanent`, { method: "DELETE" }),
+    onSuccess: invalidate,
+  });
   const resetPassword = useMutation({
     mutationFn: ({ id, password }: { id: string; password: string }) =>
       apiRequest(`/facilities/${facilityId}/users/${id}/reset-password`, {
@@ -153,7 +172,7 @@ export function useUserMutations(facilityId: string | null) {
         body: { new_password: password },
       }),
   });
-  return { save, deactivate, resetPassword };
+  return { save, deactivate, deletePermanently, resetPassword };
 }
 
 /** Rol CRUD (Sprint 8). Rol izinleri degisince auth/me de tazelenir. */
