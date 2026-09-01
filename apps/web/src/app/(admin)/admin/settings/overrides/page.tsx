@@ -93,8 +93,8 @@ export default function OverridesPage() {
         <Table>
           <THead>
             <TR>
-              <TH>Tarih</TH>
-              <TH>Rampa</TH>
+              <TH>{t.common.date}</TH>
+              <TH>{t.common.dock}</TH>
               <TH>Tip</TH>
               <TH>{t.admin.overrides.colHours}</TH>
               <TH>Sebep</TH>

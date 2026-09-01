@@ -26,8 +26,6 @@ import {
 import { useState } from "react";
 import {
   TICKET_RESOLUTION_CODE_LABELS,
-  ticketCategoryLabel,
-  ticketImpactLabel,
 } from "@logislot/shared";
 import { LoadingState } from "@/components/config/states";
 import {
@@ -128,9 +126,9 @@ export function TicketDetail({
           </div>
           <h1 className="mt-1 text-xl font-bold">{ticket.title}</h1>
           <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
-            <span>{ticketCategoryLabel(ticket.category)}</span>
+            <span>{labels.ticketCategoryLabel(ticket.category)}</span>
             <span aria-hidden>·</span>
-            <span>{ticketImpactLabel(ticket.impact)}</span>
+            <span>{labels.ticketImpactLabel(ticket.impact)}</span>
             {ticket.group_name && (
               <>
                 <span aria-hidden>·</span>
@@ -155,7 +153,7 @@ export function TicketDetail({
           <CardContent className="flex items-start gap-2 p-4 text-sm">
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" aria-hidden />
             <span>
-              <strong className="font-semibold">Talep destek merkezine iletilemedi.</strong>
+              <strong className="font-semibold">{t.tickets.detail.deliveryFailedTitle}</strong>
               <span className="mt-0.5 block text-xs text-muted-foreground">
                 {t.tickets.detail.deliveryFailedLead}
                 {ticket.last_sync_error_code
@@ -173,7 +171,7 @@ export function TicketDetail({
           <CardContent className="flex items-start gap-2 p-4 text-sm">
             <MessageCircleQuestion className="mt-0.5 h-4 w-4 shrink-0 text-accent-foreground" aria-hidden />
             <span>
-              <strong className="font-semibold">Destek ekibi sizden bilgi bekliyor.</strong>
+              <strong className="font-semibold">{t.tickets.detail.waitingCustomerTitle}</strong>
               <span className="mt-0.5 block text-xs text-muted-foreground">
                 {t.tickets.detail.waitingCustomer}
               </span>
@@ -233,7 +231,7 @@ export function TicketDetail({
                   variant="secondary"
                   onClick={() => setReopenOpen((v) => !v)}
                 >
-                  <RotateCcw className="h-4 w-4" aria-hidden /> Sorun devam ediyor
+                  <RotateCcw className="h-4 w-4" aria-hidden /> {t.tickets.detail.stillBroken}
                 </Button>
               </div>
             )}
@@ -293,12 +291,18 @@ export function TicketDetail({
         <CardContent className="p-4">
           <h2 className="text-sm font-semibold">{t.tickets.detail.summary}</h2>
           <dl className="mt-2 grid gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
-            <Field label="Kategori" value={ticketCategoryLabel(ticket.category)} />
-            <Field label="Etki" value={ticketImpactLabel(ticket.impact)} />
+            <Field
+              label={t.tickets.detail.category}
+              value={labels.ticketCategoryLabel(ticket.category)}
+            />
+            <Field
+              label={t.tickets.detail.impact}
+              value={labels.ticketImpactLabel(ticket.impact)}
+            />
             <Field label={t.tickets.detail.reproSteps} value={ticket.reproduction_steps} wide />
             <Field label={t.tickets.detail.expected} value={ticket.expected_result} />
             <Field label={t.tickets.detail.actual} value={ticket.actual_result} />
-            <Field label="Hata kodu" value={ticket.error_code} />
+            <Field label={t.tickets.detail.errorCode} value={ticket.error_code} />
             <Field
               label={t.tickets.detail.occurredAt}
               value={ticket.occurred_at ? formatDateTime(ticket.occurred_at) : null}
@@ -327,7 +331,7 @@ export function TicketDetail({
               <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
                 <span className="font-medium text-foreground">
                   {message.author_display_name ??
-                    (fromAgent ? "Destek Ekibi" : "Siz")}
+                    (fromAgent ? t.tickets.detail.supportTeam : t.tickets.detail.you)}
                 </span>
                 <span className="flex items-center gap-1.5">
                   {message.is_pending && (
@@ -354,7 +358,8 @@ export function TicketDetail({
         {ticket.attachments.filter((a) => !a.message_id).length > 0 && (
           <div className="rounded-xl border border-border bg-card px-4 py-3">
             <p className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-              <Paperclip className="h-3.5 w-3.5" aria-hidden /> Talebe eklenen dosyalar
+              <Paperclip className="h-3.5 w-3.5" aria-hidden />{" "}
+              {t.tickets.detail.ticketAttachments}
             </p>
             <AttachmentList
               ticketId={ticket.id}

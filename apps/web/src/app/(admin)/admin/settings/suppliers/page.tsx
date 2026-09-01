@@ -35,7 +35,7 @@ import { useT } from "@/lib/i18n/provider";
 const formSchema = z
   .object({
     company_name: z.string().min(1, "companyRequired"),
-    code: z.string().min(1, "Kod zorunlu"),
+    code: z.string().min(1, "codeRequired"),
     category_label: z.string().optional(),
     contact_name: z.string().optional(),
     contact_email: z.string().email("validEmail").or(z.literal("")),
@@ -45,14 +45,14 @@ const formSchema = z
       .number()
       .int()
       .positive()
-      .max(1440, "En fazla 1440 dk (24 saat)")
+      .max(1440, "maxDuration")
       .optional()
       .or(z.literal("")),
     max_block_minutes: z.coerce
       .number()
       .int()
       .positive()
-      .max(1440, "En fazla 1440 dk (24 saat)")
+      .max(1440, "maxDuration")
       .optional()
       .or(z.literal("")),
     weekly_quota: z.coerce.number().int().min(0).optional().or(z.literal("")),
@@ -61,7 +61,7 @@ const formSchema = z
     account_email: z.string().email("validEmail").or(z.literal("")),
     account_password: z
       .string()
-      .min(6, "En az 6 karakter")
+      .min(6, "minPassword")
       .or(z.literal("")),
   })
   .superRefine((values, ctx) => {
@@ -304,7 +304,7 @@ export default function SuppliersPage() {
         <Table>
           <THead>
             <TR>
-              <TH>Firma</TH>
+              <TH>{t.common.company}</TH>
               <TH>{t.admin.suppliers.colContact}</TH>
               <TH>{t.admin.suppliers.colCategories}</TH>
               <TH>Teslimat</TH>
@@ -340,7 +340,7 @@ export default function SuppliersPage() {
                     <Badge className="bg-muted text-muted-foreground">Standart</Badge>
                     {row.cargo_enabled && (
                       <Badge className="bg-cargo/15 text-cargo">
-                        <Package className="h-3 w-3" /> Kargo
+                        <Package className="h-3 w-3" /> {t.common.cargo}
                       </Badge>
                     )}
                   </div>
@@ -348,7 +348,10 @@ export default function SuppliersPage() {
                 <TD className="whitespace-nowrap text-xs text-muted-foreground">
                   {row.min_block_minutes ?? "—"}–{row.max_block_minutes ?? "—"} dk
                   <br />
-                  {row.weekly_quota ?? "∞"}/hafta · {row.monthly_quota ?? "∞"}/ay
+                  {t.admin.suppliers.quotaLine(
+                    String(row.weekly_quota ?? "∞"),
+                    String(row.monthly_quota ?? "∞"),
+                  )}
                 </TD>
                 <TD>
                   {row.auto_approval_enabled ? (
@@ -370,11 +373,15 @@ export default function SuppliersPage() {
                             : "text-status-cancelled"
                         }
                       >
-                        {row.account_active ? "Aktif hesap" : "Pasif hesap"}
+                        {row.account_active
+                          ? t.admin.suppliers.accountActive
+                          : t.admin.suppliers.accountInactive}
                       </span>
                     </div>
                   ) : (
-                    <span className="text-xs text-muted-foreground">Hesap yok</span>
+                    <span className="text-xs text-muted-foreground">
+                      {t.admin.suppliers.noAccountShort}
+                    </span>
                   )}
                 </TD>
                 <TD>
@@ -405,7 +412,7 @@ export default function SuppliersPage() {
         className="max-w-xl"
       >
         <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-4">
-          <Section title="Firma">
+          <Section title={t.common.company}>
             <div className="grid grid-cols-2 gap-3">
               <div className="col-span-2">
                 <Label>{t.admin.suppliers.companyName}</Label>
@@ -468,7 +475,7 @@ export default function SuppliersPage() {
             />
           </Section>
 
-          <Section title="Teslimat Tipleri">
+          <Section title={t.admin.suppliers.deliveryTypes}>
             <div className="flex items-center gap-2 text-sm">
               <Badge className="bg-muted text-muted-foreground">Standart</Badge>
               <span className="text-xs text-muted-foreground">
@@ -485,7 +492,7 @@ export default function SuppliersPage() {
             </p>
           </Section>
 
-          <Section title="Blokaj & Kota">
+          <Section title={t.admin.suppliers.blockAndQuota}>
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label>{t.admin.suppliers.minDuration}</Label>
@@ -525,14 +532,14 @@ export default function SuppliersPage() {
                   <Switch
                     checked={accountActive}
                     onChange={onToggleAccount}
-                    label="Hesap aktif"
+                    label={t.admin.suppliers.accountActiveToggle}
                   />
                   <div className="flex items-end gap-2">
                     <div className="flex-1">
-                      <Label>Yeni Parola</Label>
+                      <Label>{t.common.newPassword}</Label>
                       <Input
                         type="password"
-                        placeholder="En az 6 karakter"
+                        placeholder={t.admin.suppliers.minPasswordPlaceholder}
                         {...form.register("account_password")}
                       />
                     </div>
@@ -582,7 +589,7 @@ export default function SuppliersPage() {
             )}
           </Section>
 
-          <Section title="Notlar">
+          <Section title={t.common.notes}>
             <Input {...form.register("notes")} placeholder={t.admin.suppliers.notesPlaceholder} />
           </Section>
 
@@ -605,7 +612,7 @@ export default function SuppliersPage() {
               {t.common.cancel}
             </Button>
             <Button type="submit" disabled={save.isPending}>
-              {save.isPending ? "Kaydediliyor…" : "Kaydet"}
+              {save.isPending ? t.common.saving : t.common.save}
             </Button>
           </div>
         </form>

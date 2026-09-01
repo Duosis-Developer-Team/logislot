@@ -1,3 +1,5 @@
+"use client";
+
 import { ArrowRight, Building2, CalendarPlus, Truck } from "lucide-react";
 import Link from "next/link";
 import { LogiSlotLogo } from "@/components/brand/logo";
@@ -27,6 +29,7 @@ function sectionNav(t: Dictionary) {
     { label: t.landing.shell.sections.howItWorks, href: "/#nasil-calisir" },
     { label: t.landing.shell.sections.admin, href: "/#yonetim" },
     { label: t.landing.shell.sections.supplier, href: "/#tedarikci" },
+    { label: t.landing.shell.sections.support, href: "/#destek" },
   ];
 }
 
@@ -78,7 +81,7 @@ export function LandingTopbar({
             className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3.5 py-2 text-sm font-semibold text-primary-foreground transition-all hover:opacity-90"
           >
             <CalendarPlus className="h-4 w-4" />
-            Demo Talep Et
+            {t.landing.hero.requestDemo}
           </Link>
           <LanguageToggle />
           <ThemeToggle />

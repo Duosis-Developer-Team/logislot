@@ -165,12 +165,12 @@ export default function PlatformAuditLogsPage() {
         <Table>
           <THead>
             <TR>
-              <TH>Tarih</TH>
+              <TH>{t.common.date}</TH>
               <TH>{t.platform.auditLogs.colAction}</TH>
               <TH>Aksiyon</TH>
               <TH>{t.platform.auditLogs.colActor}</TH>
               <TH>{t.platform.auditLogs.entity}</TH>
-              <TH className="text-right">Detay</TH>
+              <TH className="text-right">{t.common.detail}</TH>
             </TR>
           </THead>
           <TBody>
@@ -248,7 +248,7 @@ export default function PlatformAuditLogsPage() {
                   ({actorLabels(t)[detail.actor_type] ?? detail.actor_type})
                 </span>
               </dd>
-              <dt className="text-muted-foreground">Tarih</dt>
+              <dt className="text-muted-foreground">{t.common.date}</dt>
               <dd>{new Date(detail.created_at).toLocaleString("tr-TR")}</dd>
               {detail.entity_type && (
                 <>
@@ -266,7 +266,7 @@ export default function PlatformAuditLogsPage() {
             </dl>
             <JsonBlock title={t.platform.auditLogs.before} value={detail.before} />
             <JsonBlock title="Sonra" value={detail.after} />
-            <JsonBlock title="Ek Bilgi" value={detail.metadata} />
+            <JsonBlock title={t.common.extraInfo} value={detail.metadata} />
           </div>
         )}
       </Drawer>

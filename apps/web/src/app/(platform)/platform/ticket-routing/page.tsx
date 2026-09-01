@@ -131,9 +131,9 @@ export default function TicketRoutingPage() {
           <TR>
             <TH>{t.platform.ticketRouting.colCustomer}</TH>
             <TH>{t.platform.ticketRouting.colRouting}</TH>
-            <TH>Hedef ekip</TH>
+            <TH>{t.platform.ticketRouting.colTargetGroup}</TH>
             <TH>{t.platform.ticketRouting.colLastVerified}</TH>
-            <TH>Teslimat</TH>
+            <TH>{t.platform.ticketRouting.colDelivery}</TH>
             <TH className="text-right">{t.common.actions}</TH>
           </TR>
         </THead>
@@ -242,7 +242,7 @@ function IntegrationHealthCards({
       alert: health.route_error_count > 0,
     },
     {
-      label: "Webhook bekleyen",
+      label: t.platform.ticketRouting.webhookPending,
       value: (health.webhook_inbox.received ?? 0) + (health.webhook_inbox.failed ?? 0),
       alert: (health.webhook_inbox.failed ?? 0) > 0,
     },
@@ -362,7 +362,8 @@ function RouteDrawer({
           <div className="rounded-xl border border-border bg-muted/30 px-3 py-2.5 text-sm">
             <p className="font-medium">{detail.data.tenant_name}</p>
             <p className="text-xs text-muted-foreground">
-              {detail.data.tenant_slug} · hesap durumu: {detail.data.tenant_status}
+              {detail.data.tenant_slug} · {t.platform.ticketRouting.accountStatus}:{" "}
+              {detail.data.tenant_status}
             </p>
             <p className="mt-1 text-xs text-muted-foreground">
               {t.platform.ticketRouting.deliverySummary(
@@ -386,7 +387,7 @@ function RouteDrawer({
 
           <div>
             <div className="mb-1.5 flex items-center justify-between">
-              <Label className="mb-0">Hedef Hermes ekibi</Label>
+              <Label className="mb-0">{t.platform.ticketRouting.targetGroup}</Label>
               <Button
                 type="button"
                 size="sm"
@@ -395,14 +396,14 @@ function RouteDrawer({
                 onClick={async () => {
                   try {
                     await refreshGroups.mutateAsync();
-                    setMessage({ kind: "ok", text: "Ekip listesi yenilendi." });
+                    setMessage({ kind: "ok", text: t.platform.ticketRouting.groupsRefreshed });
                   } catch (error) {
                     setMessage({
                       kind: "error",
                       text:
                         error instanceof Error
                           ? error.message
-                          : "Ekip listesi yenilenemedi",
+                          : t.platform.ticketRouting.groupsRefreshFailed,
                     });
                   }
                 }}
@@ -423,16 +424,16 @@ function RouteDrawer({
               />
               <Input
                 className="h-10 pl-9"
-                placeholder="Ekip ara…"
+                placeholder={t.platform.ticketRouting.searchGroup}
                 value={groupSearch}
                 onChange={(e) => setGroupSearch(e.target.value)}
-                aria-label="Hermes ekibi ara"
+                aria-label={t.platform.ticketRouting.searchGroupLabel}
               />
             </div>
 
             <ul
               role="radiogroup"
-              aria-label="Hedef Hermes ekibi"
+              aria-label={t.platform.ticketRouting.targetGroup}
               className="max-h-64 overflow-y-auto rounded-lg border border-border"
             >
               {visible.map((group) => (
@@ -474,7 +475,7 @@ function RouteDrawer({
                 <li className="px-3 py-6 text-center text-xs text-muted-foreground">
                   {items.length === 0
                     ? t.platform.ticketRouting.catalogUnavailable
-                    : "Aramaya uyan aktif ekip yok."}
+                    : t.platform.ticketRouting.noMatchingGroup}
                 </li>
               )}
             </ul>
@@ -575,13 +576,16 @@ function RouteDrawer({
                 } catch (error) {
                   setMessage({
                     kind: "error",
-                    text: error instanceof Error ? error.message : "Kaydedilemedi",
+                    text:
+                      error instanceof Error
+                        ? error.message
+                        : t.platform.ticketRouting.saveFailed,
                   });
                 }
               }}
             >
               {save.isPending && <Loader2 className="h-4 w-4 animate-spin" aria-hidden />}
-              Kaydet
+              {t.common.save}
             </Button>
           </div>
         </div>

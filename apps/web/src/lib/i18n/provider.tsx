@@ -96,6 +96,14 @@ export function useFormat() {
           month: "long",
           year: "numeric",
         }),
+      /** "12 Mart 14:30" — yil gerekmeyen kisa listelerde kullanilir. */
+      dayMonthTime: (iso: string) =>
+        new Date(iso).toLocaleString(tag, {
+          day: "2-digit",
+          month: "long",
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
       time: (iso: string) =>
         new Date(iso).toLocaleTimeString(tag, { hour: "2-digit", minute: "2-digit" }),
       number: (value: number) => new Intl.NumberFormat(tag).format(value),

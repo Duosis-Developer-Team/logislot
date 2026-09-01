@@ -2,6 +2,7 @@
 
 import { X } from "lucide-react";
 import { OVERLAY_CLASS, useModalBehavior } from "@/components/ui/overlay";
+import { useT } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
 
 interface ModalProps {
@@ -17,6 +18,7 @@ interface ModalProps {
  * Mobilde alttan yükselen sayfa (bottom sheet); sm+ ortalı kart.
  */
 export function Modal({ open, onClose, title, children, className }: ModalProps) {
+  const t = useT();
   useModalBehavior(open, onClose);
   if (!open) return null;
   return (
@@ -38,7 +40,7 @@ export function Modal({ open, onClose, title, children, className }: ModalProps)
           <h2 className="text-lg font-semibold tracking-tight">{title}</h2>
           <button
             onClick={onClose}
-            aria-label="Kapat"
+            aria-label={t.common.close}
             className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           >
             <X className="h-5 w-5" />

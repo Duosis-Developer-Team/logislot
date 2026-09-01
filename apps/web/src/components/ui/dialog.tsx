@@ -2,6 +2,7 @@
 
 import { X } from "lucide-react";
 import { OVERLAY_CLASS, useModalBehavior } from "@/components/ui/overlay";
+import { useT } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
 
 interface DialogProps {
@@ -13,6 +14,7 @@ interface DialogProps {
 }
 
 export function Dialog({ open, onClose, title, children, className }: DialogProps) {
+  const t = useT();
   useModalBehavior(open, onClose);
   if (!open) return null;
   return (
@@ -36,7 +38,7 @@ export function Dialog({ open, onClose, title, children, className }: DialogProp
           <button
             onClick={onClose}
             className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-            aria-label="Kapat"
+            aria-label={t.common.close}
           >
             <X className="h-5 w-5" />
           </button>

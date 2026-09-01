@@ -153,7 +153,7 @@ export default function PlansPage() {
             {t.platform.plans.introTail}
           </p>
         </div>
-        <Button onClick={openCreate}>+ Yeni Plan</Button>
+        <Button onClick={openCreate}>{t.platform.plans.createPlan}</Button>
       </div>
 
       {flash && (
@@ -164,7 +164,7 @@ export default function PlansPage() {
 
       {(plans.data ?? []).length === 0 ? (
         <EmptyState
-          title="Plan yok"
+          title={t.platform.plans.emptyTitle}
           description={t.platform.plans.emptyDescription}
           actionLabel={t.platform.plans.emptyAction}
           onAction={openCreate}
@@ -287,12 +287,12 @@ export default function PlansPage() {
               options={DIMENSIONS.map((d) => ({ value: d, label: d }))}
               value={dimensions}
               onChange={setDimensions}
-              searchPlaceholder="Boyut ara…"
+              searchPlaceholder={t.platform.plans.searchDimension}
             />
           </div>
           <div className="rounded-xl border border-border bg-muted/30 p-3">
             <div className="flex items-baseline justify-between gap-2">
-              <Label className="mb-0">Plan Limitleri</Label>
+              <Label className="mb-0">{t.platform.plans.planLimits}</Label>
               <span className="text-xs text-muted-foreground">{t.platform.plans.blankUnlimited}</span>
             </div>
             <p className="mt-1 text-xs text-muted-foreground">
@@ -325,7 +325,7 @@ export default function PlansPage() {
                         />
                         <p className="mt-1 text-[11px] text-muted-foreground">
                           {unlimited ? t.platform.plans.unlimited : `${raw} ${dim.unit}`}
-                          {dim.enforced_at === "assignment" && " · atamada engellenir"}
+                          {dim.enforced_at === "assignment" && t.platform.plans.blockedAtAssignment}
                         </p>
                       </div>
                     </div>
@@ -354,7 +354,7 @@ export default function PlansPage() {
               {t.common.cancel}
             </Button>
             <Button onClick={onSubmit} disabled={mutations.save.isPending || !name.trim()}>
-              {mutations.save.isPending ? "Kaydediliyor…" : "Kaydet"}
+              {mutations.save.isPending ? t.common.saving : t.common.save}
             </Button>
           </div>
         </div>

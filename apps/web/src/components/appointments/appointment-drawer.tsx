@@ -9,8 +9,6 @@
 import { ArrowRight, Mail, Package, Phone, Repeat } from "lucide-react";
 import { useMemo, useState } from "react";
 import {
-  APPOINTMENT_STATUS_LABELS,
-  QUANTITY_UNIT_LABELS,
   type QuantityUnit,
   formatDurationRange,
   resolveDurationRange,
@@ -41,6 +39,7 @@ import {
 import { useSession } from "@/lib/auth/session";
 import { formatDate, isoFromWallClock, timeInTz } from "@/lib/utils";
 import { useApiErrorMessage } from "@/lib/i18n/api-error";
+import { useLabels } from "@/lib/i18n/labels";
 import { useT } from "@/lib/i18n/provider";
 
 interface AppointmentDrawerProps {
@@ -56,6 +55,7 @@ export function AppointmentDrawer({
   onActionSuccess,
 }: AppointmentDrawerProps) {
   const t = useT();
+  const labels = useLabels();
   const errorMessage = useApiErrorMessage();
   const { activeFacilityId, activeFacility, can } = useSession();
   const detail = useAppointmentDetail(activeFacilityId, appointmentId);
@@ -245,27 +245,27 @@ export function AppointmentDrawer({
 
           {/* Bilgi izgarasi */}
           <dl className="grid grid-cols-2 gap-x-4 gap-y-2 rounded-lg border border-border p-4 text-sm">
-            <dt className="text-muted-foreground">Tarih</dt>
+            <dt className="text-muted-foreground">{t.common.date}</dt>
             <dd>{formatDate(a.scheduled_start_at)}</dd>
-            <dt className="text-muted-foreground">Saat</dt>
+            <dt className="text-muted-foreground">{t.appointmentDrawer.time}</dt>
             <dd>
               {timeInTz(a.scheduled_start_at, tz)}–{timeInTz(a.scheduled_end_at, tz)} (
-              {a.duration_minutes} dk)
+              {t.appointmentDrawer.durationSuffix(a.duration_minutes)})
             </dd>
-            <dt className="text-muted-foreground">Rampa</dt>
+            <dt className="text-muted-foreground">{t.common.dock}</dt>
             <dd>{a.dock_name ?? "—"}</dd>
-            <dt className="text-muted-foreground">Kategori</dt>
+            <dt className="text-muted-foreground">{t.appointmentDrawer.category}</dt>
             <dd>{a.product_category_name ?? "—"}</dd>
-            <dt className="text-muted-foreground">Miktar</dt>
+            <dt className="text-muted-foreground">{t.appointmentDrawer.quantity}</dt>
             <dd>
               {a.quantity}{" "}
-              {QUANTITY_UNIT_LABELS[a.quantity_unit as QuantityUnit] ?? a.quantity_unit}
+              {labels.quantityUnit[a.quantity_unit as QuantityUnit] ?? a.quantity_unit}
             </dd>
             <dt className="text-muted-foreground">{t.appointmentDrawer.vehicle}</dt>
             <dd>{a.vehicle_category_name ?? "—"}</dd>
             {a.license_plate && (
               <>
-                <dt className="text-muted-foreground">Plaka</dt>
+                <dt className="text-muted-foreground">{t.appointmentDrawer.plate}</dt>
                 <dd className="font-mono">{a.license_plate}</dd>
               </>
             )}
@@ -297,14 +297,17 @@ export function AppointmentDrawer({
             <div className="flex items-center justify-between gap-2 rounded-lg border border-primary/20 bg-primary/5 px-3 py-2 text-xs text-primary">
               <span className="flex items-center gap-2">
                 <Repeat className="h-4 w-4 shrink-0" />
-                Tekrarlayan serinin {a.series.occurrence_index}/{a.series.occurrence_count}.
-                randevusu (
+                {t.appointmentDrawer.seriesLead(
+                  a.series.occurrence_index ?? 0,
+                  a.series.occurrence_count,
+                )}{" "}
+                (
                 {a.series.frequency === "weekly"
                   ? t.appointmentDrawer.weekly
                   : a.series.frequency === "biweekly"
-                    ? "2 haftada bir"
+                    ? t.appointmentDrawer.biweekly
                     : t.appointmentDrawer.monthly}
-                ). Randevular tek tek revize/iptal edilebilir.
+                ). {t.appointmentDrawer.seriesTail}
               </span>
               {can("appt.cancel") && (
                 <Button
@@ -325,7 +328,7 @@ export function AppointmentDrawer({
 
           {a.rejection_reason && (
             <p className="rounded-lg bg-status-rejected/10 px-3 py-2 text-sm text-status-rejected">
-              Red sebebi: {a.rejection_reason}
+              {t.appointmentDrawer.rejectionReason} {a.rejection_reason}
             </p>
           )}
           {a.cancellation_reason && (
@@ -335,7 +338,7 @@ export function AppointmentDrawer({
           )}
           {a.completion_note && (
             <p className="rounded-lg bg-status-completed/10 px-3 py-2 text-sm text-status-completed">
-              Tamamlama notu: {a.completion_note}
+              {t.appointmentDrawer.completionNote} {a.completion_note}
             </p>
           )}
 
@@ -395,7 +398,7 @@ export function AppointmentDrawer({
                       </span>
                       <span>{emailProviderLabel(t, log.provider)}</span>
                       {log.retry_count > 0 && (
-                        <span>deneme: {log.retry_count}/{log.max_attempts}</span>
+                        <span>{t.appointmentDrawer.retryCount(log.retry_count, log.max_attempts)}</span>
                       )}
                       <span>
                         {new Date(log.last_attempt_at ?? log.created_at).toLocaleString(
@@ -445,12 +448,12 @@ export function AppointmentDrawer({
             <div className="flex flex-wrap gap-2 border-t border-border pt-4">
               {allowed.approve && (
                 <Button size="sm" onClick={() => openDialog("approve")}>
-                  Onayla
+                  {t.appointmentDrawer.approve}
                 </Button>
               )}
               {allowed.revise && (
                 <Button size="sm" variant="secondary" onClick={() => openDialog("revise")}>
-                  Revize Et
+                  {t.appointmentDrawer.revise}
                 </Button>
               )}
               {/* Rampa degisimi revizeyle AYNI yetkiye baglidir ama ayri bir
@@ -466,12 +469,12 @@ export function AppointmentDrawer({
               )}
               {allowed.complete && (
                 <Button size="sm" variant="secondary" onClick={() => openDialog("complete")}>
-                  Tamamla
+                  {t.appointmentDrawer.complete}
                 </Button>
               )}
               {allowed.reject && (
                 <Button size="sm" variant="destructive" onClick={() => openDialog("reject")}>
-                  Reddet
+                  {t.appointmentDrawer.reject}
                 </Button>
               )}
               {allowed.cancel && (
@@ -492,9 +495,9 @@ export function AppointmentDrawer({
       {/* Onayla */}
       <ConfirmDialog
         open={dialog === "approve"}
-        title="Randevuyu onayla"
+        title={t.appointmentDrawer.approveTitle}
         message={t.appointmentDrawer.approveMessage(a?.supplier_name ?? "", a?.product_name ?? "")}
-        confirmLabel="Onayla"
+        confirmLabel={t.appointmentDrawer.approve}
         loading={actions.approve.isPending}
         onConfirm={() =>
           run(() => actions.approve.mutateAsync({ id: a!.id }), t.appointmentDrawer.approved)
@@ -503,7 +506,7 @@ export function AppointmentDrawer({
       />
 
       {/* Reddet */}
-      <Dialog open={dialog === "reject"} onClose={() => setDialog(null)} title="Randevuyu reddet">
+      <Dialog open={dialog === "reject"} onClose={() => setDialog(null)} title={t.appointmentDrawer.rejectTitle}>
         <div className="flex flex-col gap-3">
           <div>
             <Label>{t.appointmentDrawer.rejectReason}</Label>
@@ -524,16 +527,16 @@ export function AppointmentDrawer({
               disabled={isBusy}
               onClick={() => {
                 if (!reason.trim()) {
-                  setActionError("Red sebebi zorunludur.");
+                  setActionError(t.appointmentDrawer.rejectReasonRequired);
                   return;
                 }
                 run(
                   () => actions.reject.mutateAsync({ id: a!.id, reason }),
-                  "Randevu reddedildi.",
+                  t.appointmentDrawer.rejected,
                 );
               }}
             >
-              Reddet
+              {t.appointmentDrawer.reject}
             </Button>
           </div>
         </div>
@@ -543,14 +546,14 @@ export function AppointmentDrawer({
       <Dialog
         open={dialog === "complete"}
         onClose={() => setDialog(null)}
-        title="Randevuyu tamamla"
+        title={t.appointmentDrawer.completeTitle}
       >
         <div className="flex flex-col gap-3">
           <p className="text-sm text-muted-foreground">
             {t.appointmentDrawer.completeNote}
           </p>
           <div>
-            <Label>Not (opsiyonel)</Label>
+            <Label>{t.appointmentDrawer.optionalNote}</Label>
             <Input
               value={note}
               onChange={(e) => setNote(e.target.value)}
@@ -571,14 +574,14 @@ export function AppointmentDrawer({
                 )
               }
             >
-              Tamamla
+              {t.appointmentDrawer.complete}
             </Button>
           </div>
         </div>
       </Dialog>
 
       {/* Iptal */}
-      <Dialog open={dialog === "cancel"} onClose={() => setDialog(null)} title="Randevuyu iptal et">
+      <Dialog open={dialog === "cancel"} onClose={() => setDialog(null)} title={t.appointmentDrawer.cancelTitle}>
         <div className="flex flex-col gap-3">
           <div>
             <Label>{t.appointmentDrawer.cancelReason}</Label>
@@ -599,7 +602,7 @@ export function AppointmentDrawer({
               onClick={() =>
                 run(
                   () => actions.cancel.mutateAsync({ id: a!.id, reason }),
-                  "Randevu iptal edildi.",
+                  t.appointmentDrawer.cancelled,
                 )
               }
             >
@@ -613,7 +616,7 @@ export function AppointmentDrawer({
       <Dialog
         open={dialog === "cancel-series"}
         onClose={() => setDialog(null)}
-        title="Seriyi iptal et"
+        title={t.appointmentDrawer.seriesCancelTitle}
       >
         <div className="flex flex-col gap-3">
           <p className="text-sm text-muted-foreground">
@@ -666,16 +669,16 @@ export function AppointmentDrawer({
             {t.appointmentDrawer.changeDockLead}
           </p>
           <div>
-            <Label>Rampa</Label>
+            <Label>{t.common.dock}</Label>
             {dockOptions.isLoading ? (
               <p className="text-xs text-muted-foreground">{t.appointmentDrawer.loadingDocks}</p>
             ) : (
               <Select value={dockTarget} onChange={(e) => setDockTarget(e.target.value)}>
-                <option value="auto">Otomatik ata (en az dolu uygun rampa)</option>
+                <option value="auto">{t.appointmentDrawer.autoAssignDock}</option>
                 {(dockOptions.data?.options ?? []).map((o) => (
                   <option key={o.dock_id} value={o.dock_id} disabled={!o.available}>
                     {o.name}
-                    {o.is_current ? " (mevcut)" : ""}
+                    {o.is_current ? t.appointmentDrawer.currentDock : ""}
                     {o.available ? "" : ` — ${o.reason ?? t.appointmentDrawer.notAvailable}`}
                   </option>
                 ))}
@@ -686,7 +689,7 @@ export function AppointmentDrawer({
             </p>
           </div>
           <div>
-            <Label>Not</Label>
+            <Label>{t.appointmentDrawer.note}</Label>
             <Input
               value={dockNote}
               onChange={(e) => setDockNote(e.target.value)}
@@ -721,17 +724,17 @@ export function AppointmentDrawer({
       </Dialog>
 
       {/* Revize */}
-      <Dialog open={dialog === "revise"} onClose={() => setDialog(null)} title="Randevuyu revize et">
+      <Dialog open={dialog === "revise"} onClose={() => setDialog(null)} title={t.appointmentDrawer.reviseTitle}>
         <div className="flex flex-col gap-3">
           {a?.original_start_at && (
             <p className="text-xs text-muted-foreground">
-              Orijinal talep: {formatDate(a.original_start_at)}{" "}
+              {t.appointmentDrawer.originalRequest}: {formatDate(a.original_start_at)}{" "}
               {timeInTz(a.original_start_at, tz)}
             </p>
           )}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <Label>Yeni Tarih</Label>
+              <Label>{t.appointmentDrawer.newDate}</Label>
               <Input
                 type="date"
                 value={reviseDate}
@@ -754,7 +757,7 @@ export function AppointmentDrawer({
               >
                 {reviseDurationOptions.map((d) => (
                   <option key={d} value={d}>
-                    {d} dakika
+                    {t.appointmentDrawer.durationMinutes(d)}
                     {reviseCategoryRange &&
                     (d < reviseCategoryRange.min ||
                       (reviseCategoryRange.max != null && d > reviseCategoryRange.max))
@@ -771,24 +774,23 @@ export function AppointmentDrawer({
               )}
             </div>
             <div>
-              <Label>Rampa</Label>
+              <Label>{t.common.dock}</Label>
               <Select value={reviseDock} onChange={(e) => setReviseDock(e.target.value)}>
-                <option value="auto">Otomatik ata (en az dolu uygun rampa)</option>
+                <option value="auto">{t.appointmentDrawer.autoAssignDock}</option>
                 {reviseEligibleDocks.map((d) => (
                   <option key={d.id} value={d.id} disabled={!d.available}>
                     {d.name}
-                    {d.available ? "" : " — hedef saatte dolu"}
+                    {d.available ? "" : t.appointmentDrawer.dockBusyAtTarget}
                   </option>
                 ))}
               </Select>
               <p className="mt-1 text-xs text-muted-foreground">
                 {t.appointmentDrawer.dockFilterHint}
-                listelenir.
               </p>
             </div>
           </div>
           <div>
-            <Label>Revizyon Notu</Label>
+            <Label>{t.appointmentDrawer.reviseNote}</Label>
             <Input
               value={reviseNote}
               onChange={(e) => setReviseNote(e.target.value)}
@@ -802,8 +804,10 @@ export function AppointmentDrawer({
             </p>
           )}
           <p className="text-xs text-muted-foreground">
-            {t.appointmentDrawer.reviseHint}
-            &quot;{APPOINTMENT_STATUS_LABELS.revision_pending}&quot; olur.
+            {t.appointmentDrawer.reviseHint}{" "}
+            {t.appointmentDrawer.reviseStatusNote(
+              labels.appointmentStatus.revision_pending,
+            )}
           </p>
           {actionError && <p className="text-sm text-destructive">{actionError}</p>}
           <div className="flex justify-end gap-2">
@@ -828,7 +832,7 @@ export function AppointmentDrawer({
                 )
               }
             >
-              {actions.revise.isPending ? "Kaydediliyor…" : "Revize Et"}
+              {actions.revise.isPending ? t.common.saving : t.appointmentDrawer.reviseSubmit}
             </Button>
           </div>
         </div>

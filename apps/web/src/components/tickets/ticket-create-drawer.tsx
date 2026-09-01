@@ -178,7 +178,7 @@ export function TicketCreateDrawer({
           <RouteCard config={config} />
 
           <div>
-            <Label htmlFor="ticket-category">Kategori</Label>
+            <Label htmlFor="ticket-category">{t.tickets.create.category}</Label>
             <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
               {TICKET_CATEGORIES.map((category) => {
                 const active = form.watch("category") === category;
@@ -325,10 +325,10 @@ export function TicketCreateDrawer({
             className="rounded-lg bg-muted/40 px-3 py-2 text-xs text-muted-foreground"
           >
             <summary className="cursor-pointer">
-              Talebe otomatik eklenen teknik bilgiler
+              {t.tickets.diagnostics.summary}
             </summary>
             <ul className="mt-1.5 list-disc pl-4">
-              {describeDiagnostics(diagnostics).map((line) => (
+              {describeDiagnostics(t, diagnostics).map((line) => (
                 <li key={line}>{line}</li>
               ))}
             </ul>
@@ -402,8 +402,9 @@ export function RouteCard({ config }: { config: TicketConfigDto }) {
     <div className="flex items-start gap-2 rounded-xl border border-primary/25 bg-primary/5 px-3 py-2.5 text-sm">
       <Users className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden />
       <span>
-        Talebiniz <strong className="font-semibold">{config.routing.group_display_name}</strong>{" "}
-        ekibine otomatik olarak iletilecektir.
+        {t.tickets.create.routeLead}{" "}
+        <strong className="font-semibold">{config.routing.group_display_name}</strong>{" "}
+        {t.tickets.create.routeTail}
         <span className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
           <Info className="h-3 w-3" aria-hidden />
           {t.tickets.create.routeTargetPrefix}

@@ -42,6 +42,27 @@ export const en: Dictionary = {
     logout: "Sign out",
     downloadCsv: "Download CSV",
     exportHint: "Download the rows currently shown as CSV",
+    saving: "Saving…",
+    processing: "Working…",
+    clear: "Clear",
+    searchPlaceholder: "Search…",
+    clearFilters: "Clear filters",
+    date: "Date",
+    dock: "Dock",
+    docks: "Docks",
+    searchDock: "Search docks…",
+    appointment: "Appointment",
+    appointments: "Appointments",
+    cargo: "Courier",
+    company: "Company",
+    notes: "Notes",
+    newPassword: "New password",
+    extraInfo: "Extra data",
+    pending: "Pending",
+    completed: "Completed",
+    total: "Total",
+    hour: "Hour",
+    minute: "Minute",
   },
 
   language: {
@@ -59,6 +80,7 @@ export const en: Dictionary = {
   },
 
   states: {
+    sessionLoadFailed: "We couldn't load your session",
     errorGeneric: "Something went wrong.",
     emptyTitle: "No records found",
     verifyingSession: "Verifying your session…",
@@ -67,6 +89,11 @@ export const en: Dictionary = {
   },
 
   misc: {
+    siteMeta: {
+      title: "LogiSlot — Smart goods-in and dock scheduling",
+      description:
+        "A SaaS platform that digitises supplier goods-in for factories and gets more out of every loading dock",
+    },
     email: {
       templates: {
         appointment_created: "Appointment created",
@@ -96,7 +123,8 @@ export const en: Dictionary = {
       empty: "No notifications.",
     },
     permissions: {
-      countOf: (selected: number, total: number) => `${selected} / ${total}`,
+      countOf: (selected: number, total: number) =>
+        `${selected} of ${total} permissions selected`,
       clearAll: "Clear all",
       search: "Search permissions…",
       unmanaged: (count: number) => `${count} permissions aren't managed from this screen.`,
@@ -105,33 +133,65 @@ export const en: Dictionary = {
       selectGroup: "Select",
     },
     demoPage: {
+      metaTitle: "Request a demo — LogiSlot",
       metaDescription:
-        "See the LogiSlot goods-in and dock scheduling platform up close.",
+        "Book a demo to see the LogiSlot goods-in and dock scheduling platform up close.",
       title: "Request a demo",
-      description: "Let's walk through your goods-in operation on LogiSlot together.",
+      description:
+        "Let's book a short session and walk through how you'd run your goods-in operation on LogiSlot.",
       points: [
         {
           title: "A 30-minute live demo",
-          text: "We'll walk through the supplier booking flow, the operations panel and your facility rules.",
+          text: "We walk through the supplier booking flow, the operations panel and site rules using your own scenario.",
         },
         {
           title: "No sales pressure",
-          text: "The point is to work out together whether it fits your operation.",
+          text: "The point is to work out together whether it fits your operation; the decision afterwards is entirely yours.",
         },
         {
-          title: "A reply within one business day",
-          text: "Your request reaches our team by e-mail and we'll come back quickly to find a time.",
+          title: "A reply within one working day",
+          text: "Your request reaches our team by email and we'll agree a time that suits you.",
         },
       ],
-      directContact: "If you'd rather not use the form, write to us directly at",
+      directContact: "If you'd rather not use the form, send your request straight to",
+      directContactTail: "and we'll pick it up from there.",
     },
   },
 
   tickets: {
+    newTicket: "New request",
+    statusTabsLabel: "Request status",
+    searchLabel: "Search requests",
+    emptyTab: "No requests in this tab",
+    delivery: {
+      waitingUpdate: "Waiting for an update",
+      failed: "Not delivered",
+      sending: "Sending",
+    },
+    diagnostics: {
+      labels: {
+        app_version: "App version",
+        environment: "Environment",
+        page_path: "Page",
+        browser: "Browser",
+        os: "Operating system",
+        locale: "Language",
+        timezone: "Time zone",
+        device_class: "Device",
+        client_timestamp: "Time",
+      } as Record<string, string>,
+      deviceClass: {
+        mobile: "mobile",
+        tablet: "tablet",
+        desktop: "desktop",
+        unknown: "unknown",
+      } as Record<string, string>,
+      summary: "Technical details attached automatically",
+    },
     loadError: "We couldn't load the support screen.",
     disabledTitle: "Support requests are off",
     disabledDescription: "The support request feature is disabled on this installation.",
-    routeNotReadyTitle: "Support routing isn't ready yet",
+    routeNotReadyTitle: "Support routing isn't configured yet.",
     routeNotReadyText:
       "New requests can't be created until the platform administrator sets the target support team.",
     searchPlaceholder: "Search by request number or title…",
@@ -142,6 +202,9 @@ export const en: Dictionary = {
     updatedAt: "Updated",
     resolvedAt: "Resolved",
     create: {
+      routeLead: "Your request is routed automatically to the",
+      routeTail: "team.",
+      category: "Category",
       titleMin: (min: number) =>
         `The title must be at least ${min} characters (support centre rule)`,
       titleMax: "The title can be at most 160 characters",
@@ -179,6 +242,15 @@ export const en: Dictionary = {
       remaining: (left: number) => `${left} more characters needed`,
     },
     detail: {
+      stillBroken: "This is still happening",
+      errorCode: "Error code",
+      supportTeam: "Support team",
+      you: "You",
+      deliveryFailedTitle: "We couldn't send this request to the support desk.",
+      waitingCustomerTitle: "The support team needs more information from you.",
+      category: "Category",
+      impact: "Impact",
+      ticketAttachments: "Files attached to this request",
       notFound: "Request not found.",
       backToList: "Back to list",
       summary: "Request summary",
@@ -211,6 +283,10 @@ export const en: Dictionary = {
       scanPending: "Security scan not finished",
     },
     attachments: {
+      tooManyFiles: (max: number) => `You can attach at most ${max} files.`,
+      unsupportedType: (name: string) =>
+        `"${name}" isn't supported. PNG, JPEG, WEBP, PDF and TXT/LOG are accepted.`,
+      countSuffix: (count: number) => `${count} attachments`,
       scanning: "Security scan in progress…",
       clean: "Scan complete",
       rejected: "Rejected by the security scan",
@@ -228,6 +304,26 @@ export const en: Dictionary = {
     },
     series: {
       cancelReasonRequired: "A reason for cancellation is required.",
+      title: "Recurring appointments",
+      frequency: {
+        weekly: "Weekly",
+        biweekly: "Fortnightly",
+        monthly: "Monthly",
+      } as Record<string, string>,
+      fallbackName: "Series",
+      statusActive: "Active",
+      statusCancelled: "Cancelled",
+      cancelTitle: "Cancel the series",
+      cancelReasonMin: "A reason is required (at least 3 characters).",
+      cancelledWithNotice: (count: number) =>
+        `${count} future appointments were cancelled and the site was notified.`,
+      cancelWarningLead: "This cancels the",
+      cancelWarningStrong: (count: number) => `${count} upcoming appointments`,
+      cancelWarningTail:
+        "and can't be undone. Appointments already completed are unaffected.",
+      cancelReasonRequiredLabel: "Reason for cancellation (required)",
+      cancelReasonHint: "e.g. Our production plan changed",
+      newTimeSuggested: "(new time proposed)",
       cancelled: (count: number) =>
         `${count} future appointments in the series were cancelled.`,
       cancelFailed: "We couldn't cancel the series.",
@@ -245,7 +341,31 @@ export const en: Dictionary = {
   },
 
   components: {
+    userMenu: {
+      roles: {
+        platform: "Platform administrator",
+        tenant: "Site administrator",
+        supplier: "Supplier",
+      } as Record<string, string>,
+      label: "User menu",
+    },
+    notificationBell: { label: "Notifications" },
+    weekView: {
+      appointmentsSuffix: "appointments",
+      pending: (count: number) => `${count} pending`,
+      approved: (count: number) => `${count} approved`,
+      revision: (count: number) => `${count} rescheduled`,
+      completed: (count: number) => `${count} done`,
+      none: "No appointments",
+      utilisation: "Utilisation",
+      busiest: (dock: string, count: number) => `Busiest: ${dock} (${count})`,
+      loading: "Loading the weekly summary…",
+      loadError: "We couldn't load the weekly summary.",
+      emptyTitle: "No appointments this week",
+      emptyDescription: "Pick a different week, or wait for supplier requests to come in.",
+    },
     multiSelect: {
+      selectedCount: (selected: number, total: number) => `${selected} of ${total} selected`,
       countOf: (selected: number, total: number) => `${selected} / ${total}`,
       removeResults: "Clear results",
       removeAll: "Clear all",
@@ -257,7 +377,7 @@ export const en: Dictionary = {
       orphanNote: (count: number) =>
         `${count} selections aren't shown in the list (inactive or from another scope); they're kept when you save.`,
       remove: "Remove",
-      toggle: (label: string) => `Toggle ${label}`,
+      toggle: (label: string) => `Remove ${label}`,
     },
     notificationPreferences: {
       events: {
@@ -266,21 +386,44 @@ export const en: Dictionary = {
         appointment_revised: "Appointment rescheduled",
         appointment_dock_changed: "Dock changed",
         appointment_cancelled: "Appointment cancelled",
-        appointment_completed: "Appointment completed",
-        appointment_series_cancelled: "Series cancelled",
-        appointment_series_revised: "Series rescheduled",
-      },
-      alwaysLead: "Even when off,",
-      alwaysStrong: "critical notifications",
-      alwaysTailSelf: "still appear in the panel.",
-      alwaysTailSupplier: "still appear in the supplier's portal.",
-      emailHint: "Turning e-mails off doesn't affect in-app notifications.",
-      defaultPolicy: "The default policy applies.",
+        appointment_revised_team: "Reschedule notice to your team",
+        appointment_series_cancelled: "Recurring series cancelled",
+        appointment_series_revised: "Recurring series rescheduled",
+      } as Record<string, string>,
+      inAppLabel: "In-app notifications",
+      emailLabel: "Email notifications",
+      saveFailed: "Could not save",
+      selfLoadError: "Could not load your notification preferences.",
+      selfLoading: "Loading preferences…",
+      selfInAppLead: "Even when this is off,",
+      selfInAppStrong: "appointment reschedules",
+      selfInAppTail: "still appear in the panel — they are operationally critical.",
+      selfEmailHint:
+        "Turning email off does not affect in-app notifications — the panel is always the live source. Default: everything on.",
+      selfSaved: "Your preferences were saved.",
+      policyLoadError: "Could not load the policy.",
+      policyLoading: "Loading policy…",
+      defaultPolicy:
+        "The default policy applies: suppliers receive every notification.",
+      supplierInAppLead: "Even when this is off,",
+      supplierInAppStrong: "reschedules and dock changes",
+      supplierInAppTail:
+        "still appear in the supplier's panel — the driver's time and dock can never be hidden.",
+      supplierEmailHint:
+        "Turning email off does not affect the supplier's in-app notifications — the panel is always the live source. Default: everything on.",
       savedSupplier: "Supplier notification policy saved.",
+    },
+    workingHours: {
+      facilityDefault: "Facility default",
+      allClosed: "Closed every day",
+      everyDay: (start: string, end: string) => `Every day ${start}–${end}`,
+      someDays: (days: number, start: string, end: string) =>
+        `${days} days ${start}–${end}`,
+      daysOpen: (days: number) => `${days} days open`,
     },
     overrideDrawer: {
       editTitle: "Edit exception",
-      createTitle: "New exception",
+      createTitle: "New calendar exception",
       description:
         "A closed day is a hard block on availability; an hours change REPLACES that day's working window — it can extend or shorten the day.",
       needsDock: "Select at least one dock.",
@@ -302,37 +445,100 @@ export const en: Dictionary = {
       reasonPlaceholder: "e.g. Planned maintenance",
     },
     adminCreateDrawer: {
-      needsSupplier: "Select a supplier.",
-      needsStart: "Select a start time.",
-      needsDock: "Select a dock for manual assignment.",
-      createdSeries: (count: number) => `${count} appointments created.`,
-      createdApproved: "Appointment created and approved.",
-      failed: "We couldn't create the appointment.",
-      loadError: "We couldn't load the form data.",
+      title: "New appointment (on a supplier's behalf)",
+      needsFields: "Supplier, category and product name are required.",
+      needsStart: "Pick a start time.",
+      needsDock: "Pick a dock when assigning manually.",
+      createdSeries: (count: number) =>
+        `${count} approved appointments created; the supplier has been notified.`,
+      createdApproved: (product: string) =>
+        `Appointment created and approved (${product}); the supplier has been notified.`,
+      failed: "We couldn't create the appointment",
+      suppliersLoadError: "We couldn't load the suppliers.",
       supplier: "Supplier",
       selectSupplier: "— Select a supplier —",
-      selectCategory: "— Select a category —",
-      product: "Goods / material",
-      productPlaceholder: "e.g. Wheat flour",
-      vehicle: "Vehicle class",
-      duration: "Duration",
+      category: "Category",
+      selectPlaceholder: "— Select —",
+      product: "Product name",
+      productPlaceholder: "e.g. Urgent delivery",
+      quantity: "Quantity",
+      unit: "Unit",
+      vehicle: "Vehicle",
+      plate: "Plate",
+      driver: "Driver",
+      driverPlaceholder: "Full name",
+      deliveryType: "Delivery type",
+      standard: "Standard",
       day: "Day",
+      duration: "Duration",
+      durationOption: (minutes: number) => `${minutes} min`,
+      conflictNote: (
+        categoryMin: number,
+        categoryMax: number,
+        supplierMin: string,
+        supplierMax: string,
+      ) =>
+        `This category's duration range (${categoryMin}–${categoryMax} min) does not overlap the supplier's limits (${supplierMin}–${supplierMax} min). Update one of them in Settings.`,
+      cargoWindow: "Expected window",
       startTime: "Start time",
-      intersectionNote: (category: string, supplier: string) =>
-        `The overlap of this category's (${category}) and the supplier's (${supplier}) duration ranges applies.`,
       loadingAvailability: "Checking availability…",
       noSlots: "No slots available on this day.",
-      dockSelection: "Dock selection",
+      cargoAdvisory:
+        "A courier delivery is expected in this window — this is a heads-up, not a block.",
       autoAssign: "Assign automatically",
-      recurring: "Create a recurring booking",
+      manualSelect: "Choose manually",
+      selectDock: "— Dock —",
+      dockFull: " — full",
+      recurring: "Create a recurring appointment",
       frequency: "Frequency",
-      count: "Number of occurrences",
-      notePlaceholder: "Optional note",
+      freqWeekly: "Every week",
+      freqBiweekly: "Every two weeks",
+      freqMonthly: "Every month",
+      count: "Number of repeats",
+      note: "Note",
+      notePlaceholder: 'e.g. "Booked over the phone"',
       creating: "Creating…",
+      submit: "Create appointment",
     },
   },
 
   appointmentDrawer: {
+    rejectionReason: "Reason for rejection:",
+    completionNote: "Completion note:",
+    retryCount: (attempt: number, max: number) => `attempt ${attempt} of ${max}`,
+    time: "Time",
+    durationSuffix: (minutes: number) => `${minutes} min`,
+    dock: "Dock",
+    category: "Category",
+    quantity: "Quantity",
+    plate: "Plate",
+    seriesLead: (index: number, count: number) =>
+      `Appointment ${index} of ${count} in a recurring series`,
+    seriesTail: "Each appointment can be rescheduled or cancelled on its own.",
+    approve: "Approve",
+    revise: "Reschedule",
+    complete: "Mark complete",
+    reject: "Reject",
+    approveTitle: "Approve this appointment",
+    rejectTitle: "Reject this appointment",
+    rejectReasonRequired: "A reason for rejection is required.",
+    rejected: "Appointment rejected.",
+    completeTitle: "Mark the appointment complete",
+    optionalNote: "Note (optional)",
+    cancelTitle: "Cancel this appointment",
+    cancelled: "Appointment cancelled.",
+    seriesCancelTitle: "Cancel the series",
+    autoAssignDock: "Assign automatically (least busy eligible dock)",
+    currentDock: " (current)",
+    dockBusyAtTarget: " — busy at the new time",
+    note: "Note",
+    reviseTitle: "Reschedule this appointment",
+    originalRequest: "Original request",
+    newDate: "New date",
+    durationMinutes: (minutes: number) => `${minutes} minutes`,
+    reviseNote: "Reschedule note",
+    reviseStatusNote: (status: string) => `The appointment moves to "${status}".`,
+    reviseSubmit: "Save reschedule",
     resendFailed: "Sending failed again.",
     resendError: "We couldn't resend it",
     actionFailed: "That didn't work",
@@ -401,6 +607,10 @@ export const en: Dictionary = {
       mustBePositive: "mustBePositive",
       maxBelowMin: "maxBelowMin",
       messages: {
+        maxDuration: "At most 1440 min (24 hours)",
+        minPassword: "At least 6 characters",
+        nameRequired: "Name is required",
+        codeRequired: "Code is required",
         displayNameRequired: "A display name is required",
         numberRequired: "Enter a number",
         mustBePositive: "Must be positive",
@@ -413,6 +623,7 @@ export const en: Dictionary = {
       description: "Description",
     },
     categories: {
+      createLabel: "New category",
       updated: "Category updated.",
       created: "Category created.",
       title: "Product categories",
@@ -447,6 +658,9 @@ export const en: Dictionary = {
         `"${name}" will be deactivated. Past appointments are unaffected, but suppliers can no longer book for this category.`,
     },
     vehicleCategories: {
+      physicalNote: "Physical note",
+      name: "Name",
+      status: "Status",
       updated: "Vehicle class updated.",
       created: "Vehicle class created.",
       title: "Vehicle classes",
@@ -467,6 +681,8 @@ export const en: Dictionary = {
         `"${name}" will be deactivated. Dock compatibilities and triggers tied to it stop applying.`,
     },
     conflictGroups: {
+      always: "Always",
+      createLabel: "New group",
       types: {
         mutual_block: "Mutual block",
         shared_capacity: "Shared capacity",
@@ -513,6 +729,8 @@ export const en: Dictionary = {
       or: " or ",
     },
     emailLogs: {
+      searchRecipient: "Search recipient…",
+      noAttempts: "No retries left",
       templates: {
         appointment_approved: "Approval",
         appointment_rejected: "Rejection",
@@ -550,6 +768,11 @@ export const en: Dictionary = {
       previous: "Previous",
     },
     docks: {
+      title: "Docks",
+      createLabel: "New dock",
+      emptyTitle: "No docks yet",
+      name: "Name",
+      note: "Note",
       updated: "Dock updated.",
       created: "Dock created.",
       pageDescription:
@@ -614,12 +837,16 @@ export const en: Dictionary = {
       policyTitle: "Notification policy",
     },
     layout: {
+      activeScope: "Active scope",
+      notificationPreferences: "Notification preferences",
       wrongPortal: "This panel requires a tenant administrator sign-in.",
       backToLogin: "Back to sign in",
       apiUnreachable: (reason: string) =>
         `Couldn't reach the API: ${reason}. Check that the backend is running.`,
     },
     appointments: {
+      rejectRequestWord: "—",
+      rejectReason: "Reason for rejection",
       approved: "Appointment approved; the supplier has been notified.",
       approveFailed: "We couldn't approve it",
       rejectReasonRequired: "A reason is required — it's sent to the supplier.",
@@ -668,6 +895,20 @@ export const en: Dictionary = {
       supplierFallback: "Supplier",
     },
     series: {
+      reviseFailed: "We couldn't reschedule the series",
+      reviseSeries: "Reschedule series",
+      revising: "Rescheduling…",
+      cancelledCount: (count: number) =>
+        `${count} future appointments in the series were cancelled.`,
+      title: "Recurring series",
+      emptyTitle: "No recurring series",
+      colAppointments: "Appointments",
+      colStatus: "Status",
+      reviseTitle: "Reschedule the series",
+      reviseCountWord: "upcoming",
+      newTime: "New time",
+      autoAssign: "Assign automatically",
+      selectDock: "— Dock —",
       frequency: { daily: "Daily", weekly: "Weekly", biweekly: "Fortnightly", monthly: "Monthly" },
       approved: (count: number) => `${count} appointments in the series were approved.`,
       approveFailed: "We couldn't approve them",
@@ -701,6 +942,14 @@ export const en: Dictionary = {
         `${count} future appointments in ${supplier}'s series will be cancelled. Completed appointments are unaffected and the supplier gets a single summary notification.`,
     },
     reports: {
+      title: "Reports",
+      totalAppointments: "Appointments",
+      appointmentCsv: "Appointment detail CSV",
+      summaryFileName: "logislot_summary",
+      appointmentsFileName: "logislot_appointments",
+      trendTooltip: (date: string, total: number, completed: number, cargo: number) =>
+        `${date}: ${total} appointments (${completed} done, ${cargo} courier)`,
+      dockLine: (percent: number, count: number) => `${percent}% · ${count} appointments`,
       ranges: { d7: "Last 7 days", d30: "Last 30 days", d90: "Last 90 days" },
       thisMonth: "This month",
       slaLine: (auto: number, manual: number, pending: number) =>
@@ -724,6 +973,11 @@ export const en: Dictionary = {
       colCancelled: "Cancelled/rejected",
     },
     dashboard: {
+      pendingApprovals: "Awaiting approval",
+      weekTotal: "This week",
+      activeDocks: "Active docks",
+      pendingRequests: "Requests awaiting approval",
+      noPending: "Nothing waiting for approval",
       loading: "Loading the summary…",
       loadError: "We couldn't load the dashboard.",
       todayAppointments: "Today's appointments",
@@ -739,6 +993,7 @@ export const en: Dictionary = {
       moreWarnings: (count: number) => `(+${count} more)`,
     },
     tickets: {
+      title: "Support requests",
       description:
         "Report problems you run into in the app, or ask for improvements, and the support team will pick them up.",
     },
@@ -764,6 +1019,8 @@ export const en: Dictionary = {
       },
     },
     calendar: {
+      noDocksDescription: "There are no active docks, or none you have access to.",
+      dockCount: (count: number) => `Docks (${count})`,
       weekOf: (label: string) => `Week of ${label}`,
       viewDay: "Day",
       viewWeek: "Week",
@@ -790,10 +1047,19 @@ export const en: Dictionary = {
       legendNow: "Now",
     },
     suppliers: {
+      quotaLine: (weekly: string, monthly: string) => `${weekly}/week · ${monthly}/month`,
+      accountActive: "Account active",
+      accountInactive: "Account disabled",
+      noAccountShort: "No account",
+      deliveryTypes: "Delivery types",
+      accountActiveToggle: "Account is active",
+      minPasswordPlaceholder: "At least 6 characters",
+      blockAndQuota: "Duration & quota",
       companyRequired: "companyRequired",
       validEmail: "validEmail",
       maxBelowMin: "maxBelowMin",
       messages: {
+        codeRequired: "Code is required",
         companyRequired: "A company name is required",
         validEmail: "Enter a valid e-mail address",
         maxBelowMin: "The maximum can't be lower than the minimum",
@@ -860,6 +1126,11 @@ export const en: Dictionary = {
         `"${name}" will be deactivated. Portal sign-in and new bookings will stop.`,
     },
     users: {
+      fullName: "Full name",
+      searchRole: "Search roles…",
+      minPasswordPlaceholder: "At least 6 characters",
+      allowedDocks: "Docks this user can access",
+      emailPlaceholder: "user@company.com",
       permissions: {
         appointments: "Appointments",
         calendar: "Calendar",
@@ -946,6 +1217,13 @@ export const en: Dictionary = {
 
   platform: {
     usage: {
+      downloadCsv: "Download usage CSV",
+      colLastActivity: "Last activity",
+      assignPlan: "Assign plan",
+      assignOverride: "Assign override",
+      activeAccounts: "Active accounts",
+      completed: "Completed",
+      activeDocks: "Active docks",
       loading: "Loading usage data…",
       loadError: "We couldn't load the usage data.",
       title: "Usage & health",
@@ -970,6 +1248,11 @@ export const en: Dictionary = {
       assignFailed: "We couldn't assign the plan",
     },
     plans: {
+      emptyTitle: "No plans yet",
+      searchDimension: "Search dimensions…",
+      planLimits: "Plan limits",
+      blockedAtAssignment: " · blocked at assignment",
+      createPlan: "+ New plan",
       loadError: "We couldn't load the plans.",
       introLead: "A plan is a",
       introStrong: "policy container",
@@ -1004,6 +1287,15 @@ export const en: Dictionary = {
       retired: (name: string) => `"${name}" has been retired; it can no longer be assigned.`,
     },
     support: {
+      stale: " (stale)",
+      lastReconciliation: "last reconciliation",
+      environmentLabel: "Environment",
+      emailLabel: "email",
+      retryPendingEmail: "Emails queued for retry",
+      retryPendingHint: "The scheduler retries automatically every 5 minutes",
+      pendingAppointments: "Appointments awaiting approval",
+      revisionPendingAppointments: "Appointments awaiting a reschedule decision",
+      activeFacilities: "Active sites",
       loadError: "We couldn't load the support data.",
       title: "System health",
       description:
@@ -1062,6 +1354,17 @@ export const en: Dictionary = {
       footer: "LogiSlot · Vendor / Super-admin",
     },
     ticketRouting: {
+      colTargetGroup: "Target team",
+      colDelivery: "Delivery",
+      targetGroup: "Target Hermes team",
+      searchGroup: "Search teams…",
+      searchGroupLabel: "Search Hermes teams",
+      noMatchingGroup: "No active team matches that search.",
+      webhookPending: "Webhooks queued",
+      accountStatus: "account status",
+      groupsRefreshed: "Team list refreshed.",
+      groupsRefreshFailed: "We couldn't refresh the team list",
+      saveFailed: "Could not save",
       status: {
         ready: "Ready",
         unconfigured: "Not configured",
@@ -1111,6 +1414,12 @@ export const en: Dictionary = {
       saved: (version: number, group: string) => `Saved · version ${version} · ${group}`,
     },
     tenants: {
+      commercialName: "Registered name",
+      timezone: "Time zone",
+      address: "Address",
+      addressPlaceholder: "Optional — goods-in location",
+      fullNamePlaceholder: "Full name",
+      adminEmailPlaceholder: "admin@company.com",
       status: { trial: "Trial", active: "Active", suspended: "Suspended", archived: "Archived" },
       loadError: "We couldn't load the customer accounts.",
       title: "Customer accounts",
@@ -1182,6 +1491,34 @@ export const en: Dictionary = {
       cancelFailed: "We couldn't cancel the appointment.",
     },
     newAppointment: {
+      driverPlaceholder: "Full name",
+      deliveryType: "Delivery type",
+      cargoWindowLabel: "Expected window",
+      legendFull: "■ Full",
+      freqWeekly: "Every week",
+      freqBiweekly: "Every two weeks",
+      freqMonthly: "Every month",
+      newRequest: "New request",
+      category: "Category",
+      standardAppointment: "Standard appointment",
+      cargoOption: "Courier",
+      standardShort: "Standard",
+      durationMinutes: (minutes: number) => `${minutes} minutes`,
+      quantity: "Quantity",
+      plate: "Plate",
+      deliveryLabel: "Delivery",
+      cargoWithWindow: (window: string) => `Courier · ${window}`,
+      repeatLabel: "Repeats",
+      repeatSummary: (frequency: string, count: number) =>
+        `${frequency} · ${count} appointments`,
+      frequencyLabels: {
+        weekly: "Every week",
+        biweekly: "Every two weeks",
+        monthly: "Every month",
+      } as Record<string, string>,
+      submitMany: (count: number) => `Request ${count} appointments`,
+      submitOne: "Request appointment",
+      slotSummary: (time: string, minutes: number) => ` · ${time} (${minutes} min)`,
       steps: ["Goods", "Vehicle & delivery", "Date & summary"],
       catalogLoading: "Loading catalogue…",
       catalogError: "We couldn't load the catalogue.",
@@ -1236,6 +1573,11 @@ export const en: Dictionary = {
       cargoDialogConfirm: "Yes, create the request",
     },
     profile: {
+      quotaLine: (weekly: string, monthly: string) => `${weekly}/week · ${monthly}/month`,
+      autoApproval: "Auto-approval is enabled",
+      signOut: "Sign out",
+      category: "Category",
+      quota: "Quota",
       loadError: "We couldn't load your profile.",
       code: "Supplier code",
       contact: "Contact",
@@ -1361,6 +1703,7 @@ export const en: Dictionary = {
         howItWorks: "How it works",
         admin: "Operations",
         supplier: "Suppliers",
+        support: "Support",
       },
       sectionNavLabel: "Page sections",
       ctaTitle: "Take firmer control of your goods-in operation.",
@@ -1377,6 +1720,14 @@ export const en: Dictionary = {
       backHome: "Back to home",
     },
     demoForm: {
+      emailCorporate: "Work email",
+      emailPlaceholder: "name@company.com",
+      phoneOptional: "Phone (optional)",
+      facilityOptions: {
+        one: "1 site",
+        few: "2–5 sites",
+        many: "6+ sites",
+      },
       sentTitle: "Your request is ready",
       sentLead:
         "A pre-filled request has opened in your e-mail client — just send it. If nothing opened, you can write to us directly at",
@@ -1562,6 +1913,8 @@ export const en: Dictionary = {
   },
 
   auth: {
+    demoAccount: "Demo account",
+    loginFooter: "© 2026 LogiSlot · Enterprise logistics operations platform",
     portals: {
       supplier: {
         title: "Supplier Portal",
@@ -1616,8 +1969,170 @@ export const en: Dictionary = {
     copyDemo: "Copy demo account",
   },
 
+  legal: {
+    kvkk: {
+      metaTitle: "KVKK privacy notice — LogiSlot",
+      metaDescription:
+        "LogiSlot privacy notices and explicit-consent information under Turkish data protection law (KVKK).",
+      title: "KVKK privacy notice",
+      description:
+        "Information provided under Turkish Personal Data Protection Law no. 6698 (as amended by law no. 7499).",
+      draftNotice:
+        "**Draft text.** This page contains the notices prepared as part of our KVKK compliance work; it will be replaced by the final wording once legal review and the VERBİS registration check are complete.",
+      controller: {
+        heading: "Data controller and how to reach us",
+        intro:
+          "LogiSlot is operated by **Duosis**, which is the data controller for the purposes of these notices. The registered trade name, address and registry details (MERSİS/tax number) will be published on this page once the ongoing incorporation work is finished.",
+        contactLead:
+          "For any information request or application under KVKK, write to:",
+        contactTail: ". Applications are answered within the periods set by law.",
+      },
+      tenantUser: {
+        heading: "Privacy notice — site / operations user",
+        items: [
+          "**Data processed:** name, work email, phone number, job title/role, the site you work at, and system usage records.",
+          "**Purposes:** creating your account and verifying your identity, running the appointment and dock operation, managing roles and permissions, keeping security and audit records, and meeting contractual and legal obligations.",
+          "**Transfers:** data may be shared with infrastructure and hosting providers needed to deliver the service, and with public authorities where the law requires it. Where personal data is transferred abroad, the appropriate safeguards under KVKK art. 9 (e.g. standard contractual clauses) are put in place and the required notifications are made.",
+          "**How it is collected and the legal basis:** electronically, through the application and the web, relying on performance of a contract, legal obligation and legitimate interest under KVKK art. 5.",
+          "**Your rights (KVKK art. 11):** to learn whether your personal data is processed, to request information about it, to learn whether it is used for its intended purpose, to have it corrected or erased, to learn which third parties it was shared with, and to claim compensation for damage. Applications are received through the contact channel above.",
+        ],
+      },
+      supplierDriver: {
+        heading: "Privacy notice — supplier / driver (mobile app)",
+        items: [
+          "**Data processed:** name, phone/email, company details, vehicle and plate, driver details, delivery and appointment history, app usage records; and — only if you give explicit consent — location data and the behavioural data behind your reliability score.",
+          "**Purposes:** creating and tracking appointments and running the delivery flow into sites; and, where you have consented, estimating arrival from location, calculating a reliability score, and sending you tailored updates and offers.",
+          "**Transfers:** data may be shared with the site operator you booked with (e.g. delivery status and timing), with infrastructure and hosting providers, and with competent authorities. Information about who you work with is commercially sensitive and is only used for analysis in anonymised or aggregated form.",
+          "**How it is collected and the legal basis:** electronically through the mobile app, relying on performance of a contract and legitimate interest — and, for location, profiling and marketing, on your explicit consent (art. 5/1).",
+          "**Your rights (KVKK art. 11):** the rights listed in the section above apply in full; applications are received through the contact channel above.",
+        ],
+      },
+      consent: {
+        heading: "Explicit consent (given separately)",
+        intro:
+          "The duty to inform and explicit consent are handled **separately**. Each item below is presented in the app with **its own unticked checkbox**, is never a condition of using the service, and can be withdrawn at any time without losing access:",
+        bullets: [
+          "**Location data:** “I consent to my location being processed while the app is open, so that arrival times for my appointments can be estimated.”",
+          "**Profiling / score:** “I consent to a reliability score being calculated from my delivery behaviour and shared with the sites I book with.”",
+          "**Marketing messages:** “I consent to receiving commercial electronic messages with campaigns, offers and updates.”",
+        ],
+        iysNote:
+          "Commercial electronic messages are additionally subject to the obligations of the Turkish Message Management System (İYS).",
+      },
+      basis: {
+        heading: "Which data is processed on which legal basis?",
+        intro:
+          "Explicit consent is only one of the legal bases in KVKK; the processing that makes the service work is never tied to consent. That way, withdrawing a consent leaves the service working.",
+        colType: "Type of data",
+        colExample: "Example",
+        colBasis: "Legal basis",
+        rows: [
+          {
+            type: "Appointments & operations",
+            example: "Product, vehicle, plate, delivery time",
+            basis: "Performance of a contract",
+          },
+          {
+            type: "Account & identity",
+            example: "Name, email, company, role",
+            basis: "Contract / legitimate interest",
+          },
+          {
+            type: "Statutory retention",
+            example: "Invoices, transaction records",
+            basis: "Legal obligation",
+          },
+          {
+            type: "Location / GPS",
+            example: "Live driver location, arrival estimate",
+            basis: "Explicit consent (withdrawable)",
+          },
+          {
+            type: "Profiling / score",
+            example: "Reliability score",
+            basis: "Explicit consent",
+          },
+          {
+            type: "Marketing",
+            example: "Campaign messages",
+            basis: "Explicit consent (+ İYS)",
+          },
+          {
+            type: "In-product analytics",
+            example: "Usage metrics",
+            basis: "Legitimate interest (anonymous where possible)",
+          },
+        ],
+        anonNote:
+          "Irreversibly anonymised data that cannot be linked to a person falls outside KVKK; pseudonymised data, however, remains personal data.",
+      },
+    },
+    cookies: {
+      metaTitle: "Cookie Policy — LogiSlot",
+      metaDescription:
+        "How LogiSlot uses cookies and local browser storage.",
+      title: "Cookie Policy",
+      description:
+        "This page explains the cookies and similar local storage technologies used in the LogiSlot web applications.",
+      summaryHeading: "In short",
+      summaryText:
+        "LogiSlot uses **only storage that is strictly necessary for the service to work**, plus functional storage that remembers your preferences. **No analytics, advertising or marketing cookies are used;** there is no third-party tracking technology. Strictly necessary cookies and storage do not require consent under the law, which is why the banner on this site is a transparency notice rather than a consent mechanism.",
+      itemsHeading: "What is stored",
+      colKey: "Key",
+      colPurpose: "Purpose",
+      colType: "Type",
+      colDuration: "Lifetime",
+      typeRequired: "Strictly necessary",
+      typeFunctional: "Functional",
+      items: [
+        {
+          key: "logislot.access_token / logislot.refresh_token",
+          purpose: "Keeping you signed in securely (authentication)",
+          required: true,
+          duration: "For the session / until renewed",
+        },
+        {
+          key: "logislot.portal",
+          purpose: "Remembering which portal you signed in to",
+          required: true,
+          duration: "Until you sign out",
+        },
+        {
+          key: "logislot.lang",
+          purpose: "Remembering the interface language you chose",
+          required: false,
+          duration: "1 year / until you change it",
+        },
+        {
+          key: "theme",
+          purpose: "Remembering your light/dark theme preference",
+          required: false,
+          duration: "Until you change it",
+        },
+        {
+          key: "logislot.cookie_notice_ack",
+          purpose: "Remembering that you have seen this notice",
+          required: false,
+          duration: "Persistent (until browser data is cleared)",
+        },
+      ],
+      storageNote:
+        "These items live in your browser's **local storage** and are never shared with anyone outside LogiSlot.",
+      changesHeading: "Future changes",
+      changesLead:
+        "If analytics or marketing technology is introduced later, this policy will be updated and those items will be offered through **separate, unticked and withdrawable consent**. For details on how personal data is processed, see the",
+      kvkkLink: "KVKK privacy notice",
+      changesTail: ".",
+      questions: "Questions:",
+    },
+  },
+
   errors: {
     byCode: {
+      UNKNOWN: "Something went wrong",
+      upload_failed: "We couldn't upload the file.",
+      upload_network_error: "We couldn't upload the file — no connection.",
+      download_failed: "We couldn't download the file.",
       UNAUTHORIZED: "Incorrect e-mail or password.",
       FORBIDDEN: "You don't have permission to do this.",
       NOT_FOUND: "Record not found.",

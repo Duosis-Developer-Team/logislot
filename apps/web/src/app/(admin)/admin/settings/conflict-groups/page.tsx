@@ -73,7 +73,7 @@ export default function ConflictGroupsPage() {
 
   function triggerSummary(group: ConflictGroupDto): string {
     const ids = group.trigger_condition_json?.vehicle_category_ids ?? [];
-    if (group.relation_type !== "conditional" || ids.length === 0) return "Her zaman";
+    if (group.relation_type !== "conditional" || ids.length === 0) return t.admin.conflictGroups.always;
     return t.admin.conflictGroups.triggerWhen(
       ids.map(vehicleName).join(t.admin.conflictGroups.or),
     );
@@ -147,7 +147,7 @@ export default function ConflictGroupsPage() {
     <ConfigPageShell
       title={t.admin.conflictGroups.title}
       description={t.admin.conflictGroups.pageDescription}
-      createLabel="Yeni Grup"
+      createLabel={t.admin.conflictGroups.createLabel}
       onCreate={openCreate}
       search={search}
       onSearchChange={setSearch}
@@ -257,7 +257,7 @@ export default function ConflictGroupsPage() {
                 .map((d) => ({ value: d.id, label: d.name }))}
               value={memberIds}
               onChange={setMemberIds}
-              searchPlaceholder="Rampa ara…"
+              searchPlaceholder={t.common.searchDock}
             />
           </div>
 
@@ -320,7 +320,7 @@ export default function ConflictGroupsPage() {
               {t.common.cancel}
             </Button>
             <Button type="submit" disabled={save.isPending}>
-              {save.isPending ? "Kaydediliyor…" : "Kaydet"}
+              {save.isPending ? t.common.saving : t.common.save}
             </Button>
           </div>
         </form>

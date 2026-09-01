@@ -26,7 +26,7 @@ import type { Dictionary } from "@/lib/i18n/dictionaries/tr";
 import { useT } from "@/lib/i18n/provider";
 
 const formSchema = z.object({
-  name: z.string().min(1, "Ad zorunlu"),
+  name: z.string().min(1, "nameRequired"),
   display_name: z.string().min(1, "displayNameRequired"),
   description: z.string().optional(),
   physical_note: z.string().optional(),
@@ -150,10 +150,10 @@ export default function VehicleCategoriesPage() {
         <Table>
           <THead>
             <TR>
-              <TH>Ad</TH>
+              <TH>{t.admin.vehicleCategories.name}</TH>
               <TH>{t.admin.config.displayName}</TH>
-              <TH>Fiziksel Not</TH>
-              <TH>Durum</TH>
+              <TH>{t.admin.vehicleCategories.physicalNote}</TH>
+              <TH>{t.admin.vehicleCategories.status}</TH>
               <TH className="text-right">{t.common.actions}</TH>
             </TR>
           </THead>
@@ -217,7 +217,7 @@ export default function VehicleCategoriesPage() {
             <Input {...form.register("description")} placeholder="Opsiyonel" />
           </div>
           <div>
-            <Label>Fiziksel Not</Label>
+            <Label>{t.admin.vehicleCategories.physicalNote}</Label>
             <Input
               {...form.register("physical_note")}
               placeholder={t.admin.vehicleCategories.descriptionPlaceholder}
@@ -239,7 +239,7 @@ export default function VehicleCategoriesPage() {
               {t.common.cancel}
             </Button>
             <Button type="submit" disabled={save.isPending}>
-              {save.isPending ? "Kaydediliyor…" : "Kaydet"}
+              {save.isPending ? t.common.saving : t.common.save}
             </Button>
           </div>
         </form>

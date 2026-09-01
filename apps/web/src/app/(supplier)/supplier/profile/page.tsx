@@ -45,7 +45,7 @@ export default function SupplierProfilePage() {
             <dd className="font-mono">{data.code}</dd>
             {data.category_label && (
               <>
-                <dt className="text-muted-foreground">Kategori</dt>
+                <dt className="text-muted-foreground">{t.supplier.profile.category}</dt>
                 <dd>{data.category_label}</dd>
               </>
             )}
@@ -57,14 +57,17 @@ export default function SupplierProfilePage() {
             <dd>
               {data.min_block_minutes ?? "—"}–{data.max_block_minutes ?? "—"} dk
             </dd>
-            <dt className="text-muted-foreground">Kota</dt>
+            <dt className="text-muted-foreground">{t.supplier.profile.quota}</dt>
             <dd>
-              {data.weekly_quota ?? "∞"}/hafta · {data.monthly_quota ?? "∞"}/ay
+              {t.supplier.profile.quotaLine(
+                String(data.weekly_quota ?? "∞"),
+                String(data.monthly_quota ?? "∞"),
+              )}
             </dd>
           </dl>
           {data.auto_approval_enabled && (
             <Badge className="w-fit bg-status-approved/15 text-status-approved">
-              <BadgeCheck className="h-3.5 w-3.5" /> Otomatik onay yetkisi aktif
+              <BadgeCheck className="h-3.5 w-3.5" /> {t.supplier.profile.autoApproval}
             </Badge>
           )}
         </CardContent>
@@ -94,7 +97,7 @@ export default function SupplierProfilePage() {
         className="w-full sm:w-fit"
         onClick={session.logout}
       >
-        <LogOut className="h-4 w-4" /> Oturumu Kapat
+        <LogOut className="h-4 w-4" /> {t.supplier.profile.signOut}
       </Button>
     </div>
   );

@@ -432,7 +432,7 @@ function AppointmentsListContent() {
           approveTarget?.supplier_name ?? t.admin.appointments.supplierFallback,
           approveTarget?.product_name ?? "",
         )}
-        confirmLabel="Onayla"
+        confirmLabel={t.appointmentDrawer.approve}
         loading={actions.approve.isPending}
         onConfirm={onApprove}
         onClose={() => setApproveTarget(null)}
@@ -445,11 +445,12 @@ function AppointmentsListContent() {
       >
         <div className="flex flex-col gap-3">
           <p className="text-sm text-muted-foreground">
-            {rejectTarget?.supplier_name} — “{rejectTarget?.product_name}” talebi
+            {rejectTarget?.supplier_name} — “{rejectTarget?.product_name}”{" "}
+            {t.admin.appointments.rejectRequestWord}{" "}
             {t.admin.appointments.rejectLead}
           </p>
           <div>
-            <Label>Red Sebebi</Label>
+            <Label>{t.admin.appointments.rejectReason}</Label>
             <Input
               value={rejectReason}
               onChange={(e) => setRejectReason(e.target.value)}

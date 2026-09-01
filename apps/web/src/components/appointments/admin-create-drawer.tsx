@@ -12,11 +12,7 @@
 
 import { Package } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import {
-  CARGO_WINDOW_LABELS,
-  type CargoWindow,
-  resolveDurationRange,
-} from "@logislot/shared";
+import { type CargoWindow, resolveDurationRange } from "@logislot/shared";
 import { ErrorState, LoadingState } from "@/components/config/states";
 import { Button } from "@/components/ui/button";
 import { Drawer } from "@/components/ui/drawer";
@@ -30,6 +26,8 @@ import { ApiError } from "@/lib/api/client";
 import { docks, productCategories, suppliers, vehicleCategories } from "@/lib/api/resources";
 import type { AppointmentDto, SeriesCreateResultDto } from "@/lib/api/types";
 import { useSession } from "@/lib/auth/session";
+import { useLabels } from "@/lib/i18n/labels";
+import { useT } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
 
 const CARGO_WINDOWS: CargoWindow[] = ["morning", "afternoon", "all_day"];
@@ -55,6 +53,9 @@ interface AdminCreateDrawerProps {
 }
 
 export function AdminCreateDrawer({ open, onClose, onSuccess, initial }: AdminCreateDrawerProps) {
+  const t = useT();
+  const copy = t.components.adminCreateDrawer;
+  const labels = useLabels();
   const { activeFacilityId, activeFacility } = useSession();
   const supplierList = suppliers.useList(activeFacilityId);
   const categoryList = productCategories.useList(activeFacilityId);
@@ -211,15 +212,15 @@ export function AdminCreateDrawer({ open, onClose, onSuccess, initial }: AdminCr
   async function onSubmit() {
     setFormError(null);
     if (!supplier || !category || !productName.trim()) {
-      setFormError("Tedarikçi, kategori ve ürün adı zorunludur.");
+      setFormError(copy.needsFields);
       return;
     }
     if (!isCargo && !selectedSlot) {
-      setFormError("Başlangıç saati seçin.");
+      setFormError(copy.needsStart);
       return;
     }
     if (dockMode === "manual" && !effectiveDockId) {
-      setFormError("Manuel modda rampa seçin.");
+      setFormError(copy.needsDock);
       return;
     }
     try {
@@ -248,26 +249,26 @@ export function AdminCreateDrawer({ open, onClose, onSuccess, initial }: AdminCr
       const isSeries = "series_id" in (result as SeriesCreateResultDto);
       onSuccess(
         isSeries
-          ? `${(result as SeriesCreateResultDto).occurrence_count} onaylı randevu oluşturuldu; tedarikçiye bildirim gönderildi.`
-          : `Randevu onaylı olarak oluşturuldu (${(result as AppointmentDto).product_name}); tedarikçiye bildirim gönderildi.`,
+          ? copy.createdSeries((result as SeriesCreateResultDto).occurrence_count)
+          : copy.createdApproved((result as AppointmentDto).product_name),
       );
       reset();
       onClose();
     } catch (err) {
-      setFormError(err instanceof ApiError ? err.message : "Randevu oluşturulamadı");
+      setFormError(err instanceof ApiError ? err.message : copy.failed);
     }
   }
 
   return (
-    <Drawer open={open} onClose={onClose} title="Yeni Randevu">
+    <Drawer open={open} onClose={onClose} title={copy.title}>
       {supplierList.isLoading ? (
         <LoadingState />
       ) : supplierList.isError ? (
-        <ErrorState message="Tedarikçiler yüklenemedi." onRetry={() => supplierList.refetch()} />
+        <ErrorState message={copy.suppliersLoadError} onRetry={() => supplierList.refetch()} />
       ) : (
         <div className="flex flex-col gap-4">
           <div>
-            <Label>Tedarikçi</Label>
+            <Label>{copy.supplier}</Label>
             <Select
               value={supplierId}
               onChange={(e) => {
@@ -277,7 +278,7 @@ export function AdminCreateDrawer({ open, onClose, onSuccess, initial }: AdminCr
                 setSelectedSlot(null);
               }}
             >
-              <option value="">— Tedarikçi seçin —</option>
+              <option value="">{copy.selectSupplier}</option>
               {(supplierList.data ?? [])
                 .filter((s) => s.is_active)
                 .map((s) => (
@@ -292,7 +293,7 @@ export function AdminCreateDrawer({ open, onClose, onSuccess, initial }: AdminCr
             <>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <Label>Kategori</Label>
+                  <Label>{copy.category}</Label>
                   <Select
                     value={categoryId}
                     onChange={(e) => {
@@ -301,7 +302,7 @@ export function AdminCreateDrawer({ open, onClose, onSuccess, initial }: AdminCr
                       setSelectedSlot(null);
                     }}
                   >
-                    <option value="">— Seçin —</option>
+                    <option value="">{copy.selectPlaceholder}</option>
                     {allowedCategories.map((c) => (
                       <option key={c.id} value={c.id}>
                         {c.display_name}
@@ -310,18 +311,18 @@ export function AdminCreateDrawer({ open, onClose, onSuccess, initial }: AdminCr
                   </Select>
                 </div>
                 <div>
-                  <Label>Ürün Adı</Label>
+                  <Label>{copy.product}</Label>
                   <Input
                     value={productName}
                     onChange={(e) => setProductName(e.target.value)}
-                    placeholder="Örn. Acil teslimat"
+                    placeholder={copy.productPlaceholder}
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <Label>Miktar</Label>
+                  <Label>{copy.quantity}</Label>
                   <Input
                     type="number"
                     min={1}
@@ -330,16 +331,17 @@ export function AdminCreateDrawer({ open, onClose, onSuccess, initial }: AdminCr
                   />
                 </div>
                 <div>
-                  <Label>Birim</Label>
+                  <Label>{copy.unit}</Label>
                   <Select value={unit} onChange={(e) => setUnit(e.target.value)}>
-                    <option value="pallet">Palet</option>
-                    <option value="piece">Adet</option>
-                    <option value="box">Kutu</option>
-                    <option value="carton">Koli</option>
+                    {(["pallet", "piece", "box", "carton"] as const).map((u) => (
+                      <option key={u} value={u}>
+                        {labels.quantityUnit[u]}
+                      </option>
+                    ))}
                   </Select>
                 </div>
                 <div>
-                  <Label>Araç</Label>
+                  <Label>{copy.vehicle}</Label>
                   <Select
                     value={effectiveVehicleId ?? ""}
                     onChange={(e) => {
@@ -361,7 +363,7 @@ export function AdminCreateDrawer({ open, onClose, onSuccess, initial }: AdminCr
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <Label>Plaka</Label>
+                  <Label>{copy.plate}</Label>
                   <Input
                     value={plate}
                     onChange={(e) => setPlate(e.target.value)}
@@ -369,17 +371,17 @@ export function AdminCreateDrawer({ open, onClose, onSuccess, initial }: AdminCr
                   />
                 </div>
                 <div>
-                  <Label>Sürücü</Label>
+                  <Label>{copy.driver}</Label>
                   <Input
                     value={driver}
                     onChange={(e) => setDriver(e.target.value)}
-                    placeholder="Ad Soyad"
+                    placeholder={copy.driverPlaceholder}
                   />
                 </div>
               </div>
 
               <div>
-                <Label>Teslimat Tipi</Label>
+                <Label>{copy.deliveryType}</Label>
                 <div className={cn("grid gap-2", cargoAllowed ? "grid-cols-2" : "grid-cols-1")}>
                   <button
                     type="button"
@@ -391,7 +393,7 @@ export function AdminCreateDrawer({ open, onClose, onSuccess, initial }: AdminCr
                         : "border-border",
                     )}
                   >
-                    Standart
+                    {copy.standard}
                   </button>
                   {cargoAllowed && (
                     <button
@@ -407,7 +409,7 @@ export function AdminCreateDrawer({ open, onClose, onSuccess, initial }: AdminCr
                           : "border-border",
                       )}
                     >
-                      <Package className="h-3.5 w-3.5 text-cargo" /> Kargo
+                      <Package className="h-3.5 w-3.5 text-cargo" /> {t.common.cargo}
                     </button>
                   )}
                 </div>
@@ -415,7 +417,7 @@ export function AdminCreateDrawer({ open, onClose, onSuccess, initial }: AdminCr
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <Label>Gün</Label>
+                  <Label>{copy.day}</Label>
                   <Input
                     type="date"
                     value={date}
@@ -428,7 +430,7 @@ export function AdminCreateDrawer({ open, onClose, onSuccess, initial }: AdminCr
                 </div>
                 {!isCargo && (
                   <div>
-                    <Label>Süre</Label>
+                    <Label>{copy.duration}</Label>
                     <Select
                       value={effectiveDuration ?? ""}
                       disabled={durationOptions.length === 0}
@@ -439,7 +441,7 @@ export function AdminCreateDrawer({ open, onClose, onSuccess, initial }: AdminCr
                     >
                       {durationOptions.map((d) => (
                         <option key={d} value={d}>
-                          {d} dk
+                          {copy.durationOption(d)}
                         </option>
                       ))}
                     </Select>
@@ -449,23 +451,25 @@ export function AdminCreateDrawer({ open, onClose, onSuccess, initial }: AdminCr
 
               {!isCargo && durationRange?.conflicting && (
                 <p className="text-sm text-destructive">
-                  Bu kategorinin süre aralığı ({category?.min_block_minutes}–
-                  {category?.max_block_minutes} dk) tedarikçinin limitleriyle (
-                  {supplier?.min_block_minutes ?? "—"}–{supplier?.max_block_minutes ?? "—"}{" "}
-                  dk) kesişmiyor. Ayarlardan limitlerden birini güncelleyin.
+                  {copy.conflictNote(
+                    category?.min_block_minutes ?? 0,
+                    category?.max_block_minutes ?? 0,
+                    String(supplier?.min_block_minutes ?? "—"),
+                    String(supplier?.max_block_minutes ?? "—"),
+                  )}
                 </p>
               )}
 
               {isCargo ? (
                 <div>
-                  <Label>Beklenen Pencere</Label>
+                  <Label>{copy.cargoWindow}</Label>
                   <Select
                     value={cargoWindow}
                     onChange={(e) => setCargoWindow(e.target.value as CargoWindow)}
                   >
                     {CARGO_WINDOWS.map((w) => (
                       <option key={w} value={w}>
-                        {CARGO_WINDOW_LABELS[w]}
+                        {labels.cargoWindow[w]}
                       </option>
                     ))}
                   </Select>
@@ -473,12 +477,12 @@ export function AdminCreateDrawer({ open, onClose, onSuccess, initial }: AdminCr
               ) : (
                 category && (
                   <div>
-                    <Label>Başlangıç Saati</Label>
+                    <Label>{copy.startTime}</Label>
                     {availability.isLoading ? (
-                      <LoadingState label="Müsaitlik hesaplanıyor…" />
+                      <LoadingState label={copy.loadingAvailability} />
                     ) : slots.length === 0 ? (
                       <p className="rounded-md bg-muted px-3 py-2 text-sm text-muted-foreground">
-                        Bu gün için uygun slot yok.
+                        {copy.noSlots}
                       </p>
                     ) : (
                       <div className="grid grid-cols-4 gap-1.5">
@@ -513,7 +517,7 @@ export function AdminCreateDrawer({ open, onClose, onSuccess, initial }: AdminCr
                     {selectedSlotData && selectedSlotData.advisory_warnings.length > 0 && (
                       <p className="mt-1.5 flex items-start gap-1.5 rounded-md bg-cargo/10 px-2 py-1.5 text-xs text-cargo">
                         <Package className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                        Bu aralıkta kargo bekleniyor — engel değildir, farkındalık içindir.
+                        {copy.cargoAdvisory}
                       </p>
                     )}
                   </div>
@@ -521,23 +525,23 @@ export function AdminCreateDrawer({ open, onClose, onSuccess, initial }: AdminCr
               )}
 
               <div>
-                <Label>Rampa</Label>
+                <Label>{t.common.dock}</Label>
                 <div className="flex gap-2">
                   <Select
                     value={dockMode}
                     onChange={(e) => setDockMode(e.target.value as "auto" | "manual")}
                     className="w-40 shrink-0"
                   >
-                    <option value="auto">Otomatik ata</option>
-                    <option value="manual">Manuel seç</option>
+                    <option value="auto">{copy.autoAssign}</option>
+                    <option value="manual">{copy.manualSelect}</option>
                   </Select>
                   {dockMode === "manual" && (
                     <Select value={effectiveDockId} onChange={(e) => setDockId(e.target.value)}>
-                      <option value="">— Rampa —</option>
+                      <option value="">{copy.selectDock}</option>
                       {eligibleDocks.map((d) => (
                         <option key={d.id} value={d.id} disabled={!d.available}>
                           {d.name}
-                          {d.available ? "" : " — dolu"}
+                          {d.available ? "" : copy.dockFull}
                         </option>
                       ))}
                     </Select>
@@ -550,12 +554,12 @@ export function AdminCreateDrawer({ open, onClose, onSuccess, initial }: AdminCr
                   <Switch
                     checked={recurringEnabled}
                     onChange={setRecurringEnabled}
-                    label="Tekrarlayan randevu oluştur"
+                    label={copy.recurring}
                   />
                   {recurringEnabled && (
                     <div className="mt-2 grid grid-cols-2 gap-3">
                       <div>
-                        <Label>Sıklık</Label>
+                        <Label>{copy.frequency}</Label>
                         <Select
                           value={frequency}
                           onChange={(e) => {
@@ -564,13 +568,13 @@ export function AdminCreateDrawer({ open, onClose, onSuccess, initial }: AdminCr
                             if (f === "monthly" && count > 6) setCount(6);
                           }}
                         >
-                          <option value="weekly">Her hafta</option>
-                          <option value="biweekly">2 haftada bir</option>
-                          <option value="monthly">Her ay</option>
+                          <option value="weekly">{copy.freqWeekly}</option>
+                          <option value="biweekly">{copy.freqBiweekly}</option>
+                          <option value="monthly">{copy.freqMonthly}</option>
                         </Select>
                       </div>
                       <div>
-                        <Label>Tekrar Sayısı</Label>
+                        <Label>{copy.count}</Label>
                         <Input
                           type="number"
                           min={2}
@@ -585,11 +589,11 @@ export function AdminCreateDrawer({ open, onClose, onSuccess, initial }: AdminCr
               )}
 
               <div>
-                <Label>Not</Label>
+                <Label>{copy.note}</Label>
                 <Input
                   value={note}
                   onChange={(e) => setNote(e.target.value)}
-                  placeholder='Örn. "Telefonla oluşturuldu"'
+                  placeholder={copy.notePlaceholder}
                 />
               </div>
             </>
@@ -598,7 +602,7 @@ export function AdminCreateDrawer({ open, onClose, onSuccess, initial }: AdminCr
           {formError && <p className="text-sm text-destructive">{formError}</p>}
           <div className="flex justify-end gap-2">
             <Button variant="secondary" onClick={onClose}>
-              İptal
+              {t.common.cancel}
             </Button>
             <Button
               onClick={() => void onSubmit()}
@@ -609,7 +613,7 @@ export function AdminCreateDrawer({ open, onClose, onSuccess, initial }: AdminCr
                 (!isCargo && durationRange?.conflicting === true)
               }
             >
-              {create.isPending ? "Oluşturuluyor…" : "Randevu Oluştur"}
+              {create.isPending ? copy.creating : copy.submit}
             </Button>
           </div>
         </div>

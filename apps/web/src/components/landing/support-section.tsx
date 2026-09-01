@@ -1,3 +1,5 @@
+"use client";
+
 import { ArrowRight, ChevronDown, LifeBuoy, Mail } from "lucide-react";
 import Link from "next/link";
 import { Reveal } from "@/components/landing/reveal";

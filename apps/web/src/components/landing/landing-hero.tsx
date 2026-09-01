@@ -1,3 +1,5 @@
+"use client";
+
 import { ArrowRight, CalendarCheck2, CalendarPlus, Package, Truck } from "lucide-react";
 import Link from "next/link";
 import { LogiSlotIcon } from "@/components/brand/logo";

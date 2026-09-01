@@ -1,6 +1,7 @@
 "use client";
 
 import { Languages } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useLocale, useT } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
 
@@ -10,15 +11,23 @@ import { cn } from "@/lib/utils";
  *
  * Kısaltma (TR/EN) ikonun yanında yazılır: yalnızca ikon, hangi dilde
  * olduğunuzu söylemez.
+ *
+ * `router.refresh()` ŞART: hukuki ve pazarlama sayfaları sunucuda, dili
+ * cookie'den okuyarak render edilir. Yalnızca istemci durumunu değiştirmek
+ * o sayfalarda metni eski dilde bırakırdı.
  */
 export function LanguageToggle({ className }: { className?: string }) {
+  const router = useRouter();
   const { locale, setLocale } = useLocale();
   const t = useT();
   const next = locale === "tr" ? "en" : "tr";
 
   return (
     <button
-      onClick={() => setLocale(next)}
+      onClick={() => {
+        setLocale(next);
+        router.refresh();
+      }}
       aria-label={t.language.switchTo}
       title={t.language.switchTo}
       className={cn(

@@ -86,7 +86,7 @@ export default function SeriesPage() {
       );
       setReviseTarget(null);
     } catch (err) {
-      setReviseError(err instanceof ApiError ? err.message : "Revize edilemedi");
+      setReviseError(err instanceof ApiError ? err.message : t.admin.series.reviseFailed);
     }
   }
 
@@ -96,7 +96,7 @@ export default function SeriesPage() {
       const result = await cancel.mutateAsync({ seriesId: cancelTarget.id });
       showFlash(
         "success",
-        `Serinin gelecekteki ${result.affected_count} randevusu iptal edildi.`,
+        t.admin.series.cancelledCount(result.affected_count),
       );
     } catch (err) {
       showFlash("error", errorMessage(err, t.admin.series.actionFailed));
@@ -118,7 +118,7 @@ export default function SeriesPage() {
   return (
     <div className="flex flex-col gap-4">
       <div>
-        <h1 className="text-xl font-bold">Tekrarlayan Seriler</h1>
+        <h1 className="text-xl font-bold">{t.admin.series.title}</h1>
         <p className="text-sm text-muted-foreground">
           {t.admin.series.description}
         </p>
@@ -139,7 +139,7 @@ export default function SeriesPage() {
 
       {rows.length === 0 ? (
         <EmptyState
-          title="Tekrarlayan seri yok"
+          title={t.admin.series.emptyTitle}
           description={t.admin.series.emptyDescription}
         />
       ) : (
@@ -148,8 +148,8 @@ export default function SeriesPage() {
             <TR>
               <TH>{t.admin.appointments.colSupplier}</TH>
               <TH>{t.admin.series.colFrequency}</TH>
-              <TH>Randevular</TH>
-              <TH>Durum</TH>
+              <TH>{t.admin.series.colAppointments}</TH>
+              <TH>{t.admin.series.colStatus}</TH>
               <TH>{t.admin.series.colCreated}</TH>
               <TH className="text-right">{t.common.actions}</TH>
             </TR>
@@ -202,7 +202,7 @@ export default function SeriesPage() {
                         row.status === "active" &&
                         (row.status_counts["revision_pending"] ?? 0) > 0 && (
                           <Button size="sm" onClick={() => setApproveTarget(row)}>
-                            Seriyi Onayla
+                            {t.admin.series.approveSeries}
                           </Button>
                         )}
                       {can("appt.revise") &&
@@ -217,7 +217,7 @@ export default function SeriesPage() {
                               setReviseTarget(row);
                             }}
                           >
-                            Seriyi Revize Et
+                            {t.admin.series.reviseSeries}
                           </Button>
                         )}
                       {can("appt.cancel") &&
@@ -268,17 +268,17 @@ export default function SeriesPage() {
       <Dialog
         open={reviseTarget !== null}
         onClose={() => setReviseTarget(null)}
-        title="Seriyi Revize Et"
+        title={t.admin.series.reviseTitle}
       >
         <div className="flex flex-col gap-3">
           <p className="text-sm text-muted-foreground">
-            <strong>{reviseTarget ? futureCancellable(reviseTarget) : 0}</strong> gelecek
-            {t.admin.series.reviseLead} <strong>{t.admin.series.reviseStrong}</strong>
+            <strong>{reviseTarget ? futureCancellable(reviseTarget) : 0}</strong>{" "}
+            {t.admin.series.reviseCountWord} {t.admin.series.reviseLead} <strong>{t.admin.series.reviseStrong}</strong>
             {t.admin.series.reviseTail}
           </p>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <Label>Yeni Saat</Label>
+              <Label>{t.admin.series.newTime}</Label>
               <Input type="time" value={newTime} onChange={(e) => setNewTime(e.target.value)} />
             </div>
             <div>
@@ -293,14 +293,14 @@ export default function SeriesPage() {
             </div>
           </div>
           <div>
-            <Label>Rampa</Label>
+            <Label>{t.common.dock}</Label>
             <div className="flex gap-2">
               <Select
                 value={reviseDockMode}
                 onChange={(e) => setReviseDockMode(e.target.value as "auto" | "manual")}
                 className="w-40 shrink-0"
               >
-                <option value="auto">Otomatik ata</option>
+                <option value="auto">{t.admin.series.autoAssign}</option>
                 <option value="manual">{t.admin.series.manualSelect}</option>
               </Select>
               {reviseDockMode === "manual" && (
@@ -308,7 +308,7 @@ export default function SeriesPage() {
                   value={reviseDockId}
                   onChange={(e) => setReviseDockId(e.target.value)}
                 >
-                  <option value="">— Rampa —</option>
+                  <option value="">{t.admin.series.selectDock}</option>
                   {(dockList.data ?? [])
                     .filter((d) => d.is_active)
                     .map((d) => (
@@ -334,7 +334,7 @@ export default function SeriesPage() {
               {t.common.cancel}
             </Button>
             <Button onClick={() => void onRevise()} disabled={revise.isPending}>
-              {revise.isPending ? "Revize ediliyor…" : "Seriyi Revize Et"}
+              {revise.isPending ? t.admin.series.revising : t.admin.series.reviseSeries}
             </Button>
           </div>
         </div>

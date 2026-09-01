@@ -92,19 +92,19 @@ export function DemoRequestForm({ contactEmail }: { contactEmail: string }) {
       </div>
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
-          <Label htmlFor="demo-email">Kurumsal E-posta</Label>
+          <Label htmlFor="demo-email">{t.landing.demoForm.emailCorporate}</Label>
           <Input
             id="demo-email"
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
-            placeholder="ad@firma.com"
+            placeholder={t.landing.demoForm.emailPlaceholder}
             className="h-12"
           />
         </div>
         <div>
-          <Label htmlFor="demo-phone">Telefon (opsiyonel)</Label>
+          <Label htmlFor="demo-phone">{t.landing.demoForm.phoneOptional}</Label>
           <Input
             id="demo-phone"
             type="tel"
@@ -123,9 +123,9 @@ export function DemoRequestForm({ contactEmail }: { contactEmail: string }) {
           onChange={(e) => setFacilities(e.target.value)}
           className="h-12"
         >
-          <option value="1">1 tesis</option>
-          <option value="2-5">2–5 tesis</option>
-          <option value="6+">6+ tesis</option>
+          <option value="1">{t.landing.demoForm.facilityOptions.one}</option>
+          <option value="2-5">{t.landing.demoForm.facilityOptions.few}</option>
+          <option value="6+">{t.landing.demoForm.facilityOptions.many}</option>
         </Select>
       </div>
       <div>

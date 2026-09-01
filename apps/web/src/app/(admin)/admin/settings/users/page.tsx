@@ -92,7 +92,7 @@ function permissionLabel(t: Dictionary, code: string): string {
 const userSchema = z.object({
   name: z.string().min(1, ERRORS.roleNameRequired),
   email: z.string().email(ERRORS.validEmail),
-  temporary_password: z.string().min(6, "En az 6 karakter").optional().or(z.literal("")),
+  temporary_password: z.string().min(6, "minPassword").optional().or(z.literal("")),
 });
 type UserFormValues = z.infer<typeof userSchema>;
 
@@ -385,7 +385,7 @@ export default function UsersPage() {
                 <TH>Ad</TH>
                 <TH>E-posta</TH>
                 <TH>Roller</TH>
-                <TH>Yetkili Rampalar</TH>
+                <TH>{t.admin.users.allowedDocks}</TH>
                 <TH>Durum</TH>
                 <TH className="text-right">{t.common.actions}</TH>
               </TR>
@@ -511,7 +511,7 @@ export default function UsersPage() {
       >
         <form onSubmit={userForm.handleSubmit(onUserSubmit)} className="flex flex-col gap-4">
           <div>
-            <Label>Ad Soyad</Label>
+            <Label>{t.admin.users.fullName}</Label>
             <Input {...userForm.register("name")} placeholder={t.admin.users.namePlaceholder} />
             {userForm.formState.errors.name && (
               <p className="mt-1 text-xs text-destructive">
@@ -524,7 +524,7 @@ export default function UsersPage() {
             <Input
               {...userForm.register("email")}
               disabled={!!userDrawer.editing}
-              placeholder="kullanici@firma.com"
+              placeholder={t.admin.users.emailPlaceholder}
             />
             {userForm.formState.errors.email && (
               <p className="mt-1 text-xs text-destructive">
@@ -553,18 +553,18 @@ export default function UsersPage() {
               options={activeRoles.map((r) => ({ value: r.id, label: r.display_name }))}
               value={userRoleIds}
               onChange={setUserRoleIds}
-              searchPlaceholder="Rol ara…"
+              searchPlaceholder={t.admin.users.searchRole}
             />
           </div>
           <div>
-            <Label>Yetkili Rampalar</Label>
+            <Label>{t.admin.users.allowedDocks}</Label>
             <MultiSelectField
               options={(dockList.data ?? [])
                 .filter((d) => d.is_active)
                 .map((d) => ({ value: d.id, label: d.name }))}
               value={userDockIds}
               onChange={setUserDockIds}
-              searchPlaceholder="Rampa ara…"
+              searchPlaceholder={t.common.searchDock}
               emptyHint={t.admin.users.dockEmptyHint}
             />
           </div>
@@ -581,7 +581,7 @@ export default function UsersPage() {
               {t.common.cancel}
             </Button>
             <Button type="submit" disabled={userMutations.save.isPending}>
-              {userMutations.save.isPending ? "Kaydediliyor…" : "Kaydet"}
+              {userMutations.save.isPending ? t.common.saving : t.common.save}
             </Button>
           </div>
         </form>
@@ -672,11 +672,11 @@ export default function UsersPage() {
             {t.admin.users.resetPasswordLead}
           </p>
           <div>
-            <Label>Yeni Parola</Label>
+            <Label>{t.common.newPassword}</Label>
             <Input
               value={resetPassword}
               onChange={(e) => setResetPassword(e.target.value)}
-              placeholder="En az 6 karakter"
+              placeholder={t.admin.users.minPasswordPlaceholder}
             />
           </div>
           <div className="flex justify-end gap-2">

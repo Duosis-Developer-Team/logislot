@@ -75,25 +75,28 @@ export default function SupportPage() {
       hint: t.platform.support.failedEmailHint,
     },
     {
-      label: "Retry bekleyen e-posta",
+      label: t.platform.support.retryPendingEmail,
       value: data.due_email_retry_count,
       alertWhenPositive: true,
-      hint: "Scheduler 5 dakikada bir otomatik dener",
+      hint: t.platform.support.retryPendingHint,
     },
     {
       label: t.platform.support.unreadCritical,
       value: data.unread_critical_notification_count,
       alertWhenPositive: true,
     },
-    { label: "Onay bekleyen randevu", value: data.pending_appointment_count },
-    { label: "Revize bekleyen randevu", value: data.revision_pending_appointment_count },
+    { label: t.platform.support.pendingAppointments, value: data.pending_appointment_count },
+    {
+      label: t.platform.support.revisionPendingAppointments,
+      value: data.revision_pending_appointment_count,
+    },
     {
       label: t.platform.support.planWarning,
       value: data.plan_warning_count,
       alertWhenPositive: true,
     },
     { label: "Tenant", value: data.tenant_count },
-    { label: "Aktif tesis", value: data.active_facility_count },
+    { label: t.platform.support.activeFacilities, value: data.active_facility_count },
   ];
 
   return (
@@ -184,7 +187,8 @@ export default function SupportPage() {
             {ticketHealth.data.catalog_last_fetched_at
               ? formatDateTime(ticketHealth.data.catalog_last_fetched_at)
               : "—"}
-            {ticketHealth.data.catalog_stale && " (eski)"} · son mutabakat:{" "}
+            {ticketHealth.data.catalog_stale && t.platform.support.stale} ·{" "}
+            {t.platform.support.lastReconciliation}:{" "}
             {ticketHealth.data.jobs.ticket_reconciliation?.last_finished_at
               ? formatDateTime(
                   ticketHealth.data.jobs.ticket_reconciliation.last_finished_at,
@@ -250,7 +254,8 @@ export default function SupportPage() {
           ))}
         </div>
         <p className="text-xs text-muted-foreground">
-          Ortam: {data.config.environment} · e-posta: {data.config.email_provider} ·
+          {t.platform.support.environmentLabel}: {data.config.environment} ·{" "}
+          {t.platform.support.emailLabel}: {data.config.email_provider} ·
           {t.platform.support.docsLabel}{" "}
           {data.config.docs_enabled ? t.platform.support.on : t.platform.support.off}{" "}
           {t.platform.support.rateLimitLabel}{" "}

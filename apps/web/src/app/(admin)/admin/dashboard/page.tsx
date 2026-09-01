@@ -48,11 +48,11 @@ export default function DashboardPage() {
     tone?: "primary" | "cargo";
   }[] = [
     { label: t.admin.dashboard.todayAppointments, value: data.today_appointments, icon: CalendarClock },
-    { label: "Onay Bekleyen", value: data.pending_approvals, icon: CalendarCheck2 },
+    { label: t.admin.dashboard.pendingApprovals, value: data.pending_approvals, icon: CalendarCheck2 },
     { label: t.admin.dashboard.completedToday, value: data.completed_today, icon: CheckCircle2 },
-    { label: "Bu Hafta Toplam", value: data.week_total, icon: Truck },
+    { label: t.admin.dashboard.weekTotal, value: data.week_total, icon: Truck },
     { label: t.admin.dashboard.activeSuppliers, value: data.active_suppliers, icon: Users2 },
-    { label: "Aktif Rampa", value: data.active_docks, icon: Warehouse },
+    { label: t.admin.dashboard.activeDocks, value: data.active_docks, icon: Warehouse },
     { label: t.admin.dashboard.cargoWarned, value: data.cargo_warned, icon: Package, tone: "cargo" },
   ];
 
@@ -92,12 +92,12 @@ export default function DashboardPage() {
       <div className="grid gap-4 xl:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle>Onay Bekleyen Talepler</CardTitle>
+            <CardTitle>{t.admin.dashboard.pendingRequests}</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col gap-2">
             {data.pending_list.length === 0 ? (
               <EmptyState
-                title="Bekleyen talep yok"
+                title={t.admin.dashboard.noPending}
                 description={t.admin.dashboard.newRequestsHint}
               />
             ) : (

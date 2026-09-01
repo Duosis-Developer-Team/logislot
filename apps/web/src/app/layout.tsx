@@ -5,6 +5,7 @@ import "./globals.css";
 import { CookieNotice } from "@/components/landing/cookie-notice";
 import { Providers } from "./providers";
 import { LOCALE_COOKIE, parseLocale } from "@/lib/i18n/locale";
+import { getDictionary } from "@/lib/i18n/server";
 
 /**
  * Ortak tipografi — tum portallar ayni fontu kullanir.
@@ -17,14 +18,19 @@ const jakarta = Plus_Jakarta_Sans({
   display: "swap",
 });
 
-export const metadata: Metadata = {
-  title: "LogiSlot — Akıllı Mal Kabul & Rampa Randevu Platformu",
-  description:
-    "Fabrikaların tedarikçi mal kabul süreçlerini dijitalleştiren, rampa kullanımını optimize eden SaaS platformu",
-  manifest: "/site.webmanifest",
-  applicationName: "LogiSlot",
-  appleWebApp: { capable: true, title: "LogiSlot", statusBarStyle: "black-translucent" },
-};
+/** Baslik/aciklama SUNUCUDA secilen dile gore uretilir; sabit `metadata`
+ *  nesnesi kullanilsaydi Ingilizce oturumda sekme basligi Turkce kalirdi. */
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getDictionary();
+  const meta = t.misc.siteMeta;
+  return {
+    title: meta.title,
+    description: meta.description,
+    manifest: "/site.webmanifest",
+    applicationName: "LogiSlot",
+    appleWebApp: { capable: true, title: "LogiSlot", statusBarStyle: "black-translucent" },
+  };
+}
 
 export const viewport: Viewport = {
   themeColor: [

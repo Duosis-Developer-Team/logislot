@@ -1,6 +1,10 @@
+"use client";
+
 import { Package } from "lucide-react";
-import { CARGO_WINDOW_LABELS, type CargoWindow } from "@logislot/shared";
+import { type CargoWindow } from "@logislot/shared";
 import { Badge } from "@/components/ui/badge";
+import { useLabels } from "@/lib/i18n/labels";
+import { useT } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
 
 /**
@@ -15,10 +19,13 @@ export function CargoBadge({
   window?: CargoWindow | null;
   className?: string;
 }) {
+  const t = useT();
+  const labels = useLabels();
   return (
     <Badge className={cn("bg-cargo/15 text-cargo", className)}>
       <Package className="h-3 w-3" />
-      Kargo{window ? ` · ${CARGO_WINDOW_LABELS[window]}` : ""}
+      {t.common.cargo}
+      {window ? ` · ${labels.cargoWindow[window]}` : ""}
     </Badge>
   );
 }

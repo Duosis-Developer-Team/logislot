@@ -31,14 +31,14 @@ const MAX_BLOCK_MINUTES_CAP = 1440;
 
 const formSchema = z
   .object({
-    name: z.string().min(1, "Ad zorunlu"),
+    name: z.string().min(1, "nameRequired"),
     display_name: z.string().min(1, "displayNameRequired"),
     description: z.string().optional(),
     min_block_minutes: z.coerce
       .number({ invalid_type_error: "numberRequired" })
       .int()
       .positive("mustBePositive")
-      .max(MAX_BLOCK_MINUTES_CAP, "En fazla 1440 dk (24 saat)"),
+      .max(MAX_BLOCK_MINUTES_CAP, "maxDuration"),
     // Boş bırakılabilir: "üst sınır yok" anlamına gelir.
     max_block_minutes: z.union([
       z.literal(""),
@@ -46,7 +46,7 @@ const formSchema = z
         .number({ invalid_type_error: "numberRequired" })
         .int()
         .positive("mustBePositive")
-        .max(MAX_BLOCK_MINUTES_CAP, "En fazla 1440 dk (24 saat)"),
+        .max(MAX_BLOCK_MINUTES_CAP, "maxDuration"),
     ]),
     default_vehicle_category_id: z.string().optional(),
   })
@@ -165,7 +165,7 @@ export default function CategoriesPage() {
     <ConfigPageShell
       title={t.admin.categories.title}
       description={t.admin.categories.pageDescription}
-      createLabel="Yeni Kategori"
+      createLabel={t.admin.categories.createLabel}
       onCreate={openCreate}
       search={search}
       onSearchChange={setSearch}
@@ -322,7 +322,7 @@ export default function CategoriesPage() {
               {t.common.cancel}
             </Button>
             <Button type="submit" disabled={save.isPending}>
-              {save.isPending ? "Kaydediliyor…" : "Kaydet"}
+              {save.isPending ? t.common.saving : t.common.save}
             </Button>
           </div>
         </form>

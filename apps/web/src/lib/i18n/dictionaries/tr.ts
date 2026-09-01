@@ -38,6 +38,27 @@ export const tr = {
     logout: "Çıkış Yap",
     downloadCsv: "CSV indir",
     exportHint: "Ekranda görünen kayıtları CSV olarak indir",
+    saving: "Kaydediliyor…",
+    processing: "İşleniyor…",
+    clear: "Temizle",
+    searchPlaceholder: "Ara…",
+    clearFilters: "Filtreleri temizle",
+    date: "Tarih",
+    dock: "Rampa",
+    docks: "Rampalar",
+    searchDock: "Rampa ara…",
+    appointment: "Randevu",
+    appointments: "Randevular",
+    cargo: "Kargo",
+    company: "Firma",
+    notes: "Notlar",
+    newPassword: "Yeni Parola",
+    extraInfo: "Ek Bilgi",
+    pending: "Bekleyen",
+    completed: "Tamamlanan",
+    total: "Toplam",
+    hour: "Saat",
+    minute: "Dakika",
   },
 
   language: {
@@ -55,6 +76,7 @@ export const tr = {
   },
 
   states: {
+    sessionLoadFailed: "Oturum bilgisi alınamadı",
     errorGeneric: "Bir şeyler ters gitti.",
     emptyTitle: "Kayıt bulunamadı",
     verifyingSession: "Oturum doğrulanıyor…",
@@ -63,6 +85,11 @@ export const tr = {
   },
 
   misc: {
+    siteMeta: {
+      title: "LogiSlot — Akıllı Mal Kabul & Rampa Randevu Platformu",
+      description:
+        "Fabrikaların tedarikçi mal kabul süreçlerini dijitalleştiren, rampa kullanımını optimize eden SaaS platformu",
+    },
     email: {
       templates: {
         appointment_created: "Randevu oluşturuldu",
@@ -92,7 +119,8 @@ export const tr = {
       empty: "Bildirim yok.",
     },
     permissions: {
-      countOf: (selected: number, total: number) => `${selected} / ${total}`,
+      countOf: (selected: number, total: number) =>
+        `${selected} / ${total} izin seçili`,
       clearAll: "Tümünü kaldır",
       search: "İzin ara…",
       unmanaged: (count: number) => `${count} izin bu ekrandan yönetilmiyor.`,
@@ -101,33 +129,65 @@ export const tr = {
       selectGroup: "Seç",
     },
     demoPage: {
+      metaTitle: "Demo Talep Et — LogiSlot",
       metaDescription:
-        "LogiSlot mal kabul ve rampa randevu platformunu yakından görün.",
-      title: "Demo talebi",
-      description: "Mal kabul operasyonunuzu LogiSlot üzerinde birlikte görelim.",
+        "LogiSlot mal kabul ve rampa randevu platformunu yakından görmek için demo talep edin.",
+      title: "Demo Talep Et",
+      description:
+        "Mal kabul operasyonunuzu LogiSlot üzerinde nasıl yöneteceğinizi görmek için kısa bir demo planlayalım.",
       points: [
         {
           title: "30 dakikalık canlı demo",
-          text: "Tedarikçi randevu akışını, yönetim panelini ve tesis kurallarını birlikte gezelim.",
+          text: "Tedarikçi randevu akışını, yönetim panelini ve tesis kurallarını kendi senaryonuz üzerinden görürsünüz.",
         },
         {
           title: "Satış baskısı yok",
-          text: "Amaç operasyonunuza uyup uymadığını birlikte anlamak.",
+          text: "Amaç operasyonunuza uyup uymadığını birlikte anlamak; demo sonrası karar tamamen sizde.",
         },
         {
           title: "1 iş günü içinde dönüş",
-          text: "Talebiniz ekibimize e-posta ile ulaşır; uygun zaman için hızlıca döneriz.",
+          text: "Talebiniz ekibimize e-posta ile ulaşır; uygun zamanı birlikte planlarız.",
         },
       ],
       directContact: "Formu kullanmak istemezseniz talebinizi doğrudan",
+      directContactTail: "adresine iletebilirsiniz.",
     },
   },
 
   tickets: {
+    newTicket: "Yeni Talep",
+    statusTabsLabel: "Talep durumu",
+    searchLabel: "Taleplerde ara",
+    emptyTab: "Bu sekmede talep yok",
+    delivery: {
+      waitingUpdate: "Güncelleme bekleniyor",
+      failed: "Gönderilemedi",
+      sending: "Gönderiliyor",
+    },
+    diagnostics: {
+      labels: {
+        app_version: "Uygulama sürümü",
+        environment: "Ortam",
+        page_path: "Sayfa",
+        browser: "Tarayıcı",
+        os: "İşletim sistemi",
+        locale: "Dil",
+        timezone: "Saat dilimi",
+        device_class: "Cihaz",
+        client_timestamp: "Zaman",
+      } as Record<string, string>,
+      deviceClass: {
+        mobile: "mobil",
+        tablet: "tablet",
+        desktop: "masaüstü",
+        unknown: "bilinmiyor",
+      } as Record<string, string>,
+      summary: "Talebe otomatik eklenen teknik bilgiler",
+    },
     loadError: "Destek ekranı yüklenemedi.",
     disabledTitle: "Destek talepleri kapalı",
     disabledDescription: "Bu kurulumda destek talebi özelliği devre dışı.",
-    routeNotReadyTitle: "Destek yönlendirmesi henüz hazır değil",
+    routeNotReadyTitle: "Destek yönlendirmesi henüz yapılandırılmamış.",
     routeNotReadyText:
       "Yeni talep oluşturulamıyor; platform yöneticisinin hedef destek ekibini tanımlaması gerekiyor.",
     searchPlaceholder: "Talep numarası veya başlık ara…",
@@ -138,6 +198,9 @@ export const tr = {
     updatedAt: "Güncelleme",
     resolvedAt: "Çözüldü",
     create: {
+      routeLead: "Talebiniz",
+      routeTail: "ekibine otomatik olarak iletilecektir.",
+      category: "Kategori",
       titleMin: (min: number) => `Başlık en az ${min} karakter olmalı (destek merkezi kuralı)`,
       titleMax: "Başlık en fazla 160 karakter olabilir",
       descriptionMin: (min: number) =>
@@ -174,6 +237,15 @@ export const tr = {
       remaining: (left: number) => `${left} karakter daha gerekiyor`,
     },
     detail: {
+      stillBroken: "Sorun devam ediyor",
+      errorCode: "Hata kodu",
+      supportTeam: "Destek Ekibi",
+      you: "Siz",
+      deliveryFailedTitle: "Talep destek merkezine iletilemedi.",
+      waitingCustomerTitle: "Destek ekibi sizden bilgi bekliyor.",
+      category: "Kategori",
+      impact: "Etki",
+      ticketAttachments: "Talebe eklenen dosyalar",
       notFound: "Talep bulunamadı.",
       backToList: "Listeye dön",
       summary: "Talep özeti",
@@ -206,6 +278,10 @@ export const tr = {
       scanPending: "Güvenlik kontrolü tamamlanmadı",
     },
     attachments: {
+      tooManyFiles: (max: number) => `En fazla ${max} dosya ekleyebilirsiniz.`,
+      unsupportedType: (name: string) =>
+        `"${name}" desteklenmiyor. PNG, JPEG, WEBP, PDF ve TXT/LOG kabul edilir.`,
+      countSuffix: (count: number) => `${count} ek`,
       scanning: "Güvenlik kontrolü sürüyor…",
       clean: "Tarama tamamlandı",
       rejected: "Güvenlik kontrolünde reddedildi",
@@ -223,6 +299,26 @@ export const tr = {
     },
     series: {
       cancelReasonRequired: "İptal sebebi zorunludur.",
+      title: "Tekrarlayan Randevular",
+      frequency: {
+        weekly: "Haftalık",
+        biweekly: "2 haftada bir",
+        monthly: "Aylık",
+      } as Record<string, string>,
+      fallbackName: "Seri",
+      statusActive: "Aktif",
+      statusCancelled: "İptal Edildi",
+      cancelTitle: "Seriyi iptal et",
+      cancelReasonMin: "İptal sebebi zorunludur (en az 3 karakter).",
+      cancelledWithNotice: (count: number) =>
+        `Serinin gelecekteki ${count} randevusu iptal edildi; tesise bildirim gönderildi.`,
+      cancelWarningLead: "Bu işlem gelecekteki",
+      cancelWarningStrong: (count: number) => `${count} randevuyu`,
+      cancelWarningTail:
+        "iptal eder ve geri alınamaz. Tamamlanan randevular etkilenmez.",
+      cancelReasonRequiredLabel: "İptal Sebebi (zorunlu)",
+      cancelReasonHint: "Örn. Üretim planı değişti",
+      newTimeSuggested: "(yeni saat önerildi)",
       cancelled: (count: number) => `Serinin gelecekteki ${count} randevusu iptal edildi.`,
       cancelFailed: "Seri iptal edilemedi.",
       nextAppointment: "Sıradaki randevu",
@@ -239,7 +335,31 @@ export const tr = {
   },
 
   components: {
+    userMenu: {
+      roles: {
+        platform: "Platform Yöneticisi",
+        tenant: "Tesis Yöneticisi",
+        supplier: "Tedarikçi",
+      } as Record<string, string>,
+      label: "Kullanıcı menüsü",
+    },
+    notificationBell: { label: "Bildirimler" },
+    weekView: {
+      appointmentsSuffix: "randevu",
+      pending: (count: number) => `${count} bekliyor`,
+      approved: (count: number) => `${count} onaylı`,
+      revision: (count: number) => `${count} revize`,
+      completed: (count: number) => `${count} tamam`,
+      none: "Randevu yok",
+      utilisation: "Doluluk",
+      busiest: (dock: string, count: number) => `En yoğun: ${dock} (${count})`,
+      loading: "Haftalık özet yükleniyor…",
+      loadError: "Haftalık özet yüklenemedi.",
+      emptyTitle: "Bu hafta randevu yok",
+      emptyDescription: "Farklı bir hafta seçin ya da tedarikçi taleplerini bekleyin.",
+    },
     multiSelect: {
+      selectedCount: (selected: number, total: number) => `${selected} / ${total} seçili`,
       countOf: (selected: number, total: number) => `${selected} / ${total}`,
       removeResults: "Sonuçları kaldır",
       removeAll: "Tümünü kaldır",
@@ -251,30 +371,54 @@ export const tr = {
       orphanNote: (count: number) =>
         `${count} seçim listede görünmüyor (pasif ya da başka kapsama ait); kaydedildiğinde korunur.`,
       remove: "Kaldır",
-      toggle: (label: string) => `${label} seçimini değiştir`,
+      // Cip butonu secimi YALNIZCA kaldirir; "degistir" ne yapacagini soylemiyordu.
+      toggle: (label: string) => `${label} seçimini kaldır`,
     },
     notificationPreferences: {
       events: {
-        appointment_approved: "Randevu onaylandı",
-        appointment_rejected: "Randevu reddedildi",
-        appointment_revised: "Randevu revize edildi",
-        appointment_dock_changed: "Rampa değiştirildi",
-        appointment_cancelled: "Randevu iptal edildi",
-        appointment_completed: "Randevu tamamlandı",
-        appointment_series_cancelled: "Seri iptal edildi",
-        appointment_series_revised: "Seri revize edildi",
-      },
-      alwaysLead: "Kapatılsa bile",
-      alwaysStrong: "kritik bildirimler",
-      alwaysTailSelf: "panelde görünmeye devam eder.",
-      alwaysTailSupplier: "tedarikçinin panelinde görünmeye devam eder.",
-      emailHint: "E-postaları kapatmak panel bildirimlerini etkilemez.",
-      defaultPolicy: "Varsayılan politika uygulanıyor.",
+        appointment_approved: "Randevu onaylandığında",
+        appointment_rejected: "Randevu reddedildiğinde",
+        appointment_revised: "Randevu revize edildiğinde",
+        appointment_dock_changed: "Rampa değiştirildiğinde",
+        appointment_cancelled: "Randevu iptal edildiğinde",
+        appointment_revised_team: "Ekip revize bilgilendirmesi",
+        appointment_series_cancelled: "Seri iptal edildiğinde",
+        appointment_series_revised: "Seri revize edildiğinde",
+      } as Record<string, string>,
+      inAppLabel: "Panel bildirimleri",
+      emailLabel: "E-posta bildirimleri",
+      saveFailed: "Kaydedilemedi",
+      selfLoadError: "Tercihler yüklenemedi.",
+      selfLoading: "Tercihler yükleniyor…",
+      selfInAppLead: "Kapatılsa bile",
+      selfInAppStrong: "randevu revizeleri",
+      selfInAppTail: "panelde görünmeye devam eder (operasyonel olarak kritiktir).",
+      selfEmailHint:
+        "E-postaları kapatırsanız panel bildirimleri devam eder — panel her zaman güncel kaynaktır. Varsayılan: tüm bildirimler açık.",
+      selfSaved: "Tercihleriniz kaydedildi.",
+      policyLoadError: "Politika yüklenemedi.",
+      policyLoading: "Politika yükleniyor…",
+      defaultPolicy:
+        "Varsayılan politika geçerli: tedarikçilere tüm bildirimler gönderiliyor.",
+      supplierInAppLead: "Kapatılsa bile",
+      supplierInAppStrong: "randevu revizesi ve rampa değişikliği",
+      supplierInAppTail:
+        "tedarikçinin panelinde görünmeye devam eder — sürücünün gideceği saat ve yer gizlenemez.",
+      supplierEmailHint:
+        "E-postaları kapatırsanız tedarikçinin panel bildirimleri devam eder — panel her zaman güncel kaynaktır. Varsayılan: tüm bildirimler açık.",
       savedSupplier: "Tedarikçi bildirim politikası kaydedildi.",
+    },
+    workingHours: {
+      facilityDefault: "Tesis varsayılanı",
+      allClosed: "Tüm günler kapalı",
+      everyDay: (start: string, end: string) => `Her gün ${start}–${end}`,
+      someDays: (days: number, start: string, end: string) =>
+        `${days} gün ${start}–${end}`,
+      daysOpen: (days: number) => `${days} gün açık`,
     },
     overrideDrawer: {
       editTitle: "İstisnayı Düzenle",
-      createTitle: "Yeni İstisna",
+      createTitle: "Yeni Takvim İstisnası",
       description:
         "Kapalı gün müsaitlikte sert engel üretir; saat değişikliği o günün çalışma penceresinin YERİNE geçer — saatleri uzatabilir de kısaltabilir de.",
       needsDock: "En az bir rampa seçin.",
@@ -296,37 +440,100 @@ export const tr = {
       reasonPlaceholder: "Örn. Planlı bakım",
     },
     adminCreateDrawer: {
-      needsSupplier: "Tedarikçi seçin.",
+      title: "Yeni Randevu (Tedarikçi Adına)",
+      needsFields: "Tedarikçi, kategori ve ürün adı zorunludur.",
       needsStart: "Başlangıç saati seçin.",
-      needsDock: "Manuel rampa seçimi için bir rampa seçin.",
-      createdSeries: (count: number) => `${count} randevu oluşturuldu.`,
-      createdApproved: "Randevu onaylı olarak oluşturuldu.",
-      failed: "Randevu oluşturulamadı.",
-      loadError: "Form verileri yüklenemedi.",
+      needsDock: "Manuel modda rampa seçin.",
+      createdSeries: (count: number) =>
+        `${count} onaylı randevu oluşturuldu; tedarikçiye bildirim gönderildi.`,
+      createdApproved: (product: string) =>
+        `Randevu onaylı olarak oluşturuldu (${product}); tedarikçiye bildirim gönderildi.`,
+      failed: "Randevu oluşturulamadı",
+      suppliersLoadError: "Tedarikçiler yüklenemedi.",
       supplier: "Tedarikçi",
       selectSupplier: "— Tedarikçi seçin —",
-      selectCategory: "— Kategori seçin —",
-      product: "Ürün / Malzeme",
-      productPlaceholder: "Örn. Buğday Unu",
-      vehicle: "Araç Kategorisi",
-      duration: "Süre",
+      category: "Kategori",
+      selectPlaceholder: "— Seçin —",
+      product: "Ürün Adı",
+      productPlaceholder: "Örn. Acil teslimat",
+      quantity: "Miktar",
+      unit: "Birim",
+      vehicle: "Araç",
+      plate: "Plaka",
+      driver: "Sürücü",
+      driverPlaceholder: "Ad Soyad",
+      deliveryType: "Teslimat Tipi",
+      standard: "Standart",
       day: "Gün",
+      duration: "Süre",
+      durationOption: (minutes: number) => `${minutes} dk`,
+      conflictNote: (
+        categoryMin: number,
+        categoryMax: number,
+        supplierMin: string,
+        supplierMax: string,
+      ) =>
+        `Bu kategorinin süre aralığı (${categoryMin}–${categoryMax} dk) tedarikçinin limitleriyle (${supplierMin}–${supplierMax} dk) kesişmiyor. Ayarlardan limitlerden birini güncelleyin.`,
+      cargoWindow: "Beklenen Pencere",
       startTime: "Başlangıç Saati",
-      intersectionNote: (category: string, supplier: string) =>
-        `Bu kategorinin (${category}) ve tedarikçinin (${supplier}) süre aralıklarının kesişimi uygulanır.`,
       loadingAvailability: "Müsaitlik hesaplanıyor…",
       noSlots: "Bu gün için uygun slot yok.",
-      dockSelection: "Rampa seçimi",
+      cargoAdvisory:
+        "Bu aralıkta kargo bekleniyor — engel değildir, farkındalık içindir.",
       autoAssign: "Otomatik ata",
+      manualSelect: "Manuel seç",
+      selectDock: "— Rampa —",
+      dockFull: " — dolu",
       recurring: "Tekrarlayan randevu oluştur",
       frequency: "Sıklık",
+      freqWeekly: "Her hafta",
+      freqBiweekly: "2 haftada bir",
+      freqMonthly: "Her ay",
       count: "Tekrar Sayısı",
-      notePlaceholder: "Opsiyonel not",
+      note: "Not",
+      notePlaceholder: 'Örn. "Telefonla oluşturuldu"',
       creating: "Oluşturuluyor…",
+      submit: "Randevu Oluştur",
     },
   },
 
   appointmentDrawer: {
+    rejectionReason: "Red sebebi:",
+    completionNote: "Tamamlama notu:",
+    retryCount: (attempt: number, max: number) => `deneme: ${attempt}/${max}`,
+    time: "Saat",
+    durationSuffix: (minutes: number) => `${minutes} dk`,
+    dock: "Rampa",
+    category: "Kategori",
+    quantity: "Miktar",
+    plate: "Plaka",
+    seriesLead: (index: number, count: number) =>
+      `Tekrarlayan serinin ${index}/${count}. randevusu`,
+    seriesTail: "Randevular tek tek revize/iptal edilebilir.",
+    approve: "Onayla",
+    revise: "Revize Et",
+    complete: "Tamamla",
+    reject: "Reddet",
+    approveTitle: "Randevuyu onayla",
+    rejectTitle: "Randevuyu reddet",
+    rejectReasonRequired: "Red sebebi zorunludur.",
+    rejected: "Randevu reddedildi.",
+    completeTitle: "Randevuyu tamamla",
+    optionalNote: "Not (opsiyonel)",
+    cancelTitle: "Randevuyu iptal et",
+    cancelled: "Randevu iptal edildi.",
+    seriesCancelTitle: "Seriyi iptal et",
+    autoAssignDock: "Otomatik ata (en az dolu uygun rampa)",
+    currentDock: " (mevcut)",
+    dockBusyAtTarget: " — hedef saatte dolu",
+    note: "Not",
+    reviseTitle: "Randevuyu revize et",
+    originalRequest: "Orijinal talep",
+    newDate: "Yeni Tarih",
+    durationMinutes: (minutes: number) => `${minutes} dakika`,
+    reviseNote: "Revizyon Notu",
+    reviseStatusNote: (status: string) => `Randevu durumu "${status}" olur.`,
+    reviseSubmit: "Revize Et",
     resendFailed: "Gönderim yine başarısız oldu.",
     resendError: "Tekrar gönderilemedi",
     actionFailed: "İşlem başarısız",
@@ -395,6 +602,10 @@ export const tr = {
       mustBePositive: "mustBePositive",
       maxBelowMin: "maxBelowMin",
       messages: {
+        maxDuration: "En fazla 1440 dk (24 saat)",
+        minPassword: "En az 6 karakter",
+        nameRequired: "Ad zorunlu",
+        codeRequired: "Kod zorunlu",
         displayNameRequired: "Görünen ad zorunlu",
         numberRequired: "Sayı girin",
         mustBePositive: "Pozitif olmalı",
@@ -407,6 +618,7 @@ export const tr = {
       description: "Açıklama",
     },
     categories: {
+      createLabel: "Yeni Kategori",
       updated: "Kategori güncellendi.",
       created: "Kategori oluşturuldu.",
       title: "Ürün Kategorileri",
@@ -441,6 +653,9 @@ export const tr = {
         `"${name}" pasifleştirilecek. Geçmiş randevular etkilenmez; tedarikçiler artık bu kategoriden randevu oluşturamaz.`,
     },
     vehicleCategories: {
+      physicalNote: "Fiziksel Not",
+      name: "Ad",
+      status: "Durum",
       updated: "Araç kategorisi güncellendi.",
       created: "Araç kategorisi oluşturuldu.",
       title: "Araç Kategorileri",
@@ -461,6 +676,8 @@ export const tr = {
         `"${name}" pasifleştirilecek. Bu kategoriye bağlı rampa uyumlulukları ve tetikleyiciler devre dışı kalır.`,
     },
     conflictGroups: {
+      always: "Her zaman",
+      createLabel: "Yeni Grup",
       types: {
         mutual_block: "Karşılıklı Bloke",
         shared_capacity: "Paylaşımlı Kapasite",
@@ -509,6 +726,8 @@ export const tr = {
       or: " veya ",
     },
     emailLogs: {
+      searchRecipient: "E-posta ara…",
+      noAttempts: "Hak doldu",
       templates: {
         appointment_approved: "Onay",
         appointment_rejected: "Red",
@@ -546,6 +765,11 @@ export const tr = {
       previous: "Önceki",
     },
     docks: {
+      title: "Rampalar",
+      createLabel: "Yeni Rampa",
+      emptyTitle: "Rampa yok",
+      name: "Ad",
+      note: "Not",
       updated: "Rampa güncellendi.",
       created: "Rampa oluşturuldu.",
       pageDescription:
@@ -610,12 +834,16 @@ export const tr = {
       policyTitle: "Bildirim Politikası",
     },
     layout: {
+      activeScope: "Aktif kapsam",
+      notificationPreferences: "Bildirim Tercihleri",
       wrongPortal: "Bu panel için tenant yöneticisi girişi gerekli.",
       backToLogin: "Giriş Ekranına Dön",
       apiUnreachable: (reason: string) =>
         `API'ye ulaşılamadı: ${reason}. Backend'in çalıştığından emin olun.`,
     },
     appointments: {
+      rejectRequestWord: "talebi",
+      rejectReason: "Red Sebebi",
       approved: "Randevu onaylandı; tedarikçiye bildirim gönderildi.",
       approveFailed: "Onaylanamadı",
       rejectReasonRequired: "Red sebebi zorunludur; tedarikçiye iletilir.",
@@ -664,6 +892,20 @@ export const tr = {
       supplierFallback: "Tedarikçi",
     },
     series: {
+      reviseFailed: "Revize edilemedi",
+      reviseSeries: "Seriyi Revize Et",
+      revising: "Revize ediliyor…",
+      cancelledCount: (count: number) =>
+        `Serinin gelecekteki ${count} randevusu iptal edildi.`,
+      title: "Tekrarlayan Seriler",
+      emptyTitle: "Tekrarlayan seri yok",
+      colAppointments: "Randevular",
+      colStatus: "Durum",
+      reviseTitle: "Seriyi Revize Et",
+      reviseCountWord: "gelecek",
+      newTime: "Yeni Saat",
+      autoAssign: "Otomatik ata",
+      selectDock: "— Rampa —",
       frequency: { daily: "Günlük", weekly: "Haftalık", biweekly: "İki haftada bir", monthly: "Aylık" },
       approved: (count: number) => `Serideki ${count} randevu onaylandı.`,
       approveFailed: "Onaylanamadı",
@@ -697,6 +939,14 @@ export const tr = {
         `${supplier} serisinin gelecekteki ${count} randevusu iptal edilecek. Tamamlanmış randevular etkilenmez; tedarikçiye tek özet bildirim gider.`,
     },
     reports: {
+      title: "Raporlar",
+      totalAppointments: "Toplam Randevu",
+      appointmentCsv: "Randevu Detay CSV",
+      summaryFileName: "logislot_ozet",
+      appointmentsFileName: "logislot_randevular",
+      trendTooltip: (date: string, total: number, completed: number, cargo: number) =>
+        `${date}: ${total} randevu (${completed} tamam, ${cargo} kargo)`,
+      dockLine: (percent: number, count: number) => `%${percent} · ${count} randevu`,
       ranges: { d7: "Son 7 gün", d30: "Son 30 gün", d90: "Son 90 gün" },
       thisMonth: "Bu ay",
       slaLine: (auto: number, manual: number, pending: number) =>
@@ -720,6 +970,11 @@ export const tr = {
       colCancelled: "İptal/Red",
     },
     dashboard: {
+      pendingApprovals: "Onay Bekleyen",
+      weekTotal: "Bu Hafta Toplam",
+      activeDocks: "Aktif Rampa",
+      pendingRequests: "Onay Bekleyen Talepler",
+      noPending: "Bekleyen talep yok",
       loading: "Özet yükleniyor…",
       loadError: "Dashboard yüklenemedi.",
       todayAppointments: "Bugünkü Randevular",
@@ -735,6 +990,7 @@ export const tr = {
       moreWarnings: (count: number) => `(+${count} uyarı daha)`,
     },
     tickets: {
+      title: "Destek Talepleri",
       description:
         "Uygulamada yaşadığınız sorunları ve iyileştirme taleplerini destek ekibine iletin.",
     },
@@ -760,6 +1016,8 @@ export const tr = {
       },
     },
     calendar: {
+      noDocksDescription: "Aktif rampa yok ya da yetkiniz olan rampa bulunmuyor.",
+      dockCount: (count: number) => `Rampalar (${count})`,
       weekOf: (label: string) => `${label} haftası`,
       viewDay: "Günlük",
       viewWeek: "Haftalık",
@@ -786,10 +1044,19 @@ export const tr = {
       legendNow: "Şu an",
     },
     suppliers: {
+      quotaLine: (weekly: string, monthly: string) => `${weekly}/hafta · ${monthly}/ay`,
+      accountActive: "Aktif hesap",
+      accountInactive: "Pasif hesap",
+      noAccountShort: "Hesap yok",
+      deliveryTypes: "Teslimat Tipleri",
+      accountActiveToggle: "Hesap aktif",
+      minPasswordPlaceholder: "En az 6 karakter",
+      blockAndQuota: "Blokaj & Kota",
       companyRequired: "companyRequired",
       validEmail: "validEmail",
       maxBelowMin: "maxBelowMin",
       messages: {
+        codeRequired: "Kod zorunlu",
         companyRequired: "Firma adı zorunlu",
         validEmail: "Geçerli e-posta girin",
         maxBelowMin: "Maks, min'den küçük olamaz",
@@ -856,6 +1123,11 @@ export const tr = {
         `"${name}" pasifleştirilecek. Portal girişi ve yeni randevu oluşturma durur.`,
     },
     users: {
+      fullName: "Ad Soyad",
+      searchRole: "Rol ara…",
+      minPasswordPlaceholder: "En az 6 karakter",
+      allowedDocks: "Yetkili Rampalar",
+      emailPlaceholder: "kullanici@firma.com",
       permissions: {
         appointments: "Randevular",
         calendar: "Takvim",
@@ -942,6 +1214,13 @@ export const tr = {
 
   platform: {
     usage: {
+      downloadCsv: "Usage CSV indir",
+      colLastActivity: "Son Aktivite",
+      assignPlan: "Plan Ata",
+      assignOverride: "Override Ata",
+      activeAccounts: "Aktif Hesap",
+      completed: "Tamamlanan",
+      activeDocks: "Aktif Rampa",
       loading: "Kullanım verileri yükleniyor…",
       loadError: "Kullanım verileri yüklenemedi.",
       title: "Kullanım & Sağlık",
@@ -966,6 +1245,11 @@ export const tr = {
       assignFailed: "Atama başarısız",
     },
     plans: {
+      emptyTitle: "Plan yok",
+      searchDimension: "Boyut ara…",
+      planLimits: "Plan Limitleri",
+      blockedAtAssignment: " · atamada engellenir",
+      createPlan: "+ Yeni Plan",
       loadError: "Planlar yüklenemedi.",
       introLead: "Plan bir",
       introStrong: "politika kabıdır",
@@ -1000,6 +1284,15 @@ export const tr = {
       retired: (name: string) => `"${name}" emekliye ayrıldı; yeni atama yapılamaz.`,
     },
     support: {
+      stale: " (eski)",
+      lastReconciliation: "son mutabakat",
+      environmentLabel: "Ortam",
+      emailLabel: "e-posta",
+      retryPendingEmail: "Retry bekleyen e-posta",
+      retryPendingHint: "Scheduler 5 dakikada bir otomatik dener",
+      pendingAppointments: "Onay bekleyen randevu",
+      revisionPendingAppointments: "Revize bekleyen randevu",
+      activeFacilities: "Aktif tesis",
       loadError: "Destek verileri yüklenemedi.",
       title: "Sistem Sağlığı",
       description:
@@ -1059,6 +1352,17 @@ export const tr = {
       footer: "LogiSlot · Vendor / Süper-Admin",
     },
     ticketRouting: {
+      colTargetGroup: "Hedef ekip",
+      colDelivery: "Teslimat",
+      targetGroup: "Hedef Hermes ekibi",
+      searchGroup: "Ekip ara…",
+      searchGroupLabel: "Hermes ekibi ara",
+      noMatchingGroup: "Aramaya uyan aktif ekip yok.",
+      webhookPending: "Webhook bekleyen",
+      accountStatus: "hesap durumu",
+      groupsRefreshed: "Ekip listesi yenilendi.",
+      groupsRefreshFailed: "Ekip listesi yenilenemedi",
+      saveFailed: "Kaydedilemedi",
       status: {
         ready: "Hazır",
         unconfigured: "Yapılandırılmadı",
@@ -1109,6 +1413,12 @@ export const tr = {
         `Kaydedildi · sürüm ${version} · ${group}`,
     },
     tenants: {
+      commercialName: "Ticari Unvan",
+      timezone: "Saat Dilimi",
+      address: "Adres",
+      addressPlaceholder: "Opsiyonel — mal kabul lokasyonu",
+      fullNamePlaceholder: "Ad Soyad",
+      adminEmailPlaceholder: "yonetici@firma.com",
       status: { trial: "Deneme", active: "Aktif", suspended: "Askıda", archived: "Arşiv" },
       loadError: "Müşteri hesapları yüklenemedi.",
       title: "Müşteri Hesapları",
@@ -1179,6 +1489,33 @@ export const tr = {
       cancelFailed: "Randevu iptal edilemedi.",
     },
     newAppointment: {
+      driverPlaceholder: "Ad Soyad",
+      deliveryType: "Teslimat Tipi",
+      cargoWindowLabel: "Beklenen Pencere",
+      legendFull: "■ Dolu",
+      freqWeekly: "Her hafta",
+      freqBiweekly: "2 haftada bir",
+      freqMonthly: "Her ay",
+      newRequest: "Yeni Talep",
+      category: "Kategori",
+      standardAppointment: "Standart Randevu",
+      cargoOption: "Kargo",
+      standardShort: "Standart",
+      durationMinutes: (minutes: number) => `${minutes} dakika`,
+      quantity: "Miktar",
+      plate: "Plaka",
+      deliveryLabel: "Teslimat",
+      cargoWithWindow: (window: string) => `Kargo · ${window}`,
+      repeatLabel: "Tekrar",
+      repeatSummary: (frequency: string, count: number) => `${frequency} · ${count} randevu`,
+      frequencyLabels: {
+        weekly: "Her hafta",
+        biweekly: "2 haftada bir",
+        monthly: "Her ay",
+      } as Record<string, string>,
+      submitMany: (count: number) => `${count} Randevu Talep Et`,
+      submitOne: "Randevu Talep Et",
+      slotSummary: (time: string, minutes: number) => ` · ${time} (${minutes} dk)`,
       steps: ["Ürün Bilgisi", "Araç & Teslimat", "Tarih & Özet"],
       catalogLoading: "Katalog yükleniyor…",
       catalogError: "Katalog yüklenemedi.",
@@ -1232,6 +1569,11 @@ export const tr = {
       cargoDialogConfirm: "Evet, Talep Oluştur",
     },
     profile: {
+      quotaLine: (weekly: string, monthly: string) => `${weekly}/hafta · ${monthly}/ay`,
+      autoApproval: "Otomatik onay yetkisi aktif",
+      signOut: "Oturumu Kapat",
+      category: "Kategori",
+      quota: "Kota",
       loadError: "Profil yüklenemedi.",
       code: "Tedarikçi Kodu",
       contact: "İletişim",
@@ -1357,6 +1699,7 @@ export const tr = {
         howItWorks: "Nasıl Çalışır",
         admin: "Yönetim",
         supplier: "Tedarikçi",
+        support: "Destek",
       },
       sectionNavLabel: "Sayfa bölümleri",
       ctaTitle: "Mal kabul operasyonlarınızı daha kontrollü yönetin.",
@@ -1373,6 +1716,14 @@ export const tr = {
       backHome: "Ana sayfaya dön",
     },
     demoForm: {
+      emailCorporate: "Kurumsal E-posta",
+      emailPlaceholder: "ad@firma.com",
+      phoneOptional: "Telefon (opsiyonel)",
+      facilityOptions: {
+        one: "1 tesis",
+        few: "2–5 tesis",
+        many: "6+ tesis",
+      },
       sentTitle: "Talebiniz hazırlandı",
       sentLead:
         "E-posta istemcinizde önceden doldurulmuş talep mesajı açıldı — göndermeniz yeterli. Açılmadıysa talebinizi doğrudan",
@@ -1558,6 +1909,8 @@ export const tr = {
   },
 
   auth: {
+    demoAccount: "Demo hesap",
+    loginFooter: "© 2026 LogiSlot · Kurumsal lojistik operasyon platformu",
     portals: {
       supplier: {
         title: "Tedarikçi Portalı",
@@ -1613,11 +1966,172 @@ export const tr = {
     copyDemo: "Demo hesabı kopyala",
   },
 
+  legal: {
+    kvkk: {
+      metaTitle: "KVKK Aydınlatma Metni — LogiSlot",
+      metaDescription:
+        "LogiSlot kişisel verilerin korunması (KVKK) aydınlatma metinleri ve açık rıza bilgilendirmesi.",
+      title: "KVKK Aydınlatma Metni",
+      description:
+        "6698 sayılı Kişisel Verilerin Korunması Kanunu (7499 sayılı Kanun ile değişik) kapsamında bilgilendirme.",
+      draftNotice:
+        "**Taslak metin.** Bu sayfa, KVKK uyum çalışması kapsamında hazırlanan metinleri içerir; uzman avukat incelemesi ve VERBİS beyanıyla uyum kontrolü tamamlandığında nihai hâliyle güncellenecektir.",
+      controller: {
+        heading: "Veri Sorumlusu ve Başvuru",
+        intro:
+          "LogiSlot, **Duosis** tarafından işletilmektedir ve bu metinler kapsamındaki veri sorumlusu Duosis'tir. Ticari unvan, adres ve sicil (MERSİS/VKN) bilgileri, süren şirketleşme çalışması tamamlandığında bu sayfada yayımlanacaktır.",
+        contactLead: "KVKK kapsamındaki tüm bilgi ve başvuru talepleriniz için:",
+        contactTail: ". Başvurular mevzuattaki süreler içinde yanıtlanır.",
+      },
+      tenantUser: {
+        heading: "Aydınlatma Metni — Tesis / Yönetim Kullanıcısı",
+        items: [
+          "**İşlenen veriler:** ad-soyad, kurumsal e-posta, telefon, unvan/rol, çalıştığı tesis, sistem kullanım kayıtları.",
+          "**İşleme amaçları:** hesap oluşturma ve kimlik doğrulama, randevu ve rampa operasyonunun yürütülmesi, yetki/rol yönetimi, güvenlik ve denetim kayıtlarının tutulması, sözleşmesel ve yasal yükümlülüklerin yerine getirilmesi.",
+          "**Aktarım:** veriler; hizmetin sunulması için altyapı ve barındırma sağlayıcılarına ve yasal olarak yetkili kurum ve kuruluşlara aktarılabilir. Kişisel verilerin yurt dışına aktarılması hâlinde KVKK m.9 kapsamındaki uygun güvenceler (ör. standart sözleşme) sağlanır ve gerekli bildirimler yapılır.",
+          "**Toplama yöntemi ve hukuki sebep:** veriler elektronik ortamda, uygulama ve web üzerinden; KVKK m.5 kapsamında sözleşmenin ifası, hukuki yükümlülük ve meşru menfaat sebeplerine dayanılarak toplanır.",
+          "**Haklarınız (KVKK m.11):** kişisel verilerinizin işlenip işlenmediğini öğrenme, bilgi talep etme, amaca uygun kullanılıp kullanılmadığını öğrenme, düzeltme, silme, aktarıldığı üçüncü kişileri öğrenme ve zararın giderilmesini talep etme. Başvurular yukarıdaki iletişim kanalından alınır.",
+        ],
+      },
+      supplierDriver: {
+        heading: "Aydınlatma Metni — Tedarikçi / Sürücü (Mobil Uygulama)",
+        items: [
+          "**İşlenen veriler:** ad-soyad, telefon/e-posta, firma bilgisi, araç ve plaka, sürücü bilgisi, teslimat/randevu geçmişi, uygulama kullanım kayıtları; açık rıza vermeniz halinde konum verisi ve güvenilirlik skoruna esas davranış verisi.",
+          "**İşleme amaçları:** randevu oluşturma ve takibi, tesislere teslimat akışının yürütülmesi; açık rızaya dayalı olarak konumdan varış tahmini, güvenilirlik skorunun hesaplanması ve size özel bilgilendirme/kampanyalar.",
+          "**Aktarım:** randevu aldığınız tesis işletmecisine (ör. teslimat durumu ve zamanlaması), altyapı/barındırma sağlayıcılarına ve yasal yetkili mercilere aktarılabilir. Kiminle çalıştığınıza dair ticari sır niteliğindeki bilgiler, yalnızca anonimleştirilmiş/toplulaştırılmış biçimde analiz amacıyla kullanılır.",
+          "**Toplama yöntemi ve hukuki sebep:** mobil uygulama üzerinden elektronik ortamda; sözleşmenin ifası ve meşru menfaat, konum-profilleme-pazarlama bakımından ise açık rıza (m.5/1) sebebine dayanılarak.",
+          "**Haklarınız (KVKK m.11):** yukarıdaki bölümde sayılan haklar aynen geçerlidir; başvurular yukarıdaki iletişim kanalından alınır.",
+        ],
+      },
+      consent: {
+        heading: "Açık Rıza Bilgilendirmesi (Ayrı Onay)",
+        intro:
+          "Aydınlatma yükümlülüğü ile açık rıza **ayrı ayrı** yerine getirilir. Aşağıdaki her kalem, uygulama içinde **önceden işaretlenmemiş ayrı onay kutularıyla** ve hizmet şartı koşulmadan sunulur; her biri dilediğiniz an, hizmeti kaybetmeden geri alınabilir:",
+        bullets: [
+          "**Konum verisi:** “Randevularımın varış tahmininin hesaplanması amacıyla, uygulama açıkken konum verimin işlenmesine açık rıza veriyorum.”",
+          "**Profilleme / skor:** “Teslimat davranışıma dayalı bir güvenilirlik skoru oluşturulmasına ve bu skorun randevu aldığım tesislerle paylaşılmasına açık rıza veriyorum.”",
+          "**Pazarlama iletişimi:** “Tarafıma kampanya, promosyon ve bilgilendirme amacıyla ticari elektronik ileti gönderilmesine açık rıza veriyorum.”",
+        ],
+        iysNote:
+          "Ticari elektronik ileti için ayrıca İleti Yönetim Sistemi (İYS) yükümlülükleri geçerlidir.",
+      },
+      basis: {
+        heading: "Hangi Veri, Hangi Hukuki Dayanakla İşlenir?",
+        intro:
+          "Açık rıza, KVKK'daki dayanaklardan yalnızca biridir; hizmetin özünü oluşturan işlemler açık rızaya bağlanmaz. Böylece verdiğiniz bir rızayı geri aldığınızda hizmet çalışmaya devam eder.",
+        colType: "Veri türü",
+        colExample: "Örnek",
+        colBasis: "Hukuki dayanak",
+        rows: [
+          {
+            type: "Randevu & operasyon",
+            example: "Ürün, araç, plaka, teslimat zamanı",
+            basis: "Sözleşmenin ifası",
+          },
+          {
+            type: "Hesap & kimlik",
+            example: "Ad, e-posta, firma, rol",
+            basis: "Sözleşme / meşru menfaat",
+          },
+          {
+            type: "Yasal saklama",
+            example: "Fatura, işlem kaydı",
+            basis: "Hukuki yükümlülük",
+          },
+          {
+            type: "Konum / GPS",
+            example: "Sürücü canlı konumu, varış tahmini",
+            basis: "Açık rıza (geri alınabilir)",
+          },
+          {
+            type: "Profilleme / skor",
+            example: "Güvenilirlik skoru",
+            basis: "Açık rıza",
+          },
+          {
+            type: "Pazarlama",
+            example: "Kampanya iletişimi",
+            basis: "Açık rıza (+ İYS)",
+          },
+          {
+            type: "Ürün içi analitik",
+            example: "Kullanım metrikleri",
+            basis: "Meşru menfaat (mümkünse anonim)",
+          },
+        ],
+        anonNote:
+          "Kişiye bağlanamayan, geri döndürülemez biçimde anonimleştirilmiş veri KVKK kapsamı dışındadır; takma adlı (pseudonim) veri ise kişisel veri olmaya devam eder.",
+      },
+    },
+    cookies: {
+      metaTitle: "Çerez Politikası — LogiSlot",
+      metaDescription:
+        "LogiSlot'ta kullanılan çerezler ve yerel depolama hakkında bilgilendirme.",
+      title: "Çerez Politikası",
+      description:
+        "Bu sayfa, LogiSlot web uygulamalarında kullanılan çerez ve benzeri yerel depolama teknolojilerini açıklar.",
+      summaryHeading: "Özet",
+      summaryText:
+        "LogiSlot, **yalnızca hizmetin çalışması için zorunlu** ve tercihinizi hatırlamaya yarayan işlevsel depolama kullanır. **Analitik, reklam veya pazarlama amaçlı çerez kullanılmaz;** üçüncü taraf izleme teknolojisi bulunmaz. Zorunlu çerez ve depolama için mevzuat gereği açık rıza aranmaz; bu nedenle sitedeki banner bir onay mekanizması değil, şeffaf bir bilgilendirmedir.",
+      itemsHeading: "Kullanılan Depolama Kalemleri",
+      colKey: "Anahtar",
+      colPurpose: "Amaç",
+      colType: "Tür",
+      colDuration: "Süre",
+      typeRequired: "Zorunlu",
+      typeFunctional: "İşlevsel",
+      items: [
+        {
+          key: "logislot.access_token / logislot.refresh_token",
+          purpose: "Oturumunuzu güvenli biçimde sürdürmek (kimlik doğrulama)",
+          required: true,
+          duration: "Oturum süresi / yenilenene kadar",
+        },
+        {
+          key: "logislot.portal",
+          purpose: "Giriş yaptığınız portal bağlamını hatırlamak",
+          required: true,
+          duration: "Çıkış yapana kadar",
+        },
+        {
+          key: "logislot.lang",
+          purpose: "Seçtiğiniz arayüz dilini hatırlamak",
+          required: false,
+          duration: "1 yıl / siz değiştirene kadar",
+        },
+        {
+          key: "theme",
+          purpose: "Açık/koyu tema tercihinizi hatırlamak",
+          required: false,
+          duration: "Siz değiştirene kadar",
+        },
+        {
+          key: "logislot.cookie_notice_ack",
+          purpose: "Bu bilgilendirmeyi gördüğünüzü hatırlamak",
+          required: false,
+          duration: "Kalıcı (tarayıcı verisi temizlenene kadar)",
+        },
+      ],
+      storageNote:
+        "Bu kalemler tarayıcınızın **yerel depolamasında** tutulur ve LogiSlot dışındaki hiçbir tarafla paylaşılmaz.",
+      changesHeading: "Gelecekteki Değişiklikler",
+      changesLead:
+        "İleride analitik veya pazarlama amaçlı bir teknoloji devreye alınırsa, bu politika güncellenecek ve ilgili kalemler için **önceden işaretlenmemiş, ayrı ve geri alınabilir açık rıza** mekanizması sunulacaktır. Kişisel verilerin işlenmesine ilişkin ayrıntılar için",
+      kvkkLink: "KVKK Aydınlatma Metni",
+      changesTail: "'ne bakabilirsiniz.",
+      questions: "Sorularınız için:",
+    },
+  },
+
   errors: {
     /** API hata KODUNA gore metin. Backend Turkce mesaj doner; kod stabil
      *  oldugu icin ceviri burada yapilir — sunucuda dil tutmaya gerek kalmaz.
      *  Listede olmayan kod icin sunucunun mesaji gosterilir. */
     byCode: {
+      UNKNOWN: "Bilinmeyen hata",
+      upload_failed: "Dosya yüklenemedi.",
+      upload_network_error: "Dosya yüklenemedi — bağlantı kurulamadı.",
+      download_failed: "Dosya indirilemedi.",
       UNAUTHORIZED: "E-posta veya parola hatalı.",
       FORBIDDEN: "Bu işlem için yetkiniz yok.",
       NOT_FOUND: "Kayıt bulunamadı.",

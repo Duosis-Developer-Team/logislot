@@ -163,7 +163,7 @@ export function PortalLoginPage({
         </div>
 
         <p className="mt-5 text-center text-xs text-muted-foreground">
-          © 2026 LogiSlot · Kurumsal lojistik operasyon platformu
+          {t.auth.loginFooter}
         </p>
       </div>
     </main>

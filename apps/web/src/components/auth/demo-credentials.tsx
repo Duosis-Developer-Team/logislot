@@ -35,7 +35,7 @@ export function DemoCredentials({
       </span>
       <div className="min-w-0 flex-1 leading-tight">
         <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-          Demo hesap
+          {t.auth.demoAccount}
         </div>
         <div className="truncate font-mono text-xs text-foreground">
           {email} <span className="text-muted-foreground">/ {password}</span>

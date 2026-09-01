@@ -14,12 +14,6 @@ import { useSession } from "@/lib/auth/session";
 import { useT } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
 
-const ROLE_LABELS: Record<string, string> = {
-  platform: "Platform Yöneticisi",
-  tenant: "Tesis Yöneticisi",
-  supplier: "Tedarikçi",
-};
-
 function initials(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
   if (parts.length === 0) return "?";
@@ -33,14 +27,14 @@ export function UserMenu({ profileHref }: { profileHref?: string }) {
   const [open, setOpen] = useState(false);
   const me = session.me;
   const name = me?.name ?? t.common.user;
-  const roleLabel = me ? ROLE_LABELS[me.user_type] ?? me.user_type : "";
+  const roleLabel = me ? t.components.userMenu.roles[me.user_type] ?? me.user_type : "";
 
   return (
     <div className="relative">
       <button
         onClick={() => setOpen((v) => !v)}
         className="flex items-center gap-2 rounded-xl py-1 pl-1 pr-1.5 text-left transition-colors hover:bg-muted sm:pr-2"
-        aria-label="Kullanıcı menüsü"
+        aria-label={t.components.userMenu.label}
         aria-haspopup="menu"
         aria-expanded={open}
       >

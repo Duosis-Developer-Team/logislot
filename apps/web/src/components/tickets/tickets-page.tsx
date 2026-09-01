@@ -9,7 +9,7 @@
 import { AlertTriangle, Plus, Search } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { TICKET_STATUS_GROUPS, ticketCategoryLabel } from "@logislot/shared";
+import { TICKET_STATUS_GROUPS } from "@logislot/shared";
 import { EmptyState, ErrorState, LoadingState } from "@/components/config/states";
 import { TicketCreateDrawer } from "@/components/tickets/ticket-create-drawer";
 import { TicketDetail } from "@/components/tickets/ticket-detail";
@@ -122,7 +122,7 @@ export function TicketsPage({
         </div>
         {config.data.can_create && (
           <Button onClick={() => setCreateOpen(true)}>
-            <Plus className="h-4 w-4" aria-hidden /> Yeni Talep
+            <Plus className="h-4 w-4" aria-hidden /> {t.tickets.newTicket}
           </Button>
         )}
       </div>
@@ -146,7 +146,7 @@ export function TicketsPage({
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
         <div
           role="tablist"
-          aria-label="Talep durumu"
+          aria-label={t.tickets.statusTabsLabel}
           className="flex flex-wrap gap-1 rounded-xl bg-muted/50 p-1"
         >
           {TICKET_STATUS_GROUPS.map((group) => (
@@ -162,7 +162,7 @@ export function TicketsPage({
                   : "text-muted-foreground hover:text-foreground",
               )}
             >
-              {group.label}
+              {labels.ticketStatusGroup[group.key as keyof typeof labels.ticketStatusGroup] ?? group.label}
             </button>
           ))}
         </div>
@@ -176,7 +176,7 @@ export function TicketsPage({
             placeholder={t.tickets.searchPlaceholder}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            aria-label="Taleplerde ara"
+            aria-label={t.tickets.searchLabel}
           />
         </div>
       </div>
@@ -187,13 +187,13 @@ export function TicketsPage({
         <ErrorState message={t.tickets.listError} onRetry={() => list.refetch()} />
       ) : rows.length === 0 ? (
         <EmptyState
-          title="Bu sekmede talep yok"
+          title={t.tickets.emptyTab}
           description={
             search
               ? t.tickets.noResults(search)
               : t.tickets.emptyHint
           }
-          actionLabel={config.data.can_create ? "Yeni Talep" : undefined}
+          actionLabel={config.data.can_create ? t.tickets.newTicket : undefined}
           onAction={config.data.can_create ? () => setCreateOpen(true) : undefined}
         />
       ) : (
@@ -238,6 +238,7 @@ function TicketRow({
 }) {
   const t = useT();
   const fmt = useFormat();
+  const labels = useLabels();
   const resolved = ticket.status === "resolved";
   const closed = ticket.status === "closed" || ticket.status === "cancelled";
   return (
@@ -273,7 +274,7 @@ function TicketRow({
           </div>
           <p className="mt-1 truncate font-medium">{ticket.title}</p>
           <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
-            <span>{ticketCategoryLabel(ticket.category)}</span>
+            <span>{labels.ticketCategoryLabel(ticket.category)}</span>
             {showRequester && ticket.requester_name && (
               <>
                 <span aria-hidden>·</span>

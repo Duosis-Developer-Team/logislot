@@ -4,6 +4,7 @@ import { CheckCircle2, Plus, Search, XCircle } from "lucide-react";
 import { useCallback, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input, Select } from "@/components/ui/input";
+import { useT } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
 
 export type ActiveFilter = "all" | "active" | "inactive";
@@ -50,6 +51,7 @@ export function ConfigPageShell({
   flash,
   children,
 }: ConfigPageShellProps) {
+  const t = useT();
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -85,7 +87,7 @@ export function ConfigPageShell({
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             className="pl-9"
-            placeholder="Ara…"
+            placeholder={t.common.searchPlaceholder}
             value={search}
             onChange={(e) => onSearchChange(e.target.value)}
           />
@@ -95,9 +97,9 @@ export function ConfigPageShell({
           value={activeFilter}
           onChange={(e) => onActiveFilterChange(e.target.value as ActiveFilter)}
         >
-          <option value="all">Tümü</option>
-          <option value="active">Aktif</option>
-          <option value="inactive">Pasif</option>
+          <option value="all">{t.common.all}</option>
+          <option value="active">{t.common.active}</option>
+          <option value="inactive">{t.common.inactive}</option>
         </Select>
       </div>
 

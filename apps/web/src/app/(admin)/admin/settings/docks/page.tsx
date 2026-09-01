@@ -34,14 +34,22 @@ import {
 import type { DockDto, WorkingHours } from "@/lib/api/types";
 import { useSession } from "@/lib/auth/session";
 import { useApiErrorMessage } from "@/lib/i18n/api-error";
+import type { Dictionary } from "@/lib/i18n/dictionaries/tr";
 import { useT } from "@/lib/i18n/provider";
 
 const formSchema = z.object({
-  name: z.string().min(1, "Ad zorunlu"),
+  name: z.string().min(1, "nameRequired"),
   note: z.string().optional(),
 });
 
 type FormValues = z.infer<typeof formSchema>;
+
+/** Zod semasi modul seviyesinde tanimlanir ve hook cagiramaz; mesaj olarak
+ *  ANAHTAR uretilir ve ekranda sozlukten cevrilir. */
+function fieldError(t: Dictionary, message: string | undefined): string | undefined {
+  if (!message) return undefined;
+  return (t.admin.config.messages as Record<string, string>)[message] ?? message;
+}
 
 export default function DocksPage() {
   const t = useT();
@@ -142,9 +150,9 @@ export default function DocksPage() {
 
   return (
     <ConfigPageShell
-      title="Rampalar"
+      title={t.admin.docks.title}
       description={t.admin.docks.pageDescription}
-      createLabel="Yeni Rampa"
+      createLabel={t.admin.docks.createLabel}
       onCreate={openCreate}
       search={search}
       onSearchChange={setSearch}
@@ -158,7 +166,7 @@ export default function DocksPage() {
         <ErrorState message={t.admin.docks.loadError} onRetry={() => list.refetch()} />
       ) : rows.length === 0 ? (
         <EmptyState
-          title="Rampa yok"
+          title={t.admin.docks.emptyTitle}
           description={t.admin.docks.emptyDescription}
           actionLabel={t.admin.docks.emptyAction}
           onAction={openCreate}
@@ -167,7 +175,7 @@ export default function DocksPage() {
         <Table>
           <THead>
             <TR>
-              <TH>Rampa</TH>
+              <TH>{t.common.dock}</TH>
               <TH>{t.admin.docks.colProductCategories}</TH>
               <TH>{t.admin.docks.colVehicleCategories}</TH>
               <TH>{t.admin.docks.colWorkingHours}</TH>
@@ -212,7 +220,7 @@ export default function DocksPage() {
                   </div>
                 </TD>
                 <TD className="whitespace-nowrap text-sm text-muted-foreground">
-                  {summarizeWorkingHours(row.working_hours_json)}
+                  {summarizeWorkingHours(t, row.working_hours_json)}
                 </TD>
                 <TD>
                   {groupsOf(row.id).length === 0 ? (
@@ -255,16 +263,16 @@ export default function DocksPage() {
         <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-5">
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <Label>Ad</Label>
+              <Label>{t.admin.docks.name}</Label>
               <Input {...form.register("name")} placeholder={t.admin.docks.namePlaceholder} />
               {form.formState.errors.name && (
                 <p className="mt-1 text-xs text-destructive">
-                  {form.formState.errors.name.message}
+                  {fieldError(t, form.formState.errors.name.message)}
                 </p>
               )}
             </div>
             <div>
-              <Label>Not</Label>
+              <Label>{t.admin.docks.note}</Label>
               <Input {...form.register("note")} placeholder={t.admin.docks.notePlaceholder} />
             </div>
           </div>
@@ -323,7 +331,7 @@ export default function DocksPage() {
               {t.common.cancel}
             </Button>
             <Button type="submit" disabled={save.isPending}>
-              {save.isPending ? "Kaydediliyor…" : "Kaydet"}
+              {save.isPending ? t.common.saving : t.common.save}
             </Button>
           </div>
         </form>

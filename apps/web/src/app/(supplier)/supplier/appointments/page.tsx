@@ -88,7 +88,7 @@ export default function SupplierAppointmentsPage() {
     if (!confirmTarget) return;
     try {
       await cancel.mutateAsync(confirmTarget.id);
-      showFlash("success", "Randevu iptal edildi.");
+      showFlash("success", t.appointmentDrawer.cancelled);
     } catch (err) {
       showFlash("error", errorMessage(err, t.supplier.appointments.cancelFailed));
     } finally {

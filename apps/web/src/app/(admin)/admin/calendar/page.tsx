@@ -246,7 +246,7 @@ export default function CalendarPage() {
         ) : data.docks.length === 0 ? (
           <EmptyState
             title={t.admin.calendar.noDocks}
-            description="Aktif rampa yok ya da yetkiniz olan rampa bulunmuyor."
+            description={t.admin.calendar.noDocksDescription}
           />
         ) : (
           <>
@@ -271,7 +271,7 @@ export default function CalendarPage() {
                       className="sticky left-0 z-10 shrink-0 border-r border-border bg-muted/90 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground backdrop-blur"
                       style={{ width: LEFT_W }}
                     >
-                      Rampalar ({data.docks.length})
+                      {t.admin.calendar.dockCount(data.docks.length)}
                     </div>
                     <div className="relative" style={{ width: bodyW, height: 34 }}>
                       {hours.map((m) => (

@@ -319,7 +319,7 @@ export default function TenantsPage() {
           {!drawer.editing && (
             <>
               <div>
-                <Label>Ticari Unvan</Label>
+                <Label>{t.platform.tenants.commercialName}</Label>
                 <Input
                   value={form.commercial_name}
                   onChange={(e) => set("commercial_name", e.target.value)}
@@ -341,7 +341,7 @@ export default function TenantsPage() {
                 </p>
               </div>
               <div>
-                <Label>Saat Dilimi</Label>
+                <Label>{t.platform.tenants.timezone}</Label>
                 <Input
                   value={form.default_timezone}
                   onChange={(e) => set("default_timezone", e.target.value)}
@@ -351,11 +351,11 @@ export default function TenantsPage() {
           )}
 
           <div>
-            <Label>Adres</Label>
+            <Label>{t.platform.tenants.address}</Label>
             <Input
               value={form.address}
               onChange={(e) => set("address", e.target.value)}
-              placeholder="Opsiyonel — mal kabul lokasyonu"
+              placeholder={t.platform.tenants.addressPlaceholder}
             />
           </div>
 
@@ -443,7 +443,7 @@ export default function TenantsPage() {
                     <Input
                       value={adminName}
                       onChange={(e) => setAdminName(e.target.value)}
-                      placeholder="Ad Soyad"
+                      placeholder={t.platform.tenants.fullNamePlaceholder}
                     />
                   </div>
                   <div>
@@ -452,7 +452,7 @@ export default function TenantsPage() {
                       type="email"
                       value={adminEmail}
                       onChange={(e) => setAdminEmail(e.target.value)}
-                      placeholder="yonetici@firma.com"
+                      placeholder={t.platform.tenants.adminEmailPlaceholder}
                     />
                   </div>
                   <div className="sm:col-span-2">
@@ -478,7 +478,7 @@ export default function TenantsPage() {
               {t.common.cancel}
             </Button>
             <Button type="submit" disabled={save.isPending}>
-              {save.isPending ? "Kaydediliyor…" : "Kaydet"}
+              {save.isPending ? t.common.saving : t.common.save}
             </Button>
           </div>
         </form>

@@ -1,3 +1,5 @@
+"use client";
+
 import { Boxes, CalendarRange, MessageSquareText, Plug2, Warehouse } from "lucide-react";
 import { Reveal } from "@/components/landing/reveal";
 import { useT } from "@/lib/i18n/provider";

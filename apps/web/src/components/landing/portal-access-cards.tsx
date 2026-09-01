@@ -1,3 +1,5 @@
+"use client";
+
 import { ArrowRight, Building2, Truck } from "lucide-react";
 import { useT } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";

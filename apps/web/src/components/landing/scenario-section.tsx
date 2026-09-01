@@ -1,3 +1,5 @@
+"use client";
+
 import { BarChart3, PhoneOff, TimerReset } from "lucide-react";
 import { Reveal } from "@/components/landing/reveal";
 import { useT } from "@/lib/i18n/provider";

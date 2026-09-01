@@ -24,6 +24,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { resolveMimeType } from "@/lib/api/tickets";
 import { cn } from "@/lib/utils";
+import { useApiErrorMessage } from "@/lib/i18n/api-error";
 import type { Dictionary } from "@/lib/i18n/dictionaries/tr";
 import { useT } from "@/lib/i18n/provider";
 
@@ -96,6 +97,7 @@ export function AttachmentDropzone({
   disabled = false,
 }: AttachmentDropzoneProps) {
   const t = useT();
+  const errorMessage = useApiErrorMessage();
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragActive, setDragActive] = useState(false);
   const [limitError, setLimitError] = useState<string | null>(null);
@@ -130,11 +132,11 @@ export function AttachmentDropzone({
         });
       } catch (error) {
         patch(item.key, {
-          error: error instanceof Error ? error.message : t.tickets.attachments.uploadFailed,
+          error: errorMessage(error, t.tickets.attachments.uploadFailed),
         });
       }
     },
-    [patch, upload, t.tickets.attachments.uploadFailed],
+    [errorMessage, patch, upload, t.tickets.attachments.uploadFailed],
   );
 
   const addFiles = useCallback(
@@ -147,15 +149,13 @@ export function AttachmentDropzone({
 
       for (const file of files) {
         if (current.length + accepted.length >= maxFiles) {
-          setLimitError(`En fazla ${maxFiles} dosya ekleyebilirsiniz.`);
+          setLimitError(t.tickets.attachments.tooManyFiles(maxFiles));
           break;
         }
         // Tarayicilar `.log` icin BOS tur bildirir; uzantidan turetilmis tur
         // kullanilir (bkz. resolveMimeType).
         if (!allowedMimeTypes.includes(resolveMimeType(file))) {
-          setLimitError(
-            `"${file.name}" desteklenmiyor. PNG, JPEG, WEBP, PDF ve TXT/LOG kabul edilir.`,
-          );
+          setLimitError(t.tickets.attachments.unsupportedType(file.name));
           continue;
         }
         if (file.size > maxFileSizeBytes) {
@@ -340,7 +340,7 @@ export function AttachmentDropzone({
                       void startUpload(item);
                     }}
                   >
-                    Tekrar dene
+                    {t.common.retry}
                   </Button>
                 )}
                 <button
@@ -361,11 +361,12 @@ export function AttachmentDropzone({
 }
 
 export function AttachmentSummary({ count }: { count: number }) {
+  const t = useT();
   if (count === 0) return null;
   return (
     <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
       <Paperclip className="h-3.5 w-3.5" aria-hidden />
-      {count} ek
+      {t.tickets.attachments.countSuffix(count)}
     </span>
   );
 }

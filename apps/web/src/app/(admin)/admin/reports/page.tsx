@@ -78,10 +78,10 @@ export default function ReportsPage() {
   const maxTrend = Math.max(...data.daily_trend.map((d) => d.total), 1);
 
   const stats = [
-    { label: "Toplam Randevu", value: totals.appointments, icon: Truck },
-    { label: "Tamamlanan", value: totals.completed, icon: CheckCircle2 },
-    { label: "Bekleyen", value: totals.pending, icon: Clock4 },
-    { label: "Kargo", value: totals.cargo, icon: Package, accent: true },
+    { label: t.admin.reports.totalAppointments, value: totals.appointments, icon: Truck },
+    { label: t.common.completed, value: totals.completed, icon: CheckCircle2 },
+    { label: t.common.pending, value: totals.pending, icon: Clock4 },
+    { label: t.common.cargo, value: totals.cargo, icon: Package, accent: true },
     {
       label: t.admin.reports.completionRate,
       value: `%${Math.round(data.rates.completion_rate * 100)}`,
@@ -101,7 +101,7 @@ export default function ReportsPage() {
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-xl font-bold">Raporlar</h1>
+          <h1 className="text-xl font-bold">{t.admin.reports.title}</h1>
           <p className="text-sm text-muted-foreground">
             {t.admin.reports.summaryLine(data.range.date_from, data.range.date_to)}
             {data.scope.restricted && t.admin.reports.restricted}
@@ -114,7 +114,7 @@ export default function ReportsPage() {
             onClick={() =>
               void downloadCsv(
                 `/facilities/${activeFacilityId}/reports/summary.csv?date_from=${dateFrom}&date_to=${dateTo}`,
-                `logislot_ozet_${dateFrom}_${dateTo}.csv`,
+                `${t.admin.reports.summaryFileName}_${dateFrom}_${dateTo}.csv`,
               )
             }
           >
@@ -126,11 +126,11 @@ export default function ReportsPage() {
             onClick={() =>
               void downloadCsv(
                 `/facilities/${activeFacilityId}/reports/appointments.csv?date_from=${dateFrom}&date_to=${dateTo}`,
-                `logislot_randevular_${dateFrom}_${dateTo}.csv`,
+                `${t.admin.reports.appointmentsFileName}_${dateFrom}_${dateTo}.csv`,
               )
             }
           >
-            <Download className="mr-1 h-3.5 w-3.5" /> Randevu Detay CSV
+            <Download className="mr-1 h-3.5 w-3.5" /> {t.admin.reports.appointmentCsv}
           </Button>
           {PRESETS.map((p) => (
             <button
@@ -219,7 +219,7 @@ export default function ReportsPage() {
                   <div
                     key={day.date}
                     className="group relative flex h-full flex-1 flex-col items-center justify-end"
-                    title={`${day.date}: ${day.total} randevu (${day.completed} tamam, ${day.cargo} kargo)`}
+                    title={t.admin.reports.trendTooltip(day.date, day.total, day.completed, day.cargo)}
                   >
                     <div
                       className={cn(
@@ -302,7 +302,7 @@ export default function ReportsPage() {
                       }
                     />
                     <span className="w-24 text-right text-xs text-muted-foreground">
-                      %{d.utilization_percent} · {d.appointment_count} randevu
+                      {t.admin.reports.dockLine(d.utilization_percent, d.appointment_count)}
                     </span>
                   </div>
                 ))}
@@ -318,10 +318,10 @@ export default function ReportsPage() {
                   <THead>
                     <TR>
                       <TH>{t.admin.appointments.colSupplier}</TH>
-                      <TH className="text-right">Randevu</TH>
+                      <TH className="text-right">{t.common.appointment}</TH>
                       <TH className="text-right">Tamam</TH>
                       <TH className="text-right">{t.admin.reports.colCancelled}</TH>
-                      <TH className="text-right">Kargo</TH>
+                      <TH className="text-right">{t.common.cargo}</TH>
                     </TR>
                   </THead>
                   <TBody>

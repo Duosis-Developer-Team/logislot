@@ -82,10 +82,10 @@ export default function UsagePage() {
 
   const statCards = [
     ["Tenant", totals.tenants],
-    ["Aktif Hesap", `${totals.active_facilities}/${totals.facilities}`],
+    [t.platform.usage.activeAccounts, `${totals.active_facilities}/${totals.facilities}`],
     [t.platform.usage.totals.appointments, totals.appointments_created],
-    ["Tamamlanan", totals.appointments_completed],
-    ["Aktif Rampa", totals.active_docks],
+    [t.platform.usage.completed, totals.appointments_completed],
+    [t.platform.usage.activeDocks, totals.active_docks],
     [t.platform.usage.totals.suppliers, totals.active_suppliers],
     [t.platform.usage.totals.users, totals.active_users],
   ] as const;
@@ -110,7 +110,7 @@ export default function UsagePage() {
               )
             }
           >
-            Usage CSV indir
+            {t.platform.usage.downloadCsv}
           </Button>
           <Input
             type="date"
@@ -180,10 +180,10 @@ export default function UsagePage() {
                 <TH>Tenant</TH>
                 <TH>Durum</TH>
                 <TH>Plan</TH>
-                <TH className="text-right">Randevu</TH>
-                <TH className="text-right">Rampa</TH>
+                <TH className="text-right">{t.common.appointment}</TH>
+                <TH className="text-right">{t.common.dock}</TH>
                 <TH className="text-right">{t.platform.usage.colSuppliers}</TH>
-                <TH>Son Aktivite</TH>
+                <TH>{t.platform.usage.colLastActivity}</TH>
                 <TH className="text-right">SLA</TH>
                 <TH className="text-right">{t.common.actions}</TH>
               </TR>
@@ -242,7 +242,7 @@ export default function UsagePage() {
                         setAssignError(null);
                       }}
                     >
-                      Plan Ata
+                      {t.platform.usage.assignPlan}
                     </Button>
                   </TD>
                 </TR>
@@ -263,10 +263,10 @@ export default function UsagePage() {
                 <TH>Kapsam</TH>
                 <TH>{t.platform.usage.colCustomer}</TH>
                 <TH>Plan</TH>
-                <TH className="text-right">Randevu</TH>
-                <TH className="text-right">Rampa</TH>
+                <TH className="text-right">{t.common.appointment}</TH>
+                <TH className="text-right">{t.common.dock}</TH>
                 <TH className="text-right">{t.platform.usage.colUsers}</TH>
-                <TH>Son Aktivite</TH>
+                <TH>{t.platform.usage.colLastActivity}</TH>
                 <TH className="text-right">{t.common.actions}</TH>
               </TR>
             </THead>
@@ -316,7 +316,7 @@ export default function UsagePage() {
                         setAssignError(null);
                       }}
                     >
-                      Override Ata
+                      {t.platform.usage.assignOverride}
                     </Button>
                   </TD>
                 </TR>

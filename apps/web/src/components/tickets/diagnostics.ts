@@ -10,6 +10,8 @@
  * gonderildigini GOSTEREBILMEK icindir, tek savunma hatti degildir.
  */
 
+import type { Dictionary } from "@/lib/i18n/dictionaries/tr";
+
 export interface ClientDiagnostics {
   app_version?: string;
   environment?: string;
@@ -34,7 +36,7 @@ function detectBrowser(agent: string): string {
     const found = agent.match(pattern);
     if (found) return `${name} ${found[1].split(".")[0]}`;
   }
-  return "Bilinmiyor";
+  return "Unknown";
 }
 
 function detectOs(agent: string): string {
@@ -47,11 +49,13 @@ function detectOs(agent: string): string {
   return "Bilinmiyor";
 }
 
+/** Kararli KOD dondurur ("desktop"); ekranda sozlukten cevrilir. Deger
+ *  Hermes'e de boyle gider — destek ekibi dilden bagimsiz okur. */
 function detectDeviceClass(): string {
-  if (typeof window === "undefined") return "bilinmiyor";
-  if (window.innerWidth < 640) return "mobil";
+  if (typeof window === "undefined") return "unknown";
+  if (window.innerWidth < 640) return "mobile";
   if (window.innerWidth < 1024) return "tablet";
-  return "masaüstü";
+  return "desktop";
 }
 
 export function collectDiagnostics(): ClientDiagnostics {
@@ -73,19 +77,16 @@ export function collectDiagnostics(): ClientDiagnostics {
 }
 
 /** Kullaniciya "ne gonderiliyor" ozetini gostermek icin okunabilir satirlar. */
-export function describeDiagnostics(diagnostics: ClientDiagnostics): string[] {
-  const labels: Record<keyof ClientDiagnostics, string> = {
-    app_version: "Uygulama sürümü",
-    environment: "Ortam",
-    page_path: "Sayfa",
-    browser: "Tarayıcı",
-    os: "İşletim sistemi",
-    locale: "Dil",
-    timezone: "Saat dilimi",
-    device_class: "Cihaz",
-    client_timestamp: "Zaman",
-  };
+export function describeDiagnostics(
+  t: Dictionary,
+  diagnostics: ClientDiagnostics,
+): string[] {
+  const { labels, deviceClass } = t.tickets.diagnostics;
   return (Object.keys(labels) as (keyof ClientDiagnostics)[])
     .filter((key) => diagnostics[key])
-    .map((key) => `${labels[key]}: ${diagnostics[key]}`);
+    .map((key) => {
+      const raw = String(diagnostics[key]);
+      const value = key === "device_class" ? deviceClass[raw] ?? raw : raw;
+      return `${labels[key]}: ${value}`;
+    });
 }

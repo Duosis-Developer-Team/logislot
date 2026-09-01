@@ -80,7 +80,7 @@ export function NotificationBell({ variant, facilityId }: NotificationBellProps)
     <div className="relative">
       <button
         className="relative rounded-lg p-2 text-muted-foreground hover:bg-muted"
-        aria-label="Bildirimler"
+        aria-label={t.components.notificationBell.label}
         onClick={() => setOpen(!open)}
       >
         <Bell className="h-5 w-5" />
@@ -96,7 +96,7 @@ export function NotificationBell({ variant, facilityId }: NotificationBellProps)
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
           <div className="absolute right-0 z-50 mt-2 w-96 max-w-[calc(100vw-2rem)] overflow-hidden rounded-xl border border-border bg-card shadow-xl">
             <div className="flex items-center justify-between border-b border-border px-4 py-2.5">
-              <span className="text-sm font-semibold">Bildirimler</span>
+              <span className="text-sm font-semibold">{t.components.notificationBell.label}</span>
               {unreadCount > 0 && (
                 <Button
                   size="sm"

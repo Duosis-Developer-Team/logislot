@@ -181,7 +181,7 @@ function OverrideForm({
               options={options}
               value={selected}
               onChange={setDockIds}
-              searchPlaceholder="Rampa ara…"
+              searchPlaceholder={t.common.searchDock}
               emptyHint={t.components.overrideDrawer.dockEmptyHint}
             />
             {takenNames.length > 0 && (
@@ -240,7 +240,7 @@ function OverrideForm({
           {t.common.cancel}
         </Button>
         <Button type="submit" disabled={save.isPending}>
-          {save.isPending ? "Kaydediliyor…" : "Kaydet"}
+          {save.isPending ? t.common.saving : t.common.save}
         </Button>
       </div>
     </form>

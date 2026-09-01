@@ -238,7 +238,7 @@ export default function EmailLogsPage() {
           <Input
             value={recipient}
             onChange={(e) => { setRecipient(e.target.value); setOffset(0); }}
-            placeholder="E-posta ara…"
+            placeholder={t.admin.emailLogs.searchRecipient}
           />
         </div>
         <label className="flex items-center gap-1.5 pb-2 text-sm">
@@ -250,7 +250,7 @@ export default function EmailLogsPage() {
           {t.admin.emailLogs.onlyFailed}
         </label>
         <Button size="sm" variant="ghost" onClick={clearFilters}>
-          Filtreleri temizle
+          {t.common.clearFilters}
         </Button>
         {can("user.manage") && (
           <Button
@@ -292,7 +292,7 @@ export default function EmailLogsPage() {
                   />
                 </TH>
               )}
-              <TH>Tarih</TH>
+              <TH>{t.common.date}</TH>
               <TH>{t.admin.emailLogs.recipient}</TH>
               <TH>Konu</TH>
               <TH>{t.admin.emailLogs.template}</TH>
@@ -373,7 +373,7 @@ export default function EmailLogsPage() {
                         </Button>
                       ) : (
                         <span className="text-[10px] text-muted-foreground">
-                          Hak doldu
+                          {t.admin.emailLogs.noAttempts}
                         </span>
                       ))}
                   </div>

@@ -1,3 +1,5 @@
+"use client";
+
 import {
   CalendarX2,
   EyeOff,

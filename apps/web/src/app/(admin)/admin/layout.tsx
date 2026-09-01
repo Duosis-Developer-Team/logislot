@@ -150,7 +150,7 @@ function AdminShell({ children }: { children: React.ReactNode }) {
         className="h-9 w-auto max-w-[13rem] text-sm sm:max-w-72"
         value={session.activeFacilityId ?? ""}
         onChange={(e) => session.setActiveFacilityId(e.target.value)}
-        aria-label="Aktif kapsam"
+        aria-label={t.admin.layout.activeScope}
       >
         {facilities.map((f) => (
           <option key={f.id} value={f.id}>
@@ -181,8 +181,8 @@ function AdminShell({ children }: { children: React.ReactNode }) {
             <button
               onClick={() => setPreferencesOpen(true)}
               className="rounded-lg p-2 text-muted-foreground hover:bg-muted"
-              aria-label="Bildirim Tercihleri"
-              title="Bildirim tercihleri"
+              aria-label={t.admin.layout.notificationPreferences}
+              title={t.admin.layout.notificationPreferences}
             >
               <SlidersHorizontal className="h-5 w-5" />
             </button>
@@ -195,7 +195,7 @@ function AdminShell({ children }: { children: React.ReactNode }) {
       <Dialog
         open={preferencesOpen}
         onClose={() => setPreferencesOpen(false)}
-        title="Bildirim Tercihleri"
+        title={t.admin.layout.notificationPreferences}
       >
         <NotificationPreferencesForm />
       </Dialog>

@@ -1,3 +1,5 @@
+"use client";
+
 import {
   Building2,
   GitBranch,

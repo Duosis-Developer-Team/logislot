@@ -1,3 +1,5 @@
+"use client";
+
 import {
   APPOINTMENT_STATUS_LABELS_BY_LOCALE,
   CARGO_WINDOW_LABELS_BY_LOCALE,
@@ -36,5 +38,12 @@ export function useLabels() {
     ticketResolution: TICKET_RESOLUTION_CODE_LABELS_BY_LOCALE[locale],
     ticketDelivery: TICKET_DELIVERY_STATUS_LABELS_BY_LOCALE[locale],
     ticketStatusGroup: TICKET_STATUS_GROUP_LABELS_BY_LOCALE[locale],
+    /** Bilinmeyen bir kod (yeni backend degeri) kodun kendisiyle gosterilir —
+     *  ekran bos bir hucre yerine ham degeri gostersin. */
+    ticketCategoryLabel: (category: string) =>
+      (TICKET_CATEGORY_LABELS_BY_LOCALE[locale] as Record<string, string>)[category] ??
+      category,
+    ticketImpactLabel: (impact: string) =>
+      (TICKET_IMPACT_LABELS_BY_LOCALE[locale] as Record<string, string>)[impact] ?? impact,
   };
 }

@@ -1,3 +1,5 @@
+"use client";
+
 import { CalendarClock, PackageCheck, Truck } from "lucide-react";
 import { Reveal } from "@/components/landing/reveal";
 import { useT } from "@/lib/i18n/provider";

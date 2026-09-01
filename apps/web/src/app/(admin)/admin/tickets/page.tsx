@@ -13,7 +13,7 @@ export default function AdminTicketsPage() {
     <Suspense fallback={<LoadingState />}>
       <TicketsPage
         api={adminTickets}
-        title="Destek Talepleri"
+        title={t.admin.tickets.title}
         description={t.admin.tickets.description}
         showRequester
       />
