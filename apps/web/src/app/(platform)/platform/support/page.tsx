@@ -16,6 +16,7 @@ import { useQuery } from "@tanstack/react-query";
 import { ErrorState, LoadingState } from "@/components/config/states";
 import { Card, CardContent } from "@/components/ui/card";
 import { apiRequest } from "@/lib/api/client";
+import { useT } from "@/lib/i18n/provider";
 import { useTicketIntegrationHealth } from "@/lib/api/platform-ticketing";
 import { cn, formatDateTime } from "@/lib/utils";
 
@@ -46,6 +47,7 @@ interface SupportHealthDto {
 }
 
 export default function SupportPage() {
+  const t = useT();
   const health = useQuery({
     queryKey: ["platform", "support-health"],
     queryFn: () => apiRequest<SupportHealthDto>("/platform/support/health"),
@@ -57,7 +59,7 @@ export default function SupportPage() {
 
   if (health.isLoading) return <LoadingState />;
   if (health.isError)
-    return <ErrorState message="Destek verileri yüklenemedi." onRetry={() => health.refetch()} />;
+    return <ErrorState message={t.platform.support.loadError} onRetry={() => health.refetch()} />;
 
   const data = health.data!;
   const cards: {
@@ -67,36 +69,42 @@ export default function SupportPage() {
     hint?: string;
   }[] = [
     {
-      label: "Başarısız e-posta",
+      label: t.platform.support.failedEmail,
       value: data.failed_email_count,
       alertWhenPositive: true,
-      hint: "Tesis yönetimindeki E-posta Logları ekranından yeniden gönderilebilir",
+      hint: t.platform.support.failedEmailHint,
     },
     {
-      label: "Retry bekleyen e-posta",
+      label: t.platform.support.retryPendingEmail,
       value: data.due_email_retry_count,
       alertWhenPositive: true,
-      hint: "Scheduler 5 dakikada bir otomatik dener",
+      hint: t.platform.support.retryPendingHint,
     },
     {
-      label: "Okunmamış kritik bildirim",
+      label: t.platform.support.unreadCritical,
       value: data.unread_critical_notification_count,
       alertWhenPositive: true,
     },
-    { label: "Onay bekleyen randevu", value: data.pending_appointment_count },
-    { label: "Revize bekleyen randevu", value: data.revision_pending_appointment_count },
-    { label: "Plan kullanım uyarısı", value: data.plan_warning_count, alertWhenPositive: true },
+    { label: t.platform.support.pendingAppointments, value: data.pending_appointment_count },
+    {
+      label: t.platform.support.revisionPendingAppointments,
+      value: data.revision_pending_appointment_count,
+    },
+    {
+      label: t.platform.support.planWarning,
+      value: data.plan_warning_count,
+      alertWhenPositive: true,
+    },
     { label: "Tenant", value: data.tenant_count },
-    { label: "Aktif tesis", value: data.active_facility_count },
+    { label: t.platform.support.activeFacilities, value: data.active_facility_count },
   ];
 
   return (
     <div className="flex flex-col gap-4">
       <div>
-        <h1 className="text-xl font-bold">Sistem Sağlığı</h1>
+        <h1 className="text-xl font-bold">{t.platform.support.title}</h1>
         <p className="text-sm text-muted-foreground">
-          Platform genel sağlık ve aksiyon bekleyenler (yalnızca agregat; operasyonel
-          detay/PII içermez). Her dakika yenilenir.
+          {t.platform.support.description}
         </p>
       </div>
 
@@ -129,24 +137,24 @@ export default function SupportPage() {
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             {[
               {
-                label: "Yönlendirmesiz müşteri",
+                label: t.platform.support.unroutedTenant,
                 value: ticketHealth.data.unconfigured_tenant_count,
                 alert: ticketHealth.data.unconfigured_tenant_count > 0,
               },
               {
-                label: "Bekleyen gönderim",
+                label: t.platform.support.pendingDelivery,
                 value: ticketHealth.data.outgoing.pending,
                 alert: false,
               },
               {
-                label: "Hatalı / ölü gönderim",
+                label: t.platform.support.failedDelivery,
                 value:
                   ticketHealth.data.outgoing.failed + ticketHealth.data.outgoing.dead,
                 alert:
                   ticketHealth.data.outgoing.failed + ticketHealth.data.outgoing.dead > 0,
               },
               {
-                label: "İşlenmemiş webhook",
+                label: t.platform.support.unprocessedWebhook,
                 value:
                   (ticketHealth.data.webhook_inbox.received ?? 0) +
                   (ticketHealth.data.webhook_inbox.failed ?? 0),
@@ -171,24 +179,27 @@ export default function SupportPage() {
             ))}
           </div>
           <p className="text-xs text-muted-foreground">
-            Hermes bağlantısı:{" "}
-            {ticketHealth.data.hermes_configured ? "yapılandırıldı" : "yapılandırılmadı"}{" "}
-            · ekip listesi son alım:{" "}
+            {t.platform.support.hermesConnection}{" "}
+            {ticketHealth.data.hermes_configured
+              ? t.platform.support.configured
+              : t.platform.support.notConfigured}{" "}
+            {t.platform.support.catalogLastFetch}{" "}
             {ticketHealth.data.catalog_last_fetched_at
               ? formatDateTime(ticketHealth.data.catalog_last_fetched_at)
               : "—"}
-            {ticketHealth.data.catalog_stale && " (eski)"} · son mutabakat:{" "}
+            {ticketHealth.data.catalog_stale && t.platform.support.stale} ·{" "}
+            {t.platform.support.lastReconciliation}:{" "}
             {ticketHealth.data.jobs.ticket_reconciliation?.last_finished_at
               ? formatDateTime(
                   ticketHealth.data.jobs.ticket_reconciliation.last_finished_at,
                 )
-              : "henüz koşmadı"}
+              : t.platform.support.neverRan}
           </p>
           <Link
             href="/platform/ticket-routing"
             className="text-sm text-primary underline-offset-2 hover:underline"
           >
-            Ticket yönlendirmesini yönet →
+            {t.platform.support.manageRouting}
           </Link>
         </div>
       )}
@@ -200,7 +211,9 @@ export default function SupportPage() {
             <div key={job} className="rounded-lg border border-border p-3 text-sm">
               <div className="flex items-center justify-between">
                 <span className="font-medium">
-                  {job === "email_retry" ? "E-posta retry" : "Bildirim temizliği"}
+                  {job === "email_retry"
+                    ? t.platform.support.jobEmailRetry
+                    : t.platform.support.jobNotificationCleanup}
                 </span>
                 {run ? (
                   <span
@@ -214,24 +227,24 @@ export default function SupportPage() {
                     )}
                   >
                     {run.last_status === "success"
-                      ? "başarılı"
+                      ? t.platform.support.jobOk
                       : run.last_status === "skipped_locked"
-                        ? "kilitli atlandı"
+                        ? t.platform.support.jobLockSkipped
                         : "hata"}
                   </span>
                 ) : (
                   <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">
-                    henüz koşmadı
+                    {t.platform.support.neverRan}
                   </span>
                 )}
               </div>
               {run && (
                 <div className="mt-1 text-xs text-muted-foreground">
-                  Son koşum:{" "}
+                  {t.platform.support.lastRun}{" "}
                   {run.last_finished_at
                     ? new Date(run.last_finished_at).toLocaleString("tr-TR")
                     : "—"}{" "}
-                  · {run.processed_count} kayıt
+                  {t.platform.support.recordCount(run.processed_count)}
                   {run.error_message && (
                     <div className="mt-0.5 text-status-rejected">{run.error_message}</div>
                   )}
@@ -241,15 +254,18 @@ export default function SupportPage() {
           ))}
         </div>
         <p className="text-xs text-muted-foreground">
-          Ortam: {data.config.environment} · e-posta: {data.config.email_provider} ·
-          docs: {data.config.docs_enabled ? "açık" : "kapalı"} · rate limit:{" "}
-          {data.config.rate_limit_enabled ? "açık" : "kapalı"}
+          {t.platform.support.environmentLabel}: {data.config.environment} ·{" "}
+          {t.platform.support.emailLabel}: {data.config.email_provider} ·
+          {t.platform.support.docsLabel}{" "}
+          {data.config.docs_enabled ? t.platform.support.on : t.platform.support.off}{" "}
+          {t.platform.support.rateLimitLabel}{" "}
+          {data.config.rate_limit_enabled ? t.platform.support.on : t.platform.support.off}
         </p>
       </div>
 
       <div className="flex flex-wrap gap-2 text-sm">
         <Link href="/platform/usage" className="text-primary underline-offset-2 hover:underline">
-          Kullanım &amp; plan uyarıları →
+          {t.platform.support.usageLink}
         </Link>
         <Link href="/platform/tenants" className="text-primary underline-offset-2 hover:underline">
           Tenant dizini →

@@ -24,8 +24,10 @@ import {
   vehicleCategories,
 } from "@/lib/api/resources";
 import { useSession } from "@/lib/auth/session";
+import { useT } from "@/lib/i18n/provider";
 
 export default function SettingsPage() {
+  const t = useT();
   const { activeFacilityId, can } = useSession();
   const categories = productCategories.useList(activeFacilityId);
   const vehicles = vehicleCategories.useList(activeFacilityId);
@@ -34,86 +36,86 @@ export default function SettingsPage() {
   const overrides = dockOverrides.useList(activeFacilityId);
 
   const count = (query: { data?: { length: number } }) =>
-    query.data ? `${query.data.length} kayıt` : "…";
+    query.data ? t.admin.settings.recordCount(query.data.length) : "…";
 
   const sections = [
     {
       icon: Boxes,
-      title: "Ürün Kategorileri",
-      description: "Blokaj süresi aralığı (min–maks) + varsayılan araç kategorisi",
+      title: t.admin.categories.title,
+      description: t.admin.settings.cards.categories,
       stat: count(categories),
       href: "/admin/settings/categories",
       permission: "category.manage",
     },
     {
       icon: Truck,
-      title: "Araç Kategorileri",
-      description: "TIR, kamyonet, frigorifik… birinci sınıf varlık",
+      title: t.admin.vehicleCategories.title,
+      description: t.admin.settings.cards.vehicleCategories,
       stat: count(vehicles),
       href: "/admin/settings/vehicle-categories",
       permission: "vehicle_category.manage",
     },
     {
       icon: Warehouse,
-      title: "Rampalar",
-      description: "Çalışma saatleri, kabul edilen ürün ve araç kategorileri",
+      title: t.nav.admin.settings,
+      description: t.admin.settings.cards.docks,
       stat: count(dockList),
       href: "/admin/settings/docks",
       permission: "dock.manage",
     },
     {
       icon: GitFork,
-      title: "Rampa Çakışma Grupları",
-      description: "Karşılıklı bloke / paylaşımlı kapasite / koşullu tetik",
+      title: t.admin.conflictGroups.title,
+      description: t.admin.settings.cards.conflictGroups,
       stat: count(groups),
       href: "/admin/settings/conflict-groups",
       permission: "dock_conflict_group.manage",
     },
     {
       icon: CalendarOff,
-      title: "Takvim İstisnaları",
-      description: "Kapalı günler ve güne özel çalışma saatleri",
+      title: t.admin.overrides.title,
+      description: t.admin.settings.cards.overrides,
       stat: count(overrides),
       href: "/admin/settings/overrides",
       permission: "calendar.override",
     },
     {
       icon: Handshake,
-      title: "Tedarikçiler",
-      description: "İzinli kategoriler, kota, otomatik onay + portal hesabı",
-      stat: "Yönet",
+      title: t.admin.suppliers.title,
+      description: t.admin.settings.cards.suppliers,
+      stat: t.admin.settings.manage,
       href: "/admin/settings/suppliers",
       permission: "supplier.manage",
     },
     {
       icon: BellRing,
-      title: "Tedarikçi Bildirimleri",
-      description: "Tedarikçilere hangi panel/e-posta bildirimlerinin gideceği",
+      title: t.admin.supplierNotifications.title,
+      description: t.admin.settings.cards.supplierNotifications,
       stat: "Politika",
       href: "/admin/settings/supplier-notifications",
       permission: "supplier.manage",
     },
     {
       icon: Users2,
-      title: "Kullanıcılar & Roller",
-      description: "RBAC görünümü — rol izinleri ve rampa bazlı kısıtlama",
-      stat: "Görüntüle",
+      title: t.admin.users.title,
+      description: t.admin.settings.cards.users,
+      stat: t.admin.settings.view,
       href: "/admin/settings/users",
       permission: "user.manage",
     },
     {
       icon: MailWarning,
-      title: "E-posta Logları",
-      description: "Giden e-postalar, hatalılar ve toplu yeniden gönderim",
+      title: t.admin.emailLogs.title,
+      description: t.admin.settings.cards.emailLogs,
       stat: "Operasyon",
       href: "/admin/settings/email-logs",
       permission: "appt.view",
     },
     {
       icon: ScrollText,
-      title: "Denetim İzleri",
-      description: "Hesabınızdaki yönetim işlemlerinin audit kayıtları",
-      stat: "İncele",
+      title: t.admin.auditLogs.title,
+      description: t.admin.settings.cards.auditLogs,
+      stat: t.admin.settings.inspect,
       href: "/admin/settings/audit-logs",
       permission: "audit.view",
     },
@@ -130,10 +132,9 @@ export default function SettingsPage() {
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h1 className="text-xl font-bold">Yönetim</h1>
+        <h1 className="text-xl font-bold">{t.admin.settings.title}</h1>
         <p className="text-sm text-muted-foreground">
-          İş Kuralları Motorunu besleyen operasyon konfigürasyonları — buradaki her ayar randevu
-          uygunluğunu etkiler.
+          {t.admin.settings.description}
         </p>
       </div>
 

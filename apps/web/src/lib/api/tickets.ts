@@ -9,7 +9,13 @@
  */
 
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { BASE_URL, apiRequest, authorizedFetch, getStoredToken } from "@/lib/api/client";
+import {
+  ApiError,
+  BASE_URL,
+  apiRequest,
+  authorizedFetch,
+  getStoredToken,
+} from "@/lib/api/client";
 import type {
   TicketConfigDto,
   TicketDetailDto,
@@ -171,7 +177,7 @@ function makeTicketApi(prefix: string, keyRoot: string) {
     const response = await authorizedFetch(
       `${prefix}/${ticketId}/attachments/${attachmentId}/download`,
     );
-    if (!response.ok) throw new Error("Dosya indirilemedi");
+    if (!response.ok) throw new ApiError("download_failed", "Dosya indirilemedi");
     const blob = await response.blob();
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
@@ -255,10 +261,14 @@ function putWithProgress(
       if (request.status >= 200 && request.status < 300) return resolve();
       // Sebebi GOSTER: "Dosya yüklenemedi" kullaniciya ne oldugunu da ne
       // yapacagini da anlatmiyordu. Kendi API'miz yapili zarf donuyor.
-      reject(new Error(errorMessageFrom(request) ?? "Dosya yüklenemedi"));
+      reject(
+        new ApiError("upload_failed", errorMessageFrom(request) ?? "Dosya yüklenemedi"),
+      );
     };
     request.onerror = () =>
-      reject(new Error("Dosya yüklenemedi — bağlantı kurulamadı."));
+      reject(
+        new ApiError("upload_network_error", "Dosya yüklenemedi — bağlantı kurulamadı."),
+      );
     request.send(file);
   });
 }

@@ -22,6 +22,8 @@ import { NotificationBell } from "@/components/notifications/notification-bell";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/input";
 import { SessionProvider, useSession } from "@/lib/auth/session";
+import type { Dictionary } from "@/lib/i18n/dictionaries/tr";
+import { useT } from "@/lib/i18n/provider";
 
 /** Yonetim modulu izinlerinden herhangi biri varsa "Yonetim" menusu gorunur. */
 const SETTINGS_PERMISSIONS = [
@@ -34,62 +36,93 @@ const SETTINGS_PERMISSIONS = [
   "user.manage",
 ];
 
-const NAV: (AppNavItem & { permission?: string | string[] })[] = [
-  { href: "/admin/dashboard", label: "Genel Bakış", icon: LayoutDashboard },
-  { href: "/admin/calendar", label: "Takvim", icon: CalendarDays, permission: "appt.view" },
-  {
-    href: "/admin/appointments",
-    label: "Randevular",
-    icon: ClipboardList,
-    permission: "appt.view",
-  },
-  { href: "/admin/series", label: "Seriler", icon: Repeat, permission: "appt.view" },
-  { href: "/admin/reports", label: "Raporlar", icon: LineChart, permission: "report.view" },
-  {
-    href: "/admin/tickets",
-    label: "Destek Talepleri",
-    icon: LifeBuoy,
-    permission: "ticket.view",
-  },
-  {
-    href: "/admin/settings",
-    label: "Yönetim",
-    icon: Settings2,
-    permission: SETTINGS_PERMISSIONS,
-  },
-];
+type AdminNavItem = AppNavItem & { permission?: string | string[] };
+
+function navItems(t: Dictionary): AdminNavItem[] {
+  return [
+    {
+      href: "/admin/dashboard",
+      label: t.nav.admin.dashboard,
+      icon: LayoutDashboard,
+    },
+    {
+      href: "/admin/calendar",
+      label: t.nav.admin.calendar,
+      icon: CalendarDays,
+      permission: "appt.view",
+    },
+    {
+      href: "/admin/appointments",
+      label: t.nav.admin.appointments,
+      icon: ClipboardList,
+      permission: "appt.view",
+    },
+    {
+      href: "/admin/series",
+      label: t.nav.admin.series,
+      icon: Repeat,
+      permission: "appt.view",
+    },
+    {
+      href: "/admin/reports",
+      label: t.nav.admin.reports,
+      icon: LineChart,
+      permission: "report.view",
+    },
+    {
+      href: "/admin/tickets",
+      label: t.nav.admin.tickets,
+      icon: LifeBuoy,
+      permission: "ticket.view",
+    },
+    {
+      href: "/admin/settings",
+      label: t.nav.admin.settings,
+      icon: Settings2,
+      permission: SETTINGS_PERMISSIONS,
+    },
+  ];
+}
 
 function navAllowed(
-  item: (typeof NAV)[number],
+  item: AdminNavItem,
   can: (permission: string) => boolean,
 ): boolean {
   if (!item.permission) return true;
-  const required = Array.isArray(item.permission) ? item.permission : [item.permission];
+  const required = Array.isArray(item.permission)
+    ? item.permission
+    : [item.permission];
   return required.some((p) => can(p));
 }
 
 function AdminShell({ children }: { children: React.ReactNode }) {
+  const t = useT();
   const session = useSession();
   const [preferencesOpen, setPreferencesOpen] = useState(false);
-  const visibleNav = NAV.filter((item) => navAllowed(item, session.can));
+  const visibleNav = navItems(t).filter((item) =>
+    navAllowed(item, session.can),
+  );
 
   if (session.isLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
-        <LoadingState label="Oturum doğrulanıyor…" />
+        <LoadingState label={t.states.verifyingSession} />
       </div>
     );
   }
 
-  if (session.isUnauthorized || (session.me && session.me.user_type !== "tenant")) {
+  if (
+    session.isUnauthorized ||
+    (session.me && session.me.user_type !== "tenant")
+  ) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-4 p-4">
         <LogiSlotLogo size="lg" />
         <p className="text-sm text-muted-foreground">
-          Bu panel için tenant yöneticisi girişi gerekli.
+          {t.admin.layout.wrongPortal}
         </p>
         <Link href="/login">
-          <Button>Giriş Ekranına Dön</Button>
+          <Button>{t.admin.layout.backToLogin}</Button>
         </Link>
       </div>
     );
@@ -99,7 +132,7 @@ function AdminShell({ children }: { children: React.ReactNode }) {
     return (
       <div className="flex min-h-screen items-center justify-center p-4">
         <ErrorState
-          message={`API'ye ulaşılamadı: ${session.error}. Backend'in çalıştığından emin olun (docker compose up).`}
+          message={t.admin.layout.apiUnreachable(session.error)}
           onRetry={() => window.location.reload()}
         />
       </div>
@@ -117,7 +150,7 @@ function AdminShell({ children }: { children: React.ReactNode }) {
         className="h-9 w-auto max-w-[13rem] text-sm sm:max-w-72"
         value={session.activeFacilityId ?? ""}
         onChange={(e) => session.setActiveFacilityId(e.target.value)}
-        aria-label="Aktif kapsam"
+        aria-label={t.admin.layout.activeScope}
       >
         {facilities.map((f) => (
           <option key={f.id} value={f.id}>
@@ -135,18 +168,21 @@ function AdminShell({ children }: { children: React.ReactNode }) {
     <>
       <AppShell
         nav={visibleNav}
-        roleLabel="Yönetim"
+        roleLabel={t.nav.role.admin}
         brand={<LogiSlotLogo size="lg" priority />}
         headerStart={facilitySwitcher}
         footer={`${session.me?.name} · LogiSlot`}
         headerActions={
           <>
-            <NotificationBell variant="admin" facilityId={session.activeFacilityId} />
+            <NotificationBell
+              variant="admin"
+              facilityId={session.activeFacilityId}
+            />
             <button
               onClick={() => setPreferencesOpen(true)}
               className="rounded-lg p-2 text-muted-foreground hover:bg-muted"
-              aria-label="Bildirim Tercihleri"
-              title="Bildirim tercihleri"
+              aria-label={t.admin.layout.notificationPreferences}
+              title={t.admin.layout.notificationPreferences}
             >
               <SlidersHorizontal className="h-5 w-5" />
             </button>
@@ -159,7 +195,7 @@ function AdminShell({ children }: { children: React.ReactNode }) {
       <Dialog
         open={preferencesOpen}
         onClose={() => setPreferencesOpen(false)}
-        title="Bildirim Tercihleri"
+        title={t.admin.layout.notificationPreferences}
       >
         <NotificationPreferencesForm />
       </Dialog>
@@ -167,7 +203,11 @@ function AdminShell({ children }: { children: React.ReactNode }) {
   );
 }
 
-export default function AdminLayout({ children }: { children: React.ReactNode }) {
+export default function AdminLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
     <SessionProvider>
       <AdminShell>{children}</AdminShell>

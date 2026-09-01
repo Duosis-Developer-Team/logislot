@@ -22,39 +22,52 @@ import { ApiError } from "@/lib/api/client";
 import { productCategories, vehicleCategories } from "@/lib/api/resources";
 import type { ProductCategoryDto } from "@/lib/api/types";
 import { useSession } from "@/lib/auth/session";
+import { useApiErrorMessage } from "@/lib/i18n/api-error";
+import type { Dictionary } from "@/lib/i18n/dictionaries/tr";
+import { useT } from "@/lib/i18n/provider";
 
 // Backend ile ayni sinir: app/schemas/config.py -> MAX_BLOCK_MINUTES_CAP
 const MAX_BLOCK_MINUTES_CAP = 1440;
 
 const formSchema = z
   .object({
-    name: z.string().min(1, "Ad zorunlu"),
-    display_name: z.string().min(1, "Görünen ad zorunlu"),
+    name: z.string().min(1, "nameRequired"),
+    display_name: z.string().min(1, "displayNameRequired"),
     description: z.string().optional(),
     min_block_minutes: z.coerce
-      .number({ invalid_type_error: "Sayı girin" })
+      .number({ invalid_type_error: "numberRequired" })
       .int()
-      .positive("Pozitif olmalı")
-      .max(MAX_BLOCK_MINUTES_CAP, "En fazla 1440 dk (24 saat)"),
+      .positive("mustBePositive")
+      .max(MAX_BLOCK_MINUTES_CAP, "maxDuration"),
     // Boş bırakılabilir: "üst sınır yok" anlamına gelir.
     max_block_minutes: z.union([
       z.literal(""),
       z.coerce
-        .number({ invalid_type_error: "Sayı girin" })
+        .number({ invalid_type_error: "numberRequired" })
         .int()
-        .positive("Pozitif olmalı")
-        .max(MAX_BLOCK_MINUTES_CAP, "En fazla 1440 dk (24 saat)"),
+        .positive("mustBePositive")
+        .max(MAX_BLOCK_MINUTES_CAP, "maxDuration"),
     ]),
     default_vehicle_category_id: z.string().optional(),
   })
   .refine(
     (v) => v.max_block_minutes === "" || v.max_block_minutes >= v.min_block_minutes,
-    { path: ["max_block_minutes"], message: "Maksimum, minimumdan küçük olamaz" },
+    { path: ["max_block_minutes"], message: "maxBelowMin" },
   );
 
 type FormValues = z.infer<typeof formSchema>;
 
+
+/** Zod semasi modul seviyesinde tanimlanir ve hook cagiramaz; mesaj olarak
+ *  ANAHTAR uretilir ve ekranda sozlukten cevrilir. */
+function fieldError(t: Dictionary, message: string | undefined): string | undefined {
+  if (!message) return undefined;
+  return (t.admin.config.messages as Record<string, string>)[message] ?? message;
+}
+
 export default function CategoriesPage() {
+  const t = useT();
+  const errorMessage = useApiErrorMessage();
   const { activeFacilityId } = useSession();
   const list = productCategories.useList(activeFacilityId);
   const vehicles = vehicleCategories.useList(activeFacilityId);
@@ -116,7 +129,10 @@ export default function CategoriesPage() {
     };
     try {
       await save.mutateAsync({ id: drawer.editing?.id, body });
-      showFlash("success", drawer.editing ? "Kategori güncellendi." : "Kategori oluşturuldu.");
+      showFlash(
+        "success",
+        drawer.editing ? t.admin.categories.updated : t.admin.categories.created,
+      );
       setDrawer({ open: false, editing: null });
     } catch (err) {
       setFormError(err instanceof ApiError ? err.message : "Kaydedilemedi");
@@ -127,9 +143,9 @@ export default function CategoriesPage() {
     if (!confirmTarget) return;
     try {
       await deactivate.mutateAsync(confirmTarget.id);
-      showFlash("success", `"${confirmTarget.display_name}" pasifleştirildi.`);
+      showFlash("success", t.admin.config.deactivated(confirmTarget.display_name));
     } catch (err) {
-      showFlash("error", err instanceof ApiError ? err.message : "İşlem başarısız");
+      showFlash("error", errorMessage(err, t.admin.config.actionFailed));
     } finally {
       setConfirmTarget(null);
     }
@@ -147,9 +163,9 @@ export default function CategoriesPage() {
 
   return (
     <ConfigPageShell
-      title="Ürün Kategorileri"
-      description="Blokaj süresi aralığı ve varsayılan araç kategorisi randevu uygunluğunu doğrudan etkiler."
-      createLabel="Yeni Kategori"
+      title={t.admin.categories.title}
+      description={t.admin.categories.pageDescription}
+      createLabel={t.admin.categories.createLabel}
       onCreate={openCreate}
       search={search}
       onSearchChange={setSearch}
@@ -160,12 +176,12 @@ export default function CategoriesPage() {
       {list.isLoading ? (
         <LoadingState />
       ) : list.isError ? (
-        <ErrorState message="Kategoriler yüklenemedi." onRetry={() => list.refetch()} />
+        <ErrorState message={t.admin.categories.loadError} onRetry={() => list.refetch()} />
       ) : rows.length === 0 ? (
         <EmptyState
-          title="Kategori bulunamadı"
-          description="Tedarikçiler yalnızca burada tanımlı ve kendilerine izinli kategorilerden randevu talep edebilir."
-          actionLabel="İlk kategoriyi oluştur"
+          title={t.admin.categories.emptyTitle}
+          description={t.admin.categories.emptyDescription}
+          actionLabel={t.admin.categories.emptyAction}
           onAction={openCreate}
         />
       ) : (
@@ -173,11 +189,11 @@ export default function CategoriesPage() {
           <THead>
             <TR>
               <TH>Ad</TH>
-              <TH>Görünen Ad</TH>
-              <TH>Blokaj Süresi</TH>
-              <TH>Varsayılan Araç</TH>
+              <TH>{t.admin.config.displayName}</TH>
+              <TH>{t.admin.categories.colDuration}</TH>
+              <TH>{t.admin.categories.colDefaultVehicle}</TH>
               <TH>Durum</TH>
-              <TH className="text-right">İşlem</TH>
+              <TH className="text-right">{t.common.actions}</TH>
             </TR>
           </THead>
           <TBody>
@@ -197,11 +213,11 @@ export default function CategoriesPage() {
                 <TD className="text-right">
                   <div className="flex justify-end gap-1">
                     <Button size="sm" variant="secondary" onClick={() => openEdit(row)}>
-                      Düzenle
+                      {t.common.edit}
                     </Button>
                     {row.is_active && (
                       <Button size="sm" variant="ghost" onClick={() => setConfirmTarget(row)}>
-                        Pasifleştir
+                        {t.admin.config.deactivate}
                       </Button>
                     )}
                   </div>
@@ -215,72 +231,72 @@ export default function CategoriesPage() {
       <Drawer
         open={drawer.open}
         onClose={() => setDrawer({ open: false, editing: null })}
-        title={drawer.editing ? "Kategoriyi Düzenle" : "Yeni Ürün Kategorisi"}
-        description="Bu ayarlar rule engine tarafından randevu oluşturma anında uygulanır."
+        title={drawer.editing ? t.admin.categories.editTitle : t.admin.categories.createTitle}
+        description={t.admin.categories.drawerHint}
       >
         <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-4">
           <div>
             <Label>Ad</Label>
-            <Input {...form.register("name")} placeholder="Örn. Soğuk Zincir" />
+            <Input {...form.register("name")} placeholder={t.admin.categories.namePlaceholder} />
             {form.formState.errors.name && (
               <p className="mt-1 text-xs text-destructive">
-                {form.formState.errors.name.message}
+                {fieldError(t, form.formState.errors.name.message)}
               </p>
             )}
           </div>
           <div>
-            <Label>Tedarikçiye Görünen Ad</Label>
+            <Label>{t.admin.categories.supplierFacingName}</Label>
             <Input {...form.register("display_name")} />
             {form.formState.errors.display_name && (
               <p className="mt-1 text-xs text-destructive">
-                {form.formState.errors.display_name.message}
+                {fieldError(t, form.formState.errors.display_name.message)}
               </p>
             )}
           </div>
           <div>
-            <Label>Açıklama</Label>
+            <Label>{t.admin.config.description}</Label>
             <Input {...form.register("description")} placeholder="Opsiyonel" />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <Label>Min. Blokaj Süresi (dk)</Label>
+              <Label>{t.admin.categories.minDuration}</Label>
               <Input type="number" min={1} {...form.register("min_block_minutes")} />
               {form.formState.errors.min_block_minutes && (
                 <p className="mt-1 text-xs text-destructive">
-                  {form.formState.errors.min_block_minutes.message}
+                  {fieldError(t, form.formState.errors.min_block_minutes.message)}
                 </p>
               )}
               <p className="mt-1 text-xs text-muted-foreground">
-                Kalite kontrol gibi ek süreler bu minimuma dahildir.
+                {t.admin.categories.minDurationHint}
               </p>
             </div>
             <div>
-              <Label>Maks. Blokaj Süresi (dk)</Label>
+              <Label>{t.admin.categories.maxDuration}</Label>
               <Input
                 type="number"
                 min={1}
-                placeholder="Sınırsız"
+                placeholder={t.admin.categories.unlimited}
                 {...form.register("max_block_minutes")}
               />
               {form.formState.errors.max_block_minutes && (
                 <p className="mt-1 text-xs text-destructive">
-                  {form.formState.errors.max_block_minutes.message}
+                  {fieldError(t, form.formState.errors.max_block_minutes.message)}
                 </p>
               )}
               <p className="mt-1 text-xs text-muted-foreground">
-                Boş bırakılırsa üst sınır uygulanmaz.
+                {t.admin.categories.maxDurationHint}
               </p>
             </div>
           </div>
           <div className="rounded-lg border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
-            Randevu oluştururken seçilebilen süreler bu aralıkla sınırlanır. Tedarikçi
-            kartında ayrıca bir limit tanımlıysa, iki aralığın <strong>kesişimi</strong>{" "}
-            uygulanır.
+            {t.admin.categories.intersectionLead}{" "}
+            <strong>{t.admin.categories.intersectionStrong}</strong>{" "}
+            {t.admin.categories.intersectionTail}
           </div>
           <div>
-            <Label>Varsayılan Araç Kategorisi</Label>
+            <Label>{t.admin.categories.defaultVehicle}</Label>
             <Select {...form.register("default_vehicle_category_id")}>
-              <option value="">— Seçilmedi —</option>
+              <option value="">{t.admin.categories.notSelected}</option>
               {(vehicles.data ?? [])
                 .filter((v) => v.is_active)
                 .map((v) => (
@@ -290,7 +306,7 @@ export default function CategoriesPage() {
                 ))}
             </Select>
             <p className="mt-1 text-xs text-muted-foreground">
-              Sihirbazda araç adımı bu değerle önceden doldurulur.
+              {t.admin.categories.defaultVehicleHint}
             </p>
           </div>
           {drawer.editing && (
@@ -303,10 +319,10 @@ export default function CategoriesPage() {
               variant="secondary"
               onClick={() => setDrawer({ open: false, editing: null })}
             >
-              İptal
+              {t.common.cancel}
             </Button>
             <Button type="submit" disabled={save.isPending}>
-              {save.isPending ? "Kaydediliyor…" : "Kaydet"}
+              {save.isPending ? t.common.saving : t.common.save}
             </Button>
           </div>
         </form>
@@ -314,8 +330,8 @@ export default function CategoriesPage() {
 
       <ConfirmDialog
         open={confirmTarget !== null}
-        title="Kategoriyi pasifleştir"
-        message={`"${confirmTarget?.display_name}" pasifleştirilecek. Geçmiş randevular etkilenmez; tedarikçiler yeni randevuda bu kategoriyi seçemez.`}
+        title={t.admin.categories.deactivateTitle}
+        message={t.admin.categories.deactivateMessage(confirmTarget?.display_name ?? "")}
         loading={deactivate.isPending}
         onConfirm={onDeactivate}
         onClose={() => setConfirmTarget(null)}

@@ -24,6 +24,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { resolveMimeType } from "@/lib/api/tickets";
 import { cn } from "@/lib/utils";
+import { useApiErrorMessage } from "@/lib/i18n/api-error";
+import type { Dictionary } from "@/lib/i18n/dictionaries/tr";
+import { useT } from "@/lib/i18n/provider";
 
 /**
  * Liste anahtari icin surec-omurlu sayac.
@@ -64,17 +67,20 @@ function formatSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-function scanLabel(status: string | null): { text: string; tone: string } | null {
+function scanLabel(
+  t: Dictionary,
+  status: string | null,
+): { text: string; tone: string } | null {
   switch (status) {
     case "clean":
-      return { text: "Güvenlik kontrolü tamam", tone: "text-status-approved" };
+      return { text: t.tickets.attachments.clean, tone: "text-status-approved" };
     case "rejected":
-      return { text: "Dosya reddedildi", tone: "text-destructive" };
+      return { text: t.tickets.attachments.rejected, tone: "text-destructive" };
     case "scan_failed":
-      return { text: "Tarama tamamlanamadı", tone: "text-status-pending" };
+      return { text: t.tickets.attachments.rejected, tone: "text-status-pending" };
     case "scanning":
     case "pending_scan":
-      return { text: "Güvenlik kontrolü yapılıyor", tone: "text-muted-foreground" };
+      return { text: t.tickets.attachments.scanning, tone: "text-muted-foreground" };
     default:
       return null;
   }
@@ -90,6 +96,8 @@ export function AttachmentDropzone({
   allowedMimeTypes,
   disabled = false,
 }: AttachmentDropzoneProps) {
+  const t = useT();
+  const errorMessage = useApiErrorMessage();
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragActive, setDragActive] = useState(false);
   const [limitError, setLimitError] = useState<string | null>(null);
@@ -124,11 +132,11 @@ export function AttachmentDropzone({
         });
       } catch (error) {
         patch(item.key, {
-          error: error instanceof Error ? error.message : "Dosya yüklenemedi",
+          error: errorMessage(error, t.tickets.attachments.uploadFailed),
         });
       }
     },
-    [patch, upload],
+    [errorMessage, patch, upload, t.tickets.attachments.uploadFailed],
   );
 
   const addFiles = useCallback(
@@ -141,25 +149,28 @@ export function AttachmentDropzone({
 
       for (const file of files) {
         if (current.length + accepted.length >= maxFiles) {
-          setLimitError(`En fazla ${maxFiles} dosya ekleyebilirsiniz.`);
+          setLimitError(t.tickets.attachments.tooManyFiles(maxFiles));
           break;
         }
         // Tarayicilar `.log` icin BOS tur bildirir; uzantidan turetilmis tur
         // kullanilir (bkz. resolveMimeType).
         if (!allowedMimeTypes.includes(resolveMimeType(file))) {
-          setLimitError(
-            `"${file.name}" desteklenmiyor. PNG, JPEG, WEBP, PDF ve TXT/LOG kabul edilir.`,
-          );
+          setLimitError(t.tickets.attachments.unsupportedType(file.name));
           continue;
         }
         if (file.size > maxFileSizeBytes) {
           setLimitError(
-            `"${file.name}" çok büyük (en fazla ${formatSize(maxFileSizeBytes)}).`,
+            t.tickets.attachments.tooLarge(
+              file.name,
+              Math.round(maxFileSizeBytes / (1024 * 1024)),
+            ),
           );
           continue;
         }
         if (total + file.size > maxTotalBytes) {
-          setLimitError(`Toplam boyut ${formatSize(maxTotalBytes)} sınırını aşıyor.`);
+          setLimitError(
+            t.tickets.attachments.totalTooLarge(Math.round(maxTotalBytes / (1024 * 1024))),
+          );
           break;
         }
         total += file.size;
@@ -183,6 +194,7 @@ export function AttachmentDropzone({
       allowedMimeTypes,
       disabled,
       maxFileSizeBytes,
+      t.tickets.attachments,
       maxFiles,
       maxTotalBytes,
       onChange,
@@ -236,12 +248,16 @@ export function AttachmentDropzone({
       >
         <UploadCloud className="h-6 w-6 text-muted-foreground" aria-hidden />
         <span className="text-sm font-medium">
-          Dosyaları buraya sürükleyin veya seçmek için tıklayın
+          {t.tickets.attachments.dropHint}
         </span>
         <span className="text-xs text-muted-foreground">
-          Ekran görüntüsünü <kbd className="rounded border px-1">Ctrl/⌘ + V</kbd> ile
-          yapıştırabilirsiniz · en fazla {maxFiles} dosya ·{" "}
-          {formatSize(maxFileSizeBytes)}/dosya
+          {t.tickets.attachments.pasteLead}{" "}
+          <kbd className="rounded border px-1">Ctrl/⌘ + V</kbd>{" "}
+          {t.tickets.attachments.pasteTail} ·{" "}
+          {t.tickets.attachments.limits(
+            maxFiles,
+            Math.round(maxFileSizeBytes / (1024 * 1024)),
+          )}
         </span>
       </button>
 
@@ -261,8 +277,7 @@ export function AttachmentDropzone({
 
       <p className="flex items-start gap-1.5 text-xs text-muted-foreground">
         <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
-        Ekran görüntüsü ve logların gizli bilgi (şifre, kişisel veri) içermediğinden
-        emin olun.
+        {t.tickets.attachments.allowedHint}
       </p>
 
       {limitError && (
@@ -278,7 +293,7 @@ export function AttachmentDropzone({
       {attachments.length > 0 && (
         <ul className="flex flex-col gap-1.5">
           {attachments.map((item) => {
-            const scan = scanLabel(item.scanStatus);
+            const scan = scanLabel(t, item.scanStatus);
             const uploading = item.uploadId === null && item.error === null;
             const Icon = item.file.type.startsWith("image/") ? ImageIcon : FileText;
             return (
@@ -303,7 +318,7 @@ export function AttachmentDropzone({
                       aria-valuenow={item.progress}
                       aria-valuemin={0}
                       aria-valuemax={100}
-                      aria-label={`${item.file.name} yükleniyor`}
+                      aria-label={t.tickets.attachments.retryLabel(item.file.name)}
                     >
                       <div
                         className="h-full bg-primary transition-all"
@@ -325,13 +340,13 @@ export function AttachmentDropzone({
                       void startUpload(item);
                     }}
                   >
-                    Tekrar dene
+                    {t.common.retry}
                   </Button>
                 )}
                 <button
                   type="button"
                   onClick={() => remove(item.key)}
-                  aria-label={`${item.file.name} dosyasını kaldır`}
+                  aria-label={t.tickets.attachments.removeLabel(item.file.name)}
                   className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
                 >
                   <Trash2 className="h-4 w-4" aria-hidden />
@@ -346,11 +361,12 @@ export function AttachmentDropzone({
 }
 
 export function AttachmentSummary({ count }: { count: number }) {
+  const t = useT();
   if (count === 0) return null;
   return (
     <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
       <Paperclip className="h-3.5 w-3.5" aria-hidden />
-      {count} ek
+      {t.tickets.attachments.countSuffix(count)}
     </span>
   );
 }

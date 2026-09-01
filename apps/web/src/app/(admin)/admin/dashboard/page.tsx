@@ -22,18 +22,22 @@ import { useDashboardSummary } from "@/lib/api/appointments";
 import { useFacilityPlanWarnings } from "@/lib/api/reports";
 import { useSession } from "@/lib/auth/session";
 import { cn, formatDate, timeInTz } from "@/lib/utils";
+import { useApiErrorMessage } from "@/lib/i18n/api-error";
+import { useT } from "@/lib/i18n/provider";
 
 export default function DashboardPage() {
+  const t = useT();
+  const errorMessage = useApiErrorMessage();
   const { activeFacilityId, activeFacility } = useSession();
   const summary = useDashboardSummary(activeFacilityId);
   const tz = activeFacility?.timezone ?? "Europe/Istanbul";
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const { flash, showFlash } = useFlash();
 
-  if (summary.isLoading) return <LoadingState label="Özet yükleniyor…" />;
+  if (summary.isLoading) return <LoadingState label={t.admin.dashboard.loading} />;
   if (summary.isError || !summary.data)
     return (
-      <ErrorState message="Dashboard yüklenemedi." onRetry={() => summary.refetch()} />
+      <ErrorState message={t.admin.dashboard.loadError} onRetry={() => summary.refetch()} />
     );
 
   const data = summary.data;
@@ -43,21 +47,21 @@ export default function DashboardPage() {
     icon: typeof CalendarClock;
     tone?: "primary" | "cargo";
   }[] = [
-    { label: "Bugünkü Randevular", value: data.today_appointments, icon: CalendarClock },
-    { label: "Onay Bekleyen", value: data.pending_approvals, icon: CalendarCheck2 },
-    { label: "Bugün Tamamlanan", value: data.completed_today, icon: CheckCircle2 },
-    { label: "Bu Hafta Toplam", value: data.week_total, icon: Truck },
-    { label: "Aktif Tedarikçi", value: data.active_suppliers, icon: Users2 },
-    { label: "Aktif Rampa", value: data.active_docks, icon: Warehouse },
-    { label: "Kargo Uyarılı", value: data.cargo_warned, icon: Package, tone: "cargo" },
+    { label: t.admin.dashboard.todayAppointments, value: data.today_appointments, icon: CalendarClock },
+    { label: t.admin.dashboard.pendingApprovals, value: data.pending_approvals, icon: CalendarCheck2 },
+    { label: t.admin.dashboard.completedToday, value: data.completed_today, icon: CheckCircle2 },
+    { label: t.admin.dashboard.weekTotal, value: data.week_total, icon: Truck },
+    { label: t.admin.dashboard.activeSuppliers, value: data.active_suppliers, icon: Users2 },
+    { label: t.admin.dashboard.activeDocks, value: data.active_docks, icon: Warehouse },
+    { label: t.admin.dashboard.cargoWarned, value: data.cargo_warned, icon: Package, tone: "cargo" },
   ];
 
   return (
     <PageContainer>
       <PlanWarningBanner />
       <PageHeader
-        title="Genel Bakış"
-        description={`${activeFacility?.name ?? ""} — günün operasyonel özeti`}
+        title={t.nav.admin.dashboard}
+        description={t.admin.dashboard.summaryFor(activeFacility?.name ?? "")}
       />
 
       {flash && (
@@ -88,13 +92,13 @@ export default function DashboardPage() {
       <div className="grid gap-4 xl:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle>Onay Bekleyen Talepler</CardTitle>
+            <CardTitle>{t.admin.dashboard.pendingRequests}</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col gap-2">
             {data.pending_list.length === 0 ? (
               <EmptyState
-                title="Bekleyen talep yok"
-                description="Yeni talepler geldiğinde burada görünür."
+                title={t.admin.dashboard.noPending}
+                description={t.admin.dashboard.newRequestsHint}
               />
             ) : (
               data.pending_list.map((a) => (
@@ -126,13 +130,13 @@ export default function DashboardPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Yaklaşan Randevular</CardTitle>
+            <CardTitle>{t.admin.dashboard.upcoming}</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col gap-2">
             {data.upcoming.length === 0 ? (
               <EmptyState
-                title="Yaklaşan randevu yok"
-                description="Takvim boş görünüyor."
+                title={t.admin.dashboard.noUpcoming}
+                description={t.admin.dashboard.calendarEmpty}
               />
             ) : (
               data.upcoming.map((a) => (
@@ -173,6 +177,7 @@ export default function DashboardPage() {
 
 /** Plan kullanim uyarisi (Sprint 11) — bilgilendirme amaclidir, engellemez. */
 function PlanWarningBanner() {
+  const t = useT();
   const { activeFacilityId, can } = useSession();
   const warnings = useFacilityPlanWarnings(can("report.view") ? activeFacilityId : null);
   const rows = warnings.data?.warnings ?? [];
@@ -186,9 +191,11 @@ function PlanWarningBanner() {
         : "border-border bg-muted/40 text-muted-foreground";
   return (
     <div className={`rounded-lg border px-4 py-2.5 text-sm ${cls}`}>
-      <span className="font-medium">Plan kullanım uyarısı:</span> {worst.message}
+      <span className="font-medium">{t.admin.dashboard.planWarning}</span> {worst.message}
       {rows.length > 1 && (
-        <span className="ml-1 text-xs opacity-75">(+{rows.length - 1} uyarı daha)</span>
+        <span className="ml-1 text-xs opacity-75">
+          {t.admin.dashboard.moreWarnings(rows.length - 1)}
+        </span>
       )}
     </div>
   );

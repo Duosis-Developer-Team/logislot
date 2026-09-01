@@ -20,6 +20,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { ApiError, apiRequest } from "@/lib/api/client";
+import { useT } from "@/lib/i18n/provider";
 
 interface PreferencesDto {
   in_app_enabled: boolean;
@@ -31,17 +32,6 @@ interface SupplierPolicyDto extends PreferencesDto {
   /** false ise hicbir sey degistirilmemis, varsayilan (hepsi acik) gecerli. */
   is_customized: boolean;
 }
-
-const EVENT_LABELS: Record<string, string> = {
-  appointment_approved: "Randevu onaylandığında",
-  appointment_rejected: "Randevu reddedildiğinde",
-  appointment_revised: "Randevu revize edildiğinde",
-  appointment_dock_changed: "Rampa değiştirildiğinde",
-  appointment_cancelled: "Randevu iptal edildiğinde",
-  appointment_revised_team: "Ekip revize bilgilendirmesi",
-  appointment_series_cancelled: "Seri iptal edildiğinde",
-  appointment_series_revised: "Seri revize edildiğinde",
-};
 
 export function usePreferences() {
   return useQuery({
@@ -74,6 +64,8 @@ function PreferencesFields({
   saved: boolean;
   onSave: () => void;
 }) {
+  const t = useT();
+  const copy = t.components.notificationPreferences;
   return (
     <div className="flex flex-col gap-4">
       {banner}
@@ -81,7 +73,7 @@ function PreferencesFields({
         <Switch
           checked={draft.in_app_enabled}
           onChange={(v) => setDraft({ ...draft, in_app_enabled: v })}
-          label="Panel bildirimleri"
+          label={copy.inAppLabel}
         />
         <p className="text-xs text-muted-foreground">{inAppHint}</p>
       </div>
@@ -90,7 +82,7 @@ function PreferencesFields({
         <Switch
           checked={draft.email_enabled}
           onChange={(v) => setDraft({ ...draft, email_enabled: v })}
-          label="E-posta bildirimleri"
+          label={copy.emailLabel}
         />
         <p className="text-xs text-muted-foreground">{emailHint}</p>
         {draft.email_enabled && (
@@ -105,7 +97,7 @@ function PreferencesFields({
                     email_events: { ...draft.email_events, [key]: v },
                   })
                 }
-                label={EVENT_LABELS[key] ?? key}
+                label={copy.events[key] ?? key}
               />
             ))}
           </div>
@@ -116,7 +108,7 @@ function PreferencesFields({
       {saved && <p className="text-sm text-status-approved">{savedText}</p>}
       <div className="flex justify-end">
         <Button onClick={onSave} disabled={isPending}>
-          {isPending ? "Kaydediliyor…" : "Kaydet"}
+          {isPending ? t.common.saving : t.common.save}
         </Button>
       </div>
     </div>
@@ -124,6 +116,7 @@ function PreferencesFields({
 }
 
 export function NotificationPreferencesForm({ onSaved }: { onSaved?: () => void }) {
+  const copy = useT().components.notificationPreferences;
   const queryClient = useQueryClient();
   const prefs = usePreferences();
   const [draft, setDraft] = useState<PreferencesDto | null>(null);
@@ -150,9 +143,9 @@ export function NotificationPreferencesForm({ onSaved }: { onSaved?: () => void 
   // Hata ONCE kontrol edilir: istek basarisizsa draft hep null kalir ve
   // "yukleniyor" ekrani asla bitmezdi.
   if (prefs.isError)
-    return <p className="text-sm text-destructive">Tercihler yüklenemedi.</p>;
+    return <p className="text-sm text-destructive">{copy.selfLoadError}</p>;
   if (prefs.isLoading || draft === null)
-    return <p className="text-sm text-muted-foreground">Tercihler yükleniyor…</p>;
+    return <p className="text-sm text-muted-foreground">{copy.selfLoading}</p>;
 
   async function onSave() {
     setError(null);
@@ -160,7 +153,7 @@ export function NotificationPreferencesForm({ onSaved }: { onSaved?: () => void 
     try {
       await save.mutateAsync(draft!);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Kaydedilemedi");
+      setError(err instanceof ApiError ? err.message : copy.saveFailed);
     }
   }
 
@@ -170,12 +163,12 @@ export function NotificationPreferencesForm({ onSaved }: { onSaved?: () => void 
       setDraft={setDraft}
       inAppHint={
         <>
-          Kapatılsa bile <strong>randevu revizeleri</strong> panelde görünmeye devam
-          eder (operasyonel olarak kritiktir).
+          {copy.selfInAppLead} <strong>{copy.selfInAppStrong}</strong>{" "}
+          {copy.selfInAppTail}
         </>
       }
-      emailHint="E-postaları kapatırsanız panel bildirimleri devam eder — panel her zaman güncel kaynaktır. Varsayılan: tüm bildirimler açık."
-      savedText="Tercihleriniz kaydedildi."
+      emailHint={copy.selfEmailHint}
+      savedText={copy.selfSaved}
       isPending={save.isPending}
       error={error}
       saved={saved}
@@ -206,6 +199,7 @@ export function SupplierNotificationPolicyForm({
 }: {
   facilityId: string | null;
 }) {
+  const copy = useT().components.notificationPreferences;
   const queryClient = useQueryClient();
   const policy = useSupplierNotificationPolicy(facilityId);
   const [draft, setDraft] = useState<PreferencesDto | null>(null);
@@ -232,9 +226,9 @@ export function SupplierNotificationPolicyForm({
   });
 
   if (policy.isError)
-    return <p className="text-sm text-destructive">Politika yüklenemedi.</p>;
+    return <p className="text-sm text-destructive">{copy.policyLoadError}</p>;
   if (policy.isLoading || draft === null)
-    return <p className="text-sm text-muted-foreground">Politika yükleniyor…</p>;
+    return <p className="text-sm text-muted-foreground">{copy.policyLoading}</p>;
 
   async function onSave() {
     setError(null);
@@ -242,7 +236,7 @@ export function SupplierNotificationPolicyForm({
     try {
       await save.mutateAsync(draft!);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Kaydedilemedi");
+      setError(err instanceof ApiError ? err.message : copy.saveFailed);
     }
   }
 
@@ -253,19 +247,18 @@ export function SupplierNotificationPolicyForm({
       banner={
         policy.data?.is_customized === false ? (
           <p className="rounded-lg border border-border bg-muted/40 p-3 text-xs text-muted-foreground">
-            Varsayılan politika geçerli: tedarikçilere tüm bildirimler gönderiliyor.
+            {copy.defaultPolicy}
           </p>
         ) : null
       }
       inAppHint={
         <>
-          Kapatılsa bile <strong>randevu revizesi ve rampa değişikliği</strong>{" "}
-          tedarikçinin panelinde görünmeye devam eder — sürücünün gideceği saat ve
-          yer gizlenemez.
+          {copy.supplierInAppLead} <strong>{copy.supplierInAppStrong}</strong>{" "}
+          {copy.supplierInAppTail}
         </>
       }
-      emailHint="E-postaları kapatırsanız tedarikçinin panel bildirimleri devam eder — panel her zaman güncel kaynaktır. Varsayılan: tüm bildirimler açık."
-      savedText="Tedarikçi bildirim politikası kaydedildi."
+      emailHint={copy.supplierEmailHint}
+      savedText={copy.savedSupplier}
       isPending={save.isPending}
       error={error}
       saved={saved}

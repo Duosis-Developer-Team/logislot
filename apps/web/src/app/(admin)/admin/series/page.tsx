@@ -25,14 +25,14 @@ import { docks as dockResource } from "@/lib/api/resources";
 import { ApiError } from "@/lib/api/client";
 import { useSession } from "@/lib/auth/session";
 import { cn, formatDate } from "@/lib/utils";
+import { useApiErrorMessage } from "@/lib/i18n/api-error";
+import { useT } from "@/lib/i18n/provider";
 
-const FREQUENCY_LABELS: Record<string, string> = {
-  weekly: "Haftalık",
-  biweekly: "2 haftada bir",
-  monthly: "Aylık",
-};
+
 
 export default function SeriesPage() {
+  const t = useT();
+  const errorMessage = useApiErrorMessage();
   const { activeFacilityId, can } = useSession();
   const list = useAppointmentSeries(activeFacilityId);
   const cancel = useSeriesCancel(activeFacilityId);
@@ -49,9 +49,9 @@ export default function SeriesPage() {
     if (!approveTarget) return;
     try {
       const result = await approve.mutateAsync({ seriesId: approveTarget.id });
-      showFlash("success", `Serideki ${result.affected_count} randevu onaylandı.`);
+      showFlash("success", t.admin.series.approved(result.affected_count));
     } catch (err) {
-      showFlash("error", err instanceof ApiError ? err.message : "Onaylanamadı");
+      showFlash("error", errorMessage(err, t.admin.series.approveFailed));
     } finally {
       setApproveTarget(null);
     }
@@ -82,11 +82,11 @@ export default function SeriesPage() {
       });
       showFlash(
         "success",
-        `Serideki ${result.affected_count} randevu ${result.new_time} saatine revize edildi (tedarikçi onayı bekleniyor).`,
+        t.admin.series.revised(result.affected_count, result.new_time),
       );
       setReviseTarget(null);
     } catch (err) {
-      setReviseError(err instanceof ApiError ? err.message : "Revize edilemedi");
+      setReviseError(err instanceof ApiError ? err.message : t.admin.series.reviseFailed);
     }
   }
 
@@ -96,10 +96,10 @@ export default function SeriesPage() {
       const result = await cancel.mutateAsync({ seriesId: cancelTarget.id });
       showFlash(
         "success",
-        `Serinin gelecekteki ${result.affected_count} randevusu iptal edildi.`,
+        t.admin.series.cancelledCount(result.affected_count),
       );
     } catch (err) {
-      showFlash("error", err instanceof ApiError ? err.message : "İşlem başarısız");
+      showFlash("error", errorMessage(err, t.admin.series.actionFailed));
     } finally {
       setCancelTarget(null);
     }
@@ -107,7 +107,7 @@ export default function SeriesPage() {
 
   if (list.isLoading) return <LoadingState />;
   if (list.isError)
-    return <ErrorState message="Seriler yüklenemedi." onRetry={() => list.refetch()} />;
+    return <ErrorState message={t.admin.series.loadError} onRetry={() => list.refetch()} />;
 
   const rows = list.data ?? [];
   const futureCancellable = (row: SeriesListRowDto) =>
@@ -118,10 +118,9 @@ export default function SeriesPage() {
   return (
     <div className="flex flex-col gap-4">
       <div>
-        <h1 className="text-xl font-bold">Tekrarlayan Seriler</h1>
+        <h1 className="text-xl font-bold">{t.admin.series.title}</h1>
         <p className="text-sm text-muted-foreground">
-          Tedarikçi sihirbazından oluşturulan seriler. Seri iptali yalnızca gelecekteki
-          randevuları kapsar; tamamlanmış randevulara dokunulmaz.
+          {t.admin.series.description}
         </p>
       </div>
 
@@ -140,19 +139,19 @@ export default function SeriesPage() {
 
       {rows.length === 0 ? (
         <EmptyState
-          title="Tekrarlayan seri yok"
-          description="Tedarikçiler sihirbazdan tekrarlayan randevu oluşturduğunda burada listelenir."
+          title={t.admin.series.emptyTitle}
+          description={t.admin.series.emptyDescription}
         />
       ) : (
         <Table>
           <THead>
             <TR>
-              <TH>Tedarikçi</TH>
-              <TH>Sıklık</TH>
-              <TH>Randevular</TH>
-              <TH>Durum</TH>
-              <TH>Oluşturulma</TH>
-              <TH className="text-right">İşlem</TH>
+              <TH>{t.admin.appointments.colSupplier}</TH>
+              <TH>{t.admin.series.colFrequency}</TH>
+              <TH>{t.admin.series.colAppointments}</TH>
+              <TH>{t.admin.series.colStatus}</TH>
+              <TH>{t.admin.series.colCreated}</TH>
+              <TH className="text-right">{t.common.actions}</TH>
             </TR>
           </THead>
           <TBody>
@@ -169,7 +168,7 @@ export default function SeriesPage() {
                     </span>
                   </TD>
                   <TD>
-                    {FREQUENCY_LABELS[row.frequency] ?? row.frequency} × {row.occurrence_count}
+                    {t.admin.series.frequency[row.frequency] ?? row.frequency} × {row.occurrence_count}
                   </TD>
                   <TD>
                     <div className="flex flex-wrap gap-1">
@@ -191,7 +190,7 @@ export default function SeriesPage() {
                           : "bg-status-cancelled/15 text-status-cancelled"
                       }
                     >
-                      {row.status === "active" ? "Aktif" : "İptal Edildi"}
+                      {row.status === "active" ? t.admin.series.active : t.admin.series.cancelled}
                     </Badge>
                   </TD>
                   <TD className="text-xs text-muted-foreground">
@@ -203,7 +202,7 @@ export default function SeriesPage() {
                         row.status === "active" &&
                         (row.status_counts["revision_pending"] ?? 0) > 0 && (
                           <Button size="sm" onClick={() => setApproveTarget(row)}>
-                            Seriyi Onayla
+                            {t.admin.series.approveSeries}
                           </Button>
                         )}
                       {can("appt.revise") &&
@@ -218,7 +217,7 @@ export default function SeriesPage() {
                               setReviseTarget(row);
                             }}
                           >
-                            Seriyi Revize Et
+                            {t.admin.series.reviseSeries}
                           </Button>
                         )}
                       {can("appt.cancel") &&
@@ -230,7 +229,7 @@ export default function SeriesPage() {
                             className="text-destructive"
                             onClick={() => setCancelTarget(row)}
                           >
-                            Seriyi İptal Et
+                            {t.admin.series.cancelSeries}
                           </Button>
                         )}
                     </div>
@@ -240,7 +239,7 @@ export default function SeriesPage() {
                   <TR>
                     <TD colSpan={6} className="bg-muted/30">
                       {detail.isLoading ? (
-                        <LoadingState label="Randevular yükleniyor…" />
+                        <LoadingState label={t.admin.series.loadingAppointments} />
                       ) : (
                         <div className="flex flex-wrap gap-2 py-1">
                           {(detail.data?.appointments ?? []).map((appt) => (
@@ -269,48 +268,47 @@ export default function SeriesPage() {
       <Dialog
         open={reviseTarget !== null}
         onClose={() => setReviseTarget(null)}
-        title="Seriyi Revize Et"
+        title={t.admin.series.reviseTitle}
       >
         <div className="flex flex-col gap-3">
           <p className="text-sm text-muted-foreground">
-            <strong>{reviseTarget ? futureCancellable(reviseTarget) : 0}</strong> gelecek
-            randevu aynı saate kaydırılacak; tamamlanmışlara dokunulmaz. Tüm tarihler
-            kural setinden geçer — biri uymazsa <strong>hiçbiri değişmez</strong>.
-            Randevular tedarikçi onayı için &quot;Revize Bekliyor&quot; durumuna alınır.
+            <strong>{reviseTarget ? futureCancellable(reviseTarget) : 0}</strong>{" "}
+            {t.admin.series.reviseCountWord} {t.admin.series.reviseLead} <strong>{t.admin.series.reviseStrong}</strong>
+            {t.admin.series.reviseTail}
           </p>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <Label>Yeni Saat</Label>
+              <Label>{t.admin.series.newTime}</Label>
               <Input type="time" value={newTime} onChange={(e) => setNewTime(e.target.value)} />
             </div>
             <div>
-              <Label>Süre (dk, boş = değişmez)</Label>
+              <Label>{t.admin.series.duration}</Label>
               <Input
                 type="number"
                 min={15}
                 value={reviseDuration}
                 onChange={(e) => setReviseDuration(e.target.value)}
-                placeholder="Örn. 90"
+                placeholder={t.admin.series.durationPlaceholder}
               />
             </div>
           </div>
           <div>
-            <Label>Rampa</Label>
+            <Label>{t.common.dock}</Label>
             <div className="flex gap-2">
               <Select
                 value={reviseDockMode}
                 onChange={(e) => setReviseDockMode(e.target.value as "auto" | "manual")}
                 className="w-40 shrink-0"
               >
-                <option value="auto">Otomatik ata</option>
-                <option value="manual">Manuel seç</option>
+                <option value="auto">{t.admin.series.autoAssign}</option>
+                <option value="manual">{t.admin.series.manualSelect}</option>
               </Select>
               {reviseDockMode === "manual" && (
                 <Select
                   value={reviseDockId}
                   onChange={(e) => setReviseDockId(e.target.value)}
                 >
-                  <option value="">— Rampa —</option>
+                  <option value="">{t.admin.series.selectDock}</option>
                   {(dockList.data ?? [])
                     .filter((d) => d.is_active)
                     .map((d) => (
@@ -327,16 +325,16 @@ export default function SeriesPage() {
             <Input
               value={reviseNote}
               onChange={(e) => setReviseNote(e.target.value)}
-              placeholder="Örn. Pilot programı güncellendi"
+              placeholder={t.admin.series.notePlaceholder}
             />
           </div>
           {reviseError && <p className="text-sm text-destructive">{reviseError}</p>}
           <div className="flex justify-end gap-2">
             <Button variant="secondary" onClick={() => setReviseTarget(null)}>
-              Vazgeç
+              {t.common.cancel}
             </Button>
             <Button onClick={() => void onRevise()} disabled={revise.isPending}>
-              {revise.isPending ? "Revize ediliyor…" : "Seriyi Revize Et"}
+              {revise.isPending ? t.admin.series.revising : t.admin.series.reviseSeries}
             </Button>
           </div>
         </div>
@@ -344,11 +342,11 @@ export default function SeriesPage() {
 
       <ConfirmDialog
         open={approveTarget !== null}
-        title="Seriyi onayla"
-        message={`Serideki ${
-          approveTarget ? approveTarget.status_counts["revision_pending"] ?? 0 : 0
-        } revize bekleyen randevu onaylanacak. Onay anında çakışmalar yeniden kontrol edilir; biri uygun değilse hiçbiri onaylanmaz.`}
-        confirmLabel="Seriyi Onayla"
+        title={t.admin.series.approveTitle}
+        message={t.admin.series.approveSeriesMessage(
+          approveTarget ? (approveTarget.status_counts["revision_pending"] ?? 0) : 0,
+        )}
+        confirmLabel={t.admin.series.approveSeries}
         loading={approve.isPending}
         onConfirm={onApprove}
         onClose={() => setApproveTarget(null)}
@@ -356,11 +354,12 @@ export default function SeriesPage() {
 
       <ConfirmDialog
         open={cancelTarget !== null}
-        title="Seriyi iptal et"
-        message={`${cancelTarget?.supplier_name ?? "Tedarikçi"} serisinin gelecekteki ${
-          cancelTarget ? futureCancellable(cancelTarget) : 0
-        } randevusu iptal edilecek. Tamamlanmış randevular etkilenmez; tedarikçiye tek özet bildirim gider.`}
-        confirmLabel="Seriyi İptal Et"
+        title={t.admin.series.cancelSeries}
+        message={t.admin.series.cancelMessage(
+          cancelTarget?.supplier_name ?? t.admin.appointments.supplierFallback,
+          cancelTarget ? futureCancellable(cancelTarget) : 0,
+        )}
+        confirmLabel={t.admin.series.cancelSeries}
         loading={cancel.isPending}
         onConfirm={onCancel}
         onClose={() => setCancelTarget(null)}

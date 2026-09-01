@@ -27,82 +27,85 @@ import {
 } from "@/lib/api/resources";
 import type { FacilityUserDto, RoleDto } from "@/lib/api/types";
 import { useSession } from "@/lib/auth/session";
+import { useApiErrorMessage } from "@/lib/i18n/api-error";
+import type { Dictionary } from "@/lib/i18n/dictionaries/tr";
+import { useT } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
 
-/** Izin kodu -> Turkce etiket. Gruplar rol editorunde baslik olarak kullanilir. */
-const PERMISSION_GROUPS: { title: string; items: { code: string; label: string }[] }[] = [
+/** Izin kodlari GRUPLU: yalnizca yapi burada, etiketler sozlukten gelir. */
+/** Zod semalari modul seviyesinde tanimlanir ve hook cagiramaz. Bu yuzden
+ *  mesaj olarak ANAHTAR uretilir; ekrana basarken sozlukten cevrilir
+ *  (`fieldError`). Metni burada sabitlemek Ingilizce formda Turkce hata
+ *  gostermek olurdu. */
+const ERRORS = { validEmail: "validEmail", roleNameRequired: "roleNameRequired" } as const;
+
+function fieldError(t: Dictionary, message: string | undefined): string | undefined {
+  if (!message) return undefined;
+  const known = t.admin.users as unknown as Record<string, string>;
+  return typeof known[message] === "string" ? known[message] : message;
+}
+
+const PERMISSION_GROUPS: { titleKey: string; codes: string[] }[] = [
   {
-    title: "Randevular",
-    items: [
-      { code: "appt.view", label: "Randevuları görüntüle" },
-      { code: "appt.create", label: "Randevu oluştur (tedarikçi adına)" },
-      { code: "appt.approve", label: "Randevu onayla" },
-      { code: "appt.reject", label: "Randevu reddet" },
-      { code: "appt.revise", label: "Randevu revize et" },
-      { code: "appt.complete", label: "Randevu tamamla" },
-      { code: "appt.cancel", label: "Randevu iptal et" },
+    titleKey: "appointments",
+    codes: [
+      "appt.view",
+      "appt.create",
+      "appt.approve",
+      "appt.reject",
+      "appt.revise",
+      "appt.complete",
+      "appt.cancel",
+    ],
+  },
+  { titleKey: "calendar", codes: ["calendar.view", "calendar.override"] },
+  {
+    titleKey: "configuration",
+    codes: [
+      "category.manage",
+      "vehicle_category.manage",
+      "dock.manage",
+      "dock_conflict_group.manage",
+      "supplier.manage",
     ],
   },
   {
-    title: "Takvim",
-    items: [
-      { code: "calendar.view", label: "Takvimi görüntüle" },
-      { code: "calendar.override", label: "İstisna günler (override) yönet" },
-    ],
+    titleKey: "tickets",
+    // `ticket.view_all` varsayilan olarak YALNIZCA sistem yoneticisindedir:
+    // baskasinin destek yazismasi operasyonel degil, yonetimsel bir karardir.
+    codes: ["ticket.view", "ticket.create", "ticket.comment", "ticket.view_all"],
   },
   {
-    title: "Konfigürasyon",
-    items: [
-      { code: "category.manage", label: "Ürün kategorilerini yönet" },
-      { code: "vehicle_category.manage", label: "Araç kategorilerini yönet" },
-      { code: "dock.manage", label: "Rampaları yönet" },
-      { code: "dock_conflict_group.manage", label: "Çakışma gruplarını yönet" },
-      { code: "supplier.manage", label: "Tedarikçileri yönet" },
-    ],
-  },
-  {
-    title: "Ticketlar",
-    items: [
-      { code: "ticket.view", label: "Destek taleplerini görüntüle" },
-      { code: "ticket.create", label: "Destek talebi oluştur" },
-      { code: "ticket.comment", label: "Talebe yanıt yaz / yeniden aç" },
-      // Varsayilan olarak YALNIZCA sistem yoneticisinde vardir: baskasinin
-      // destek yazismasi operasyonel bir ihtiyac degil, yonetim kararidir.
-      { code: "ticket.view_all", label: "Tüm kullanıcıların taleplerini görüntüle" },
-    ],
-  },
-  {
-    title: "Yönetim",
-    items: [
-      { code: "user.manage", label: "Kullanıcıları yönet" },
-      { code: "role.manage", label: "Rolleri yönet" },
-      { code: "report.view", label: "Raporları görüntüle" },
-      // Denetim Kayitlari sayfasi bu izni ister; katalogda vardi ama listede
-      // olmadigi icin UI'dan hic verilemiyordu.
-      { code: "audit.view", label: "Denetim kayıtlarını görüntüle" },
-    ],
+    titleKey: "management",
+    // `audit.view` katalogda vardi ama listede olmadigi icin UI'dan hic
+    // verilemiyordu; Denetim Kayitlari sayfasi bu izni ister.
+    codes: ["user.manage", "role.manage", "report.view", "audit.view"],
   },
 ];
 
-const PERMISSION_LABELS = new Map(
-  PERMISSION_GROUPS.flatMap((g) => g.items.map((i) => [i.code, i.label] as const)),
-);
+/** Izin kodunun okunabilir adi; sozlukte yoksa ham kod gosterilir. */
+function permissionLabel(t: Dictionary, code: string): string {
+  return (t.admin.users.permissions as Record<string, string>)[code] ?? code;
+}
+
 
 const userSchema = z.object({
-  name: z.string().min(1, "Ad zorunlu"),
-  email: z.string().email("Geçerli bir e-posta girin"),
-  temporary_password: z.string().min(6, "En az 6 karakter").optional().or(z.literal("")),
+  name: z.string().min(1, ERRORS.roleNameRequired),
+  email: z.string().email(ERRORS.validEmail),
+  temporary_password: z.string().min(6, "minPassword").optional().or(z.literal("")),
 });
 type UserFormValues = z.infer<typeof userSchema>;
 
 const roleSchema = z.object({
-  name: z.string().min(1, "Rol adı zorunlu"),
+  name: z.string().min(1, ERRORS.roleNameRequired),
   display_name: z.string().optional(),
   description: z.string().optional(),
 });
 type RoleFormValues = z.infer<typeof roleSchema>;
 
 export default function UsersPage() {
+  const t = useT();
+  const errorMessage = useApiErrorMessage();
   const { activeFacilityId } = useSession();
   const users = useFacilityUsers(activeFacilityId);
   const roles = useFacilityRoles(activeFacilityId);
@@ -145,10 +148,10 @@ export default function UsersPage() {
   const knownPermissions = catalog.data?.permissions ?? [];
   // Katalog henuz gelmediyse (bos liste) tum gruplar gosterilir — mevcut davranis.
   const visiblePermissionGroups = PERMISSION_GROUPS.map((group) => ({
-    ...group,
-    items: group.items.filter(
-      (item) => knownPermissions.length === 0 || knownPermissions.includes(item.code),
-    ),
+    title: (t.admin.users.permissions as Record<string, string>)[group.titleKey],
+    items: group.codes
+      .filter((code) => knownPermissions.length === 0 || knownPermissions.includes(code))
+      .map((code) => ({ code, label: permissionLabel(t, code) })),
   }));
 
   function openUserCreate() {
@@ -172,7 +175,7 @@ export default function UsersPage() {
   async function onUserSubmit(values: UserFormValues) {
     setUserError(null);
     if (userRoleIds.length === 0) {
-      setUserError("Kullanıcının en az 1 rolü olmalı.");
+      setUserError(t.admin.users.needsOneRole);
       return;
     }
     try {
@@ -186,7 +189,7 @@ export default function UsersPage() {
             is_active: userActive,
           },
         });
-        showFlash("success", "Kullanıcı güncellendi. Rol değişiklikleri kullanıcının bir sonraki girişinde/yenilemesinde etkinleşir.");
+        showFlash("success", t.admin.users.userUpdated);
       } else {
         const created = await userMutations.save.mutateAsync({
           body: {
@@ -202,7 +205,9 @@ export default function UsersPage() {
         // bir daha gosterilemez, bu yuzden yoneticiye burada gosterilir.
         showFlash(
           "success",
-          `Kullanıcı oluşturuldu. Geçici parola: ${created.temporary_password ?? values.temporary_password}`,
+          t.admin.users.userCreated(
+            created.temporary_password ?? values.temporary_password ?? "",
+          ),
         );
       }
       setUserDrawer({ open: false, editing: null });
@@ -215,9 +220,9 @@ export default function UsersPage() {
     if (!deactivateUserTarget) return;
     try {
       await userMutations.deactivate.mutateAsync(deactivateUserTarget.id);
-      showFlash("success", `"${deactivateUserTarget.name}" pasifleştirildi; oturumları düşürüldü.`);
+      showFlash("success", t.admin.users.userDeactivated(deactivateUserTarget.name));
     } catch (err) {
-      showFlash("error", err instanceof ApiError ? err.message : "İşlem başarısız");
+      showFlash("error", errorMessage(err, t.admin.users.actionFailed));
     } finally {
       setDeactivateUserTarget(null);
     }
@@ -230,9 +235,9 @@ export default function UsersPage() {
         id: resetTarget.id,
         password: resetPassword,
       });
-      showFlash("success", `"${resetTarget.name}" parolası sıfırlandı; tüm oturumları düşürüldü.`);
+      showFlash("success", t.admin.users.passwordReset(resetTarget.name));
     } catch (err) {
-      showFlash("error", err instanceof ApiError ? err.message : "İşlem başarısız");
+      showFlash("error", errorMessage(err, t.admin.users.actionFailed));
     } finally {
       setResetTarget(null);
       setResetPassword("");
@@ -264,7 +269,7 @@ export default function UsersPage() {
     const editing = roleDrawer.editing;
     const isSystem = editing?.is_system ?? false;
     if (!isSystem && rolePermissions.length === 0) {
-      setRoleError("Role en az 1 izin seçin.");
+      setRoleError(t.admin.users.needsOnePermission);
       return;
     }
     try {
@@ -282,7 +287,7 @@ export default function UsersPage() {
             is_active: roleActive,
           };
       await roleMutations.save.mutateAsync({ id: editing?.id, body });
-      showFlash("success", editing ? "Rol güncellendi." : "Rol oluşturuldu.");
+      showFlash("success", editing ? t.admin.users.roleUpdated : t.admin.users.roleCreated);
       setRoleDrawer({ open: false, editing: null });
     } catch (err) {
       setRoleError(err instanceof ApiError ? err.message : "Kaydedilemedi");
@@ -293,9 +298,9 @@ export default function UsersPage() {
     if (!deactivateRoleTarget) return;
     try {
       await roleMutations.deactivate.mutateAsync(deactivateRoleTarget.id);
-      showFlash("success", `"${deactivateRoleTarget.display_name}" pasifleştirildi.`);
+      showFlash("success", t.admin.users.roleDeactivated(deactivateRoleTarget.display_name));
     } catch (err) {
-      showFlash("error", err instanceof ApiError ? err.message : "İşlem başarısız");
+      showFlash("error", errorMessage(err, t.admin.users.actionFailed));
     } finally {
       setDeactivateRoleTarget(null);
     }
@@ -305,7 +310,7 @@ export default function UsersPage() {
   if (users.isError || roles.isError)
     return (
       <ErrorState
-        message="Kullanıcı/rol verisi yüklenemedi."
+        message={t.admin.users.loadError}
         onRetry={() => {
           users.refetch();
           roles.refetch();
@@ -319,14 +324,13 @@ export default function UsersPage() {
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-xl font-bold">Kullanıcılar &amp; Roller</h1>
+          <h1 className="text-xl font-bold">{t.admin.users.title}</h1>
           <p className="text-sm text-muted-foreground">
-            Hesap kullanıcılarını ve rol/izin setlerini yönetin. Sistem rollerinin izinleri
-            kilitlidir.
+            {t.admin.users.description}
           </p>
         </div>
         <Button onClick={tab === "users" ? openUserCreate : openRoleCreate}>
-          {tab === "users" ? "Yeni Kullanıcı" : "Yeni Rol"}
+          {tab === "users" ? t.admin.users.newUser : t.admin.users.newRole}
         </Button>
       </div>
 
@@ -346,7 +350,7 @@ export default function UsersPage() {
       <div className="flex gap-1 border-b border-border">
         {(
           [
-            { key: "users", label: `Kullanıcılar (${users.data?.length ?? 0})` },
+            { key: "users", label: t.admin.users.tabUsers(users.data?.length ?? 0) },
             { key: "roles", label: `Roller (${roles.data?.length ?? 0})` },
           ] as const
         ).map((t) => (
@@ -369,9 +373,9 @@ export default function UsersPage() {
       {tab === "users" ? (
         (users.data ?? []).length === 0 ? (
           <EmptyState
-            title="Kullanıcı yok"
-            description="İlk kullanıcıyı ekleyin."
-            actionLabel="Yeni Kullanıcı"
+            title={t.admin.users.emptyUsers}
+            description={t.admin.users.emptyUsersHint}
+            actionLabel={t.admin.users.newUser}
             onAction={openUserCreate}
           />
         ) : (
@@ -381,9 +385,9 @@ export default function UsersPage() {
                 <TH>Ad</TH>
                 <TH>E-posta</TH>
                 <TH>Roller</TH>
-                <TH>Yetkili Rampalar</TH>
+                <TH>{t.admin.users.allowedDocks}</TH>
                 <TH>Durum</TH>
-                <TH className="text-right">İşlem</TH>
+                <TH className="text-right">{t.common.actions}</TH>
               </TR>
             </THead>
             <TBody>
@@ -410,7 +414,7 @@ export default function UsersPage() {
                         ))}
                       </div>
                     ) : (
-                      <span className="text-xs text-muted-foreground">Kısıt yok</span>
+                      <span className="text-xs text-muted-foreground">{t.admin.users.noDockRestriction}</span>
                     )}
                   </TD>
                   <TD>
@@ -419,12 +423,12 @@ export default function UsersPage() {
                   <TD className="text-right">
                     <div className="flex justify-end gap-1">
                       <Button size="sm" variant="secondary" onClick={() => openUserEdit(user)}>
-                        Düzenle
+                        {t.common.edit}
                       </Button>
                       <Button
                         size="sm"
                         variant="ghost"
-                        title="Parola sıfırla"
+                        title={t.admin.users.resetPassword}
                         onClick={() => {
                           setResetTarget(user);
                           setResetPassword("");
@@ -438,7 +442,7 @@ export default function UsersPage() {
                           variant="ghost"
                           onClick={() => setDeactivateUserTarget(user)}
                         >
-                          Pasifleştir
+                          {t.admin.users.deactivate}
                         </Button>
                       )}
                     </div>
@@ -478,11 +482,11 @@ export default function UsersPage() {
                 </div>
                 <div className="flex gap-1">
                   <Button size="sm" variant="secondary" onClick={() => openRoleEdit(role)}>
-                    Düzenle
+                    {t.common.edit}
                   </Button>
                   {!role.is_system && role.is_active && (
                     <Button size="sm" variant="ghost" onClick={() => setDeactivateRoleTarget(role)}>
-                      Pasifleştir
+                      {t.admin.users.deactivate}
                     </Button>
                   )}
                 </div>
@@ -490,7 +494,7 @@ export default function UsersPage() {
               <div className="mt-3 flex flex-wrap gap-1">
                 {role.permissions.map((permission) => (
                   <Badge key={permission} className="bg-muted text-[11px] text-muted-foreground">
-                    {PERMISSION_LABELS.get(permission) ?? permission}
+                    {permissionLabel(t, permission)}
                   </Badge>
                 ))}
               </div>
@@ -503,15 +507,15 @@ export default function UsersPage() {
       <Drawer
         open={userDrawer.open}
         onClose={() => setUserDrawer({ open: false, editing: null })}
-        title={userDrawer.editing ? "Kullanıcıyı Düzenle" : "Yeni Kullanıcı"}
+        title={userDrawer.editing ? t.admin.users.editUserTitle : t.admin.users.newUser}
       >
         <form onSubmit={userForm.handleSubmit(onUserSubmit)} className="flex flex-col gap-4">
           <div>
-            <Label>Ad Soyad</Label>
-            <Input {...userForm.register("name")} placeholder="Örn. Ayşe Yılmaz" />
+            <Label>{t.admin.users.fullName}</Label>
+            <Input {...userForm.register("name")} placeholder={t.admin.users.namePlaceholder} />
             {userForm.formState.errors.name && (
               <p className="mt-1 text-xs text-destructive">
-                {userForm.formState.errors.name.message}
+                {fieldError(t, userForm.formState.errors.name.message)}
               </p>
             )}
           </div>
@@ -520,26 +524,26 @@ export default function UsersPage() {
             <Input
               {...userForm.register("email")}
               disabled={!!userDrawer.editing}
-              placeholder="kullanici@firma.com"
+              placeholder={t.admin.users.emailPlaceholder}
             />
             {userForm.formState.errors.email && (
               <p className="mt-1 text-xs text-destructive">
-                {userForm.formState.errors.email.message}
+                {fieldError(t, userForm.formState.errors.email.message)}
               </p>
             )}
             {userDrawer.editing && (
-              <p className="mt-1 text-xs text-muted-foreground">E-posta değiştirilemez.</p>
+              <p className="mt-1 text-xs text-muted-foreground">{t.admin.users.emailLocked}</p>
             )}
           </div>
           {!userDrawer.editing && (
             <div>
-              <Label>Geçici Parola</Label>
+              <Label>{t.admin.users.tempPassword}</Label>
               <Input
                 {...userForm.register("temporary_password")}
-                placeholder="Boş bırakılırsa rastgele üretilir"
+                placeholder={t.admin.users.tempPasswordPlaceholder}
               />
               <p className="mt-1 text-xs text-muted-foreground">
-                Kullanıcı ilk girişinden sonra parolasını değiştirmelidir.
+                {t.admin.users.tempPasswordHint}
               </p>
             </div>
           )}
@@ -549,19 +553,19 @@ export default function UsersPage() {
               options={activeRoles.map((r) => ({ value: r.id, label: r.display_name }))}
               value={userRoleIds}
               onChange={setUserRoleIds}
-              searchPlaceholder="Rol ara…"
+              searchPlaceholder={t.admin.users.searchRole}
             />
           </div>
           <div>
-            <Label>Yetkili Rampalar</Label>
+            <Label>{t.admin.users.allowedDocks}</Label>
             <MultiSelectField
               options={(dockList.data ?? [])
                 .filter((d) => d.is_active)
                 .map((d) => ({ value: d.id, label: d.name }))}
               value={userDockIds}
               onChange={setUserDockIds}
-              searchPlaceholder="Rampa ara…"
-              emptyHint="Boş = tüm rampalarda işlem yapabilir"
+              searchPlaceholder={t.common.searchDock}
+              emptyHint={t.admin.users.dockEmptyHint}
             />
           </div>
           {userDrawer.editing && (
@@ -574,10 +578,10 @@ export default function UsersPage() {
               variant="secondary"
               onClick={() => setUserDrawer({ open: false, editing: null })}
             >
-              İptal
+              {t.common.cancel}
             </Button>
             <Button type="submit" disabled={userMutations.save.isPending}>
-              {userMutations.save.isPending ? "Kaydediliyor…" : "Kaydet"}
+              {userMutations.save.isPending ? t.common.saving : t.common.save}
             </Button>
           </div>
         </form>
@@ -587,34 +591,33 @@ export default function UsersPage() {
       <Drawer
         open={roleDrawer.open}
         onClose={() => setRoleDrawer({ open: false, editing: null })}
-        title={roleDrawer.editing ? "Rolü Düzenle" : "Yeni Rol"}
+        title={roleDrawer.editing ? t.admin.users.editRoleTitle : t.admin.users.newRole}
       >
         <form onSubmit={roleForm.handleSubmit(onRoleSubmit)} className="flex flex-col gap-4">
           {editingSystemRole && (
             <div className="rounded-lg border border-accent/40 bg-accent/10 px-3 py-2 text-xs text-accent-foreground">
-              Sistem rolü: ad, izinler ve aktiflik kilitlidir. Yalnızca görünen ad ve açıklama
-              düzenlenebilir.
+              {t.admin.users.systemRoleHint}
             </div>
           )}
           <div>
-            <Label>Rol Adı</Label>
+            <Label>{t.admin.users.roleName}</Label>
             <Input {...roleForm.register("name")} disabled={editingSystemRole} />
             {roleForm.formState.errors.name && (
               <p className="mt-1 text-xs text-destructive">
-                {roleForm.formState.errors.name.message}
+                {fieldError(t, roleForm.formState.errors.name.message)}
               </p>
             )}
           </div>
           <div>
-            <Label>Görünen Ad</Label>
+            <Label>{t.admin.users.displayName}</Label>
             <Input {...roleForm.register("display_name")} placeholder="Opsiyonel" />
           </div>
           <div>
-            <Label>Açıklama</Label>
+            <Label>{t.admin.users.roleDescription}</Label>
             <Input {...roleForm.register("description")} placeholder="Opsiyonel" />
           </div>
           <div>
-            <Label>İzinler</Label>
+            <Label>{t.admin.users.permissionsLabel}</Label>
             <PermissionPicker
               groups={visiblePermissionGroups}
               value={rolePermissions}
@@ -632,10 +635,10 @@ export default function UsersPage() {
               variant="secondary"
               onClick={() => setRoleDrawer({ open: false, editing: null })}
             >
-              İptal
+              {t.common.cancel}
             </Button>
             <Button type="submit" disabled={roleMutations.save.isPending}>
-              {roleMutations.save.isPending ? "Kaydediliyor…" : "Kaydet"}
+              {roleMutations.save.isPending ? t.common.loading : t.common.save}
             </Button>
           </div>
         </form>
@@ -644,16 +647,16 @@ export default function UsersPage() {
       {/* ---------- onay/parola dialoglari ---------- */}
       <ConfirmDialog
         open={deactivateUserTarget !== null}
-        title="Kullanıcıyı pasifleştir"
-        message={`"${deactivateUserTarget?.name}" pasifleştirilecek. Aktif oturumları düşürülür ve giriş yapamaz.`}
+        title={t.admin.users.deactivateUserTitle}
+        message={t.admin.users.deactivateUserMessage(deactivateUserTarget?.name ?? "")}
         loading={userMutations.deactivate.isPending}
         onConfirm={onUserDeactivate}
         onClose={() => setDeactivateUserTarget(null)}
       />
       <ConfirmDialog
         open={deactivateRoleTarget !== null}
-        title="Rolü pasifleştir"
-        message={`"${deactivateRoleTarget?.display_name}" pasifleştirilecek. Pasif rol yeni kullanıcılara atanamaz; mevcut atamalar yetki vermeyi durdurur.`}
+        title={t.admin.users.deactivateRoleTitle}
+        message={t.admin.users.deactivateRoleMessage(deactivateRoleTarget?.display_name ?? "")}
         loading={roleMutations.deactivate.isPending}
         onConfirm={onRoleDeactivate}
         onClose={() => setDeactivateRoleTarget(null)}
@@ -661,30 +664,30 @@ export default function UsersPage() {
       <Drawer
         open={resetTarget !== null}
         onClose={() => setResetTarget(null)}
-        title="Parola Sıfırla"
+        title={t.admin.users.resetPasswordTitle}
       >
         <div className="flex flex-col gap-4">
           <p className="text-sm text-muted-foreground">
-            <span className="font-medium text-foreground">{resetTarget?.name}</span> için yeni
-            parola belirleyin. Tüm aktif oturumları düşürülür.
+            <span className="font-medium text-foreground">{resetTarget?.name}</span>{" "}
+            {t.admin.users.resetPasswordLead}
           </p>
           <div>
-            <Label>Yeni Parola</Label>
+            <Label>{t.common.newPassword}</Label>
             <Input
               value={resetPassword}
               onChange={(e) => setResetPassword(e.target.value)}
-              placeholder="En az 6 karakter"
+              placeholder={t.admin.users.minPasswordPlaceholder}
             />
           </div>
           <div className="flex justify-end gap-2">
             <Button variant="secondary" onClick={() => setResetTarget(null)}>
-              İptal
+              {t.common.cancel}
             </Button>
             <Button
               onClick={onResetPassword}
               disabled={resetPassword.length < 6 || userMutations.resetPassword.isPending}
             >
-              {userMutations.resetPassword.isPending ? "Sıfırlanıyor…" : "Sıfırla"}
+              {userMutations.resetPassword.isPending ? t.admin.users.resetting : t.admin.users.reset}
             </Button>
           </div>
         </div>

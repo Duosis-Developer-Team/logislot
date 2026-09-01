@@ -40,6 +40,9 @@ import type { AppointmentDto } from "@/lib/api/types";
 import { useSession } from "@/lib/auth/session";
 import { downloadCsv, timestampedFileName, toCsv } from "@/lib/csv";
 import { cn, formatDateTime } from "@/lib/utils";
+import { useApiErrorMessage } from "@/lib/i18n/api-error";
+import { useLabels } from "@/lib/i18n/labels";
+import { useT } from "@/lib/i18n/provider";
 
 const FILTERS: ("all" | AppointmentStatus)[] = [
   "all",
@@ -64,11 +67,11 @@ type SortKey =
 const collator = new Intl.Collator("tr", { sensitivity: "base", numeric: true });
 
 function statusLabel(status: string): string {
-  return APPOINTMENT_STATUS_LABELS[status as AppointmentStatus] ?? status;
+  return status;
 }
 
 function unitLabel(unit: string): string {
-  return QUANTITY_UNIT_LABELS[unit as QuantityUnit] ?? unit;
+  return unit;
 }
 
 /** Sutun degeri. Bos alanlar `null` doner ve YONDEN BAGIMSIZ en sona atilir —
@@ -80,7 +83,8 @@ function sortValue(a: AppointmentDto, key: SortKey): string | number | null {
     case "quantity":
       return a.quantity;
     case "status":
-      return statusLabel(a.status);
+      // Siralama HAM statuye gore: dile gore degisen bir sira kullaniciyi sasirtir.
+      return a.status;
     case "supplier_name":
       return a.supplier_name || null;
     case "product_name":
@@ -106,6 +110,9 @@ function compareRows(a: AppointmentDto, b: AppointmentDto, key: SortKey, dir: So
 }
 
 function AppointmentsListContent() {
+  const t = useT();
+  const labels = useLabels();
+  const errorMessage = useApiErrorMessage();
   const { activeFacilityId, can } = useSession();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -166,18 +173,18 @@ function AppointmentsListContent() {
   function exportCsv() {
     const content = toCsv(
       [
-        "Tarih",
-        "Saat",
-        "Tedarikçi",
-        "Ürün",
-        "Miktar",
-        "Birim",
-        "Rampa",
-        "Araç",
-        "Durum",
-        "Plaka",
-        "Sürücü",
-        "Süre (dk)",
+        t.admin.appointments.csv.date,
+        t.admin.appointments.csv.time,
+        t.admin.appointments.csv.supplier,
+        t.admin.appointments.csv.product,
+        t.admin.appointments.csv.quantity,
+        t.admin.appointments.csv.unit,
+        t.admin.appointments.csv.dock,
+        t.admin.appointments.csv.vehicle,
+        t.admin.appointments.csv.status,
+        t.admin.appointments.csv.plate,
+        t.admin.appointments.csv.driver,
+        t.admin.appointments.csv.duration,
       ],
       rows.map((a) => {
         const start = new Date(a.scheduled_start_at);
@@ -187,17 +194,17 @@ function AppointmentsListContent() {
           a.supplier_name ?? "",
           a.product_name,
           a.quantity,
-          unitLabel(a.quantity_unit),
+          labels.quantityUnit[a.quantity_unit as QuantityUnit] ?? a.quantity_unit,
           a.dock_name ?? "",
           a.vehicle_category_name ?? "",
-          statusLabel(a.status),
+          labels.appointmentStatus[a.status as AppointmentStatus] ?? a.status,
           a.license_plate ?? "",
           a.driver_name ?? "",
           a.duration_minutes,
         ];
       }),
     );
-    downloadCsv(timestampedFileName("randevular"), content);
+    downloadCsv(timestampedFileName(t.admin.appointments.csv.fileName), content);
   }
 
   const pendingCount = (list.data ?? []).filter((a) => a.status === "pending").length;
@@ -206,9 +213,9 @@ function AppointmentsListContent() {
     if (!approveTarget) return;
     try {
       await actions.approve.mutateAsync({ id: approveTarget.id });
-      showFlash("success", "Randevu onaylandı; tedarikçiye bildirim gönderildi.");
+      showFlash("success", t.admin.appointments.approved);
     } catch (err) {
-      showFlash("error", err instanceof ApiError ? err.message : "Onaylanamadı");
+      showFlash("error", errorMessage(err, t.admin.appointments.approveFailed));
     } finally {
       setApproveTarget(null);
     }
@@ -217,17 +224,17 @@ function AppointmentsListContent() {
   async function onReject() {
     if (!rejectTarget) return;
     if (rejectReason.trim().length === 0) {
-      setRejectError("Red sebebi zorunludur; tedarikçiye iletilir.");
+      setRejectError(t.admin.appointments.rejectReasonRequired);
       return;
     }
     try {
       await actions.reject.mutateAsync({ id: rejectTarget.id, reason: rejectReason });
-      showFlash("success", "Randevu reddedildi; sebep tedarikçiye iletildi.");
+      showFlash("success", t.admin.appointments.rejected);
       setRejectTarget(null);
       setRejectReason("");
       setRejectError(null);
     } catch (err) {
-      setRejectError(err instanceof ApiError ? err.message : "Reddedilemedi");
+      setRejectError(errorMessage(err, t.admin.appointments.rejectFailed));
     }
   }
 
@@ -235,14 +242,13 @@ function AppointmentsListContent() {
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-xl font-bold">Randevular</h1>
+          <h1 className="text-xl font-bold">{t.admin.appointments.title}</h1>
           <p className="text-sm text-muted-foreground">
-            Tüm randevu talepleri — gerçek zamanlı; tedarikçi portalından gelen talepler
-            burada görünür.
+            {t.admin.appointments.description}
           </p>
         </div>
         {can("appt.create") && (
-          <Button onClick={() => setCreateOpen(true)}>Yeni Randevu</Button>
+          <Button onClick={() => setCreateOpen(true)}>{t.admin.appointments.create}</Button>
         )}
       </div>
 
@@ -263,9 +269,7 @@ function AppointmentsListContent() {
         // Sunucu toplam sayi dondurmuyor; sonuc limite dayandiysa daha fazlasi
         // OLABILIR. Sessiz kirpma CSV'yi guvenilmez kilardi.
         <p className="rounded-lg border border-status-pending/40 bg-status-pending/10 px-3 py-2 text-xs text-foreground">
-          En fazla {APPOINTMENT_PAGE_LIMIT} kayıt gösteriliyor; daha fazlası olabilir.
-          İndirilen CSV de bu listeyle aynıdır — tam liste için durum filtresiyle
-          daraltın.
+          {t.admin.appointments.truncated(APPOINTMENT_PAGE_LIMIT)}
         </p>
       )}
 
@@ -274,7 +278,7 @@ function AppointmentsListContent() {
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             className="pl-9"
-            placeholder="Tedarikçi, ürün veya plaka ara…"
+            placeholder={t.admin.appointments.searchPlaceholder}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
           />
@@ -283,10 +287,10 @@ function AppointmentsListContent() {
           variant="secondary"
           onClick={exportCsv}
           disabled={rows.length === 0}
-          title="Ekranda görünen randevuları CSV olarak indir"
+          title={t.common.exportHint}
         >
           <Download className="h-4 w-4" />
-          CSV indir
+          {t.common.downloadCsv}
         </Button>
       </div>
 
@@ -302,7 +306,7 @@ function AppointmentsListContent() {
                 : "border-border bg-card text-muted-foreground hover:border-primary/40",
             )}
           >
-            {f === "all" ? "Tümü" : APPOINTMENT_STATUS_LABELS[f]}
+            {f === "all" ? t.common.all : labels.appointmentStatus[f]}
             {f === "pending" && pendingCount > 0 && (
               <span className="ml-1 rounded-full bg-status-pending px-1.5 text-[10px] font-bold text-white">
                 {pendingCount}
@@ -315,11 +319,11 @@ function AppointmentsListContent() {
       {list.isLoading ? (
         <LoadingState />
       ) : list.isError ? (
-        <ErrorState message="Randevular yüklenemedi." onRetry={() => list.refetch()} />
+        <ErrorState message={t.admin.appointments.loadError} onRetry={() => list.refetch()} />
       ) : rows.length === 0 ? (
         <EmptyState
-          title="Randevu bulunamadı"
-          description="Seçili filtreye uyan randevu yok."
+          title={t.admin.appointments.emptyTitle}
+          description={t.admin.appointments.emptyDescription}
         />
       ) : (
         <Table>
@@ -327,13 +331,13 @@ function AppointmentsListContent() {
             <TR>
               {(
                 [
-                  ["scheduled_start_at", "Tarih / Saat"],
-                  ["supplier_name", "Tedarikçi"],
-                  ["product_name", "Ürün"],
-                  ["quantity", "Miktar"],
-                  ["dock_name", "Rampa"],
-                  ["vehicle_category_name", "Araç"],
-                  ["status", "Durum"],
+                  ["scheduled_start_at", t.admin.appointments.colDateTime],
+                  ["supplier_name", t.admin.appointments.colSupplier],
+                  ["product_name", t.admin.appointments.colProduct],
+                  ["quantity", t.admin.appointments.colQuantity],
+                  ["dock_name", t.admin.appointments.colDock],
+                  ["vehicle_category_name", t.admin.appointments.colVehicle],
+                  ["status", t.admin.appointments.colStatus],
                 ] as [SortKey, string][]
               ).map(([key, label]) => (
                 <SortableTH
@@ -344,7 +348,7 @@ function AppointmentsListContent() {
                   onSort={() => toggleSort(key)}
                 />
               ))}
-              <TH className="text-right">İşlem</TH>
+              <TH className="text-right">{t.common.actions}</TH>
             </TR>
           </THead>
           <TBody>
@@ -380,7 +384,7 @@ function AppointmentsListContent() {
                     <div className="flex justify-end gap-1">
                       {can("appt.approve") && (
                         <Button size="sm" onClick={() => setApproveTarget(a)}>
-                          Onayla
+                          {t.admin.appointments.approve}
                         </Button>
                       )}
                       {can("appt.reject") && (
@@ -393,13 +397,13 @@ function AppointmentsListContent() {
                             setRejectError(null);
                           }}
                         >
-                          Reddet
+                          {t.admin.appointments.reject}
                         </Button>
                       )}
                     </div>
                   ) : (
                     <Button size="sm" variant="ghost" onClick={() => setSelectedId(a.id)}>
-                      Detay
+                      {t.common.detail}
                     </Button>
                   )}
                 </TD>
@@ -423,9 +427,12 @@ function AppointmentsListContent() {
 
       <ConfirmDialog
         open={approveTarget !== null}
-        title="Randevuyu onayla"
-        message={`${approveTarget?.supplier_name ?? "Tedarikçi"} — "${approveTarget?.product_name}" talebi onaylanacak.`}
-        confirmLabel="Onayla"
+        title={t.admin.appointments.approveTitle}
+        message={t.admin.appointments.approveMessage(
+          approveTarget?.supplier_name ?? t.admin.appointments.supplierFallback,
+          approveTarget?.product_name ?? "",
+        )}
+        confirmLabel={t.appointmentDrawer.approve}
         loading={actions.approve.isPending}
         onConfirm={onApprove}
         onClose={() => setApproveTarget(null)}
@@ -434,33 +441,34 @@ function AppointmentsListContent() {
       <Dialog
         open={rejectTarget !== null}
         onClose={() => setRejectTarget(null)}
-        title="Randevuyu reddet"
+        title={t.admin.appointments.rejectTitle}
       >
         <div className="flex flex-col gap-3">
           <p className="text-sm text-muted-foreground">
-            {rejectTarget?.supplier_name} — “{rejectTarget?.product_name}” talebi
-            reddedilecek. Sebep tedarikçiye iletilir.
+            {rejectTarget?.supplier_name} — “{rejectTarget?.product_name}”{" "}
+            {t.admin.appointments.rejectRequestWord}{" "}
+            {t.admin.appointments.rejectLead}
           </p>
           <div>
-            <Label>Red Sebebi</Label>
+            <Label>{t.admin.appointments.rejectReason}</Label>
             <Input
               value={rejectReason}
               onChange={(e) => setRejectReason(e.target.value)}
-              placeholder="Örn. Kapasite dolu"
+              placeholder={t.admin.appointments.rejectPlaceholder}
               autoFocus
             />
           </div>
           {rejectError && <p className="text-sm text-destructive">{rejectError}</p>}
           <div className="flex justify-end gap-2">
             <Button variant="secondary" onClick={() => setRejectTarget(null)}>
-              Vazgeç
+              {t.common.cancel}
             </Button>
             <Button
               variant="destructive"
               onClick={onReject}
               disabled={actions.reject.isPending}
             >
-              {actions.reject.isPending ? "İşleniyor…" : "Reddet"}
+              {actions.reject.isPending ? t.admin.appointments.processing : t.admin.appointments.reject}
             </Button>
           </div>
         </div>

@@ -1,6 +1,8 @@
 import { CalendarClock, Mail, ShieldCheck } from "lucide-react";
+import type { Metadata } from "next";
 import { DemoRequestForm } from "@/components/landing/demo-request-form";
 import { MarketingPageShell } from "@/components/landing/marketing-page-shell";
+import { getDictionary } from "@/lib/i18n/server";
 import { getLandingConfig, getPortalUrls } from "@/lib/portal-mode";
 
 /**
@@ -9,31 +11,20 @@ import { getLandingConfig, getPortalUrls } from "@/lib/portal-mode";
  */
 export const dynamic = "force-dynamic";
 
-export const metadata = {
-  title: "Demo Talep Et — LogiSlot",
-  description:
-    "LogiSlot mal kabul ve rampa randevu platformunu yakından görmek için demo talep edin.",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getDictionary();
+  return {
+    title: t.misc.demoPage.metaTitle,
+    description: t.misc.demoPage.metaDescription,
+  };
+}
 
-const EXPECTATIONS = [
-  {
-    icon: CalendarClock,
-    title: "30 dakikalık canlı demo",
-    text: "Tedarikçi randevu akışını, yönetim panelini ve tesis kurallarını kendi senaryonuz üzerinden görürsünüz.",
-  },
-  {
-    icon: ShieldCheck,
-    title: "Satış baskısı yok",
-    text: "Amaç operasyonunuza uyup uymadığını birlikte anlamak; demo sonrası karar tamamen sizde.",
-  },
-  {
-    icon: Mail,
-    title: "1 iş günü içinde dönüş",
-    text: "Talebiniz ekibimize e-posta ile ulaşır; uygun zamanı birlikte planlarız.",
-  },
-];
+/** Ikon sirasi sozlukteki madde sirasiyla ESLESIR. */
+const ICONS = [CalendarClock, ShieldCheck, Mail];
 
-export default function DemoPage() {
+export default async function DemoPage() {
+  const { t } = await getDictionary();
+  const copy = t.misc.demoPage;
   const urls = getPortalUrls();
   const landing = getLandingConfig();
 
@@ -42,14 +33,14 @@ export default function DemoPage() {
       supplierUrl={urls.supplier}
       adminUrl={urls.admin}
       duosisUrl={landing.duosisUrl}
-      title="Demo Talep Et"
-      description="Mal kabul operasyonunuzu LogiSlot üzerinde nasıl yöneteceğinizi görmek için kısa bir demo planlayalım."
+      title={copy.title}
+      description={copy.description}
       wide
     >
       <div className="grid gap-10 lg:grid-cols-[0.9fr_1.1fr] lg:gap-14">
         <div className="space-y-4">
-          {EXPECTATIONS.map((item) => {
-            const Icon = item.icon;
+          {copy.points.map((item, index) => {
+            const Icon = ICONS[index] ?? CalendarClock;
             return (
               <div
                 key={item.title}
@@ -68,14 +59,14 @@ export default function DemoPage() {
             );
           })}
           <p className="px-1 text-sm text-muted-foreground">
-            Formu kullanmak istemezseniz talebinizi doğrudan{" "}
+            {copy.directContact}{" "}
             <a
               href={`mailto:${landing.contactEmail}`}
               className="font-medium text-foreground underline decoration-border underline-offset-2 hover:decoration-foreground"
             >
               {landing.contactEmail}
             </a>{" "}
-            adresine iletebilirsiniz.
+            {copy.directContactTail}
           </p>
         </div>
 

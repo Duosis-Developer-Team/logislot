@@ -2,14 +2,16 @@
 
 import { AlertTriangle, Inbox, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useT } from "@/lib/i18n/provider";
 
-export function LoadingState({ label = "Yükleniyor…" }: { label?: string }) {
+export function LoadingState({ label }: { label?: string }) {
+  const t = useT();
   return (
     <div className="flex flex-col items-center gap-3 py-16 text-muted-foreground animate-fade-in">
       <span className="flex h-11 w-11 items-center justify-center rounded-full bg-primary/10">
         <Loader2 className="h-5 w-5 animate-spin text-primary" />
       </span>
-      <span className="text-sm font-medium">{label}</span>
+      <span className="text-sm font-medium">{label ?? t.common.loading}</span>
     </div>
   );
 }
@@ -21,6 +23,7 @@ export function ErrorState({
   message: string;
   onRetry?: () => void;
 }) {
+  const t = useT();
   return (
     <div className="flex flex-col items-center gap-3 py-16 text-center animate-fade-in">
       <span className="flex h-12 w-12 items-center justify-center rounded-full bg-destructive/10">
@@ -29,7 +32,7 @@ export function ErrorState({
       <p className="max-w-sm text-sm text-muted-foreground">{message}</p>
       {onRetry && (
         <Button variant="secondary" size="sm" onClick={onRetry}>
-          Tekrar Dene
+          {t.common.retry}
         </Button>
       )}
     </div>
@@ -64,6 +67,7 @@ export function EmptyState({
 }
 
 export function ActiveBadge({ active }: { active: boolean }) {
+  const t = useT();
   return (
     <span
       className={
@@ -73,7 +77,7 @@ export function ActiveBadge({ active }: { active: boolean }) {
       }
     >
       <span className="h-1.5 w-1.5 rounded-full bg-current" />
-      {active ? "Aktif" : "Pasif"}
+      {active ? t.common.active : t.common.inactive}
     </span>
   );
 }

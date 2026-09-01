@@ -35,6 +35,8 @@ import { Input, Label, Select } from "@/components/ui/input";
 import type { TicketApi } from "@/lib/api/tickets";
 import type { TicketConfigDto, TicketDetailDto } from "@/lib/api/types";
 import { cn } from "@/lib/utils";
+import type { Dictionary } from "@/lib/i18n/dictionaries/tr";
+import { useT } from "@/lib/i18n/provider";
 
 //: Destek merkezinin (Hermes) sunucu tarafi alt sinirlari. Burada tutulur ki
 //: hem dogrulama hem sayac ayni sayiyi kullansin ve karsi taraf sinirlari
@@ -44,10 +46,11 @@ const DESCRIPTION_MIN = 20;
 
 /** "N karakter daha" ipucu — sinir surprizle submit aninda carpmasin. */
 function RemainingHint({ value, min }: { value: string; min: number }) {
+  const t = useT();
   const left = min - value.trim().length;
   if (left <= 0) return null;
   return (
-    <p className="mt-1 text-xs text-muted-foreground">{left} karakter daha gerekiyor</p>
+    <p className="mt-1 text-xs text-muted-foreground">{t.tickets.create.remaining(left)}</p>
   );
 }
 
@@ -58,17 +61,17 @@ const schema = z.object({
   // dead-letter'a dusmesin — musteri "acildi" sanip destek hic gormezdi.
   title: z
     .string()
-    .min(TITLE_MIN, `Başlık en az ${TITLE_MIN} karakter olmalı (destek merkezi kuralı)`)
-    .max(160, "Başlık en fazla 160 karakter olabilir"),
+    .min(TITLE_MIN, "titleMin")
+    .max(160, "titleMax"),
   description: z
     .string()
     .min(
       DESCRIPTION_MIN,
-      `Sorunu en az ${DESCRIPTION_MIN} karakterle anlatın (destek merkezi kuralı)`,
+      "descriptionMin",
     )
-    .max(10000, "Açıklama çok uzun"),
-  category: z.string().min(1, "Kategori seçin"),
-  impact: z.string().min(1, "Etki seçin"),
+    .max(10000, "descriptionMax"),
+  category: z.string().min(1, "categoryRequired"),
+  impact: z.string().min(1, "impactRequired"),
   reproduction_steps: z.string().max(5000).optional(),
   expected_result: z.string().max(2000).optional(),
   actual_result: z.string().max(2000).optional(),
@@ -86,6 +89,16 @@ interface TicketCreateDrawerProps {
   onCreated: (ticket: TicketDetailDto) => void;
 }
 
+
+/** Zod semasi modul seviyesinde ve hook cagiramaz; mesaj ANAHTARDIR ve burada
+ *  cevrilir. Uzunluk sinirlari destek merkezinin sunucu tarafi kuralidir. */
+function fieldError(t: Dictionary, message: string | undefined): string | undefined {
+  if (message === "titleMin") return t.tickets.create.titleMin(TITLE_MIN);
+  if (message === "descriptionMin") return t.tickets.create.descriptionMin(DESCRIPTION_MIN);
+  const known = t.tickets.create as unknown as Record<string, string>;
+  return message && typeof known[message] === "string" ? known[message] : message;
+}
+
 export function TicketCreateDrawer({
   open,
   onClose,
@@ -93,6 +106,7 @@ export function TicketCreateDrawer({
   config,
   onCreated,
 }: TicketCreateDrawerProps) {
+  const t = useT();
   const { create } = api.useMutations();
   const [attachments, setAttachments] = useState<PendingAttachment[]>([]);
   const [detailsOpen, setDetailsOpen] = useState(false);
@@ -145,7 +159,7 @@ export function TicketCreateDrawer({
       // Form ve yuklenmis ek dosya handle'lari KORUNUR: kullanici yeniden
       // yazmak zorunda kalmaz, yalnizca "Tekrar Gönder" der.
       setSubmitError(
-        error instanceof Error ? error.message : "Talep gönderilemedi",
+        error instanceof Error ? error.message : t.tickets.create.failed,
       );
     }
   }
@@ -154,8 +168,8 @@ export function TicketCreateDrawer({
     <Drawer
       open={open}
       onClose={onClose}
-      title="Yeni Destek Talebi"
-      description="Yaşadığınız sorunu veya iyileştirme talebinizi iletin."
+      title={t.tickets.create.newTicket}
+      description={t.tickets.create.description}
     >
       {created ? (
         <SuccessPanel ticket={created} onClose={onClose} onAnother={() => setCreated(null)} />
@@ -164,7 +178,7 @@ export function TicketCreateDrawer({
           <RouteCard config={config} />
 
           <div>
-            <Label htmlFor="ticket-category">Kategori</Label>
+            <Label htmlFor="ticket-category">{t.tickets.create.category}</Label>
             <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
               {TICKET_CATEGORIES.map((category) => {
                 const active = form.watch("category") === category;
@@ -193,28 +207,28 @@ export function TicketCreateDrawer({
           </div>
 
           <div>
-            <Label htmlFor="ticket-title">Başlık</Label>
+            <Label htmlFor="ticket-title">{t.tickets.create.title}</Label>
             <Input
               id="ticket-title"
-              placeholder="Kısa ve ayırt edici bir başlık"
+              placeholder={t.tickets.create.titlePlaceholder}
               aria-invalid={!!form.formState.errors.title}
               {...form.register("title")}
             />
-            <FieldError message={form.formState.errors.title?.message} />
+            <FieldError message={fieldError(t, form.formState.errors.title?.message)} />
             <RemainingHint value={form.watch("title") ?? ""} min={TITLE_MIN} />
           </div>
 
           <div>
-            <Label htmlFor="ticket-description">Sorun detayı</Label>
+            <Label htmlFor="ticket-description">{t.tickets.create.detail}</Label>
             <textarea
               id="ticket-description"
               rows={5}
-              placeholder="Ne yapmaya çalıştınız, ne oldu?"
+              placeholder={t.tickets.create.detailPlaceholder}
               aria-invalid={!!form.formState.errors.description}
               className="w-full rounded-lg border border-border bg-card p-3 text-sm shadow-soft focus-visible:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/25"
               {...form.register("description")}
             />
-            <FieldError message={form.formState.errors.description?.message} />
+            <FieldError message={fieldError(t, form.formState.errors.description?.message)} />
             <RemainingHint
               value={form.watch("description") ?? ""}
               min={DESCRIPTION_MIN}
@@ -233,8 +247,7 @@ export function TicketCreateDrawer({
             {form.watch("impact") === "security_or_data_risk" && (
               <p className="mt-1.5 flex items-start gap-1.5 rounded-lg bg-status-pending/10 px-3 py-2 text-xs text-status-pending">
                 <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
-                Bu seçim talebi öncelikli kuyruğa alır. Acil bir güvenlik olayı
-                yaşıyorsanız ayrıca telefonla da bilgi verin.
+                {t.tickets.create.impactHint}
               </p>
             )}
           </div>
@@ -245,11 +258,11 @@ export function TicketCreateDrawer({
             className="rounded-lg border border-border"
           >
             <summary className="cursor-pointer px-3 py-2 text-sm font-medium">
-              Sorunu daha hızlı çözmemize yardımcı olun (isteğe bağlı)
+              {t.tickets.create.optionalHint}
             </summary>
             <div className="flex flex-col gap-3 border-t border-border p-3">
               <div>
-                <Label htmlFor="ticket-steps">Tekrarlama adımları</Label>
+                <Label htmlFor="ticket-steps">{t.tickets.detail.reproSteps}</Label>
                 <textarea
                   id="ticket-steps"
                   rows={3}
@@ -259,21 +272,21 @@ export function TicketCreateDrawer({
               </div>
               <div className="grid gap-3 sm:grid-cols-2">
                 <div>
-                  <Label htmlFor="ticket-expected">Beklenen sonuç</Label>
+                  <Label htmlFor="ticket-expected">{t.tickets.detail.expected}</Label>
                   <Input id="ticket-expected" {...form.register("expected_result")} />
                 </div>
                 <div>
-                  <Label htmlFor="ticket-actual">Gerçekleşen sonuç</Label>
+                  <Label htmlFor="ticket-actual">{t.tickets.detail.actual}</Label>
                   <Input id="ticket-actual" {...form.register("actual_result")} />
                 </div>
               </div>
               <div className="grid gap-3 sm:grid-cols-2">
                 <div>
-                  <Label htmlFor="ticket-error">Hata kodu / mesajı</Label>
+                  <Label htmlFor="ticket-error">{t.tickets.create.errorCode}</Label>
                   <Input id="ticket-error" {...form.register("error_code")} />
                 </div>
                 <div>
-                  <Label htmlFor="ticket-occurred">Olayın görüldüğü zaman</Label>
+                  <Label htmlFor="ticket-occurred">{t.tickets.detail.occurredAt}</Label>
                   <Input
                     id="ticket-occurred"
                     type="datetime-local"
@@ -286,7 +299,7 @@ export function TicketCreateDrawer({
 
           {config.attachments.enabled ? (
             <div>
-              <Label>Ekran görüntüsü / dosya</Label>
+              <Label>{t.tickets.create.attachments}</Label>
               <AttachmentDropzone
                 attachments={attachments}
                 onChange={setAttachments}
@@ -302,8 +315,7 @@ export function TicketCreateDrawer({
             /* Destek merkezi ek yuklemeyi kapatmis. Alani gostermek kullaniciyi
                dosya secip hata almaya birakirdi; talep ek olmadan gonderilebilir. */
             <p className="rounded-xl border border-border bg-muted/50 px-3 py-2.5 text-xs text-muted-foreground">
-              Destek merkezi şu anda dosya eki kabul etmiyor. Talebinizi ek olmadan
-              gönderebilirsiniz; sorunu açıklama alanında ayrıntılandırın.
+              {t.tickets.create.attachmentsDisabled}
             </p>
           )}
 
@@ -313,16 +325,15 @@ export function TicketCreateDrawer({
             className="rounded-lg bg-muted/40 px-3 py-2 text-xs text-muted-foreground"
           >
             <summary className="cursor-pointer">
-              Talebe otomatik eklenen teknik bilgiler
+              {t.tickets.diagnostics.summary}
             </summary>
             <ul className="mt-1.5 list-disc pl-4">
-              {describeDiagnostics(diagnostics).map((line) => (
+              {describeDiagnostics(t, diagnostics).map((line) => (
                 <li key={line}>{line}</li>
               ))}
             </ul>
             <p className="mt-1.5 font-medium">
-              Gizli form verileri, oturum bilgileri ve adres çubuğundaki parametreler
-              gönderilmez.
+              {t.tickets.create.privacyNote}
             </p>
           </details>
 
@@ -335,7 +346,7 @@ export function TicketCreateDrawer({
               <span>
                 {submitError}
                 <span className="mt-0.5 block text-xs">
-                  Yazdıklarınız korunuyor; tekrar deneyebilirsiniz.
+                  {t.tickets.create.retryHint}
                 </span>
               </span>
             </p>
@@ -343,7 +354,7 @@ export function TicketCreateDrawer({
 
           <div className="flex items-center justify-end gap-2 border-t border-border pt-3">
             <Button type="button" variant="secondary" onClick={onClose}>
-              Vazgeç
+              {t.common.cancel}
             </Button>
             <Button type="submit" disabled={!routeReady || uploading || create.isPending}>
               {create.isPending ? (
@@ -351,7 +362,7 @@ export function TicketCreateDrawer({
               ) : (
                 <Send className="h-4 w-4" aria-hidden />
               )}
-              {uploading ? "Dosyalar yükleniyor…" : "Talebi Gönder"}
+              {uploading ? t.tickets.create.uploading : t.tickets.create.submit}
             </Button>
           </div>
         </form>
@@ -371,17 +382,17 @@ function FieldError({ message }: { message?: string }) {
 
 /** Degistirilemez hedef ekip kutusu — secici DEGIL, bilgi. */
 export function RouteCard({ config }: { config: TicketConfigDto }) {
+  const t = useT();
   if (!config.routing.ready) {
     return (
       <div className="flex items-start gap-2 rounded-xl border border-status-pending/40 bg-status-pending/10 px-3 py-2.5 text-sm text-status-pending">
         <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
         <span>
           <strong className="font-semibold">
-            Destek yönlendirmesi henüz yapılandırılmamış.
+            {t.tickets.routeNotReadyTitle}
           </strong>
           <span className="mt-0.5 block text-xs">
-            Talep oluşturmak için platform yöneticinizin hedef destek ekibini
-            tanımlaması gerekiyor.
+            {t.tickets.routeNotReadyText}
           </span>
         </span>
       </div>
@@ -391,11 +402,12 @@ export function RouteCard({ config }: { config: TicketConfigDto }) {
     <div className="flex items-start gap-2 rounded-xl border border-primary/25 bg-primary/5 px-3 py-2.5 text-sm">
       <Users className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden />
       <span>
-        Talebiniz <strong className="font-semibold">{config.routing.group_display_name}</strong>{" "}
-        ekibine otomatik olarak iletilecektir.
+        {t.tickets.create.routeLead}{" "}
+        <strong className="font-semibold">{config.routing.group_display_name}</strong>{" "}
+        {t.tickets.create.routeTail}
         <span className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
           <Info className="h-3 w-3" aria-hidden />
-          Hedef ekip yönetim tarafından belirlenir; bu talepte değiştirilemez.
+          {t.tickets.create.routeTargetPrefix}
         </span>
       </span>
     </div>
@@ -411,24 +423,27 @@ function SuccessPanel({
   onClose: () => void;
   onAnother: () => void;
 }) {
+  const t = useT();
   return (
     <div className="flex flex-col items-start gap-3">
       <div className="w-full rounded-xl border border-status-approved/40 bg-status-approved/10 px-4 py-3">
-        <p className="font-semibold text-status-approved">Talebiniz alındı</p>
+        <p className="font-semibold text-status-approved">
+          {t.tickets.create.successTitle}
+        </p>
         <p className="mt-1 text-sm text-muted-foreground">
           {ticket.ticket_number
-            ? `Talep numaranız ${ticket.ticket_number}.`
-            : "Talebiniz destek merkezine gönderiliyor; numarası birkaç saniye içinde görünecek."}
+            ? t.tickets.create.successWithNumber(String(ticket.ticket_number))
+            : t.tickets.create.successPending}
         </p>
       </div>
       <p className="text-sm text-muted-foreground">
         <strong className="font-medium text-foreground">{ticket.title}</strong> ·{" "}
-        {ticket.group_name} ekibine iletildi.
+        {t.tickets.create.sentToTeam(ticket.group_name ?? "")}
       </p>
       <div className="flex gap-2">
-        <Button onClick={onClose}>Talebi Görüntüle</Button>
+        <Button onClick={onClose}>{t.tickets.create.viewTicket}</Button>
         <Button variant="secondary" onClick={onAnother}>
-          Yeni Talep Aç
+          {t.tickets.create.newTicket}
         </Button>
       </div>
     </div>

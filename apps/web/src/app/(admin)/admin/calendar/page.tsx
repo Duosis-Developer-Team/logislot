@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useCalendarDay } from "@/lib/api/appointments";
+import { useFormat, useT } from "@/lib/i18n/provider";
 import type { AppointmentDto } from "@/lib/api/types";
 import { useSession } from "@/lib/auth/session";
 import { cn, hhmmToMinutes, minutesOfDayInTz, timeInTz } from "@/lib/utils";
@@ -71,6 +72,8 @@ function fmtMin(m: number): string {
 }
 
 export default function CalendarPage() {
+  const t = useT();
+  const fmt = useFormat();
   const { activeFacilityId, can } = useSession();
   const [view, setView] = useState<"day" | "week">("day");
   const [date, setDate] = useState(todayISO);
@@ -134,22 +137,24 @@ export default function CalendarPage() {
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-bold">Takvim</h1>
+          <h1 className="text-xl font-bold">{t.nav.admin.calendar}</h1>
           <p className="text-sm text-muted-foreground">
             {view === "day"
               ? dateLabel
-              : `${new Date(`${weekStart}T12:00:00`).toLocaleDateString("tr-TR", {
-                  day: "numeric",
-                  month: "long",
-                })} haftası`}
+              : t.admin.calendar.weekOf(
+                  new Date(`${weekStart}T12:00:00`).toLocaleDateString(fmt.tag, {
+                    day: "numeric",
+                    month: "long",
+                  }),
+                )}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <div className="flex rounded-lg bg-muted p-0.5">
             {(
               [
-                ["day", "Günlük"],
-                ["week", "Haftalık"],
+                ["day", t.admin.calendar.viewDay],
+                ["week", t.admin.calendar.viewWeek],
               ] as const
             ).map(([key, label]) => (
               <button
@@ -169,8 +174,8 @@ export default function CalendarPage() {
               variant="secondary"
               size="icon"
               className="h-9 w-9"
-              aria-label={view === "day" ? "Önceki gün" : "Önceki hafta"}
-              title={view === "day" ? "Önceki gün" : "Önceki hafta"}
+              aria-label={view === "day" ? t.admin.calendar.prevDay : t.admin.calendar.prevWeek}
+              title={view === "day" ? t.admin.calendar.prevDay : t.admin.calendar.prevWeek}
               onClick={() => setDate(shiftDate(date, view === "day" ? -1 : -7))}
             >
               <ChevronLeft />
@@ -185,25 +190,25 @@ export default function CalendarPage() {
               variant="secondary"
               size="icon"
               className="h-9 w-9"
-              aria-label={view === "day" ? "Sonraki gün" : "Sonraki hafta"}
-              title={view === "day" ? "Sonraki gün" : "Sonraki hafta"}
+              aria-label={view === "day" ? t.admin.calendar.nextDay : t.admin.calendar.nextWeek}
+              title={view === "day" ? t.admin.calendar.nextDay : t.admin.calendar.nextWeek}
               onClick={() => setDate(shiftDate(date, view === "day" ? 1 : 7))}
             >
               <ChevronRight />
             </Button>
           </div>
           <Button variant="secondary" size="sm" onClick={() => setDate(todayISO())}>
-            Bugün
+            {t.admin.calendar.today}
           </Button>
           {canOverride && (
             <Button
               size="sm"
               variant="secondary"
               onClick={() => openOverride()}
-              title={`${dateLabel} için kapalı gün / saat değişikliği tanımla`}
+              title={t.admin.calendar.addOverrideTitle(dateLabel)}
             >
               <CalendarOff className="mr-1.5 h-4 w-4" />
-              İstisna Ekle
+              {t.admin.calendar.addOverride}
             </Button>
           )}
         </div>
@@ -235,13 +240,13 @@ export default function CalendarPage() {
 
       {view === "day" &&
         (day.isLoading ? (
-          <LoadingState label="Takvim yükleniyor…" />
+          <LoadingState label={t.admin.calendar.loading} />
         ) : day.isError || !data ? (
-          <ErrorState message="Takvim yüklenemedi." onRetry={() => day.refetch()} />
+          <ErrorState message={t.admin.calendar.loadError} onRetry={() => day.refetch()} />
         ) : data.docks.length === 0 ? (
           <EmptyState
-            title="Görüntülenecek rampa yok"
-            description="Aktif rampa yok ya da yetkiniz olan rampa bulunmuyor."
+            title={t.admin.calendar.noDocks}
+            description={t.admin.calendar.noDocksDescription}
           />
         ) : (
           <>
@@ -266,7 +271,7 @@ export default function CalendarPage() {
                       className="sticky left-0 z-10 shrink-0 border-r border-border bg-muted/90 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground backdrop-blur"
                       style={{ width: LEFT_W }}
                     >
-                      Rampalar ({data.docks.length})
+                      {t.admin.calendar.dockCount(data.docks.length)}
                     </div>
                     <div className="relative" style={{ width: bodyW, height: 34 }}>
                       {hours.map((m) => (
@@ -312,8 +317,8 @@ export default function CalendarPage() {
                               <button
                                 type="button"
                                 onClick={() => openOverride(dock.id)}
-                                aria-label={`${dock.name} için istisna ekle`}
-                                title={`${dock.name} · ${dateLabel} için istisna ekle`}
+                                aria-label={t.admin.calendar.dockOverrideLabel(dock.name)}
+                                title={t.admin.calendar.dockOverrideTitle(dock.name, dateLabel)}
                                 className="ml-auto shrink-0 rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                               >
                                 <CalendarOff className="h-3.5 w-3.5" />
@@ -321,7 +326,7 @@ export default function CalendarPage() {
                             )}
                           </div>
                           <div className="truncate text-[11px] text-muted-foreground">
-                            {window ? `${window.start}–${window.end}` : "Bugün kapalı"}
+                            {window ? `${window.start}–${window.end}` : t.admin.calendar.closedToday}
                           </div>
                         </div>
 
@@ -344,7 +349,7 @@ export default function CalendarPage() {
                           }}
                           title={
                             can("appt.create") && window !== null
-                              ? "Boş alana tıklayın: bu rampa ve saate randevu oluştur"
+                              ? t.admin.calendar.clickEmptyHint
                               : undefined
                           }
                           onClick={(e) => window !== null && rowClick(dock.id, e)}
@@ -379,11 +384,11 @@ export default function CalendarPage() {
                                 width:
                                   minToX(hhmmToMinutes(b.end)) - minToX(hhmmToMinutes(b.start)),
                               }}
-                              title={b.note ?? "Kapalı"}
+                              title={b.note ?? t.admin.calendar.closed}
                               onClick={(e) => e.stopPropagation()}
                             >
                               <CalendarOff className="h-3 w-3 shrink-0" />
-                              <span className="truncate">{b.note ?? "Kapalı"}</span>
+                              <span className="truncate">{b.note ?? t.admin.calendar.closed}</span>
                             </div>
                           ))}
 
@@ -441,8 +446,8 @@ export default function CalendarPage() {
 
             {data.appointments.length === 0 && (
               <EmptyState
-                title="Bu gün randevu yok"
-                description="Farklı bir gün seçin ya da tedarikçi portalından talep bekleyin."
+                title={t.admin.calendar.emptyDayTitle}
+                description={t.admin.calendar.emptyDayDescription}
               />
             )}
 
@@ -456,16 +461,16 @@ export default function CalendarPage() {
               ))}
               <span className="flex items-center gap-1">
                 <span className="cargo-overlay h-2.5 w-2.5 rounded-sm border border-cargo/50" />
-                Kargo uyarısı (statüden bağımsız)
+                {t.admin.calendar.legendCargo}
               </span>
               <span className="flex items-center gap-1">
                 <span className="h-2.5 w-2.5 rounded-sm border border-dashed border-status-cancelled/60 bg-status-cancelled/10" />
-                Kapalı (override)
+                {t.admin.calendar.legendClosed}
               </span>
               {showNow && (
                 <span className="flex items-center gap-1">
                   <span className="h-2.5 w-0.5 rounded bg-primary" />
-                  Şu an
+                  {t.admin.calendar.legendNow}
                 </span>
               )}
             </div>

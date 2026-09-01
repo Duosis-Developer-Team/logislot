@@ -4,7 +4,6 @@ import { Check, ChevronLeft, ChevronRight, Package } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import {
-  CARGO_WINDOW_LABELS,
   SLOT_STATUS_LABELS,
   type CargoWindow,
   resolveDurationRange,
@@ -23,6 +22,9 @@ import {
 } from "@/lib/api/supplier";
 import { Switch } from "@/components/ui/switch";
 import type { AppointmentDto, SeriesCreateResultDto } from "@/lib/api/types";
+import { useApiErrorMessage } from "@/lib/i18n/api-error";
+import { useLabels } from "@/lib/i18n/labels";
+import { useT } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
 
 /**
@@ -33,7 +35,7 @@ import { cn } from "@/lib/utils";
  * Tedarikci manuel rampa SECMEZ; atamayi rule engine yapar.
  */
 
-const STEPS = ["Ürün Bilgisi", "Araç & Teslimat", "Tarih & Özet"];
+
 
 function tomorrowISO(): string {
   const d = new Date();
@@ -63,13 +65,10 @@ function occurrenceDates(
   });
 }
 
-const FREQUENCY_LABELS = {
-  weekly: "Her hafta",
-  biweekly: "2 haftada bir",
-  monthly: "Her ay",
-} as const;
-
 export default function NewAppointmentWizard() {
+  const t = useT();
+  const labels = useLabels();
+  const errorMessage = useApiErrorMessage();
   const catalog = useSupplierCatalog();
   const profile = useSupplierProfile();
   const create = useCreateSupplierAppointment();
@@ -200,7 +199,7 @@ export default function NewAppointmentWizard() {
     } catch (err) {
       // Seri hatasi: hangi tekrarin hangi tarihte neden dustugu mesajda gelir.
       setSubmitError(
-        err instanceof ApiError ? err.message : "Talep gönderilemedi; tekrar deneyin.",
+        errorMessage(err, t.supplier.newAppointment.submitFailed),
       );
     }
   }
@@ -214,12 +213,12 @@ export default function NewAppointmentWizard() {
     void doSubmit();
   }
 
-  if (catalog.isLoading) return <LoadingState label="Katalog yükleniyor…" />;
+  if (catalog.isLoading) return <LoadingState label={t.supplier.newAppointment.catalogLoading} />;
   if (catalog.isError)
-    return <ErrorState message="Katalog yüklenemedi." onRetry={() => catalog.refetch()} />;
+    return <ErrorState message={t.supplier.newAppointment.catalogError} onRetry={() => catalog.refetch()} />;
   if (categories.length === 0)
     return (
-      <ErrorState message="Size tanımlı aktif kategori yok. Lütfen tesisinizle iletişime geçin." />
+      <ErrorState message={t.supplier.newAppointment.noCategories} />
     );
 
   if (seriesResult) {
@@ -243,11 +242,13 @@ export default function NewAppointmentWizard() {
           </span>
           <h2 className="text-lg font-bold">
             {approved
-              ? `${seriesResult.occurrence_count} randevunuz onaylandı`
-              : `${seriesResult.occurrence_count} randevu talebiniz onaya gönderildi`}
+              ? t.supplier.newAppointment.seriesApproved(seriesResult.occurrence_count)
+              : t.supplier.newAppointment.seriesPending(seriesResult.occurrence_count)}
           </h2>
           <p className="text-sm text-muted-foreground">
-            {FREQUENCY_LABELS[seriesResult.frequency]} tekrarlayan seri oluşturuldu.
+            {t.supplier.newAppointment.seriesCreated(
+              t.supplier.newAppointment.frequencyLabels[seriesResult.frequency],
+            )}
           </p>
           <ul className="flex flex-col gap-1 text-sm">
             {seriesResult.appointments.map((a) => (
@@ -265,9 +266,9 @@ export default function NewAppointmentWizard() {
           </ul>
           <div className="flex gap-2">
             <Link href="/supplier/appointments">
-              <Button variant="secondary">Randevularım</Button>
+              <Button variant="secondary">{t.supplier.newAppointment.myAppointments}</Button>
             </Link>
-            <Button onClick={() => window.location.reload()}>Yeni Talep</Button>
+            <Button onClick={() => window.location.reload()}>{t.supplier.newAppointment.newRequest}</Button>
           </div>
         </CardContent>
       </Card>
@@ -293,7 +294,9 @@ export default function NewAppointmentWizard() {
             />
           </span>
           <h2 className="text-lg font-bold">
-            {approved ? "Randevunuz onaylandı" : "Talebiniz yönetici onayına gönderildi"}
+            {approved
+              ? t.supplier.newAppointment.singleApproved
+              : t.supplier.newAppointment.singlePending}
           </h2>
           <p className="text-sm text-muted-foreground">
             {result.product_name} ·{" "}
@@ -305,13 +308,13 @@ export default function NewAppointmentWizard() {
               timeZone: tz,
             })}
             {result.delivery_type === "cargo" &&
-              " (kargo — tahmini planlama penceresi; kesin saat taahhüdü değildir)"}
+              t.supplier.newAppointment.cargoEstimateNote}
           </p>
           <div className="flex gap-2">
             <Link href="/supplier/appointments">
-              <Button variant="secondary">Randevularım</Button>
+              <Button variant="secondary">{t.supplier.newAppointment.myAppointments}</Button>
             </Link>
-            <Button onClick={() => window.location.reload()}>Yeni Talep</Button>
+            <Button onClick={() => window.location.reload()}>{t.supplier.newAppointment.newRequest}</Button>
           </div>
         </CardContent>
       </Card>
@@ -321,7 +324,7 @@ export default function NewAppointmentWizard() {
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-4">
       <div className="flex items-center gap-2">
-        {STEPS.map((label, i) => (
+        {t.supplier.newAppointment.steps.map((label, i) => (
           <div key={label} className="flex flex-1 flex-col gap-1">
             <div className={cn("h-1.5 rounded-full", i <= step ? "bg-primary" : "bg-muted")} />
             <span
@@ -340,15 +343,15 @@ export default function NewAppointmentWizard() {
         <Card>
           <CardContent className="flex flex-col gap-4 pt-5">
             <div>
-              <Label>Ürün / Malzeme Adı</Label>
+              <Label>{t.supplier.newAppointment.productName}</Label>
               <Input
                 value={productName}
                 onChange={(e) => setProductName(e.target.value)}
-                placeholder="Örn. Buğday Unu Tip 650"
+                placeholder={t.supplier.newAppointment.productPlaceholder}
               />
             </div>
             <div>
-              <Label>Kategori</Label>
+              <Label>{t.supplier.newAppointment.category}</Label>
               <Select
                 value={categoryId}
                 onChange={(e) => {
@@ -357,7 +360,7 @@ export default function NewAppointmentWizard() {
                   setSelectedSlot(null);
                 }}
               >
-                <option value="">— Kategori seçin —</option>
+                <option value="">{t.supplier.newAppointment.selectCategory}</option>
                 {categories.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.display_name}
@@ -394,7 +397,7 @@ export default function NewAppointmentWizard() {
         <Card>
           <CardContent className="flex flex-col gap-4 pt-5">
             <div>
-              <Label>Araç Kategorisi</Label>
+              <Label>{t.supplier.newAppointment.vehicleCategory}</Label>
               <Select
                 value={effectiveVehicleId ?? ""}
                 onChange={(e) => {
@@ -419,17 +422,17 @@ export default function NewAppointmentWizard() {
                 />
               </div>
               <div>
-                <Label>Sürücü</Label>
+                <Label>{t.supplier.newAppointment.driver}</Label>
                 <Input
                   value={driver}
                   onChange={(e) => setDriver(e.target.value)}
-                  placeholder="Ad Soyad"
+                  placeholder={t.supplier.newAppointment.driverPlaceholder}
                 />
               </div>
             </div>
 
             <div>
-              <Label>Teslimat Tipi</Label>
+              <Label>{t.supplier.newAppointment.deliveryType}</Label>
               <div className={cn("grid gap-2", cargoAllowed ? "grid-cols-2" : "grid-cols-1")}>
                 <button
                   type="button"
@@ -441,8 +444,10 @@ export default function NewAppointmentWizard() {
                       : "border-border",
                   )}
                 >
-                  <div className="font-medium">Standart Randevu</div>
-                  <div className="text-xs text-muted-foreground">Kesin saat aralığı</div>
+                  <div className="font-medium">{t.supplier.newAppointment.standardAppointment}</div>
+                  <div className="text-xs text-muted-foreground">
+                    {t.supplier.newAppointment.exactWindow}
+                  </div>
                 </button>
                 {cargoAllowed && (
                   <button
@@ -454,9 +459,11 @@ export default function NewAppointmentWizard() {
                     )}
                   >
                     <div className="flex items-center gap-1 font-medium">
-                      <Package className="h-3.5 w-3.5 text-cargo" /> Kargo
+                      <Package className="h-3.5 w-3.5 text-cargo" /> {t.supplier.newAppointment.cargoOption}
                     </div>
-                    <div className="text-xs text-muted-foreground">Belirsiz varış</div>
+                    <div className="text-xs text-muted-foreground">
+                      {t.supplier.newAppointment.uncertainArrival}
+                    </div>
                   </button>
                 )}
               </div>
@@ -470,7 +477,7 @@ export default function NewAppointmentWizard() {
           <Card>
             <CardContent className="flex flex-col gap-4 pt-5">
               <div>
-                <Label>Gün</Label>
+                <Label>{t.supplier.newAppointment.day}</Label>
                 <Input
                   type="date"
                   value={date}
@@ -484,7 +491,7 @@ export default function NewAppointmentWizard() {
 
               {isCargo ? (
                 <div>
-                  <Label>Beklenen Pencere</Label>
+                  <Label>{t.supplier.newAppointment.cargoWindowLabel}</Label>
                   <div className="flex flex-col gap-2">
                     {(catalog.data?.cargo_windows ?? []).map((w) => (
                       <button
@@ -498,7 +505,7 @@ export default function NewAppointmentWizard() {
                             : "border-border",
                         )}
                       >
-                        {CARGO_WINDOW_LABELS[w as CargoWindow]}
+                        {labels.cargoWindow[w as CargoWindow]}
                       </button>
                     ))}
                   </div>
@@ -506,7 +513,7 @@ export default function NewAppointmentWizard() {
               ) : (
                 <>
                   <div>
-                    <Label>Tahmini Süre</Label>
+                    <Label>{t.supplier.newAppointment.estimatedDuration}</Label>
                     <Select
                       value={effectiveDuration ?? ""}
                       disabled={durationOptions.length === 0}
@@ -517,29 +524,28 @@ export default function NewAppointmentWizard() {
                     >
                       {durationOptions.map((d) => (
                         <option key={d} value={d}>
-                          {d} dakika
+                          {t.supplier.newAppointment.durationMinutes(d)}
                         </option>
                       ))}
                     </Select>
                     {durationRange?.conflicting && (
                       <p className="mt-1 text-xs text-destructive">
-                        Bu kategorinin süre aralığı size tanımlı limitlerle kesişmiyor.
-                        Lütfen tesis yöneticisiyle iletişime geçin.
+                        {t.supplier.newAppointment.durationMismatch}
                       </p>
                     )}
                   </div>
                   <div>
-                    <Label>Başlangıç Saati</Label>
+                    <Label>{t.supplier.newAppointment.startTime}</Label>
                     {availability.isLoading ? (
-                      <LoadingState label="Müsaitlik hesaplanıyor…" />
+                      <LoadingState label={t.supplier.newAppointment.availabilityLoading} />
                     ) : availability.isError ? (
                       <ErrorState
-                        message="Müsaitlik alınamadı."
+                        message={t.supplier.newAppointment.availabilityError}
                         onRetry={() => availability.refetch()}
                       />
                     ) : slots.length === 0 ? (
                       <p className="rounded-md bg-muted px-3 py-2 text-sm text-muted-foreground">
-                        Bu gün için uygun slot yok. Farklı bir gün deneyin.
+                        {t.supplier.newAppointment.noSlots}
                       </p>
                     ) : (
                       <>
@@ -577,18 +583,20 @@ export default function NewAppointmentWizard() {
                           ))}
                         </div>
                         <div className="mt-2 flex gap-3 text-[10px] text-muted-foreground">
-                          <span>■ Müsait</span>
-                          <span className="text-status-pending">■ Kısmen dolu</span>
-                          <span className="line-through">■ Dolu</span>
-                          <span className="text-cargo">📦 Kargo uyarısı</span>
+                          <span>{t.supplier.newAppointment.legendAvailable}</span>
+                          <span className="text-status-pending">
+                            {t.supplier.newAppointment.legendPartial}
+                          </span>
+                          <span className="line-through">{t.supplier.newAppointment.legendFull}</span>
+                          <span className="text-cargo">{t.supplier.newAppointment.legendCargo}</span>
                         </div>
                         {selectedAdvisories.length > 0 && (
                           <div className="mt-2 flex items-start gap-2 rounded-lg border border-cargo/40 bg-cargo/10 px-3 py-2 text-xs text-cargo">
                             <Package className="mt-0.5 h-4 w-4 shrink-0" />
                             <span>
-                              Bu aralıkta aynı rampada kargo bekleniyor. Randevunuz{" "}
-                              <strong>engellenmez</strong>; ancak planlamacı bu saatlerde
-                              boşluk bırakmak isteyebilir.
+                              {t.supplier.newAppointment.cargoHintLead}{" "}
+                              <strong>{t.supplier.newAppointment.cargoHintStrong}</strong>
+                              {t.supplier.newAppointment.cargoHintTail}
                             </span>
                           </div>
                         )}
@@ -608,13 +616,13 @@ export default function NewAppointmentWizard() {
                   onChange={(v) => {
                     setRecurringEnabled(v);
                   }}
-                  label="Tekrarlayan randevu oluştur"
+                  label={t.supplier.newAppointment.recurringToggle}
                 />
                 {recurringEnabled && (
                   <>
                     <div className="grid grid-cols-2 gap-3">
                       <div>
-                        <Label>Sıklık</Label>
+                        <Label>{t.supplier.newAppointment.frequency}</Label>
                         <Select
                           value={recurringFrequency}
                           onChange={(e) => {
@@ -623,13 +631,13 @@ export default function NewAppointmentWizard() {
                             if (f === "monthly" && recurringCount > 6) setRecurringCount(6);
                           }}
                         >
-                          <option value="weekly">Her hafta</option>
-                          <option value="biweekly">2 haftada bir</option>
-                          <option value="monthly">Her ay</option>
+                          <option value="weekly">{t.supplier.newAppointment.freqWeekly}</option>
+                          <option value="biweekly">{t.supplier.newAppointment.freqBiweekly}</option>
+                          <option value="monthly">{t.supplier.newAppointment.freqMonthly}</option>
                         </Select>
                       </div>
                       <div>
-                        <Label>Tekrar Sayısı</Label>
+                        <Label>{t.supplier.newAppointment.repeatCount}</Label>
                         <Input
                           type="number"
                           min={2}
@@ -641,7 +649,7 @@ export default function NewAppointmentWizard() {
                     </div>
                     <div className="rounded-lg border border-border bg-muted/40 px-3 py-2">
                       <p className="mb-1 text-xs font-semibold">
-                        {effectiveRecurringCount} randevu oluşturulacak:
+                        {t.supplier.newAppointment.willCreate(effectiveRecurringCount)}
                       </p>
                       <ul className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-xs text-muted-foreground">
                         {previewDates.map((d, i) => (
@@ -656,9 +664,9 @@ export default function NewAppointmentWizard() {
                         ))}
                       </ul>
                       <p className="mt-1.5 text-[11px] text-muted-foreground">
-                        Tüm tarihler kural setinden geçer; biri uygun değilse{" "}
-                        <strong>hiçbiri oluşturulmaz</strong> ve hangi tarihin neden uygun
-                        olmadığı gösterilir.
+                        {t.supplier.newAppointment.allOrNothingLead}{" "}
+                        <strong>{t.supplier.newAppointment.allOrNothingStrong}</strong>{" "}
+                        {t.supplier.newAppointment.allOrNothingTail}
                       </p>
                     </div>
                   </>
@@ -669,48 +677,56 @@ export default function NewAppointmentWizard() {
 
           <Card>
             <CardContent className="pt-5">
-              <h3 className="mb-2 text-sm font-semibold">Talep Özeti</h3>
+              <h3 className="mb-2 text-sm font-semibold">{t.supplier.newAppointment.summaryTitle}</h3>
               <dl className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
-                <dt className="text-muted-foreground">Ürün</dt>
+                <dt className="text-muted-foreground">{t.supplier.newAppointment.summaryProduct}</dt>
                 <dd>{productName || "—"}</dd>
-                <dt className="text-muted-foreground">Kategori</dt>
+                <dt className="text-muted-foreground">{t.supplier.newAppointment.category}</dt>
                 <dd>{category?.display_name ?? "—"}</dd>
-                <dt className="text-muted-foreground">Miktar</dt>
+                <dt className="text-muted-foreground">{t.supplier.newAppointment.quantity}</dt>
                 <dd>
                   {quantity}{" "}
                   {catalog.data?.quantity_units.find((u) => u.value === unit)?.label}
                 </dd>
-                <dt className="text-muted-foreground">Araç</dt>
+                <dt className="text-muted-foreground">{t.supplier.newAppointment.summaryVehicle}</dt>
                 <dd>{effectiveVehicle?.display_name ?? "—"}</dd>
                 {plate && (
                   <>
-                    <dt className="text-muted-foreground">Plaka</dt>
+                    <dt className="text-muted-foreground">{t.supplier.newAppointment.plate}</dt>
                     <dd className="font-mono">{plate}</dd>
                   </>
                 )}
-                <dt className="text-muted-foreground">Teslimat</dt>
+                <dt className="text-muted-foreground">{t.supplier.newAppointment.deliveryLabel}</dt>
                 <dd>
-                  {isCargo ? `Kargo · ${CARGO_WINDOW_LABELS[cargoWindow]}` : "Standart"}
+                  {isCargo
+                    ? t.supplier.newAppointment.cargoWithWindow(labels.cargoWindow[cargoWindow])
+                    : t.supplier.newAppointment.standardShort}
                 </dd>
-                <dt className="text-muted-foreground">Tarih</dt>
+                <dt className="text-muted-foreground">{t.common.date}</dt>
                 <dd>
                   {date}
                   {!isCargo && selectedSlot
-                    ? ` · ${slotLabel(selectedSlot)} (${effectiveDuration} dk)`
+                    ? t.supplier.newAppointment.slotSummary(
+                        slotLabel(selectedSlot),
+                        effectiveDuration,
+                      )
                     : ""}
                 </dd>
                 {recurringActive && (
                   <>
-                    <dt className="text-muted-foreground">Tekrar</dt>
+                    <dt className="text-muted-foreground">{t.supplier.newAppointment.repeatLabel}</dt>
                     <dd>
-                      {FREQUENCY_LABELS[recurringFrequency]} · {effectiveRecurringCount} randevu
+                      {t.supplier.newAppointment.repeatSummary(
+                        t.supplier.newAppointment.frequencyLabels[recurringFrequency],
+                        effectiveRecurringCount,
+                      )}
                     </dd>
                   </>
                 )}
               </dl>
               {limits?.auto_approval_enabled && (
                 <p className="mt-3 rounded-md bg-status-approved/10 px-2 py-1 text-xs text-status-approved">
-                  Otomatik onay yetkiniz var; talebiniz anında onaylanır.
+                  {t.supplier.newAppointment.autoApproveNote}
                 </p>
               )}
             </CardContent>
@@ -741,10 +757,10 @@ export default function NewAppointmentWizard() {
             onClick={onSubmit}
           >
             {create.isPending
-              ? "Gönderiliyor…"
+              ? t.supplier.newAppointment.sending
               : recurringActive
-                ? `${effectiveRecurringCount} Randevu Talep Et`
-                : "Randevu Talep Et"}
+                ? t.supplier.newAppointment.submitMany(effectiveRecurringCount)
+                : t.supplier.newAppointment.submitOne}
           </Button>
         )}
       </div>
@@ -753,20 +769,21 @@ export default function NewAppointmentWizard() {
       <Dialog
         open={confirmAdvisory}
         onClose={() => setConfirmAdvisory(false)}
-        title="Kargo uyarısı"
+        title={t.supplier.newAppointment.cargoDialogTitle}
       >
         <div className="flex flex-col gap-4">
           <p className="flex items-start gap-2 text-sm text-muted-foreground">
             <Package className="mt-0.5 h-5 w-5 shrink-0 text-cargo" />
-            Seçtiğiniz saatte bu rampada kargo bekleniyor. Bu bir engel değildir;
-            talebiniz normal şekilde işlenir. Yine de talep oluşturulsun mu?
+            {t.supplier.newAppointment.cargoDialogText}
           </p>
           <div className="flex justify-end gap-2">
             <Button variant="secondary" onClick={() => setConfirmAdvisory(false)}>
-              Farklı Saat Seçeyim
+              {t.supplier.newAppointment.cargoDialogBack}
             </Button>
             <Button onClick={() => void doSubmit()} disabled={create.isPending}>
-              {create.isPending ? "Gönderiliyor…" : "Evet, Talep Oluştur"}
+              {create.isPending
+                ? t.supplier.newAppointment.sending
+                : t.supplier.newAppointment.cargoDialogConfirm}
             </Button>
           </div>
         </div>

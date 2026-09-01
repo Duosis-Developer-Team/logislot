@@ -17,6 +17,7 @@ import {
   useMemo,
   useState,
 } from "react";
+import { useT } from "@/lib/i18n/provider";
 import { ApiError, apiRequest, authApi, clearSession, getStoredToken } from "@/lib/api/client";
 import type { FacilitySummaryDto, MeDto } from "@/lib/api/types";
 
@@ -59,6 +60,7 @@ interface SessionState {
 const SessionContext = createContext<SessionState | null>(null);
 
 export function SessionProvider({ children }: { children: React.ReactNode }) {
+  const t = useT();
   const queryClient = useQueryClient();
   const [hasToken, setHasToken] = useState<boolean | null>(null);
   useEffect(() => setHasToken(getStoredToken() !== null), []);
@@ -114,7 +116,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       meQuery.isError && !isUnauthorized
         ? meQuery.error instanceof Error
           ? meQuery.error.message
-          : "Oturum bilgisi alinamadi"
+          : t.states.sessionLoadFailed
         : null,
     activeFacilityId,
     activeFacility: me?.facilities.find((f) => f.id === activeFacilityId) ?? null,

@@ -17,8 +17,12 @@ import { ApiError } from "@/lib/api/client";
 import { dockOverrides, docks } from "@/lib/api/resources";
 import type { OverrideDto } from "@/lib/api/types";
 import { useSession } from "@/lib/auth/session";
+import { useApiErrorMessage } from "@/lib/i18n/api-error";
+import { useT } from "@/lib/i18n/provider";
 
 export default function OverridesPage() {
+  const t = useT();
+  const errorMessage = useApiErrorMessage();
   const { activeFacilityId } = useSession();
   const list = dockOverrides.useList(activeFacilityId);
   const dockList = docks.useList(activeFacilityId);
@@ -47,9 +51,9 @@ export default function OverridesPage() {
     if (!confirmTarget) return;
     try {
       await deactivate.mutateAsync(confirmTarget.id);
-      showFlash("success", "İstisna pasifleştirildi; normal takvim geçerli.");
+      showFlash("success", t.admin.overrides.deactivated);
     } catch (err) {
-      showFlash("error", err instanceof ApiError ? err.message : "İşlem başarısız");
+      showFlash("error", errorMessage(err, t.admin.config.actionFailed));
     } finally {
       setConfirmTarget(null);
     }
@@ -64,9 +68,9 @@ export default function OverridesPage() {
 
   return (
     <ConfigPageShell
-      title="Takvim İstisnaları"
-      description="Kapalı gün müsaitlikte sert engel üretir; saat değişikliği o günün çalışma penceresinin YERİNE geçer — normal saat dışına slot açabilir ya da günü kısaltabilir."
-      createLabel="Yeni İstisna"
+      title={t.admin.overrides.title}
+      description={t.admin.overrides.pageDescription}
+      createLabel={t.admin.overrides.create}
       onCreate={openCreate}
       search={search}
       onSearchChange={setSearch}
@@ -77,25 +81,25 @@ export default function OverridesPage() {
       {list.isLoading ? (
         <LoadingState />
       ) : list.isError ? (
-        <ErrorState message="İstisnalar yüklenemedi." onRetry={() => list.refetch()} />
+        <ErrorState message={t.admin.overrides.loadError} onRetry={() => list.refetch()} />
       ) : rows.length === 0 ? (
         <EmptyState
-          title="Takvim istisnası yok"
-          description="Bakım için kapalı gün ya da o güne özel çalışma saati tanımlayın; müsaitlik anında güncellenir."
-          actionLabel="İlk istisnayı oluştur"
+          title={t.admin.overrides.emptyTitle}
+          description={t.admin.overrides.emptyDescription}
+          actionLabel={t.admin.overrides.emptyAction}
           onAction={openCreate}
         />
       ) : (
         <Table>
           <THead>
             <TR>
-              <TH>Tarih</TH>
-              <TH>Rampa</TH>
+              <TH>{t.common.date}</TH>
+              <TH>{t.common.dock}</TH>
               <TH>Tip</TH>
-              <TH>Saat Aralığı</TH>
+              <TH>{t.admin.overrides.colHours}</TH>
               <TH>Sebep</TH>
               <TH>Durum</TH>
-              <TH className="text-right">İşlem</TH>
+              <TH className="text-right">{t.common.actions}</TH>
             </TR>
           </THead>
           <TBody>
@@ -112,18 +116,18 @@ export default function OverridesPage() {
                 <TD>
                   {row.type === "closed" ? (
                     <Badge className="bg-status-rejected/15 text-status-rejected">
-                      Kapalı
+                      {t.admin.overrides.closed}
                     </Badge>
                   ) : (
                     <Badge className="bg-status-approved/15 text-status-approved">
-                      Saat değişikliği
+                      {t.admin.overrides.hoursChange}
                     </Badge>
                   )}
                 </TD>
                 <TD className="text-sm text-muted-foreground">
                   {row.start_time && row.end_time
                     ? `${row.start_time.slice(0, 5)}–${row.end_time.slice(0, 5)}`
-                    : "Tüm gün"}
+                    : t.admin.overrides.allDay}
                 </TD>
                 <TD className="max-w-56 truncate text-sm text-muted-foreground">
                   {row.reason ?? "—"}
@@ -134,11 +138,11 @@ export default function OverridesPage() {
                 <TD className="text-right">
                   <div className="flex justify-end gap-1">
                     <Button size="sm" variant="secondary" onClick={() => openEdit(row)}>
-                      Düzenle
+                      {t.common.edit}
                     </Button>
                     {row.is_active && (
                       <Button size="sm" variant="ghost" onClick={() => setConfirmTarget(row)}>
-                        Pasifleştir
+                        {t.admin.config.deactivate}
                       </Button>
                     )}
                   </div>
@@ -158,8 +162,8 @@ export default function OverridesPage() {
 
       <ConfirmDialog
         open={confirmTarget !== null}
-        title="İstisnayı pasifleştir"
-        message="Bu istisna pasifleştirilecek ve rampa o gün normal çalışma düzenine döner."
+        title={t.admin.overrides.deactivateTitle}
+        message={t.admin.overrides.deactivateMessage}
         loading={deactivate.isPending}
         onConfirm={onDeactivate}
         onClose={() => setConfirmTarget(null)}

@@ -311,7 +311,7 @@ export async function downloadCsv(path: string, filename: string): Promise<void>
     headers: token ? { Authorization: `Bearer ${token}` } : {},
   });
   if (!response.ok) {
-    throw new ApiError("DOWNLOAD_FAILED", "Dosya indirilemedi");
+    throw new ApiError("download_failed", "Dosya indirilemedi");
   }
   const blob = await response.blob();
   const url = URL.createObjectURL(blob);

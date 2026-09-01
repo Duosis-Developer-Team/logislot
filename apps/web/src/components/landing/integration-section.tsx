@@ -1,5 +1,8 @@
+"use client";
+
 import { Boxes, CalendarRange, MessageSquareText, Plug2, Warehouse } from "lucide-react";
 import { Reveal } from "@/components/landing/reveal";
+import { useT } from "@/lib/i18n/provider";
 
 /**
  * Entegrasyon / güven işaretleri — kurumsal alıcının ilk sorusu olan
@@ -8,14 +11,11 @@ import { Reveal } from "@/components/landing/reveal";
  * API-öncelikli mimari + kurulum kapsamında planlanan bağlantılar anlatılır.
  */
 
-const CHANNELS = [
-  { icon: Boxes, label: "ERP" },
-  { icon: Warehouse, label: "WMS / TMS" },
-  { icon: CalendarRange, label: "E-posta & takvim" },
-  { icon: MessageSquareText, label: "Bildirim kanalları" },
-];
+/** Ikonlar yapisaldir; etiketler sozlukten gelir. */
+const CHANNEL_ICONS = [Boxes, Warehouse, CalendarRange, MessageSquareText];
 
 export function IntegrationSection() {
+  const t = useT();
   return (
     <section id="entegrasyon" className="mx-auto max-w-7xl scroll-mt-20 px-5 py-16 sm:px-8 lg:py-20">
       <div className="rounded-3xl border border-border bg-card p-8 shadow-card sm:p-10">
@@ -26,29 +26,24 @@ export function IntegrationSection() {
                 <Plug2 className="h-5 w-5" />
               </span>
               <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">
-                Mevcut sistemlerinize bağlanır mı?
+                {t.landing.integration.title}
               </h2>
             </div>
             <p className="mt-4 max-w-2xl text-sm leading-relaxed text-muted-foreground sm:text-base">
-              LogiSlot, tüm işlevlerini API üzerinden sunan modern bir mimariyle
-              geliştirildi. Randevu, tedarikçi ve rampa verisi dışa kapalı bir
-              kutuda kalmaz; ERP, WMS/TMS ve e-posta/takvim sistemlerinizle
-              bağlantı, kurulum projesi kapsamında birlikte planlanır. E-posta
-              bildirimleri üründe hazırdır; ek bildirim kanalları ihtiyaca göre
-              devreye alınır.
+              {t.landing.integration.text}
             </p>
           </Reveal>
           <Reveal delay={120}>
             <div className="grid grid-cols-2 gap-3">
-              {CHANNELS.map((channel) => {
-                const Icon = channel.icon;
+              {t.landing.integration.channels.map((label, index) => {
+                const Icon = CHANNEL_ICONS[index];
                 return (
                   <div
-                    key={channel.label}
+                    key={label}
                     className="flex items-center gap-2.5 rounded-xl border border-border bg-muted/40 px-4 py-3 dark:bg-muted/20"
                   >
                     <Icon className="h-4 w-4 shrink-0 text-primary" />
-                    <span className="text-sm font-medium">{channel.label}</span>
+                    <span className="text-sm font-medium">{label}</span>
                   </div>
                 );
               })}

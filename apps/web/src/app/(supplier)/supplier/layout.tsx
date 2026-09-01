@@ -8,38 +8,62 @@ import { NotificationBell } from "@/components/notifications/notification-bell";
 import { AppShell, type AppNavItem } from "@/components/shell/app-shell";
 import { Button } from "@/components/ui/button";
 import { SessionProvider, useSession } from "@/lib/auth/session";
+import type { Dictionary } from "@/lib/i18n/dictionaries/tr";
+import { useT } from "@/lib/i18n/provider";
 
-const NAV: AppNavItem[] = [
-  { href: "/supplier/appointments", label: "Randevularım", icon: CalendarDays },
-  { href: "/supplier/new-appointment", label: "Yeni Randevu", icon: CirclePlus },
-  // Tedarikci portal izinleri rol tablosuyla degil sabit portal setiyle
-  // yonetildiginden (bkz. SupplierPortalPermission.DEFAULT) menu kosulsuzdur;
-  // yetki yine backend'de dogrulanir.
-  { href: "/supplier/tickets", label: "Destek", icon: LifeBuoy },
-  { href: "/supplier/profile", label: "Profil", icon: UserRound },
-];
+function navItems(t: Dictionary): AppNavItem[] {
+  return [
+    {
+      href: "/supplier/appointments",
+      label: t.nav.supplier.appointments,
+      icon: CalendarDays,
+    },
+    {
+      href: "/supplier/new-appointment",
+      label: t.nav.supplier.newAppointment,
+      icon: CirclePlus,
+    },
+    // Tedarikci portal izinleri rol tablosuyla degil sabit portal setiyle
+    // yonetildiginden (bkz. SupplierPortalPermission.DEFAULT) menu kosulsuzdur;
+    // yetki yine backend'de dogrulanir.
+    {
+      href: "/supplier/tickets",
+      label: t.nav.supplier.tickets,
+      icon: LifeBuoy,
+    },
+    {
+      href: "/supplier/profile",
+      label: t.nav.supplier.profile,
+      icon: UserRound,
+    },
+  ];
+}
 
 function SupplierShell({ children }: { children: React.ReactNode }) {
+  const t = useT();
   const session = useSession();
 
   if (session.isLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
-        <LoadingState label="Oturum doğrulanıyor…" />
+        <LoadingState label={t.states.verifyingSession} />
       </div>
     );
   }
 
   // Portal yalnizca tedarikci kullanicilarina aciktir.
-  if (session.isUnauthorized || (session.me && session.me.user_type !== "supplier")) {
+  if (
+    session.isUnauthorized ||
+    (session.me && session.me.user_type !== "supplier")
+  ) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-4 p-4">
         <LogiSlotLogo size="lg" />
         <p className="text-center text-sm text-muted-foreground">
-          Tedarikçi portalı için tedarikçi hesabıyla giriş yapın.
+          {t.supplier.layout.wrongPortal}
         </p>
         <Link href="/login">
-          <Button>Giriş Ekranına Dön</Button>
+          <Button>{t.supplier.layout.backToLogin}</Button>
         </Link>
       </div>
     );
@@ -47,11 +71,11 @@ function SupplierShell({ children }: { children: React.ReactNode }) {
 
   return (
     <AppShell
-      nav={NAV}
-      roleLabel="Tedarikçi"
+      nav={navItems(t)}
+      roleLabel={t.nav.role.supplier}
       brand={<LogiSlotLogo size="lg" priority />}
       profileHref="/supplier/profile"
-      footer="LogiSlot · Tedarikçi Portalı"
+      footer={t.supplier.layout.footer}
       headerActions={<NotificationBell variant="supplier" facilityId="self" />}
     >
       {children}
@@ -59,7 +83,11 @@ function SupplierShell({ children }: { children: React.ReactNode }) {
   );
 }
 
-export default function SupplierLayout({ children }: { children: React.ReactNode }) {
+export default function SupplierLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
     <SessionProvider>
       <SupplierShell>{children}</SupplierShell>

@@ -26,8 +26,6 @@ import {
 import { useState } from "react";
 import {
   TICKET_RESOLUTION_CODE_LABELS,
-  ticketCategoryLabel,
-  ticketImpactLabel,
 } from "@logislot/shared";
 import { LoadingState } from "@/components/config/states";
 import {
@@ -43,6 +41,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import type { TicketApi } from "@/lib/api/tickets";
 import type { TicketConfigDto, TicketDetailDto } from "@/lib/api/types";
 import { cn, formatDateTime } from "@/lib/utils";
+import { useLabels } from "@/lib/i18n/labels";
+import { useFormat, useT } from "@/lib/i18n/provider";
 
 interface TicketDetailProps {
   ticketId: string;
@@ -59,6 +59,9 @@ export function TicketDetail({
   onBack,
   onCreateNew,
 }: TicketDetailProps) {
+  const t = useT();
+  const fmt = useFormat();
+  const labels = useLabels();
   const detail = api.useDetail(ticketId);
   const { reply, reopen, confirmClose } = api.useMutations();
   const [body, setBody] = useState("");
@@ -67,14 +70,14 @@ export function TicketDetail({
   const [reopenOpen, setReopenOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  if (detail.isLoading) return <LoadingState label="Talep yükleniyor…" />;
+  if (detail.isLoading) return <LoadingState />;
   if (detail.isError || !detail.data) {
     return (
       <div className="flex flex-col items-start gap-3">
         <Button variant="secondary" size="sm" onClick={onBack}>
-          <ArrowLeft className="h-4 w-4" aria-hidden /> Listeye dön
+          <ArrowLeft className="h-4 w-4" aria-hidden /> {t.tickets.detail.backToList}
         </Button>
-        <p className="text-sm text-muted-foreground">Talep bulunamadı.</p>
+        <p className="text-sm text-muted-foreground">{t.tickets.detail.notFound}</p>
       </div>
     );
   }
@@ -100,7 +103,7 @@ export function TicketDetail({
       setAttachments([]);
     } catch (e) {
       // Yazilan metin KORUNUR — yeniden yazdirmak kabul edilemez.
-      setError(e instanceof Error ? e.message : "Yanıt gönderilemedi");
+      setError(e instanceof Error ? e.message : t.errors.unexpected);
     }
   }
 
@@ -113,7 +116,7 @@ export function TicketDetail({
           </Button>
           <div className="flex flex-wrap items-center gap-2">
             <span className="font-mono text-sm text-muted-foreground">
-              {ticket.ticket_number ?? "Gönderiliyor…"}
+              {ticket.ticket_number ?? t.tickets.detail.pending}
             </span>
             <TicketStatusBadge status={ticket.status} />
             <TicketDeliveryBadge
@@ -123,9 +126,9 @@ export function TicketDetail({
           </div>
           <h1 className="mt-1 text-xl font-bold">{ticket.title}</h1>
           <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
-            <span>{ticketCategoryLabel(ticket.category)}</span>
+            <span>{labels.ticketCategoryLabel(ticket.category)}</span>
             <span aria-hidden>·</span>
-            <span>{ticketImpactLabel(ticket.impact)}</span>
+            <span>{labels.ticketImpactLabel(ticket.impact)}</span>
             {ticket.group_name && (
               <>
                 <span aria-hidden>·</span>
@@ -150,10 +153,9 @@ export function TicketDetail({
           <CardContent className="flex items-start gap-2 p-4 text-sm">
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" aria-hidden />
             <span>
-              <strong className="font-semibold">Talep destek merkezine iletilemedi.</strong>
+              <strong className="font-semibold">{t.tickets.detail.deliveryFailedTitle}</strong>
               <span className="mt-0.5 block text-xs text-muted-foreground">
-                Kaydınız korunuyor ve otomatik olarak yeniden denenecek. Sorun devam
-                ederse platform yöneticinize başvurun
+                {t.tickets.detail.deliveryFailedLead}
                 {ticket.last_sync_error_code
                   ? ` (kod: ${ticket.last_sync_error_code})`
                   : ""}
@@ -169,10 +171,9 @@ export function TicketDetail({
           <CardContent className="flex items-start gap-2 p-4 text-sm">
             <MessageCircleQuestion className="mt-0.5 h-4 w-4 shrink-0 text-accent-foreground" aria-hidden />
             <span>
-              <strong className="font-semibold">Destek ekibi sizden bilgi bekliyor.</strong>
+              <strong className="font-semibold">{t.tickets.detail.waitingCustomerTitle}</strong>
               <span className="mt-0.5 block text-xs text-muted-foreground">
-                Aşağıdaki alandan yanıt verdiğinizde talep otomatik olarak işleme
-                geri alınır.
+                {t.tickets.detail.waitingCustomer}
               </span>
             </span>
           </CardContent>
@@ -184,7 +185,7 @@ export function TicketDetail({
           <CardContent className="p-4">
             <div className="flex items-center gap-2">
               <CheckCircle2 className="h-5 w-5 text-status-approved" aria-hidden />
-              <h2 className="font-semibold text-status-approved">Çözüm</h2>
+              <h2 className="font-semibold text-status-approved">{t.tickets.detail.resolution}</h2>
               {ticket.resolution.code && (
                 <span className="rounded-full bg-status-approved/15 px-2 py-0.5 text-xs font-medium text-status-approved">
                   {TICKET_RESOLUTION_CODE_LABELS[ticket.resolution.code] ??
@@ -200,7 +201,7 @@ export function TicketDetail({
               {ticket.resolution.resolved_at &&
                 ` · ${formatDateTime(ticket.resolution.resolved_at)}`}
               {ticket.resolution.fix_version &&
-                ` · Sürüm ${ticket.resolution.fix_version}`}
+                t.tickets.detail.version(ticket.resolution.fix_version)}
             </p>
 
             {ticket.status === "resolved" && ticket.permissions.can_reopen && (
@@ -216,20 +217,21 @@ export function TicketDetail({
                       // (yoklama henuz gelmemis). Sessizce yutulursa kullanici
                       // butona basmaya devam eder.
                       setError(
-                        e instanceof Error ? e.message : "İşlem tamamlanamadı",
+                        e instanceof Error ? e.message : t.errors.unexpected,
                       );
                     }
                   }}
                   disabled={confirmClose.isPending}
                 >
-                  <CheckCircle2 className="h-4 w-4" aria-hidden /> Çözümü onayla ve kapat
+                  <CheckCircle2 className="h-4 w-4" aria-hidden />{" "}
+                  {t.tickets.detail.confirmClose}
                 </Button>
                 <Button
                   size="sm"
                   variant="secondary"
                   onClick={() => setReopenOpen((v) => !v)}
                 >
-                  <RotateCcw className="h-4 w-4" aria-hidden /> Sorun devam ediyor
+                  <RotateCcw className="h-4 w-4" aria-hidden /> {t.tickets.detail.stillBroken}
                 </Button>
               </div>
             )}
@@ -243,7 +245,7 @@ export function TicketDetail({
             {reopenOpen && (
               <div className="mt-3 flex flex-col gap-2 rounded-lg border border-border p-3">
                 <label htmlFor="reopen-reason" className="text-sm font-medium">
-                  Neden yeniden açıyorsunuz?
+                  {t.tickets.detail.reopenReason}
                 </label>
                 <textarea
                   id="reopen-reason"
@@ -254,7 +256,7 @@ export function TicketDetail({
                 />
                 <div className="flex justify-end gap-2">
                   <Button size="sm" variant="ghost" onClick={() => setReopenOpen(false)}>
-                    Vazgeç
+                    {t.common.cancel}
                   </Button>
                   <Button
                     size="sm"
@@ -271,12 +273,12 @@ export function TicketDetail({
                       } catch (e) {
                         // Gerekce KORUNUR; panel acik kalir.
                         setError(
-                          e instanceof Error ? e.message : "Yeniden açılamadı",
+                          e instanceof Error ? e.message : t.errors.unexpected,
                         );
                       }
                     }}
                   >
-                    Yeniden Aç
+                    {t.tickets.detail.reopen}
                   </Button>
                 </div>
               </div>
@@ -287,16 +289,22 @@ export function TicketDetail({
 
       <Card>
         <CardContent className="p-4">
-          <h2 className="text-sm font-semibold">Talep özeti</h2>
+          <h2 className="text-sm font-semibold">{t.tickets.detail.summary}</h2>
           <dl className="mt-2 grid gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
-            <Field label="Kategori" value={ticketCategoryLabel(ticket.category)} />
-            <Field label="Etki" value={ticketImpactLabel(ticket.impact)} />
-            <Field label="Tekrarlama adımları" value={ticket.reproduction_steps} wide />
-            <Field label="Beklenen sonuç" value={ticket.expected_result} />
-            <Field label="Gerçekleşen sonuç" value={ticket.actual_result} />
-            <Field label="Hata kodu" value={ticket.error_code} />
             <Field
-              label="Olayın görüldüğü zaman"
+              label={t.tickets.detail.category}
+              value={labels.ticketCategoryLabel(ticket.category)}
+            />
+            <Field
+              label={t.tickets.detail.impact}
+              value={labels.ticketImpactLabel(ticket.impact)}
+            />
+            <Field label={t.tickets.detail.reproSteps} value={ticket.reproduction_steps} wide />
+            <Field label={t.tickets.detail.expected} value={ticket.expected_result} />
+            <Field label={t.tickets.detail.actual} value={ticket.actual_result} />
+            <Field label={t.tickets.detail.errorCode} value={ticket.error_code} />
+            <Field
+              label={t.tickets.detail.occurredAt}
               value={ticket.occurred_at ? formatDateTime(ticket.occurred_at) : null}
             />
           </dl>
@@ -304,7 +312,7 @@ export function TicketDetail({
       </Card>
 
       <div className="flex flex-col gap-3">
-        <h2 className="text-sm font-semibold">Yazışma</h2>
+        <h2 className="text-sm font-semibold">{t.tickets.detail.conversation}</h2>
         {ticket.messages.map((message) => {
           const fromAgent = message.author_type !== "requester";
           const messageAttachments = ticket.attachments.filter(
@@ -323,13 +331,13 @@ export function TicketDetail({
               <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
                 <span className="font-medium text-foreground">
                   {message.author_display_name ??
-                    (fromAgent ? "Destek Ekibi" : "Siz")}
+                    (fromAgent ? t.tickets.detail.supportTeam : t.tickets.detail.you)}
                 </span>
                 <span className="flex items-center gap-1.5">
                   {message.is_pending && (
                     <span className="inline-flex items-center gap-1 text-muted-foreground">
                       <Loader2 className="h-3 w-3 animate-spin" aria-hidden />
-                      Gönderiliyor
+                      {t.tickets.detail.pending}
                     </span>
                   )}
                   {message.created_at && formatDateTime(message.created_at)}
@@ -350,7 +358,8 @@ export function TicketDetail({
         {ticket.attachments.filter((a) => !a.message_id).length > 0 && (
           <div className="rounded-xl border border-border bg-card px-4 py-3">
             <p className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-              <Paperclip className="h-3.5 w-3.5" aria-hidden /> Talebe eklenen dosyalar
+              <Paperclip className="h-3.5 w-3.5" aria-hidden />{" "}
+              {t.tickets.detail.ticketAttachments}
             </p>
             <AttachmentList
               ticketId={ticket.id}
@@ -365,11 +374,11 @@ export function TicketDetail({
         <Card className="bg-muted/40">
           <CardContent className="flex flex-wrap items-center justify-between gap-3 p-4 text-sm">
             <span className="text-muted-foreground">
-              Bu talep kapatıldı. Sorun tekrar ederse yeni bir talep açabilirsiniz.
+              {t.tickets.detail.closedNote}
             </span>
             {config.can_create && (
               <Button size="sm" onClick={onCreateNew}>
-                Yeni Talep Aç
+                {t.tickets.create.newTicket}
               </Button>
             )}
           </CardContent>
@@ -379,14 +388,14 @@ export function TicketDetail({
           <Card>
             <CardContent className="flex flex-col gap-2 p-4">
               <label htmlFor="ticket-reply" className="text-sm font-semibold">
-                Yanıt yaz
+                {t.tickets.detail.reply}
               </label>
               <textarea
                 id="ticket-reply"
                 rows={3}
                 value={body}
                 onChange={(e) => setBody(e.target.value)}
-                placeholder="Destek ekibine iletmek istediğiniz bilgi…"
+                placeholder={t.tickets.detail.replyPlaceholder}
                 className="w-full rounded-lg border border-border bg-card p-3 text-sm"
               />
               {config.attachments.enabled ? (
@@ -402,13 +411,12 @@ export function TicketDetail({
               ) : (
                 /* Destek merkezi ek yuklemeyi kapatmis — yanit yine gonderilebilir. */
                 <p className="text-xs text-muted-foreground">
-                  Destek merkezi şu anda dosya eki kabul etmiyor; yanıtınızı ek
-                  olmadan gönderebilirsiniz.
+                  {t.tickets.detail.attachmentsDisabled}
                 </p>
               )}
               {error && (
                 <p role="alert" className="text-xs text-destructive">
-                  {error} — yazdıklarınız korunuyor.
+                  {error} — {t.tickets.detail.draftKept}
                 </p>
               )}
               <div className="flex justify-end">
@@ -421,7 +429,7 @@ export function TicketDetail({
                   ) : (
                     <Send className="h-4 w-4" aria-hidden />
                   )}
-                  Gönder
+                  {t.tickets.detail.send}
                 </Button>
               </div>
             </CardContent>
@@ -432,7 +440,7 @@ export function TicketDetail({
       {ticket.last_sync_at && (
         <p className="flex items-center gap-1 text-xs text-muted-foreground">
           <Clock className="h-3 w-3" aria-hidden />
-          Son güncelleme kontrolü: {formatDateTime(ticket.last_sync_at)}
+          {t.tickets.detail.lastChecked} {fmt.dateTime(ticket.last_sync_at)}
         </p>
       )}
     </div>
@@ -466,6 +474,7 @@ function AttachmentList({
   attachments: TicketDetailDto["attachments"];
   api: TicketApi;
 }) {
+  const t = useT();
   const [busy, setBusy] = useState<string | null>(null);
   const [downloadError, setDownloadError] = useState<string | null>(null);
   return (
@@ -493,7 +502,7 @@ function AttachmentList({
               } catch (e) {
                 // Kisa omurlu adres suresi dolmus veya yetki degismis olabilir.
                 setDownloadError(
-                  e instanceof Error ? e.message : "Dosya indirilemedi",
+                  e instanceof Error ? e.message : t.errors.unexpected,
                 );
               } finally {
                 setBusy(null);
@@ -501,8 +510,8 @@ function AttachmentList({
             }}
             title={
               attachment.downloadable
-                ? "İndir"
-                : "Güvenlik kontrolü tamamlanana kadar indirilemez"
+                ? t.tickets.detail.download
+                : t.tickets.detail.scanPending
             }
             className={cn(
               "inline-flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs transition-colors",
@@ -518,7 +527,7 @@ function AttachmentList({
             )}
             {attachment.file_name}
             {!attachment.downloadable && (
-              <span className="text-muted-foreground">· taranıyor</span>
+              <span className="text-muted-foreground">{t.tickets.detail.scanningShort}</span>
             )}
           </button>
         </li>

@@ -9,6 +9,8 @@ import { Dialog } from "@/components/ui/dialog";
 import { Input, Label, Select } from "@/components/ui/input";
 import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
 import { ApiError, downloadCsv } from "@/lib/api/client";
+import { useApiErrorMessage } from "@/lib/i18n/api-error";
+import { useT } from "@/lib/i18n/provider";
 import {
   usePlanMutations,
   usePlanUsageWarnings,
@@ -32,6 +34,8 @@ type AssignTarget =
   | { kind: "facility"; id: string; name: string };
 
 export default function UsagePage() {
+  const t = useT();
+  const errorMessage = useApiErrorMessage();
   const [dateFrom, setDateFrom] = useState(daysAgo(29));
   const [dateTo, setDateTo] = useState(iso(new Date()));
   const usage = usePlatformUsage(dateFrom, dateTo);
@@ -61,39 +65,38 @@ export default function UsagePage() {
           planId: selectedPlan,
         });
       }
-      setFlash(`Plan atandı: ${assignTarget.name}`);
+      setFlash(t.platform.usage.assigned(assignTarget.name));
       setAssignTarget(null);
       setTimeout(() => setFlash(null), 4000);
     } catch (err) {
-      setAssignError(err instanceof ApiError ? err.message : "Atama başarısız");
+      setAssignError(errorMessage(err, t.platform.usage.assignFailed));
     }
   }
 
-  if (usage.isLoading) return <LoadingState label="Kullanım verileri yükleniyor…" />;
+  if (usage.isLoading) return <LoadingState label={t.platform.usage.loading} />;
   if (usage.isError || !usage.data)
-    return <ErrorState message="Kullanım verileri yüklenemedi." onRetry={() => usage.refetch()} />;
+    return <ErrorState message={t.platform.usage.loadError} onRetry={() => usage.refetch()} />;
 
   const data = usage.data;
   const totals = data.totals;
 
   const statCards = [
     ["Tenant", totals.tenants],
-    ["Aktif Hesap", `${totals.active_facilities}/${totals.facilities}`],
-    ["Oluşturulan Randevu", totals.appointments_created],
-    ["Tamamlanan", totals.appointments_completed],
-    ["Aktif Rampa", totals.active_docks],
-    ["Aktif Tedarikçi", totals.active_suppliers],
-    ["Aktif Kullanıcı", totals.active_users],
+    [t.platform.usage.activeAccounts, `${totals.active_facilities}/${totals.facilities}`],
+    [t.platform.usage.totals.appointments, totals.appointments_created],
+    [t.platform.usage.completed, totals.appointments_completed],
+    [t.platform.usage.activeDocks, totals.active_docks],
+    [t.platform.usage.totals.suppliers, totals.active_suppliers],
+    [t.platform.usage.totals.users, totals.active_users],
   ] as const;
 
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-xl font-bold">Kullanım &amp; Sağlık</h1>
+          <h1 className="text-xl font-bold">{t.platform.usage.title}</h1>
           <p className="text-sm text-muted-foreground">
-            {data.range.date_from} – {data.range.date_to} · yalnızca agregat metrikler,
-            PII gösterilmez
+            {data.range.date_from} – {data.range.date_to} · {t.platform.usage.rangeNote}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -107,7 +110,7 @@ export default function UsagePage() {
               )
             }
           >
-            Usage CSV indir
+            {t.platform.usage.downloadCsv}
           </Button>
           <Input
             type="date"
@@ -145,7 +148,7 @@ export default function UsagePage() {
       {/* Plan kullanim uyarilari (Sprint 10) — fatura degil, esik sinyali */}
       {(planWarnings.data?.warnings.length ?? 0) > 0 && (
         <div className="flex flex-col gap-2">
-          <h2 className="text-sm font-semibold">Plan Kullanım Uyarıları</h2>
+          <h2 className="text-sm font-semibold">{t.platform.usage.planWarnings}</h2>
           {planWarnings.data!.warnings.map((w) => (
             <div
               key={`${w.tenant_id}-${w.facility_id ?? "t"}-${w.dimension}`}
@@ -168,7 +171,7 @@ export default function UsagePage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Tenant Kullanımı</CardTitle>
+          <CardTitle>{t.platform.usage.tenantUsage}</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
           <Table className="border-0 shadow-none">
@@ -177,12 +180,12 @@ export default function UsagePage() {
                 <TH>Tenant</TH>
                 <TH>Durum</TH>
                 <TH>Plan</TH>
-                <TH className="text-right">Randevu</TH>
-                <TH className="text-right">Rampa</TH>
-                <TH className="text-right">Tedarikçi</TH>
-                <TH>Son Aktivite</TH>
+                <TH className="text-right">{t.common.appointment}</TH>
+                <TH className="text-right">{t.common.dock}</TH>
+                <TH className="text-right">{t.platform.usage.colSuppliers}</TH>
+                <TH>{t.platform.usage.colLastActivity}</TH>
                 <TH className="text-right">SLA</TH>
-                <TH className="text-right">İşlem</TH>
+                <TH className="text-right">{t.common.actions}</TH>
               </TR>
             </THead>
             <TBody>
@@ -239,7 +242,7 @@ export default function UsagePage() {
                         setAssignError(null);
                       }}
                     >
-                      Plan Ata
+                      {t.platform.usage.assignPlan}
                     </Button>
                   </TD>
                 </TR>
@@ -251,20 +254,20 @@ export default function UsagePage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Operasyon Kullanımı</CardTitle>
+          <CardTitle>{t.platform.usage.facilityUsage}</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
           <Table className="border-0 shadow-none">
             <THead>
               <TR>
                 <TH>Kapsam</TH>
-                <TH>Müşteri Hesabı</TH>
+                <TH>{t.platform.usage.colCustomer}</TH>
                 <TH>Plan</TH>
-                <TH className="text-right">Randevu</TH>
-                <TH className="text-right">Rampa</TH>
-                <TH className="text-right">Kullanıcı</TH>
-                <TH>Son Aktivite</TH>
-                <TH className="text-right">İşlem</TH>
+                <TH className="text-right">{t.common.appointment}</TH>
+                <TH className="text-right">{t.common.dock}</TH>
+                <TH className="text-right">{t.platform.usage.colUsers}</TH>
+                <TH>{t.platform.usage.colLastActivity}</TH>
+                <TH className="text-right">{t.common.actions}</TH>
               </TR>
             </THead>
             <TBody>
@@ -313,7 +316,7 @@ export default function UsagePage() {
                         setAssignError(null);
                       }}
                     >
-                      Override Ata
+                      {t.platform.usage.assignOverride}
                     </Button>
                   </TD>
                 </TR>
@@ -328,19 +331,19 @@ export default function UsagePage() {
         onClose={() => setAssignTarget(null)}
         title={
           assignTarget?.kind === "tenant"
-            ? "Hesap planı ata"
-            : "Operasyon override planı ata"
+            ? t.platform.usage.assignTenantPlan
+            : t.platform.usage.assignFacilityPlan
         }
       >
         <div className="flex flex-col gap-3">
           <p className="text-sm text-muted-foreground">
-            Hedef: <strong>{assignTarget?.name}</strong>. Yalnızca aktif planlar
-            atanabilir; bu işlem fatura hesaplamaz.
+            {t.platform.usage.assignTargetLead} <strong>{assignTarget?.name}</strong>.{" "}
+            {t.platform.usage.assignHint}
           </p>
           <div>
             <Label>Plan</Label>
             <Select value={selectedPlan} onChange={(e) => setSelectedPlan(e.target.value)}>
-              <option value="">— Plan seçin —</option>
+              <option value="">{t.platform.usage.selectPlan}</option>
               {activePlans.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.name} ({p.billing_unit_label})
@@ -351,7 +354,7 @@ export default function UsagePage() {
           {assignError && <p className="text-sm text-destructive">{assignError}</p>}
           <div className="flex justify-end gap-2">
             <Button variant="secondary" onClick={() => setAssignTarget(null)}>
-              Vazgeç
+              {t.common.cancel}
             </Button>
             <Button
               onClick={onAssign}

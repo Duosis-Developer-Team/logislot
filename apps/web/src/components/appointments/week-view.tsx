@@ -7,6 +7,7 @@ import { EmptyState, ErrorState, LoadingState } from "@/components/config/states
 import { Card, CardContent } from "@/components/ui/card";
 import { useCalendarWeek } from "@/lib/api/appointments";
 import type { CalendarWeekDayDto } from "@/lib/api/types";
+import { useFormat, useT } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
 
 interface WeekViewProps {
@@ -22,8 +23,10 @@ function DayCard({
   day: CalendarWeekDayDto;
   onClick: () => void;
 }) {
+  const t = useT().components.weekView;
+  const fmt = useFormat();
   const isToday = day.date === new Date().toLocaleDateString("sv-SE");
-  const label = new Date(`${day.date}T12:00:00`).toLocaleDateString("tr-TR", {
+  const label = new Date(`${day.date}T12:00:00`).toLocaleDateString(fmt.tag, {
     weekday: "short",
     day: "numeric",
     month: "short",
@@ -56,29 +59,31 @@ function DayCard({
 
         <div className="text-2xl font-bold leading-none">
           {day.total}
-          <span className="ml-1 text-xs font-normal text-muted-foreground">randevu</span>
+          <span className="ml-1 text-xs font-normal text-muted-foreground">
+            {t.appointmentsSuffix}
+          </span>
         </div>
 
         <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[11px]">
           {day.pending > 0 && (
-            <span className="text-status-pending">● {day.pending} bekliyor</span>
+            <span className="text-status-pending">● {t.pending(day.pending)}</span>
           )}
           {day.approved > 0 && (
-            <span className="text-status-approved">● {day.approved} onaylı</span>
+            <span className="text-status-approved">● {t.approved(day.approved)}</span>
           )}
           {day.revision_pending > 0 && (
-            <span className="text-status-revision">● {day.revision_pending} revize</span>
+            <span className="text-status-revision">● {t.revision(day.revision_pending)}</span>
           )}
           {day.completed > 0 && (
-            <span className="text-status-completed">● {day.completed} tamam</span>
+            <span className="text-status-completed">● {t.completed(day.completed)}</span>
           )}
-          {day.total === 0 && <span className="text-muted-foreground">Randevu yok</span>}
+          {day.total === 0 && <span className="text-muted-foreground">{t.none}</span>}
         </div>
 
         {/* Doluluk cubugu */}
         <div>
           <div className="mb-0.5 flex justify-between text-[10px] text-muted-foreground">
-            <span>Doluluk</span>
+            <span>{t.utilisation}</span>
             <span>%{day.utilization_percent}</span>
           </div>
           <div className="h-1.5 overflow-hidden rounded-full bg-muted">
@@ -98,7 +103,7 @@ function DayCard({
 
         {day.top_docks.length > 0 && (
           <p className="truncate text-[10px] text-muted-foreground">
-            En yoğun: {day.top_docks[0].dock_name} ({day.top_docks[0].appointments})
+            {t.busiest(day.top_docks[0].dock_name ?? "—", day.top_docks[0].appointments)}
           </p>
         )}
       </CardContent>
@@ -107,11 +112,12 @@ function DayCard({
 }
 
 export function WeekView({ facilityId, weekStart, onSelectDay }: WeekViewProps) {
+  const t = useT().components.weekView;
   const week = useCalendarWeek(facilityId, weekStart);
 
-  if (week.isLoading) return <LoadingState label="Haftalık özet yükleniyor…" />;
+  if (week.isLoading) return <LoadingState label={t.loading} />;
   if (week.isError || !week.data)
-    return <ErrorState message="Haftalık özet yüklenemedi." onRetry={() => week.refetch()} />;
+    return <ErrorState message={t.loadError} onRetry={() => week.refetch()} />;
 
   const days = week.data.days;
   if (days.every((d) => d.total === 0)) {
@@ -123,8 +129,8 @@ export function WeekView({ facilityId, weekStart, onSelectDay }: WeekViewProps) 
           ))}
         </div>
         <EmptyState
-          title="Bu hafta randevu yok"
-          description="Farklı bir hafta seçin ya da tedarikçi taleplerini bekleyin."
+          title={t.emptyTitle}
+          description={t.emptyDescription}
         />
       </>
     );

@@ -10,6 +10,7 @@
  */
 
 import { Select } from "@/components/ui/input";
+import { useT } from "@/lib/i18n/provider";
 
 export const QUARTER_HOUR_MINUTES = ["00", "15", "30", "45"] as const;
 
@@ -44,11 +45,12 @@ export function TimeSelect({
   onChange: (next: string) => void;
   ariaLabel?: string;
 }) {
+  const t = useT();
   const { hour, minute } = split(value);
   return (
     <span className="flex shrink-0 items-center gap-1">
       <Select
-        aria-label={ariaLabel ? `${ariaLabel} saat` : "Saat"}
+        aria-label={ariaLabel ? `${ariaLabel} ${t.common.hour}` : t.common.hour}
         className={SELECT_CLASS}
         value={hour}
         onChange={(e) => onChange(`${e.target.value}:${minute}`)}
@@ -61,7 +63,7 @@ export function TimeSelect({
       </Select>
       <span className="text-xs text-muted-foreground">:</span>
       <Select
-        aria-label={ariaLabel ? `${ariaLabel} dakika` : "Dakika"}
+        aria-label={ariaLabel ? `${ariaLabel} ${t.common.minute}` : t.common.minute}
         className={SELECT_CLASS}
         value={minute}
         onChange={(e) => onChange(`${hour}:${e.target.value}`)}

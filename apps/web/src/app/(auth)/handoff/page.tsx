@@ -6,6 +6,7 @@ import { Suspense, useEffect, useState } from "react";
 import { LogiSlotLogo } from "@/components/brand/logo";
 import { Card, CardContent } from "@/components/ui/card";
 import { authApi, storeSession } from "@/lib/api/client";
+import { useT } from "@/lib/i18n/provider";
 
 /** Yalnizca uygulama ICI yollara gidilir — acik yonlendirme acigi olmasin. */
 function safeNext(raw: string | null): string {
@@ -31,6 +32,7 @@ const PORTAL_BY_PREFIX: Array<[string, "supplier" | "admin" | "platform"]> = [
 function HandoffInner() {
   const router = useRouter();
   const params = useSearchParams();
+  const t = useT();
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
@@ -66,16 +68,16 @@ function HandoffInner() {
         {failed ? (
           <>
             <p className="text-sm text-muted-foreground">
-              Oturum devri tamamlanamadı. Bağlantının süresi dolmuş olabilir.
+              {t.auth.handoffFailed}
             </p>
             <a href="/login" className="text-sm font-medium text-primary underline">
-              Giriş sayfasına dön
+              {t.auth.handoffBackToLogin}
             </a>
           </>
         ) : (
           <>
             <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-            <p className="text-sm text-muted-foreground">Oturumunuz açılıyor…</p>
+            <p className="text-sm text-muted-foreground">{t.auth.handoffPending}</p>
           </>
         )}
       </CardContent>

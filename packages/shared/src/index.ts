@@ -258,3 +258,123 @@ export function ticketCategoryLabel(category: string): string {
 export function ticketImpactLabel(impact: string): string {
   return TICKET_IMPACT_LABELS[impact as TicketImpact] ?? impact;
 }
+
+// ---------------------------------------------------------------- diller
+//
+// Yukaridaki `*_LABELS` sabitleri TURKCEDIR ve OYLE KALIR: mobil uygulama
+// dogrudan onlari kullaniyor ve bu turda cevrilmedi. Web, asagidaki
+// `*_LABELS_BY_LOCALE` haritalarindan secili dile gore okur.
+//
+// Ayni degerleri iki yerde tutmamak icin Turkce taraf mevcut sabitleri
+// yeniden kullanir; yalnizca Ingilizce karsiliklar burada tanimlidir.
+
+export type LabelLocale = "tr" | "en";
+
+function byLocale<T>(tr: T, en: T): Record<LabelLocale, T> {
+  return { tr, en };
+}
+
+export const APPOINTMENT_STATUS_LABELS_BY_LOCALE = byLocale(APPOINTMENT_STATUS_LABELS, {
+  pending: "Pending",
+  approved: "Approved",
+  revision_pending: "Change requested",
+  rejected: "Rejected",
+  completed: "Completed",
+  cancelled: "Cancelled",
+});
+
+export const DELIVERY_TYPE_LABELS_BY_LOCALE = byLocale(DELIVERY_TYPE_LABELS, {
+  standard: "Scheduled",
+  // "Kargo" burada parcel/courier teslimati demek: varis saati belirsizdir.
+  cargo: "Courier (arrival not fixed)",
+});
+
+export const CARGO_WINDOW_LABELS_BY_LOCALE = byLocale(CARGO_WINDOW_LABELS, {
+  morning: "Morning (08:00–12:00)",
+  afternoon: "Afternoon (12:00–18:00)",
+  all_day: "All day",
+});
+
+export const QUANTITY_UNIT_LABELS_BY_LOCALE = byLocale(QUANTITY_UNIT_LABELS, {
+  pallet: "Pallet",
+  piece: "Piece",
+  box: "Box",
+  carton: "Carton",
+});
+
+export const SLOT_STATUS_LABELS_BY_LOCALE = byLocale(SLOT_STATUS_LABELS, {
+  available: "Available",
+  partial: "Partly booked",
+  full: "Full",
+});
+
+export const TICKET_STATUS_LABELS_BY_LOCALE = byLocale(TICKET_STATUS_LABELS, {
+  open: "Open",
+  in_progress: "In progress",
+  waiting_customer: "Waiting on you",
+  resolved: "Resolved",
+  closed: "Closed",
+  reopened: "Reopened",
+  cancelled: "Cancelled",
+});
+
+export const TICKET_CATEGORY_LABELS_BY_LOCALE = byLocale(TICKET_CATEGORY_LABELS, {
+  bug: "Bug",
+  incident: "Outage / incident",
+  improvement: "Improvement request",
+  question: "Question",
+  data_correction: "Data correction",
+});
+
+export const TICKET_CATEGORY_HINTS_BY_LOCALE = byLocale(TICKET_CATEGORY_HINTS, {
+  bug: "A screen or action that doesn't behave as expected",
+  incident: "An outage or access problem that stops work",
+  improvement: "A new capability or a change to an existing flow",
+  question: "A how-to question or a request for information",
+  data_correction: "A record that was entered incorrectly",
+});
+
+export const TICKET_IMPACT_LABELS_BY_LOCALE = byLocale(TICKET_IMPACT_LABELS, {
+  single_user: "One person affected",
+  multiple_users: "Several people affected",
+  tenant_blocked: "Our operations have stopped",
+  security_or_data_risk: "Security or data-loss risk",
+});
+
+export const TICKET_RESOLUTION_CODE_LABELS_BY_LOCALE = byLocale(
+  TICKET_RESOLUTION_CODE_LABELS,
+  {
+    fixed: "Fixed",
+    workaround: "Workaround provided",
+    configuration: "Resolved by configuration",
+    not_reproducible: "Could not reproduce",
+    duplicate: "Duplicate of an earlier request",
+    wont_fix: "Will not be changed",
+    answered: "Answered",
+  },
+);
+
+export const TICKET_DELIVERY_STATUS_LABELS_BY_LOCALE = byLocale(
+  TICKET_DELIVERY_STATUS_LABELS,
+  {
+    draft: "Draft",
+    pending: "Sending",
+    delivering: "Sending",
+    synced: "In sync",
+    retrying: "Retrying",
+    failed: "Not delivered",
+  },
+);
+
+export const TICKET_STATUS_GROUP_LABELS_BY_LOCALE = byLocale(
+  Object.fromEntries(TICKET_STATUS_GROUPS.map((g) => [g.key, g.label])) as Record<
+    TicketStatusGroup,
+    string
+  >,
+  {
+    open: "Open",
+    in_progress: "In progress",
+    waiting_customer: "Waiting on you",
+    closed: "Resolved / closed",
+  },
+);

@@ -1,3 +1,5 @@
+"use client";
+
 import {
   AlertCircle,
   CheckCircle2,
@@ -8,9 +10,10 @@ import {
   RotateCcw,
   XCircle,
 } from "lucide-react";
-import { ticketStatusLabel } from "@logislot/shared";
 import type { LucideIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { useLabels } from "@/lib/i18n/labels";
+import { useT } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
 
 /**
@@ -41,6 +44,7 @@ export function TicketStatusBadge({
   status: string;
   className?: string;
 }) {
+  const labels = useLabels();
   const style = STATUS_STYLE[status] ?? {
     className: "bg-muted text-muted-foreground",
     icon: AlertCircle,
@@ -49,7 +53,7 @@ export function TicketStatusBadge({
   return (
     <Badge className={cn(style.className, className)}>
       <Icon className="h-3 w-3" aria-hidden />
-      {ticketStatusLabel(status)}
+      {labels.ticketStatus[status as keyof typeof labels.ticketStatus] ?? status}
     </Badge>
   );
 }
@@ -69,11 +73,12 @@ export function TicketDeliveryBadge({
   syncGap?: boolean;
   className?: string;
 }) {
+  const t = useT();
   if (deliveryStatus === "synced") {
     return syncGap ? (
       <Badge className={cn("bg-status-pending/15 text-status-pending", className)}>
         <Clock className="h-3 w-3" aria-hidden />
-        Güncelleme bekleniyor
+        {t.tickets.delivery.waitingUpdate}
       </Badge>
     ) : null;
   }
@@ -81,14 +86,14 @@ export function TicketDeliveryBadge({
     return (
       <Badge className={cn("bg-status-rejected/15 text-status-rejected", className)}>
         <AlertCircle className="h-3 w-3" aria-hidden />
-        Gönderilemedi
+        {t.tickets.delivery.failed}
       </Badge>
     );
   }
   return (
     <Badge className={cn("bg-muted text-muted-foreground", className)}>
       <Loader2 className="h-3 w-3 animate-spin" aria-hidden />
-      Gönderiliyor
+      {t.tickets.delivery.sending}
     </Badge>
   );
 }

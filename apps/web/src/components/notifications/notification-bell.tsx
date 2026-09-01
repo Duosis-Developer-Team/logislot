@@ -24,6 +24,8 @@ import {
 } from "@/lib/api/notifications";
 import type { NotificationDto } from "@/lib/api/types";
 import { cn } from "@/lib/utils";
+import type { Dictionary } from "@/lib/i18n/dictionaries/tr";
+import { useT } from "@/lib/i18n/provider";
 
 const SEVERITY_ICON = {
   info: { icon: Info, className: "text-status-completed" },
@@ -32,13 +34,13 @@ const SEVERITY_ICON = {
   error: { icon: XCircle, className: "text-status-rejected" },
 } as const;
 
-function timeAgo(iso: string): string {
+function timeAgo(t: Dictionary, iso: string): string {
   const minutes = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000));
-  if (minutes < 1) return "şimdi";
-  if (minutes < 60) return `${minutes} dk önce`;
+  if (minutes < 1) return t.misc.relativeTime.now;
+  if (minutes < 60) return t.misc.relativeTime.minutes(minutes);
   const hours = Math.round(minutes / 60);
-  if (hours < 24) return `${hours} sa önce`;
-  return `${Math.round(hours / 24)} gün önce`;
+  if (hours < 24) return t.misc.relativeTime.hours(hours);
+  return t.misc.relativeTime.days(Math.round(hours / 24));
 }
 
 interface NotificationBellProps {
@@ -47,6 +49,7 @@ interface NotificationBellProps {
 }
 
 export function NotificationBell({ variant, facilityId }: NotificationBellProps) {
+  const t = useT();
   const router = useRouter();
   const hooks = variant === "admin" ? adminNotifications : supplierNotifications;
   const [open, setOpen] = useState(false);
@@ -77,7 +80,7 @@ export function NotificationBell({ variant, facilityId }: NotificationBellProps)
     <div className="relative">
       <button
         className="relative rounded-lg p-2 text-muted-foreground hover:bg-muted"
-        aria-label="Bildirimler"
+        aria-label={t.components.notificationBell.label}
         onClick={() => setOpen(!open)}
       >
         <Bell className="h-5 w-5" />
@@ -93,7 +96,7 @@ export function NotificationBell({ variant, facilityId }: NotificationBellProps)
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
           <div className="absolute right-0 z-50 mt-2 w-96 max-w-[calc(100vw-2rem)] overflow-hidden rounded-xl border border-border bg-card shadow-xl">
             <div className="flex items-center justify-between border-b border-border px-4 py-2.5">
-              <span className="text-sm font-semibold">Bildirimler</span>
+              <span className="text-sm font-semibold">{t.components.notificationBell.label}</span>
               {unreadCount > 0 && (
                 <Button
                   size="sm"
@@ -101,22 +104,22 @@ export function NotificationBell({ variant, facilityId }: NotificationBellProps)
                   onClick={() => actions.readAll.mutate()}
                   disabled={actions.readAll.isPending}
                 >
-                  <CheckCheck className="h-3.5 w-3.5" /> Tümünü okundu işaretle
+                  <CheckCheck className="h-3.5 w-3.5" /> {t.misc.notifications.markAllRead}
                 </Button>
               )}
             </div>
             <div className="max-h-96 overflow-y-auto">
               {list.isLoading ? (
                 <p className="px-4 py-8 text-center text-sm text-muted-foreground">
-                  Yükleniyor…
+                  {t.misc.notifications.loading}
                 </p>
               ) : list.isError ? (
                 <p className="px-4 py-8 text-center text-sm text-destructive">
-                  Bildirimler yüklenemedi.
+                  {t.misc.notifications.loadError}
                 </p>
               ) : (list.data ?? []).length === 0 ? (
                 <p className="px-4 py-8 text-center text-sm text-muted-foreground">
-                  Bildirim yok. Randevu hareketleri burada görünür.
+                  {t.misc.notifications.empty}
                 </p>
               ) : (
                 (list.data ?? []).map((notification) => {
@@ -160,7 +163,7 @@ export function NotificationBell({ variant, facilityId }: NotificationBellProps)
                           </p>
                         )}
                         <span className="mt-0.5 block text-[10px] text-muted-foreground/70">
-                          {timeAgo(notification.created_at)}
+                          {timeAgo(t, notification.created_at)}
                         </span>
                       </div>
                     </button>

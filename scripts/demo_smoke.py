@@ -9,7 +9,7 @@ Env degiskenleri:
     LOGISLOT_BASE_URL        (varsayilan http://localhost:8010)
     LOGISLOT_ADMIN_EMAIL     (varsayilan admin@cakesbakes.com)
     LOGISLOT_PLATFORM_EMAIL  (varsayilan admin@logislot.com)
-    LOGISLOT_SUPPLIER_EMAIL  (varsayilan tedarikci@marmarasoguk.com)
+    LOGISLOT_SUPPLIER_EMAIL  (varsayilan tedarikci@anadoluun.com — MANUEL onayli)
     LOGISLOT_DEMO_PASSWORD   (varsayilan Demo123!)
 
 Basarisiz adimda aciklamayla non-zero exit yapar.
@@ -25,7 +25,10 @@ from datetime import date, timedelta
 BASE = os.environ.get("LOGISLOT_BASE_URL", "http://localhost:8010")
 ADMIN_EMAIL = os.environ.get("LOGISLOT_ADMIN_EMAIL", "admin@cakesbakes.com")
 PLATFORM_EMAIL = os.environ.get("LOGISLOT_PLATFORM_EMAIL", "admin@logislot.com")
-SUPPLIER_EMAIL = os.environ.get("LOGISLOT_SUPPLIER_EMAIL", "tedarikci@marmarasoguk.com")
+# MANUEL onayli tedarikci secilir: 14. adim yeni randevuyu "pending"
+# listesinde arar. Otomatik onayli tedarikci (marmarasoguk) ile randevu
+# dogrudan "approved" dogar ve o adim her zaman basarisiz olurdu.
+SUPPLIER_EMAIL = os.environ.get("LOGISLOT_SUPPLIER_EMAIL", "tedarikci@anadoluun.com")
 PASSWORD = os.environ.get("LOGISLOT_DEMO_PASSWORD", "Demo123!")
 
 _step = 0

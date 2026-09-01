@@ -3,7 +3,7 @@
 Durumlar: ✅ tam · 🟡 kısmi · ❌ yok · — kapsam dışı
 Güncelleme kuralı: her feature sprint'inde bu matris güncellenir (bkz. WEB_MOBILE_PARITY.md).
 
-_Son güncelleme: 2026-08-25 (Hermes Ticket Hub entegrasyonu: müşteri destek portalı + Platform ticket yönlendirmesi)_
+_Son güncelleme: 2026-09-01 (TR/EN dil desteği: landing + üç portal; mobil bilinçli olarak kapsam dışı)_
 
 | Feature | Backend | Web | Mobile | Status | Notes |
 |---|---|---|---|---|---|
@@ -63,6 +63,9 @@ _Son güncelleme: 2026-08-25 (Hermes Ticket Hub entegrasyonu: müşteri destek p
 | Platform denetim izleri | ✅ | ✅ | — | Kapsam dışı | |
 | **Ortak** |
 | Light/dark/system tema | — | ✅ | ✅ | OK | Aynı navy/blue palet |
+| TR/EN dil seçimi (tema butonunun yanında) | — | ✅ | ❌ | Backlog | Web: `logislot.lang` cookie'si; sunucu ilk boyamada okur (dil sıçraması yok). Mobil bu turda bilinçli olarak Türkçe kaldı |
+| Çevrilmiş yüzeyler (landing, yasal, 3 portal) | — | ✅ | ❌ | Backlog | Nesne erişimli sözlük (`t.common.save`) — eksik anahtar DERLEMEDE hata verir; API hataları koda göre çevrilir |
+| Alan etiketleri (durum/birim/kategori) iki dilli | ✅ | ✅ | 🟡 | Partial | `packages/shared`'daki Türkçe sabitler AYNEN durur (mobil kullanıyor); web `*_LABELS_BY_LOCALE` üzerinden seçer |
 | Marka logo/ikon assetleri | — | ✅ | ✅ | OK | Aynı assetler; app icon + splash dahil |
 | Shared types/contract | ✅ | ✅ | 🟡 | Partial | Şimdilik senkron kopya (types/shared/email-labels); shared paket çıkarımı backlog |
 | Push bildirimleri (mobile-native) | ❌ | — | ❌ | Backlog | Backend push altyapısı gerekiyor; in-app bildirim merkezi mevcut |

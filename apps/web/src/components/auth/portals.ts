@@ -1,4 +1,5 @@
 import { Building2, Globe2, Truck, type LucideIcon } from "lucide-react";
+import type { Dictionary } from "@/lib/i18n/dictionaries/tr";
 
 export type Portal = "supplier" | "admin" | "platform";
 
@@ -22,45 +23,32 @@ export interface PortalConfig {
   hidden?: boolean;
 }
 
-export const PORTALS: PortalConfig[] = [
-  {
-    key: "supplier",
-    title: "Tedarikçi Portalı",
-    short: "Tedarikçi",
-    description: "Randevu talep edin, takip edin",
-    subtitle:
-      "Teslimat randevularınızı oluşturun, takip edin ve güncel durumları görüntüleyin.",
+/** Yapisal alanlar — metinler dile gore `portals(t)` icinde eklenir. */
+const STRUCTURE = {
+  supplier: {
     icon: Truck,
     target: "/supplier/appointments",
-    buttonLabel: "Tedarikçi Portalı'na Giriş",
     expectedUserType: "supplier",
-    wrongRoleMessage:
-      "Bu hesap Tedarikçi Portalı için yetkili değil. Lütfen doğru portal üzerinden giriş yapın.",
   },
-  {
-    key: "admin",
-    title: "Yönetim Paneli",
-    short: "Yönetim",
-    description: "Takvim, onay ve tesis yönetimi",
-    subtitle: "Rampa takvimini, onay süreçlerini ve tesis operasyonlarını yönetin.",
-    icon: Building2,
-    target: "/admin/dashboard",
-    buttonLabel: "Yönetim Paneli'ne Giriş",
-    expectedUserType: "tenant",
-    wrongRoleMessage:
-      "Bu hesap Yönetim Paneli için yetkili değil. Lütfen doğru portal üzerinden giriş yapın.",
-  },
-  {
-    key: "platform",
-    title: "Platform Yönetimi",
-    short: "Platform",
-    description: "Tenant, kullanım ve plan yönetimi",
-    subtitle: "Tenant, tesis, plan ve sistem sağlığı süreçlerini yönetin.",
+  admin: { icon: Building2, target: "/admin/dashboard", expectedUserType: "tenant" },
+  platform: {
     icon: Globe2,
     target: "/platform/tenants",
-    buttonLabel: "Platform Yönetimi'ne Giriş",
     expectedUserType: "platform",
-    wrongRoleMessage: "Bu hesap Platform Yönetimi için yetkili değil.",
     hidden: true,
   },
-];
+} as const;
+
+/** Portal tanimlari, secili dilde. */
+export function portals(t: Dictionary): PortalConfig[] {
+  return (["supplier", "admin", "platform"] as const).map((key) => ({
+    key,
+    ...STRUCTURE[key],
+    title: t.auth.portals[key].title,
+    short: t.auth.portals[key].short,
+    description: t.auth.portals[key].description,
+    subtitle: t.auth.portals[key].subtitle,
+    buttonLabel: t.auth.portals[key].buttonLabel,
+    wrongRoleMessage: t.auth.portals[key].wrongRole,
+  }));
+}
