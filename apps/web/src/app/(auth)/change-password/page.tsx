@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input, Label } from "@/components/ui/input";
 import { useApiErrorMessage } from "@/lib/i18n/api-error";
+import { handOffToBrandedHost } from "@/lib/auth/branded-handoff";
 import { useT } from "@/lib/i18n/provider";
 import {
   ApiError,
@@ -56,6 +57,11 @@ export default function ChangePasswordPage() {
       // Basarida yeni token cifti doner; oturum kesintisiz devam eder.
       const tokens = await authApi.changePassword(currentPassword, newPassword);
       storeSession(tokens.access_token, portal, tokens.refresh_token);
+      // Gecici parolayla gelen kullanici LOGIN adiminda markali alan adina
+      // devredilemez (once buraya yonlendirilir). Devir burada yapilmazsa
+      // kullanici ilk girisinden sonra jenerik alan adinda kalirdi ve
+      // markali adresi hic gormezdi.
+      if (await handOffToBrandedHost(PORTAL_TARGETS[portal])) return;
       router.push(PORTAL_TARGETS[portal]);
     } catch (err) {
       setError(
