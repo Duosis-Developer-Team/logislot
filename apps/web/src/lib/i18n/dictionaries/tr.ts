@@ -62,6 +62,67 @@ export const tr = {
     goToLogin: "Giriş sayfasına dön",
   },
 
+  misc: {
+    email: {
+      templates: {
+        appointment_created: "Randevu oluşturuldu",
+        appointment_approved: "Randevu onaylandı",
+        appointment_rejected: "Randevu reddedildi",
+        appointment_revised: "Randevu revize edildi",
+        appointment_cancelled: "Randevu iptal edildi",
+        appointment_completed: "Randevu tamamlandı",
+        appointment_series_created: "Seri oluşturuldu",
+        appointment_series_cancelled: "Seri iptal edildi",
+        appointment_series_revised: "Seri revize edildi",
+        cargo_advisory: "Kargo uyarısı",
+      },
+      status: { sent: "Gönderildi", failed: "Başarısız", skipped: "Atlandı" },
+      mode: { smtp: "SMTP", log_only: "Kayıt (log)" },
+    },
+    relativeTime: {
+      now: "şimdi",
+      minutes: (n: number) => `${n} dk önce`,
+      hours: (n: number) => `${n} sa önce`,
+      days: (n: number) => `${n} gün önce`,
+    },
+    notifications: {
+      markAllRead: "Tümünü okundu işaretle",
+      loading: "Yükleniyor…",
+      loadError: "Bildirimler yüklenemedi.",
+      empty: "Bildirim yok.",
+    },
+    permissions: {
+      countOf: (selected: number, total: number) => `${selected} / ${total}`,
+      clearAll: "Tümünü kaldır",
+      search: "İzin ara…",
+      unmanaged: (count: number) => `${count} izin bu ekrandan yönetilmiyor.`,
+      noPermissions: "İzin tanımlı değil",
+      removeGroup: "Kaldır",
+      selectGroup: "Seç",
+    },
+    demoPage: {
+      metaDescription:
+        "LogiSlot mal kabul ve rampa randevu platformunu yakından görün.",
+      title: "Demo talebi",
+      description: "Mal kabul operasyonunuzu LogiSlot üzerinde birlikte görelim.",
+      points: [
+        {
+          title: "30 dakikalık canlı demo",
+          text: "Tedarikçi randevu akışını, yönetim panelini ve tesis kurallarını birlikte gezelim.",
+        },
+        {
+          title: "Satış baskısı yok",
+          text: "Amaç operasyonunuza uyup uymadığını birlikte anlamak.",
+        },
+        {
+          title: "1 iş günü içinde dönüş",
+          text: "Talebiniz ekibimize e-posta ile ulaşır; uygun zaman için hızlıca döneriz.",
+        },
+      ],
+      directContact: "Formu kullanmak istemezseniz talebinizi doğrudan",
+    },
+  },
+
   tickets: {
     loadError: "Destek ekranı yüklenemedi.",
     disabledTitle: "Destek talepleri kapalı",

@@ -339,12 +339,12 @@ export default function EmailLogsPage() {
                   )}
                 </TD>
                 <TD className="text-xs text-muted-foreground">
-                  {emailTemplateLabel(log.template_key)}
+                  {emailTemplateLabel(t, log.template_key)}
                 </TD>
-                <TD className="text-xs">{emailProviderLabel(log.provider)}</TD>
+                <TD className="text-xs">{emailProviderLabel(t, log.provider)}</TD>
                 <TD>
                   <Badge className={STATUS_BADGE[log.status] ?? ""}>
-                    {emailStatusLabel(log.status)}
+                    {emailStatusLabel(t, log.status)}
                   </Badge>
                 </TD>
                 <TD className="text-xs">

@@ -66,6 +66,67 @@ export const en: Dictionary = {
     goToLogin: "Back to sign in",
   },
 
+  misc: {
+    email: {
+      templates: {
+        appointment_created: "Appointment created",
+        appointment_approved: "Appointment approved",
+        appointment_rejected: "Appointment rejected",
+        appointment_revised: "Appointment rescheduled",
+        appointment_cancelled: "Appointment cancelled",
+        appointment_completed: "Appointment completed",
+        appointment_series_created: "Series created",
+        appointment_series_cancelled: "Series cancelled",
+        appointment_series_revised: "Series rescheduled",
+        cargo_advisory: "Courier alert",
+      },
+      status: { sent: "Sent", failed: "Failed", skipped: "Skipped" },
+      mode: { smtp: "SMTP", log_only: "Log only" },
+    },
+    relativeTime: {
+      now: "just now",
+      minutes: (n: number) => `${n} min ago`,
+      hours: (n: number) => `${n} h ago`,
+      days: (n: number) => `${n} d ago`,
+    },
+    notifications: {
+      markAllRead: "Mark all as read",
+      loading: "Loading…",
+      loadError: "We couldn't load the notifications.",
+      empty: "No notifications.",
+    },
+    permissions: {
+      countOf: (selected: number, total: number) => `${selected} / ${total}`,
+      clearAll: "Clear all",
+      search: "Search permissions…",
+      unmanaged: (count: number) => `${count} permissions aren't managed from this screen.`,
+      noPermissions: "No permissions defined",
+      removeGroup: "Clear",
+      selectGroup: "Select",
+    },
+    demoPage: {
+      metaDescription:
+        "See the LogiSlot goods-in and dock scheduling platform up close.",
+      title: "Request a demo",
+      description: "Let's walk through your goods-in operation on LogiSlot together.",
+      points: [
+        {
+          title: "A 30-minute live demo",
+          text: "We'll walk through the supplier booking flow, the operations panel and your facility rules.",
+        },
+        {
+          title: "No sales pressure",
+          text: "The point is to work out together whether it fits your operation.",
+        },
+        {
+          title: "A reply within one business day",
+          text: "Your request reaches our team by e-mail and we'll come back quickly to find a time.",
+        },
+      ],
+      directContact: "If you'd rather not use the form, write to us directly at",
+    },
+  },
+
   tickets: {
     loadError: "We couldn't load the support screen.",
     disabledTitle: "Support requests are off",

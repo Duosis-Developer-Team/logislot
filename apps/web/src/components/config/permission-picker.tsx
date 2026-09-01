@@ -4,6 +4,7 @@ import { Check, Search } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { cn, normalizeSearch } from "@/lib/utils";
+import { useT } from "@/lib/i18n/provider";
 
 export interface PermissionItem {
   code: string;
@@ -36,6 +37,7 @@ export function PermissionPicker({
   onChange,
   disabled = false,
 }: PermissionPickerProps) {
+  const t = useT();
   const [query, setQuery] = useState("");
 
   const selectedSet = useMemo(() => new Set(value), [value]);
@@ -95,7 +97,7 @@ export function PermissionPicker({
     <div className={cn("flex flex-col gap-3", disabled && "opacity-60")}>
       <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
         <span className="text-xs text-muted-foreground">
-          {value.length} / {totalItems} izin seçili
+          {t.misc.permissions.countOf(value.length, totalItems)}
         </span>
         {!disabled && value.length > 0 && (
           <button
@@ -103,7 +105,7 @@ export function PermissionPicker({
             onClick={() => onChange([])}
             className="text-xs font-medium text-muted-foreground transition-colors hover:text-destructive"
           >
-            Tümünü kaldır
+            {t.misc.permissions.clearAll}
           </button>
         )}
       </div>
@@ -115,7 +117,7 @@ export function PermissionPicker({
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             className="h-10 pl-9"
-            placeholder="İzin ara…"
+            placeholder={t.misc.permissions.search}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             // Form icinde Enter kaydi tetiklemesin; ESC drawer'i kapatir (genel davranis).
@@ -128,13 +130,15 @@ export function PermissionPicker({
 
       {unmanagedCount > 0 && (
         <p className="rounded-md bg-accent/10 px-2 py-1 text-xs text-accent-foreground/80">
-          {unmanagedCount} izin bu ekranda listelenmiyor; kaydettiğinizde olduğu gibi korunur.
+          {t.misc.permissions.unmanaged(unmanagedCount)}
         </p>
       )}
 
       {visibleGroups.length === 0 ? (
         <p className="rounded-lg border border-border bg-card px-3 py-4 text-center text-xs text-muted-foreground">
-          {totalItems === 0 ? "İzin tanımı yok" : `“${query}” için sonuç yok`}
+          {totalItems === 0
+            ? t.misc.permissions.noPermissions
+            : t.components.multiSelect.noResults(query)}
         </p>
       ) : (
         <div className="flex flex-col gap-3">
@@ -158,7 +162,7 @@ export function PermissionPicker({
                     disabled={disabled}
                     className="text-xs font-medium text-primary transition-opacity hover:opacity-70 disabled:opacity-40"
                   >
-                    {allSelected ? "Kaldır" : "Tümünü seç"}
+                    {allSelected ? t.misc.permissions.removeGroup : t.components.multiSelect.selectAll}
                   </button>
                 </div>
                 <ul>

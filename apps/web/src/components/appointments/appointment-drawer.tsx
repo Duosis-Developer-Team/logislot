@@ -379,7 +379,7 @@ export function AppointmentDrawer({
                   <div className="min-w-0 flex-1">
                     <div className="truncate font-medium">{log.subject}</div>
                     <div className="text-muted-foreground">
-                      {log.recipient_email} · {emailTemplateLabel(log.template_key)}
+                      {log.recipient_email} · {emailTemplateLabel(t, log.template_key)}
                     </div>
                     <div className="mt-0.5 flex items-center gap-2 text-[10px] text-muted-foreground">
                       <span
@@ -391,9 +391,9 @@ export function AppointmentDrawer({
                               : ""
                         }
                       >
-                        {emailStatusLabel(log.status)}
+                        {emailStatusLabel(t, log.status)}
                       </span>
-                      <span>{emailProviderLabel(log.provider)}</span>
+                      <span>{emailProviderLabel(t, log.provider)}</span>
                       {log.retry_count > 0 && (
                         <span>deneme: {log.retry_count}/{log.max_attempts}</span>
                       )}
