@@ -51,7 +51,7 @@ test("dil secimi yonetim panelinde de gecerlidir ve oturumla tasinir", async ({ 
   await page.goto("/login/admin");
   await page.getByLabel("E-mail").fill(ACCOUNTS.admin);
   await page.getByLabel("Password", { exact: true }).fill(DEMO_PASSWORD);
-  await page.getByRole("button", { name: /Sign in/ }).click();
+  await page.getByRole("button", { name: "Sign in to the Operations Panel" }).click();
 
   await expect(page).toHaveURL(/\/admin\/dashboard/, { timeout: 30_000 });
   await expect(page.getByRole("link", { name: "Appointments" })).toBeVisible();
