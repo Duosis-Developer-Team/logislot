@@ -2,6 +2,7 @@ import { ArrowRight, CalendarCheck2, CalendarPlus, Package, Truck } from "lucide
 import Link from "next/link";
 import { LogiSlotIcon } from "@/components/brand/logo";
 import { PortalAccessCards } from "@/components/landing/portal-access-cards";
+import { useT } from "@/lib/i18n/provider";
 
 /**
  * Hero — ürün mesajı + public portal seçimi + büyük marka ikonu etrafında
@@ -9,12 +10,6 @@ import { PortalAccessCards } from "@/components/landing/portal-access-cards";
  * Gerçek screenshot yerine premium abstract product visual (saf HTML/CSS).
  */
 
-const HIGHLIGHTS = [
-  "Tesis bazlı kurallar",
-  "Akıllı rampa yönlendirme",
-  "Gerçek müsaitlik",
-  "Tedarikçi portalı",
-];
 
 export function LandingHero({
   supplierUrl,
@@ -23,6 +18,7 @@ export function LandingHero({
   supplierUrl: string;
   adminUrl: string;
 }) {
+  const t = useT();
   return (
     <section className="relative overflow-hidden">
       {/* Arkaplan: yumuşak grid + aurora glow */}
@@ -53,7 +49,7 @@ export function LandingHero({
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
-            {HIGHLIGHTS.map((item) => (
+            {t.landing.hero.chips.map((item) => (
               <span
                 key={item}
                 className="rounded-full border border-border bg-card/70 px-3 py-1 text-xs font-medium text-muted-foreground backdrop-blur-sm"
@@ -64,16 +60,15 @@ export function LandingHero({
           </div>
 
           <h1 className="mt-6 text-4xl font-extrabold leading-[1.08] tracking-tight sm:text-5xl xl:text-[3.4rem]">
-            Akıllı mal kabul ve{" "}
+            {t.landing.hero.titleLead}{" "}
             <span className="bg-gradient-to-r from-primary via-sky-500 to-primary bg-clip-text text-transparent dark:via-sky-400">
-              rampa randevu
+              {t.landing.hero.titleAccent}
             </span>{" "}
-            platformu
+            {t.landing.hero.titleTail}
           </h1>
 
           <p className="mt-5 max-w-xl text-base leading-relaxed text-muted-foreground sm:text-lg">
-            Tedarikçi randevularını, rampa uygunluğunu ve teslimat akışını tek bir
-            modern operasyon platformunda yönetin.
+            {t.landing.hero.subtitle}
           </p>
 
           {/* Birincil aksiyon: demo hunisi (müşteri olmayanlar için) */}
@@ -83,17 +78,17 @@ export function LandingHero({
               className="group inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground shadow-card transition-all duration-300 hover:-translate-y-0.5 hover:shadow-card-hover"
             >
               <CalendarPlus className="h-4 w-4" />
-              Demo Talep Et
+              {t.landing.hero.requestDemo}
               <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
             </Link>
             <span className="text-xs text-muted-foreground">
-              Kullanıcı mısınız? Aşağıdan portalınızı seçin.
+              {t.landing.hero.alreadyUser}
             </span>
           </div>
 
           <div className="mt-7">
             <p className="mb-3 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-              Portalınızı seçin
+              {t.landing.hero.choosePortal}
             </p>
             <PortalAccessCards supplierUrl={supplierUrl} adminUrl={adminUrl} />
           </div>
@@ -127,8 +122,8 @@ export function LandingHero({
               <CalendarCheck2 className="h-4 w-4" />
             </span>
             <div className="text-xs">
-              <div className="font-semibold">Rampa 2 · 09:30</div>
-              <div className="text-status-approved">Onaylandı</div>
+              <div className="font-semibold">{t.landing.hero.cardDockTime}</div>
+              <div className="text-status-approved">{t.landing.hero.cardApproved}</div>
             </div>
           </div>
 
@@ -140,8 +135,8 @@ export function LandingHero({
               <Package className="h-4 w-4" />
             </span>
             <div className="text-xs">
-              <div className="font-semibold">Kargo uyarısı</div>
-              <div className="text-muted-foreground">Sabah penceresi</div>
+              <div className="font-semibold">{t.landing.hero.cardCargoTitle}</div>
+              <div className="text-muted-foreground">{t.landing.hero.cardCargoWindow}</div>
             </div>
           </div>
 
@@ -150,7 +145,7 @@ export function LandingHero({
             style={{ animationDelay: "2.1s" }}
           >
             <Truck className="h-4 w-4 text-primary" />
-            <span className="text-xs font-semibold">Araç kategorisi: TIR</span>
+            <span className="text-xs font-semibold">{t.landing.hero.cardVehicle}</span>
           </div>
 
           {/* Mini slot ızgarası */}
@@ -159,7 +154,7 @@ export function LandingHero({
             style={{ animationDelay: "0.6s" }}
           >
             <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-              Bugünkü slotlar
+              {t.landing.hero.cardSlotsToday}
             </div>
             <div className="grid grid-cols-6 gap-1">
               {[

@@ -66,6 +66,131 @@ export const en: Dictionary = {
     goToLogin: "Back to sign in",
   },
 
+  landing: {
+    hero: {
+      chips: [
+        "Facility-specific rules",
+        "Smart dock allocation",
+        "Live availability",
+        "Supplier portal",
+      ],
+      titleLead: "Smart goods receiving and",
+      titleAccent: "dock scheduling",
+      titleTail: "platform",
+      subtitle:
+        "Manage supplier bookings, dock availability and the whole delivery flow in one modern operations platform.",
+      requestDemo: "Request a demo",
+      alreadyUser: "Already a user? Pick your portal below.",
+      choosePortal: "Choose your portal",
+      cardDockTime: "Dock 2 · 09:30",
+      cardApproved: "Approved",
+      cardCargoTitle: "Courier alert",
+      cardCargoWindow: "Morning window",
+      cardVehicle: "Vehicle class: Semi-trailer",
+      cardSlotsToday: "Today's slots",
+    },
+    features: {
+      eyebrow: "What it does",
+      title: "A booking engine that understands how your yard actually works",
+      items: [
+        {
+          title: "Smart dock allocation",
+          text: "Product type, vehicle class and facility rules are weighed together, so suppliers only ever see real availability.",
+        },
+        {
+          title: "Facility-specific rules",
+          text: "Each site configures its own docks, working pattern, handling times per category and vehicle compatibility.",
+        },
+        {
+          title: "Dock conflict groups",
+          text: "Adjacent docks or areas sharing physical capacity are modelled as rules, so clashes are blocked automatically.",
+        },
+        {
+          title: "Supplier portal",
+          text: "Suppliers book slots, follow their status and take part in cancellation or change flows when needed.",
+        },
+        {
+          title: "Courier alert layer",
+          text: "Deliveries with no fixed arrival appear as a separate alert layer on the schedule, so planners see them coming.",
+        },
+        {
+          title: "Multi-site SaaS architecture",
+          text: "Customers and locations are kept safely apart through the tenant and facility model.",
+        },
+      ],
+    },
+    problems: {
+      title: "Is goods-in still being run out of an inbox?",
+      subtitle:
+        "When unbooked vehicles, full docks and last-minute surprises set the day's plan, the problem isn't the people — it's the process.",
+      footnote:
+        "The result: vehicles queueing, dock hours going to waste and a day run over the phone.",
+      items: [
+        {
+          title: "Scattered requests",
+          text: "Supplier requests arrive by e-mail and phone; nothing is captured in one place.",
+        },
+        {
+          title: "Invisible utilisation",
+          text: "Dock occupancy isn't visible in real time, so planning is guesswork.",
+        },
+        {
+          title: "Mismatches found too late",
+          text: "Vehicle type and dock compatibility only surface once the lorry is at the gate.",
+        },
+        {
+          title: "Courier uncertainty",
+          text: "Courier arrival times are unknown, and the day's plan falls apart around them.",
+        },
+        {
+          title: "Disconnected teams",
+          text: "Planning, warehouse and supplier never see the same list.",
+        },
+      ],
+    },
+    solution: {
+      title: "LogiSlot brings every booking into one flow.",
+      subtitle:
+        "The supplier enters the goods, vehicle and delivery details; the system shows real availability based on your facility's rules. The operations panel handles approvals, changes, the schedule and day-to-day tracking in one place.",
+      columns: [
+        {
+          title: "Easy booking for suppliers",
+          text: "Goods, vehicle and delivery details in a few steps — available times appear instantly.",
+        },
+        {
+          title: "Rule-based approvals and schedule for operations",
+          text: "Approve, reschedule and cancel on one calendar, with every action recorded.",
+        },
+        {
+          title: "Real capacity and conflict checks for the site",
+          text: "Dock suitability, working hours and physical constraints are evaluated automatically.",
+        },
+      ],
+    },
+    howItWorks: {
+      eyebrow: "How it works",
+      title: "A simple booking flow with strong rules behind it.",
+      step: (index: number) => `Step ${index}`,
+      steps: [
+        {
+          title: "Pick the goods and category",
+          text: "The supplier enters the product, quantity and category.",
+          chips: ["Bakery", "Chilled", "Packaging"],
+        },
+        {
+          title: "Set the vehicle and delivery type",
+          text: "Vehicle class, number plate, driver and scheduled/courier delivery type.",
+          chips: ["Semi-trailer", "34 ABC 123", "Scheduled"],
+        },
+        {
+          title: "Take a slot from live availability",
+          text: "The system weighs dock, vehicle and conflict rules, then offers the times that actually work.",
+          chips: ["08:30", "09:30", "11:00"],
+        },
+      ],
+    },
+  },
+
   auth: {
     portals: {
       supplier: {

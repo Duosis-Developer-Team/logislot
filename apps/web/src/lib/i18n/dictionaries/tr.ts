@@ -62,6 +62,131 @@ export const tr = {
     goToLogin: "Giriş sayfasına dön",
   },
 
+  landing: {
+    hero: {
+      chips: [
+        "Tesis bazlı kurallar",
+        "Akıllı rampa yönlendirme",
+        "Gerçek müsaitlik",
+        "Tedarikçi portalı",
+      ],
+      titleLead: "Akıllı mal kabul ve",
+      titleAccent: "rampa randevu",
+      titleTail: "platformu",
+      subtitle:
+        "Tedarikçi randevularını, rampa uygunluğunu ve teslimat akışını tek bir modern operasyon platformunda yönetin.",
+      requestDemo: "Demo Talep Et",
+      alreadyUser: "Kullanıcı mısınız? Aşağıdan portalınızı seçin.",
+      choosePortal: "Portalınızı seçin",
+      cardDockTime: "Rampa 2 · 09:30",
+      cardApproved: "Onaylandı",
+      cardCargoTitle: "Kargo uyarısı",
+      cardCargoWindow: "Sabah penceresi",
+      cardVehicle: "Araç kategorisi: TIR",
+      cardSlotsToday: "Bugünkü slotlar",
+    },
+    features: {
+      eyebrow: "Neler yapar",
+      title: "Sahadaki kuralları bilen bir randevu motoru",
+      items: [
+        {
+          title: "Akıllı Rampa Yönlendirme",
+          text: "Ürün kategorisi, araç kategorisi ve tesis kuralları birlikte değerlendirilir; tedarikçiye gerçek müsaitlik gösterilir.",
+        },
+        {
+          title: "Tesis Bazlı Kurallar",
+          text: "Her tesis kendi rampalarını, çalışma düzenini, kategori sürelerini ve araç uygunluklarını konfigüre eder.",
+        },
+        {
+          title: "Rampa Çakışma Grupları",
+          text: "Yan yana rampalar veya fiziksel kapasite paylaşan alanlar kurallarla modellenir; çakışmalar otomatik engellenir.",
+        },
+        {
+          title: "Tedarikçi Portalı",
+          text: "Tedarikçiler randevu oluşturur, durumları takip eder ve gerektiğinde iptal/yanıt akışlarına katılır.",
+        },
+        {
+          title: "Kargo Uyarı Katmanı",
+          text: "Belirsiz varışlı kargolar takvimde ayrı bir uyarı katmanı olarak görünür; planlamacı önceden farkındalık kazanır.",
+        },
+        {
+          title: "Çok Tesisli SaaS Mimari",
+          text: "Tenant ve tesis yapısıyla farklı müşteriler ve lokasyonlar güvenli şekilde ayrıştırılır.",
+        },
+      ],
+    },
+    problems: {
+      title: "Mal kabul operasyonları hâlâ dağınık mı yönetiliyor?",
+      subtitle:
+        "Randevusuz araçlar, dolu rampalar ve son dakika sürprizleri günün planını belirliyorsa sorun kişilerde değil, akışın kendisindedir.",
+      footnote:
+        "Sonuç: bekleyen araçlar, boşa geçen rampa saatleri ve telefonla yönetilen bir gün.",
+      items: [
+        {
+          title: "Dağınık talepler",
+          text: "Tedarikçi talepleri e-posta ve telefonla dağılıyor; kayıt tek yerde toplanmıyor.",
+        },
+        {
+          title: "Görünmeyen doluluk",
+          text: "Rampa doluluğu gerçek zamanlı görünmüyor; plan tahminle yapılıyor.",
+        },
+        {
+          title: "Geç fark edilen uyumsuzluk",
+          text: "Araç tipi ve rampa uygunluğu araç kapıya geldiğinde fark ediliyor.",
+        },
+        {
+          title: "Kargo belirsizliği",
+          text: "Kargo geliş saatleri belli olmuyor; operasyon planı gün içinde bozuluyor.",
+        },
+        {
+          title: "Kopuk ekipler",
+          text: "Planlama, depo ve tedarikçi aynı bilgiye bakamıyor; herkesin listesi farklı.",
+        },
+      ],
+    },
+    solution: {
+      title: "LogiSlot tüm randevu trafiğini tek akışta toplar.",
+      subtitle:
+        "Tedarikçi ürünü, araç tipini ve teslimat bilgisini girer; sistem tesis kurallarına göre gerçek müsaitliği gösterir. Yönetim paneli onay, revize, takvim ve operasyon takibini tek yerden yürütür.",
+      columns: [
+        {
+          title: "Tedarikçi için kolay randevu talebi",
+          text: "Ürün, araç ve teslimat bilgisi birkaç adımda girilir; uygun saatler anında görünür.",
+        },
+        {
+          title: "Yönetim için kurallı onay ve takvim",
+          text: "Onay, revize ve iptal akışları tek takvim üzerinde; her aksiyon kayıt altında.",
+        },
+        {
+          title: "Tesis için gerçek kapasite ve çakışma kontrolü",
+          text: "Rampa uygunluğu, çalışma saatleri ve fiziksel kısıtlar otomatik değerlendirilir.",
+        },
+      ],
+    },
+    howItWorks: {
+      eyebrow: "Nasıl çalışır",
+      title: "Randevu akışı sade, kurallar arka planda güçlü.",
+      step: (index: number) => `Adım ${index}`,
+      steps: [
+        {
+          title: "Ürün ve kategori seçilir",
+          text: "Tedarikçi ürün, miktar ve kategori bilgisini girer.",
+          chips: ["Unlu Mamul", "Soğuk Zincir", "Ambalaj"],
+        },
+        {
+          title: "Araç ve teslimat tipi belirlenir",
+          text: "Araç kategorisi, plaka, sürücü ve standart/kargo teslimat tipi seçilir.",
+          chips: ["TIR", "34 ABC 123", "Standart"],
+        },
+        {
+          title: "Gerçek müsaitlikten slot alınır",
+          text: "Sistem rampa, araç ve çakışma kurallarını değerlendirerek uygun saatleri gösterir.",
+          chips: ["08:30", "09:30", "11:00"],
+        },
+      ],
+    },
+  },
+
   auth: {
     portals: {
       supplier: {
