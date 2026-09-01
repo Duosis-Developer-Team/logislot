@@ -67,6 +67,76 @@ export const en: Dictionary = {
   },
 
   admin: {
+    suppliers: {
+      companyRequired: "companyRequired",
+      validEmail: "validEmail",
+      maxBelowMin: "maxBelowMin",
+      messages: {
+        companyRequired: "A company name is required",
+        validEmail: "Enter a valid e-mail address",
+        maxBelowMin: "The maximum can't be lower than the minimum",
+      },
+      updated: "Supplier updated.",
+      createdWithAccount: (password: string) =>
+        `Supplier and portal account created. Temporary password: ${password}`,
+      createdWithoutAccount: "Supplier created (no portal account).",
+      resetNeedsPassword: "Enter a new password of at least 6 characters to reset it.",
+      passwordReset: "Portal password reset.",
+      resetFailed: "The reset didn't work",
+      accountEnabled: "Portal account activated.",
+      accountDisabled: "Portal account deactivated.",
+      actionFailed: "That didn't work",
+      deactivated: (name: string) =>
+        `"${name}" has been deactivated and can no longer sign in or book slots.`,
+      title: "Suppliers",
+      description:
+        "A supplier can only book slots for the categories they're approved for; quota and duration limits are set here.",
+      create: "New supplier",
+      loadError: "We couldn't load the suppliers.",
+      emptyTitle: "No suppliers",
+      emptyDescription:
+        "When you create a supplier, a portal account can be opened automatically — they then book slots from their own phone.",
+      emptyAction: "Create the first supplier",
+      colContact: "Contact",
+      colCategories: "Approved categories",
+      colLimits: "Duration / quota",
+      deactivate: "Deactivate",
+      editTitle: "Edit supplier",
+      companyName: "Company name",
+      code: "Supplier code",
+      contactPerson: "Contact person",
+      contactEmail: "Contact e-mail",
+      permissionsSection: "Permissions / categories",
+      categorySearch: "Search product categories…",
+      categoryHint: "This supplier can only book slots for the selected categories.",
+      autoApprove: "Auto-approval — requests are confirmed without waiting",
+      standardAlwaysOn: "is on for every supplier and can't be turned off.",
+      cargoToggle: "Courier delivery — shipments with no fixed arrival time",
+      cargoHint:
+        'When off, the "Courier" option never appears in the supplier portal and only scheduled bookings can be made. Existing courier bookings are unaffected.',
+      minDuration: "Min. duration (min)",
+      maxDuration: "Max. duration (min)",
+      weeklyQuota: "Weekly quota",
+      monthlyQuota: "Monthly quota",
+      limitsHint:
+        "Limits left blank aren't applied. These settings affect slot availability.",
+      portalSection: "Portal account",
+      loginEmail: "Sign-in e-mail:",
+      resetShort: "Reset",
+      noAccount: "This supplier has no portal account.",
+      createAccount: "Create a portal account",
+      accountEmail: "Sign-in e-mail",
+      accountEmailPlaceholder: "Defaults to the contact e-mail if blank",
+      accountPassword: "Temporary password",
+      accountPasswordPlaceholder: "Generated if left blank",
+      notesPlaceholder: "Optional internal note",
+      activeToggle: "Supplier active",
+      activeHint:
+        "An inactive supplier can't sign in or book new slots; their past appointments are kept.",
+      deactivateTitle: "Deactivate supplier",
+      deactivateMessage: (name: string) =>
+        `"${name}" will be deactivated. Portal sign-in and new bookings will stop.`,
+    },
     users: {
       permissions: {
         appointments: "Appointments",

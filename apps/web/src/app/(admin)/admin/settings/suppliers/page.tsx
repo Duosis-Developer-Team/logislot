@@ -28,14 +28,17 @@ import {
 } from "@/lib/api/resources";
 import type { SupplierDto } from "@/lib/api/types";
 import { useSession } from "@/lib/auth/session";
+import { useApiErrorMessage } from "@/lib/i18n/api-error";
+import type { Dictionary } from "@/lib/i18n/dictionaries/tr";
+import { useT } from "@/lib/i18n/provider";
 
 const formSchema = z
   .object({
-    company_name: z.string().min(1, "Firma adı zorunlu"),
+    company_name: z.string().min(1, "companyRequired"),
     code: z.string().min(1, "Kod zorunlu"),
     category_label: z.string().optional(),
     contact_name: z.string().optional(),
-    contact_email: z.string().email("Geçerli e-posta girin").or(z.literal("")),
+    contact_email: z.string().email("validEmail").or(z.literal("")),
     contact_phone: z.string().optional(),
     // Backend ile ayni sinir: app/schemas/config.py -> MAX_BLOCK_MINUTES_CAP
     min_block_minutes: z.coerce
@@ -55,7 +58,7 @@ const formSchema = z
     weekly_quota: z.coerce.number().int().min(0).optional().or(z.literal("")),
     monthly_quota: z.coerce.number().int().min(0).optional().or(z.literal("")),
     notes: z.string().optional(),
-    account_email: z.string().email("Geçerli e-posta girin").or(z.literal("")),
+    account_email: z.string().email("validEmail").or(z.literal("")),
     account_password: z
       .string()
       .min(6, "En az 6 karakter")
@@ -68,7 +71,7 @@ const formSchema = z
       ctx.addIssue({
         code: "custom",
         path: ["max_block_minutes"],
-        message: "Maks, min'den küçük olamaz",
+        message: "maxBelowMin",
       });
     }
   });
@@ -88,7 +91,19 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
+
+/** Zod semasi modul seviyesinde tanimlanir ve hook cagiramaz; mesaj olarak
+ *  ANAHTAR uretilir ve ekranda sozlukten cevrilir. Metni semada sabitlemek
+ *  Ingilizce formda Turkce hata gostermek olurdu. */
+function fieldError(t: Dictionary, message: string | undefined): string | undefined {
+  if (!message) return undefined;
+  const known = t.admin.suppliers.messages as Record<string, string>;
+  return known[message] ?? message;
+}
+
 export default function SuppliersPage() {
+  const t = useT();
+  const errorMessage = useApiErrorMessage();
   const { activeFacilityId } = useSession();
   const list = suppliers.useList(activeFacilityId);
   const categories = productCategories.useList(activeFacilityId);
@@ -178,7 +193,7 @@ export default function SuppliersPage() {
     try {
       if (drawer.editing) {
         await save.mutateAsync({ id: drawer.editing.id, body: base });
-        showFlash("success", "Tedarikçi güncellendi.");
+        showFlash("success", t.admin.suppliers.updated);
       } else {
         // Yanit, hesap acildiysa account_password tasir: parola alani bos
         // birakildiginda sunucu rastgele uretir (sabit varsayilan YOK) ve deger
@@ -194,8 +209,10 @@ export default function SuppliersPage() {
         showFlash(
           "success",
           createAccount
-            ? `Tedarikçi ve portal hesabı oluşturuldu. Geçici parola: ${created.account_password ?? values.account_password}`
-            : "Tedarikçi oluşturuldu (hesapsız).",
+            ? t.admin.suppliers.createdWithAccount(
+                created.account_password ?? values.account_password ?? "",
+              )
+            : t.admin.suppliers.createdWithoutAccount,
         );
       }
       setDrawer({ open: false, editing: null });
@@ -208,16 +225,16 @@ export default function SuppliersPage() {
     if (!drawer.editing) return;
     const password = form.getValues("account_password");
     if (!password || password.length < 6) {
-      setFormError("Şifre sıfırlamak için en az 6 karakterli yeni parola girin.");
+      setFormError(t.admin.suppliers.resetNeedsPassword);
       return;
     }
     try {
       await account.resetPassword.mutateAsync({ id: drawer.editing.id, password });
-      showFlash("success", "Portal parolası sıfırlandı.");
+      showFlash("success", t.admin.suppliers.passwordReset);
       form.setValue("account_password", "");
       setFormError(null);
     } catch (err) {
-      setFormError(err instanceof ApiError ? err.message : "Sıfırlama başarısız");
+      setFormError(errorMessage(err, t.admin.suppliers.resetFailed));
     }
   }
 
@@ -229,9 +246,12 @@ export default function SuppliersPage() {
     try {
       await account.setAccountStatus.mutateAsync({ id: drawer.editing.id, isActive: next });
       setAccountActive(next);
-      showFlash("success", next ? "Portal hesabı aktifleştirildi." : "Portal hesabı pasifleştirildi.");
+      showFlash(
+        "success",
+        next ? t.admin.suppliers.accountEnabled : t.admin.suppliers.accountDisabled,
+      );
     } catch (err) {
-      setFormError(err instanceof ApiError ? err.message : "İşlem başarısız");
+      setFormError(errorMessage(err, t.admin.suppliers.actionFailed));
     }
   }
 
@@ -239,9 +259,9 @@ export default function SuppliersPage() {
     if (!confirmTarget) return;
     try {
       await deactivate.mutateAsync(confirmTarget.id);
-      showFlash("success", `"${confirmTarget.company_name}" pasifleştirildi; artık giriş yapamaz ve randevu oluşturamaz.`);
+      showFlash("success", t.admin.suppliers.deactivated(confirmTarget.company_name));
     } catch (err) {
-      showFlash("error", err instanceof ApiError ? err.message : "İşlem başarısız");
+      showFlash("error", errorMessage(err, t.admin.suppliers.actionFailed));
     } finally {
       setConfirmTarget(null);
     }
@@ -259,9 +279,9 @@ export default function SuppliersPage() {
 
   return (
     <ConfigPageShell
-      title="Tedarikçiler"
-      description="Tedarikçi yalnızca kendisine izinli kategorilerden randevu oluşturabilir; kota ve süre limitleri rule engine tarafından uygulanır."
-      createLabel="Yeni Tedarikçi"
+      title={t.admin.suppliers.title}
+      description={t.admin.suppliers.description}
+      createLabel={t.admin.suppliers.create}
       onCreate={openCreate}
       search={search}
       onSearchChange={setSearch}
@@ -272,12 +292,12 @@ export default function SuppliersPage() {
       {list.isLoading ? (
         <LoadingState />
       ) : list.isError ? (
-        <ErrorState message="Tedarikçiler yüklenemedi." onRetry={() => list.refetch()} />
+        <ErrorState message={t.admin.suppliers.loadError} onRetry={() => list.refetch()} />
       ) : rows.length === 0 ? (
         <EmptyState
-          title="Tedarikçi yok"
-          description="Tedarikçi oluşturduğunuzda portal hesabı da otomatik açılabilir; tedarikçi kendi telefonundan randevu talep eder."
-          actionLabel="İlk tedarikçiyi oluştur"
+          title={t.admin.suppliers.emptyTitle}
+          description={t.admin.suppliers.emptyDescription}
+          actionLabel={t.admin.suppliers.emptyAction}
           onAction={openCreate}
         />
       ) : (
@@ -285,14 +305,14 @@ export default function SuppliersPage() {
           <THead>
             <TR>
               <TH>Firma</TH>
-              <TH>İletişim</TH>
-              <TH>İzinli Kategoriler</TH>
+              <TH>{t.admin.suppliers.colContact}</TH>
+              <TH>{t.admin.suppliers.colCategories}</TH>
               <TH>Teslimat</TH>
-              <TH>Süre / Kota</TH>
+              <TH>{t.admin.suppliers.colLimits}</TH>
               <TH>Onay</TH>
               <TH>Hesap</TH>
               <TH>Durum</TH>
-              <TH className="text-right">İşlem</TH>
+              <TH className="text-right">{t.common.actions}</TH>
             </TR>
           </THead>
           <TBody>
@@ -363,11 +383,11 @@ export default function SuppliersPage() {
                 <TD className="text-right">
                   <div className="flex justify-end gap-1">
                     <Button size="sm" variant="secondary" onClick={() => openEdit(row)}>
-                      Düzenle
+                      {t.common.edit}
                     </Button>
                     {row.is_active && (
                       <Button size="sm" variant="ghost" onClick={() => setConfirmTarget(row)}>
-                        Pasifleştir
+                        {t.admin.suppliers.deactivate}
                       </Button>
                     )}
                   </div>
@@ -381,27 +401,27 @@ export default function SuppliersPage() {
       <Drawer
         open={drawer.open}
         onClose={() => setDrawer({ open: false, editing: null })}
-        title={drawer.editing ? "Tedarikçiyi Düzenle" : "Yeni Tedarikçi"}
+        title={drawer.editing ? t.admin.suppliers.editTitle : t.admin.suppliers.create}
         className="max-w-xl"
       >
         <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-4">
           <Section title="Firma">
             <div className="grid grid-cols-2 gap-3">
               <div className="col-span-2">
-                <Label>Firma Adı</Label>
+                <Label>{t.admin.suppliers.companyName}</Label>
                 <Input {...form.register("company_name")} />
                 {form.formState.errors.company_name && (
                   <p className="mt-1 text-xs text-destructive">
-                    {form.formState.errors.company_name.message}
+                    {fieldError(t, form.formState.errors.company_name.message)}
                   </p>
                 )}
               </div>
               <div>
-                <Label>Tedarikçi Kodu</Label>
+                <Label>{t.admin.suppliers.code}</Label>
                 <Input {...form.register("code")} placeholder="SUP-004" />
                 {form.formState.errors.code && (
                   <p className="mt-1 text-xs text-destructive">
-                    {form.formState.errors.code.message}
+                    {fieldError(t, form.formState.errors.code.message)}
                   </p>
                 )}
               </div>
@@ -410,7 +430,7 @@ export default function SuppliersPage() {
                 <Input {...form.register("category_label")} placeholder="Hammadde" />
               </div>
               <div>
-                <Label>İletişim Kişisi</Label>
+                <Label>{t.admin.suppliers.contactPerson}</Label>
                 <Input {...form.register("contact_name")} />
               </div>
               <div>
@@ -418,33 +438,33 @@ export default function SuppliersPage() {
                 <Input {...form.register("contact_phone")} />
               </div>
               <div className="col-span-2">
-                <Label>İletişim E-postası</Label>
+                <Label>{t.admin.suppliers.contactEmail}</Label>
                 <Input type="email" {...form.register("contact_email")} />
                 {form.formState.errors.contact_email && (
                   <p className="mt-1 text-xs text-destructive">
-                    {form.formState.errors.contact_email.message}
+                    {fieldError(t, form.formState.errors.contact_email.message)}
                   </p>
                 )}
               </div>
             </div>
           </Section>
 
-          <Section title="İzinler / Kategoriler">
+          <Section title={t.admin.suppliers.permissionsSection}>
             <MultiSelectField
               options={(categories.data ?? [])
                 .filter((c) => c.is_active)
                 .map((c) => ({ value: c.id, label: c.display_name }))}
               value={allowedCategories}
               onChange={setAllowedCategories}
-              searchPlaceholder="Ürün kategorisi ara…"
+              searchPlaceholder={t.admin.suppliers.categorySearch}
             />
             <p className="text-xs text-muted-foreground">
-              Bu tedarikçi yalnızca seçili kategorilerden randevu oluşturabilir.
+              {t.admin.suppliers.categoryHint}
             </p>
             <Switch
               checked={autoApprove}
               onChange={setAutoApprove}
-              label="Otomatik onay — talepler beklemeden onaylanır"
+              label={t.admin.suppliers.autoApprove}
             />
           </Section>
 
@@ -452,55 +472,54 @@ export default function SuppliersPage() {
             <div className="flex items-center gap-2 text-sm">
               <Badge className="bg-muted text-muted-foreground">Standart</Badge>
               <span className="text-xs text-muted-foreground">
-                her tedarikçide açıktır, kapatılamaz.
+                {t.admin.suppliers.standardAlwaysOn}
               </span>
             </div>
             <Switch
               checked={cargoEnabled}
               onChange={setCargoEnabled}
-              label="Kargo teslimatı — varış saati belirsiz gönderiler"
+              label={t.admin.suppliers.cargoToggle}
             />
             <p className="text-xs text-muted-foreground">
-              Kapalıyken tedarikçi portalında &quot;Kargo&quot; seçeneği hiç görünmez; tedarikçi
-              yalnızca standart randevu oluşturabilir. Mevcut kargo randevuları etkilenmez.
+              {t.admin.suppliers.cargoHint}
             </p>
           </Section>
 
           <Section title="Blokaj & Kota">
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <Label>Min. Süre (dk)</Label>
+                <Label>{t.admin.suppliers.minDuration}</Label>
                 <Input type="number" min={1} {...form.register("min_block_minutes")} />
               </div>
               <div>
-                <Label>Maks. Süre (dk)</Label>
+                <Label>{t.admin.suppliers.maxDuration}</Label>
                 <Input type="number" min={1} {...form.register("max_block_minutes")} />
                 {form.formState.errors.max_block_minutes && (
                   <p className="mt-1 text-xs text-destructive">
-                    {form.formState.errors.max_block_minutes.message}
+                    {fieldError(t, form.formState.errors.max_block_minutes.message)}
                   </p>
                 )}
               </div>
               <div>
-                <Label>Haftalık Kota</Label>
+                <Label>{t.admin.suppliers.weeklyQuota}</Label>
                 <Input type="number" min={0} {...form.register("weekly_quota")} />
               </div>
               <div>
-                <Label>Aylık Kota</Label>
+                <Label>{t.admin.suppliers.monthlyQuota}</Label>
                 <Input type="number" min={0} {...form.register("monthly_quota")} />
               </div>
             </div>
             <p className="text-xs text-muted-foreground">
-              Boş bırakılan limitler uygulanmaz. Bu ayarlar randevu uygunluğunu etkiler.
+              {t.admin.suppliers.limitsHint}
             </p>
           </Section>
 
-          <Section title="Portal Hesabı">
+          <Section title={t.admin.suppliers.portalSection}>
             {drawer.editing ? (
               drawer.editing.account_email ? (
                 <div className="flex flex-col gap-3">
                   <div className="text-sm">
-                    Giriş e-postası:{" "}
+                    {t.admin.suppliers.loginEmail}{" "}
                     <span className="font-mono">{drawer.editing.account_email}</span>
                   </div>
                   <Switch
@@ -523,13 +542,13 @@ export default function SuppliersPage() {
                       onClick={onResetPassword}
                       disabled={account.resetPassword.isPending}
                     >
-                      <KeyRound className="h-4 w-4" /> Sıfırla
+                      <KeyRound className="h-4 w-4" /> {t.admin.suppliers.resetShort}
                     </Button>
                   </div>
                 </div>
               ) : (
                 <p className="text-sm text-muted-foreground">
-                  Bu tedarikçinin portal hesabı yok.
+                  {t.admin.suppliers.noAccount}
                 </p>
               )
             ) : (
@@ -537,23 +556,23 @@ export default function SuppliersPage() {
                 <Switch
                   checked={createAccount}
                   onChange={setCreateAccount}
-                  label="Portal hesabı oluştur"
+                  label={t.admin.suppliers.createAccount}
                 />
                 {createAccount && (
                   <>
                     <div>
-                      <Label>Giriş E-postası</Label>
+                      <Label>{t.admin.suppliers.accountEmail}</Label>
                       <Input
                         type="email"
-                        placeholder="Boşsa iletişim e-postası kullanılır"
+                        placeholder={t.admin.suppliers.accountEmailPlaceholder}
                         {...form.register("account_email")}
                       />
                     </div>
                     <div>
-                      <Label>Geçici Parola</Label>
+                      <Label>{t.admin.suppliers.accountPassword}</Label>
                       <Input
                         type="password"
-                        placeholder="Boşsa rastgele üretilir"
+                        placeholder={t.admin.suppliers.accountPasswordPlaceholder}
                         {...form.register("account_password")}
                       />
                     </div>
@@ -564,16 +583,15 @@ export default function SuppliersPage() {
           </Section>
 
           <Section title="Notlar">
-            <Input {...form.register("notes")} placeholder="Opsiyonel iç not" />
+            <Input {...form.register("notes")} placeholder={t.admin.suppliers.notesPlaceholder} />
           </Section>
 
           {drawer.editing && (
-            <Switch checked={editActive} onChange={setEditActive} label="Tedarikçi aktif" />
+            <Switch checked={editActive} onChange={setEditActive} label={t.admin.suppliers.activeToggle} />
           )}
           {!editActive && (
             <p className="rounded-md bg-status-rejected/10 px-3 py-2 text-xs text-status-rejected">
-              Pasif tedarikçi portala giriş yapamaz ve yeni randevu oluşturamaz; geçmiş
-              randevuları korunur.
+              {t.admin.suppliers.activeHint}
             </p>
           )}
 
@@ -584,7 +602,7 @@ export default function SuppliersPage() {
               variant="secondary"
               onClick={() => setDrawer({ open: false, editing: null })}
             >
-              İptal
+              {t.common.cancel}
             </Button>
             <Button type="submit" disabled={save.isPending}>
               {save.isPending ? "Kaydediliyor…" : "Kaydet"}
@@ -595,8 +613,8 @@ export default function SuppliersPage() {
 
       <ConfirmDialog
         open={confirmTarget !== null}
-        title="Tedarikçiyi pasifleştir"
-        message={`"${confirmTarget?.company_name}" pasifleştirilecek. Portal girişi ve yeni randevu oluşturma engellenir; geçmiş randevular korunur.`}
+        title={t.admin.suppliers.deactivateTitle}
+        message={t.admin.suppliers.deactivateMessage(confirmTarget?.company_name ?? "")}
         loading={deactivate.isPending}
         onConfirm={onDeactivate}
         onClose={() => setConfirmTarget(null)}

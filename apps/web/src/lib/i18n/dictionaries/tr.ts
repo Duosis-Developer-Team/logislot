@@ -63,6 +63,76 @@ export const tr = {
   },
 
   admin: {
+    suppliers: {
+      companyRequired: "companyRequired",
+      validEmail: "validEmail",
+      maxBelowMin: "maxBelowMin",
+      messages: {
+        companyRequired: "Firma adı zorunlu",
+        validEmail: "Geçerli e-posta girin",
+        maxBelowMin: "Maks, min'den küçük olamaz",
+      },
+      updated: "Tedarikçi güncellendi.",
+      createdWithAccount: (password: string) =>
+        `Tedarikçi ve portal hesabı oluşturuldu. Geçici parola: ${password}`,
+      createdWithoutAccount: "Tedarikçi oluşturuldu (hesapsız).",
+      resetNeedsPassword: "Şifre sıfırlamak için en az 6 karakterli yeni parola girin.",
+      passwordReset: "Portal parolası sıfırlandı.",
+      resetFailed: "Sıfırlama başarısız",
+      accountEnabled: "Portal hesabı aktifleştirildi.",
+      accountDisabled: "Portal hesabı pasifleştirildi.",
+      actionFailed: "İşlem başarısız",
+      deactivated: (name: string) =>
+        `"${name}" pasifleştirildi; artık giriş yapamaz ve randevu oluşturamaz.`,
+      title: "Tedarikçiler",
+      description:
+        "Tedarikçi yalnızca kendisine izinli kategorilerden randevu oluşturabilir; kota ve süre limitleri burada tanımlanır.",
+      create: "Yeni Tedarikçi",
+      loadError: "Tedarikçiler yüklenemedi.",
+      emptyTitle: "Tedarikçi yok",
+      emptyDescription:
+        "Tedarikçi oluşturduğunuzda portal hesabı da otomatik açılabilir; tedarikçi kendi telefonundan randevu talep eder.",
+      emptyAction: "İlk tedarikçiyi oluştur",
+      colContact: "İletişim",
+      colCategories: "İzinli Kategoriler",
+      colLimits: "Süre / Kota",
+      deactivate: "Pasifleştir",
+      editTitle: "Tedarikçiyi Düzenle",
+      companyName: "Firma Adı",
+      code: "Tedarikçi Kodu",
+      contactPerson: "İletişim Kişisi",
+      contactEmail: "İletişim E-postası",
+      permissionsSection: "İzinler / Kategoriler",
+      categorySearch: "Ürün kategorisi ara…",
+      categoryHint: "Bu tedarikçi yalnızca seçili kategorilerden randevu oluşturabilir.",
+      autoApprove: "Otomatik onay — talepler beklemeden onaylanır",
+      standardAlwaysOn: "her tedarikçide açıktır, kapatılamaz.",
+      cargoToggle: "Kargo teslimatı — varış saati belirsiz gönderiler",
+      cargoHint:
+        'Kapalıyken tedarikçi portalında "Kargo" seçeneği hiç görünmez; tedarikçi yalnızca standart randevu oluşturabilir. Mevcut kargo randevuları etkilenmez.',
+      minDuration: "Min. Süre (dk)",
+      maxDuration: "Maks. Süre (dk)",
+      weeklyQuota: "Haftalık Kota",
+      monthlyQuota: "Aylık Kota",
+      limitsHint:
+        "Boş bırakılan limitler uygulanmaz. Bu ayarlar randevu uygunluğunu etkiler.",
+      portalSection: "Portal Hesabı",
+      loginEmail: "Giriş e-postası:",
+      resetShort: "Sıfırla",
+      noAccount: "Bu tedarikçinin portal hesabı yok.",
+      createAccount: "Portal hesabı oluştur",
+      accountEmail: "Giriş E-postası",
+      accountEmailPlaceholder: "Boşsa iletişim e-postası kullanılır",
+      accountPassword: "Geçici Parola",
+      accountPasswordPlaceholder: "Boşsa rastgele üretilir",
+      notesPlaceholder: "Opsiyonel iç not",
+      activeToggle: "Tedarikçi aktif",
+      activeHint:
+        "Pasif tedarikçi portala giriş yapamaz ve yeni randevu oluşturamaz; geçmiş randevuları korunur.",
+      deactivateTitle: "Tedarikçiyi pasifleştir",
+      deactivateMessage: (name: string) =>
+        `"${name}" pasifleştirilecek. Portal girişi ve yeni randevu oluşturma durur.`,
+    },
     users: {
       permissions: {
         appointments: "Randevular",
