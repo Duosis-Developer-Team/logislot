@@ -63,6 +63,32 @@ export const tr = {
   },
 
   admin: {
+    calendar: {
+      weekOf: (label: string) => `${label} haftası`,
+      viewDay: "Günlük",
+      viewWeek: "Haftalık",
+      prevDay: "Önceki gün",
+      prevWeek: "Önceki hafta",
+      nextDay: "Sonraki gün",
+      nextWeek: "Sonraki hafta",
+      today: "Bugün",
+      addOverrideTitle: (date: string) => `${date} için kapalı gün / saat değişikliği tanımla`,
+      addOverride: "İstisna Ekle",
+      loading: "Takvim yükleniyor…",
+      loadError: "Takvim yüklenemedi.",
+      noDocks: "Görüntülenecek rampa yok",
+      dockOverrideLabel: (dock: string) => `${dock} için istisna ekle`,
+      dockOverrideTitle: (dock: string, date: string) => `${dock} · ${date} için istisna ekle`,
+      closedToday: "Bugün kapalı",
+      clickEmptyHint: "Boş alana tıklayın: bu rampa ve saate randevu oluştur",
+      closed: "Kapalı",
+      emptyDayTitle: "Bu gün randevu yok",
+      emptyDayDescription:
+        "Farklı bir gün seçin ya da tedarikçi portalından talep bekleyin.",
+      legendCargo: "Kargo uyarısı (statüden bağımsız)",
+      legendClosed: "Kapalı (override)",
+      legendNow: "Şu an",
+    },
     suppliers: {
       companyRequired: "companyRequired",
       validEmail: "validEmail",

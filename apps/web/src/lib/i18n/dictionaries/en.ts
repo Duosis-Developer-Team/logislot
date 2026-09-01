@@ -67,6 +67,32 @@ export const en: Dictionary = {
   },
 
   admin: {
+    calendar: {
+      weekOf: (label: string) => `Week of ${label}`,
+      viewDay: "Day",
+      viewWeek: "Week",
+      prevDay: "Previous day",
+      prevWeek: "Previous week",
+      nextDay: "Next day",
+      nextWeek: "Next week",
+      today: "Today",
+      addOverrideTitle: (date: string) => `Add a closed day or hours change for ${date}`,
+      addOverride: "Add exception",
+      loading: "Loading the calendar…",
+      loadError: "We couldn't load the calendar.",
+      noDocks: "No docks to display",
+      dockOverrideLabel: (dock: string) => `Add an exception for ${dock}`,
+      dockOverrideTitle: (dock: string, date: string) => `Add an exception for ${dock} · ${date}`,
+      closedToday: "Closed today",
+      clickEmptyHint: "Click an empty area to book this dock and time",
+      closed: "Closed",
+      emptyDayTitle: "No appointments on this day",
+      emptyDayDescription:
+        "Pick another day, or wait for a request from the supplier portal.",
+      legendCargo: "Courier alert (independent of status)",
+      legendClosed: "Closed (override)",
+      legendNow: "Now",
+    },
     suppliers: {
       companyRequired: "companyRequired",
       validEmail: "validEmail",
