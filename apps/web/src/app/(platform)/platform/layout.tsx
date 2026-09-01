@@ -70,10 +70,10 @@ function PlatformShell({ children }: { children: React.ReactNode }) {
       <div className="flex min-h-screen flex-col items-center justify-center gap-4 p-4">
         <LogiSlotLogo size="lg" />
         <p className="text-sm text-muted-foreground">
-          Bu panel için platform yöneticisi girişi gerekli.
+          {t.platform.layout.wrongPortal}
         </p>
         <Link href="/login">
-          <Button>Giriş Ekranına Dön</Button>
+          <Button>{t.platform.layout.backToLogin}</Button>
         </Link>
       </div>
     );
@@ -83,7 +83,7 @@ function PlatformShell({ children }: { children: React.ReactNode }) {
     <AppShell
       nav={navItems(t)}
       roleLabel={t.nav.role.platform}
-      footer="LogiSlot · Vendor / Süper-Admin"
+      footer={t.platform.layout.footer}
     >
       {children}
     </AppShell>

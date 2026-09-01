@@ -36,26 +36,27 @@ import {
   useTicketRoutingMutations,
 } from "@/lib/api/platform-ticketing";
 import type { TicketRouteStatus } from "@/lib/api/types";
+import type { Dictionary } from "@/lib/i18n/dictionaries/tr";
+import { useT } from "@/lib/i18n/provider";
 import { cn, formatDateTime, normalizeSearch } from "@/lib/utils";
 
-const STATUS_META: Record<
-  TicketRouteStatus,
-  { label: string; className: string }
-> = {
-  ready: { label: "Hazır", className: "bg-status-approved/15 text-status-approved" },
-  unconfigured: {
-    label: "Yapılandırılmadı",
-    className: "bg-status-cancelled/15 text-status-cancelled",
-  },
-  needs_verification: {
-    label: "Doğrulama gerekli",
-    className: "bg-status-pending/15 text-status-pending",
-  },
-  disabled: { label: "Devre dışı", className: "bg-muted text-muted-foreground" },
-  error: { label: "Hata", className: "bg-status-rejected/15 text-status-rejected" },
+/** Durum etiketi — sozlukte `error` anahtari yoksa ham kod gosterilir. */
+function statusLabel(t: Dictionary, status: TicketRouteStatus): string {
+  const labels = t.platform.ticketRouting.status as Record<string, string>;
+  return labels[status] ?? status;
+}
+
+/** Rozet renkleri yapisaldir; etiketler sozlukten gelir. */
+const STATUS_CLASS: Record<TicketRouteStatus, string> = {
+  ready: "bg-status-approved/15 text-status-approved",
+  unconfigured: "bg-status-cancelled/15 text-status-cancelled",
+  needs_verification: "bg-status-pending/15 text-status-pending",
+  disabled: "bg-muted text-muted-foreground",
+  error: "bg-status-rejected/15 text-status-rejected",
 };
 
 export default function TicketRoutingPage() {
+  const t = useT();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [drawerTenantId, setDrawerTenantId] = useState<string | null>(null);
@@ -73,7 +74,7 @@ export default function TicketRoutingPage() {
   if (routes.isError) {
     return (
       <ErrorState
-        message="Yönlendirme listesi yüklenemedi. Bu ekran için platform ticket yetkisi gerekir."
+        message={t.platform.ticketRouting.loadError}
         onRetry={() => routes.refetch()}
       />
     );
@@ -82,11 +83,9 @@ export default function TicketRoutingPage() {
   return (
     <div className="flex flex-col gap-4">
       <div>
-        <h1 className="text-xl font-bold">Ticket Yönlendirmesi</h1>
+        <h1 className="text-xl font-bold">{t.platform.ticketRouting.title}</h1>
         <p className="max-w-3xl text-sm text-muted-foreground">
-          Her müşteri hesabının destek talepleri, burada seçtiğiniz tek Hermes
-          ekibine iletilir. Son kullanıcı ekip seçmez; formda yalnızca hedef
-          ekibin adını görür.
+          {t.platform.ticketRouting.description}
         </p>
       </div>
 
@@ -100,22 +99,22 @@ export default function TicketRoutingPage() {
           />
           <Input
             className="pl-9"
-            placeholder="Müşteri hesabı ara…"
+            placeholder={t.platform.ticketRouting.searchPlaceholder}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            aria-label="Müşteri hesabı ara"
+            aria-label={t.platform.ticketRouting.searchPlaceholder}
           />
         </div>
         <Select
           className="sm:w-56"
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
-          aria-label="Durum filtresi"
+          aria-label={t.platform.ticketRouting.colRouting}
         >
-          <option value="all">Tüm durumlar</option>
-          {Object.entries(STATUS_META).map(([key, meta]) => (
+          <option value="all">{t.platform.ticketRouting.allStatuses}</option>
+          {Object.entries(t.platform.ticketRouting.status).map(([key, label]) => (
             <option key={key} value={key}>
-              {meta.label}
+              {label}
             </option>
           ))}
         </Select>
@@ -123,25 +122,23 @@ export default function TicketRoutingPage() {
 
       {truncated && (
         <p className="text-xs text-muted-foreground">
-          Toplam {routes.data?.total} müşteri hesabından ilk {rows.length} tanesi
-          gösteriliyor. Aramayı daraltarak aradığınız hesaba ulaşabilirsiniz.
+          {t.platform.ticketRouting.truncated(routes.data?.total ?? 0, rows.length)}
         </p>
       )}
 
       <Table>
         <THead>
           <TR>
-            <TH>Müşteri</TH>
-            <TH>Yönlendirme</TH>
+            <TH>{t.platform.ticketRouting.colCustomer}</TH>
+            <TH>{t.platform.ticketRouting.colRouting}</TH>
             <TH>Hedef ekip</TH>
-            <TH>Son doğrulama</TH>
+            <TH>{t.platform.ticketRouting.colLastVerified}</TH>
             <TH>Teslimat</TH>
-            <TH className="text-right">İşlem</TH>
+            <TH className="text-right">{t.common.actions}</TH>
           </TR>
         </THead>
         <TBody>
           {rows.map((row) => {
-            const meta = STATUS_META[row.status];
             const problem = row.delivery.failed + row.delivery.dead;
             return (
               <TR key={row.tenant_id}>
@@ -155,10 +152,10 @@ export default function TicketRoutingPage() {
                   <span
                     className={cn(
                       "inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold",
-                      meta.className,
+                      STATUS_CLASS[row.status],
                     )}
                   >
-                    {meta.label}
+                    {statusLabel(t, row.status)}
                   </span>
                   {row.last_error_code && (
                     <span className="mt-0.5 block font-mono text-[11px] text-status-rejected">
@@ -170,13 +167,16 @@ export default function TicketRoutingPage() {
                 <TD className="text-xs text-muted-foreground">
                   {row.last_verified_at ? formatDateTime(row.last_verified_at) : "—"}
                   {row.route_version > 0 && (
-                    <span className="block">sürüm {row.route_version}</span>
+                    <span className="block">{t.platform.ticketRouting.version(row.route_version)}</span>
                   )}
                 </TD>
                 <TD className="text-xs">
                   <span className={cn(problem > 0 && "font-semibold text-status-rejected")}>
-                    {row.delivery.pending} bekleyen · {row.delivery.failed} hatalı ·{" "}
-                    {row.delivery.dead} ölü
+                    {t.platform.ticketRouting.deliverySummary(
+                      row.delivery.pending,
+                      row.delivery.failed,
+                      row.delivery.dead,
+                    )}
                   </span>
                 </TD>
                 <TD className="text-right">
@@ -185,7 +185,7 @@ export default function TicketRoutingPage() {
                     variant="secondary"
                     onClick={() => setDrawerTenantId(row.tenant_id)}
                   >
-                    <Settings2 className="h-4 w-4" aria-hidden /> Yapılandır
+                    <Settings2 className="h-4 w-4" aria-hidden /> {t.platform.ticketRouting.configure}
                   </Button>
                 </TD>
               </TR>
@@ -194,7 +194,7 @@ export default function TicketRoutingPage() {
           {rows.length === 0 && (
             <TR>
               <TD colSpan={6} className="py-8 text-center text-sm text-muted-foreground">
-                Filtreye uyan müşteri hesabı yok.
+                {t.platform.ticketRouting.noMatch}
               </TD>
             </TR>
           )}
@@ -218,17 +218,26 @@ function IntegrationHealthCards({
 }: {
   health: NonNullable<ReturnType<typeof useTicketIntegrationHealth>["data"]>;
 }) {
+  const t = useT();
   const cards = [
     {
-      label: "Yönlendirmesi olmayan müşteri",
+      label: t.platform.ticketRouting.unroutedTenants,
       value: health.unconfigured_tenant_count,
       alert: health.unconfigured_tenant_count > 0,
     },
-    { label: "Bekleyen gönderim", value: health.outgoing.pending, alert: false },
-    { label: "Hatalı gönderim", value: health.outgoing.failed, alert: health.outgoing.failed > 0 },
-    { label: "Ölü mektup", value: health.outgoing.dead, alert: health.outgoing.dead > 0 },
+    { label: t.platform.ticketRouting.pendingDelivery, value: health.outgoing.pending, alert: false },
     {
-      label: "Yönlendirme hatası",
+      label: t.platform.ticketRouting.failedDelivery,
+      value: health.outgoing.failed,
+      alert: health.outgoing.failed > 0,
+    },
+    {
+      label: t.platform.ticketRouting.deadLetter,
+      value: health.outgoing.dead,
+      alert: health.outgoing.dead > 0,
+    },
+    {
+      label: t.platform.ticketRouting.routingError,
       value: health.route_error_count,
       alert: health.route_error_count > 0,
     },
@@ -246,10 +255,9 @@ function IntegrationHealthCards({
           <CardContent className="flex items-start gap-2 p-4 text-sm text-status-pending">
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
             <span>
-              <strong className="font-semibold">Hermes bağlantısı yapılandırılmamış.</strong>
+              <strong className="font-semibold">{t.platform.ticketRouting.notConfiguredTitle}</strong>
               <span className="mt-0.5 block text-xs text-muted-foreground">
-                Talepler yerelde kaydedilmeye devam eder ve kuyrukta bekler; bağlantı
-                tanımlandığında otomatik gönderilir. Hiçbir kayıt kaybolmaz.
+                {t.platform.ticketRouting.notConfiguredText}
               </span>
             </span>
           </CardContent>
@@ -260,8 +268,7 @@ function IntegrationHealthCards({
           <CardContent className="flex items-start gap-2 p-4 text-sm text-status-rejected">
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
             <span>
-              Webhook imza sırrı tanımlı değil; gelen olaylar reddedilir. Durum
-              güncellemeleri yalnızca periyodik senkronizasyonla gelir.
+              {t.platform.ticketRouting.noWebhookSecret}
             </span>
           </CardContent>
         </Card>
@@ -294,6 +301,7 @@ function RouteDrawer({
   tenantId: string | null;
   onClose: () => void;
 }) {
+  const t = useT();
   const detail = useTicketRoute(tenantId);
   const groups = useHermesGroups(!!tenantId);
   const { save, test, refreshGroups } = useTicketRoutingMutations();
@@ -344,7 +352,7 @@ function RouteDrawer({
     <Drawer
       open={!!tenantId}
       onClose={onClose}
-      title="Ticket Yönlendirmesi"
+      title={t.platform.ticketRouting.title}
       description={detail.data?.tenant_name}
     >
       {detail.isLoading || !detail.data ? (
@@ -357,8 +365,11 @@ function RouteDrawer({
               {detail.data.tenant_slug} · hesap durumu: {detail.data.tenant_status}
             </p>
             <p className="mt-1 text-xs text-muted-foreground">
-              Bekleyen gönderim {detail.data.delivery.pending} · hatalı{" "}
-              {detail.data.delivery.failed} · ölü {detail.data.delivery.dead}
+              {t.platform.ticketRouting.deliverySummary(
+                detail.data.delivery.pending,
+                detail.data.delivery.failed,
+                detail.data.delivery.dead,
+              )}
             </p>
           </div>
 
@@ -366,9 +377,9 @@ function RouteDrawer({
             <p className="flex items-start gap-1.5 rounded-lg bg-status-pending/10 px-3 py-2 text-xs text-status-pending">
               <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
               <span>
-                Ekip listesi güncel olmayabilir
-                {catalogError ? ` (${catalogError})` : ""}. Kaydetmeden önce
-                yenilemeniz önerilir; mevcut yönlendirme çalışmaya devam eder.
+                {t.platform.ticketRouting.staleCatalogLead}
+                {catalogError ? ` (${catalogError})` : ""}
+                {t.platform.ticketRouting.staleCatalogTail}
               </span>
             </p>
           )}
@@ -447,7 +458,7 @@ function RouteDrawer({
                       </span>
                       {group.member_count !== null && (
                         <span className="text-xs text-muted-foreground">
-                          {group.member_count} üye
+                          {t.platform.ticketRouting.memberCount(group.member_count)}
                         </span>
                       )}
                     </span>
@@ -462,7 +473,7 @@ function RouteDrawer({
               {visible.length === 0 && (
                 <li className="px-3 py-6 text-center text-xs text-muted-foreground">
                   {items.length === 0
-                    ? "Hermes ekip listesi henüz alınamadı."
+                    ? t.platform.ticketRouting.catalogUnavailable
                     : "Aramaya uyan aktif ekip yok."}
                 </li>
               )}
@@ -471,15 +482,15 @@ function RouteDrawer({
 
           <div className="flex items-center justify-between gap-3 rounded-lg border border-border px-3 py-2.5 text-sm">
             <span>
-              Yönlendirme aktif
+              {t.platform.ticketRouting.routingActive}
               <span className="mt-0.5 block text-xs text-muted-foreground">
-                Kapalıyken bu müşteri yeni talep açamaz; mevcut talepler etkilenmez.
+                {t.platform.ticketRouting.routingActiveHint}
               </span>
             </span>
             <Switch
               checked={isActive}
               onChange={setIsActive}
-              label="Yönlendirme aktif"
+              label={t.platform.ticketRouting.routingActive}
             />
           </div>
 
@@ -512,11 +523,13 @@ function RouteDrawer({
                     result.ok
                       ? {
                           kind: "ok",
-                          text: `Bağlantı doğrulandı: ${result.group_name ?? "ekip aktif"}.`,
+                          text: t.platform.ticketRouting.testOk(
+                            result.group_name ?? t.platform.ticketRouting.testGroupActive,
+                          ),
                         }
                       : {
                           kind: "error",
-                          text: result.message ?? "Bağlantı doğrulanamadı.",
+                          text: result.message ?? t.platform.ticketRouting.testFailed,
                         },
                   );
                 } catch (error) {
@@ -527,7 +540,7 @@ function RouteDrawer({
                     text:
                       error instanceof Error
                         ? error.message
-                        : "Bağlantı testi tamamlanamadı",
+                        : t.platform.ticketRouting.testIncomplete,
                   });
                 }
               }}
@@ -539,7 +552,7 @@ function RouteDrawer({
               ) : (
                 <XCircle className="h-4 w-4" aria-hidden />
               )}
-              Bağlantıyı Test Et
+              {t.platform.ticketRouting.testConnection}
             </Button>
             <Button
               type="button"
@@ -554,7 +567,10 @@ function RouteDrawer({
                   });
                   setMessage({
                     kind: "ok",
-                    text: `Kaydedildi · sürüm ${saved.route_version} · ${saved.hermes_group_name}`,
+                    text: t.platform.ticketRouting.saved(
+                      saved.route_version,
+                      saved.hermes_group_name ?? "",
+                    ),
                   });
                 } catch (error) {
                   setMessage({

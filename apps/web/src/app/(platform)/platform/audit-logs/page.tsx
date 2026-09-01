@@ -16,6 +16,8 @@ import { Drawer } from "@/components/ui/drawer";
 import { Input, Label, Select } from "@/components/ui/input";
 import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
 import { apiRequest } from "@/lib/api/client";
+import type { Dictionary } from "@/lib/i18n/dictionaries/tr";
+import { useT } from "@/lib/i18n/provider";
 
 interface AuditEntryDto {
   id: string;
@@ -40,20 +42,25 @@ interface AuditListDto {
   offset: number;
 }
 
-const ACTOR_LABELS: Record<string, string> = {
-  tenant_user: "Tesis kullanıcısı",
-  supplier_user: "Tedarikçi",
-  platform_user: "Platform",
-  system: "Sistem",
-};
+/** Aktor tipi etiketleri — dile gore. */
+function actorLabels(t: Dictionary): Record<string, string> {
+  return {
+    platform_user: "Platform",
+    tenant_user: t.platform.auditLogs.actorTenantUser,
+    supplier_user: t.platform.auditLogs.actorSupplierUser,
+    system: "System",
+  };
+}
 
-const ENTITY_OPTIONS = [
-  ["", "Tümü"],
-  ["tenant", "Tenant"],
-  ["facility", "Tesis"],
-  ["plan", "Plan"],
-  ["tenant_user", "Kullanıcı"],
-] as const;
+function entityOptions(t: Dictionary): [string, string][] {
+  return [
+    ["", t.common.all],
+    ["tenant", "Tenant"],
+    ["facility", t.platform.auditLogs.entityFacility],
+    ["plan", "Plan"],
+    ["tenant_user", t.platform.auditLogs.actorUser],
+  ];
+}
 
 function JsonBlock({ title, value }: { title: string; value: Record<string, unknown> | null }) {
   const [open, setOpen] = useState(true);
@@ -77,6 +84,7 @@ function JsonBlock({ title, value }: { title: string; value: Record<string, unkn
 }
 
 export default function PlatformAuditLogsPage() {
+  const t = useT();
   const [action, setAction] = useState("");
   const [entityType, setEntityType] = useState("");
   const [search, setSearch] = useState("");
@@ -100,7 +108,7 @@ export default function PlatformAuditLogsPage() {
   if (list.isError)
     return (
       <ErrorState
-        message="Platform denetim izleri yüklenemedi (platform.audit.view izni gerekir)."
+        message={t.platform.auditLogs.loadError}
         onRetry={() => list.refetch()}
       />
     );
@@ -110,10 +118,9 @@ export default function PlatformAuditLogsPage() {
   return (
     <div className="flex flex-col gap-4">
       <div>
-        <h1 className="text-xl font-bold">Platform Denetim İzleri</h1>
+        <h1 className="text-xl font-bold">{t.platform.auditLogs.title}</h1>
         <p className="text-sm text-muted-foreground">
-          Bu ekran platform seviyesindeki tenant, tesis ve plan işlemlerini gösterir.
-          Tenant operasyonel kayıtları burada görünmez; hassas alanlar maskelenir.
+          {t.platform.auditLogs.description}
         </p>
       </div>
 
@@ -123,16 +130,16 @@ export default function PlatformAuditLogsPage() {
           <Input
             value={action}
             onChange={(e) => { setAction(e.target.value); setOffset(0); }}
-            placeholder="örn. appointment.approve"
+            placeholder={t.platform.auditLogs.actionPlaceholder}
           />
         </div>
         <div>
-          <Label>Varlık</Label>
+          <Label>{t.platform.auditLogs.entity}</Label>
           <Select
             value={entityType}
             onChange={(e) => { setEntityType(e.target.value); setOffset(0); }}
           >
-            {ENTITY_OPTIONS.map(([value, label]) => (
+            {entityOptions(t).map(([value, label]) => (
               <option key={value} value={value}>
                 {label}
               </option>
@@ -144,22 +151,25 @@ export default function PlatformAuditLogsPage() {
           <Input
             value={search}
             onChange={(e) => { setSearch(e.target.value); setOffset(0); }}
-            placeholder="Aksiyon veya varlık tipi…"
+            placeholder={t.platform.auditLogs.searchPlaceholder}
           />
         </div>
       </div>
 
       {data.items.length === 0 ? (
-        <EmptyState title="Kayıt yok" description="Filtrelere uyan denetim izi bulunamadı." />
+        <EmptyState
+          title={t.platform.auditLogs.emptyTitle}
+          description={t.platform.auditLogs.emptyDescription}
+        />
       ) : (
         <Table>
           <THead>
             <TR>
               <TH>Tarih</TH>
-              <TH>İşlem</TH>
+              <TH>{t.platform.auditLogs.colAction}</TH>
               <TH>Aksiyon</TH>
-              <TH>Aktör</TH>
-              <TH>Varlık</TH>
+              <TH>{t.platform.auditLogs.colActor}</TH>
+              <TH>{t.platform.auditLogs.entity}</TH>
               <TH className="text-right">Detay</TH>
             </TR>
           </THead>
@@ -181,7 +191,7 @@ export default function PlatformAuditLogsPage() {
                   </Badge>
                 </TD>
                 <TD className="text-xs">
-                  {entry.actor_name ?? ACTOR_LABELS[entry.actor_type] ?? entry.actor_type}
+                  {entry.actor_name ?? actorLabels(t)[entry.actor_type] ?? entry.actor_type}
                 </TD>
                 <TD className="text-xs text-muted-foreground">
                   {entry.entity_type ?? "—"}
@@ -202,7 +212,7 @@ export default function PlatformAuditLogsPage() {
       )}
 
       <div className="flex items-center justify-between text-sm text-muted-foreground">
-        <span>Toplam {data.total} kayıt</span>
+        <span>{t.platform.auditLogs.total(data.total)}</span>
         <div className="flex gap-2">
           <Button
             size="sm"
@@ -210,7 +220,7 @@ export default function PlatformAuditLogsPage() {
             disabled={offset === 0}
             onClick={() => setOffset(Math.max(0, offset - 50))}
           >
-            Önceki
+            {t.platform.auditLogs.previous}
           </Button>
           <Button
             size="sm"
@@ -223,26 +233,26 @@ export default function PlatformAuditLogsPage() {
         </div>
       </div>
 
-      <Drawer open={detail !== null} onClose={() => setDetail(null)} title="Denetim Detayı">
+      <Drawer open={detail !== null} onClose={() => setDetail(null)} title={t.platform.auditLogs.detailTitle}>
         {detail && (
           <div className="flex flex-col gap-4">
             <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 rounded-lg border border-border p-3 text-sm">
-              <dt className="text-muted-foreground">İşlem</dt>
+              <dt className="text-muted-foreground">{t.platform.auditLogs.colAction}</dt>
               <dd className="font-medium">{detail.summary}</dd>
               <dt className="text-muted-foreground">Aksiyon</dt>
               <dd className="font-mono text-xs">{detail.action}</dd>
-              <dt className="text-muted-foreground">Aktör</dt>
+              <dt className="text-muted-foreground">{t.platform.auditLogs.colActor}</dt>
               <dd>
                 {detail.actor_name ?? "—"}{" "}
                 <span className="text-xs text-muted-foreground">
-                  ({ACTOR_LABELS[detail.actor_type] ?? detail.actor_type})
+                  ({actorLabels(t)[detail.actor_type] ?? detail.actor_type})
                 </span>
               </dd>
               <dt className="text-muted-foreground">Tarih</dt>
               <dd>{new Date(detail.created_at).toLocaleString("tr-TR")}</dd>
               {detail.entity_type && (
                 <>
-                  <dt className="text-muted-foreground">Varlık</dt>
+                  <dt className="text-muted-foreground">{t.platform.auditLogs.entity}</dt>
                   <dd className="text-xs">
                     {detail.entity_type}
                     {detail.entity_id && (
@@ -254,7 +264,7 @@ export default function PlatformAuditLogsPage() {
                 </>
               )}
             </dl>
-            <JsonBlock title="Önce" value={detail.before} />
+            <JsonBlock title={t.platform.auditLogs.before} value={detail.before} />
             <JsonBlock title="Sonra" value={detail.after} />
             <JsonBlock title="Ek Bilgi" value={detail.metadata} />
           </div>

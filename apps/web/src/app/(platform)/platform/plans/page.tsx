@@ -10,6 +10,7 @@ import { Drawer } from "@/components/ui/drawer";
 import { Input, Label, Select } from "@/components/ui/input";
 import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
 import { ApiError } from "@/lib/api/client";
+import { useT } from "@/lib/i18n/provider";
 import {
   usePlanLimitDimensions,
   usePlanMutations,
@@ -35,6 +36,7 @@ const STATUS_BADGE: Record<string, string> = {
 };
 
 export default function PlansPage() {
+  const t = useT();
   const plans = usePlatformPlans();
   const mutations = usePlanMutations();
   const limitDimensions = usePlanLimitDimensions();
@@ -94,9 +96,9 @@ export default function PlansPage() {
     let rateCard: unknown;
     try {
       rateCard = JSON.parse(rateCardText);
-      if (!Array.isArray(rateCard)) throw new Error("liste olmalı");
+      if (!Array.isArray(rateCard)) throw new Error("not a list");
     } catch {
-      setFormError("Rate card geçerli bir JSON listesi olmalı.");
+      setFormError(t.platform.plans.rateCardInvalid);
       return;
     }
     try {
@@ -118,7 +120,7 @@ export default function PlansPage() {
           ),
         },
       });
-      setFlash(drawer.editing ? "Plan güncellendi." : "Plan oluşturuldu.");
+      setFlash(drawer.editing ? t.platform.plans.updated : t.platform.plans.created);
       setTimeout(() => setFlash(null), 4000);
       setDrawer({ open: false, editing: null });
     } catch (err) {
@@ -130,7 +132,7 @@ export default function PlansPage() {
     if (!retireTarget) return;
     try {
       await mutations.retire.mutateAsync(retireTarget.id);
-      setFlash(`"${retireTarget.name}" emekliye ayrıldı; yeni atama yapılamaz.`);
+      setFlash(t.platform.plans.retired(retireTarget.name));
       setTimeout(() => setFlash(null), 4000);
     } finally {
       setRetireTarget(null);
@@ -139,7 +141,7 @@ export default function PlansPage() {
 
   if (plans.isLoading) return <LoadingState />;
   if (plans.isError)
-    return <ErrorState message="Planlar yüklenemedi." onRetry={() => plans.refetch()} />;
+    return <ErrorState message={t.platform.plans.loadError} onRetry={() => plans.refetch()} />;
 
   return (
     <div className="flex flex-col gap-4">
@@ -147,8 +149,8 @@ export default function PlansPage() {
         <div>
           <h1 className="text-xl font-bold">Planlar</h1>
           <p className="max-w-2xl text-sm text-muted-foreground">
-            Plan bir <strong>politika kabıdır</strong>: neyin nasıl ölçüleceğini tanımlar.
-            Fatura hesaplamaz; gelecekteki billing engine bu yapıyı okuyacaktır.
+            {t.platform.plans.introLead} <strong>{t.platform.plans.introStrong}</strong>
+            {t.platform.plans.introTail}
           </p>
         </div>
         <Button onClick={openCreate}>+ Yeni Plan</Button>
@@ -163,8 +165,8 @@ export default function PlansPage() {
       {(plans.data ?? []).length === 0 ? (
         <EmptyState
           title="Plan yok"
-          description="Starter/Professional gibi politika profilleri tanımlayın."
-          actionLabel="İlk planı oluştur"
+          description={t.platform.plans.emptyDescription}
+          actionLabel={t.platform.plans.emptyAction}
           onAction={openCreate}
         />
       ) : (
@@ -174,10 +176,10 @@ export default function PlansPage() {
               <TH>Plan</TH>
               <TH>Kapsam</TH>
               <TH>Faturalama Birimi</TH>
-              <TH>Ölçülen Boyutlar</TH>
+              <TH>{t.platform.plans.colDimensions}</TH>
               <TH>Limitler</TH>
               <TH>Durum</TH>
-              <TH className="text-right">İşlem</TH>
+              <TH className="text-right">{t.common.actions}</TH>
             </TR>
           </THead>
           <TBody>
@@ -186,7 +188,9 @@ export default function PlansPage() {
                 <TD className="font-medium">{plan.name}</TD>
                 <TD>
                   <Badge className="bg-primary/10 text-primary">
-                    {plan.scope === "tenant" ? "Müşteri hesabı" : "Operasyon"}
+                    {plan.scope === "tenant"
+                      ? t.platform.plans.scopeTenant
+                      : t.platform.plans.scopeFacility}
                   </Badge>
                 </TD>
                 <TD className="font-mono text-xs">{plan.billing_unit_label}</TD>
@@ -202,7 +206,7 @@ export default function PlansPage() {
                 <TD>
                   <div className="flex max-w-64 flex-wrap gap-1">
                     {Object.keys(plan.limits_json ?? {}).length === 0 ? (
-                      <span className="text-xs text-muted-foreground">Sınırsız</span>
+                      <span className="text-xs text-muted-foreground">{t.platform.plans.unlimited}</span>
                     ) : (
                       (limitDimensions.data?.dimensions ?? [])
                         .filter((dim) => plan.limits_json?.[dim.key])
@@ -224,11 +228,11 @@ export default function PlansPage() {
                 <TD className="text-right">
                   <div className="flex justify-end gap-1">
                     <Button size="sm" variant="secondary" onClick={() => openEdit(plan)}>
-                      Düzenle
+                      {t.common.edit}
                     </Button>
                     {plan.status !== "retired" && (
                       <Button size="sm" variant="ghost" onClick={() => setRetireTarget(plan)}>
-                        Emekliye Ayır
+                        {t.platform.plans.retire}
                       </Button>
                     )}
                   </div>
@@ -242,20 +246,20 @@ export default function PlansPage() {
       <Drawer
         open={drawer.open}
         onClose={() => setDrawer({ open: false, editing: null })}
-        title={drawer.editing ? "Planı Düzenle" : "Yeni Plan"}
-        description="Bu yapı fatura hesaplamaz; gelecekteki billing engine için politika kabıdır."
+        title={drawer.editing ? t.platform.plans.editTitle : t.platform.plans.createTitle}
+        description={t.platform.plans.drawerHint}
       >
         <div className="flex flex-col gap-4">
           <div>
-            <Label>Plan Adı</Label>
+            <Label>{t.platform.plans.name}</Label>
             <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Professional" />
           </div>
           <div className="grid grid-cols-3 gap-3">
             <div>
               <Label>Kapsam</Label>
               <Select value={scope} onChange={(e) => setScope(e.target.value)}>
-                <option value="tenant">Müşteri hesabı</option>
-                <option value="facility">Operasyon kapsamı</option>
+                <option value="tenant">{t.platform.plans.scopeTenant}</option>
+                <option value="facility">{t.platform.plans.scopeFacilityOption}</option>
               </Select>
             </div>
             <div>
@@ -278,7 +282,7 @@ export default function PlansPage() {
             </div>
           </div>
           <div>
-            <Label>Ölçülebilir Boyutlar</Label>
+            <Label>{t.platform.plans.dimensions}</Label>
             <MultiSelectField
               options={DIMENSIONS.map((d) => ({ value: d, label: d }))}
               value={dimensions}
@@ -289,14 +293,13 @@ export default function PlansPage() {
           <div className="rounded-xl border border-border bg-muted/30 p-3">
             <div className="flex items-baseline justify-between gap-2">
               <Label className="mb-0">Plan Limitleri</Label>
-              <span className="text-xs text-muted-foreground">Boş bırakılan = sınırsız</span>
+              <span className="text-xs text-muted-foreground">{t.platform.plans.blankUnlimited}</span>
             </div>
             <p className="mt-1 text-xs text-muted-foreground">
-              Rakamlar sabit değildir; bu plandaki her sınırı istediğiniz zaman
-              buradan değiştirebilirsiniz. Değişiklik kaydedildiği anda geçerli olur.
+              {t.platform.plans.limitsHint}
             </p>
             {limitDimensions.isLoading ? (
-              <p className="mt-3 text-xs text-muted-foreground">Limit türleri yükleniyor…</p>
+              <p className="mt-3 text-xs text-muted-foreground">{t.platform.plans.dimensionsLoading}</p>
             ) : (
               <div className="mt-3 flex flex-col gap-3">
                 {(limitDimensions.data?.dimensions ?? []).map((dim) => {
@@ -314,14 +317,14 @@ export default function PlansPage() {
                           min={0}
                           inputMode="numeric"
                           value={raw}
-                          placeholder="Sınırsız"
+                          placeholder={t.platform.plans.unlimited}
                           aria-label={`${dim.label} limiti (${dim.unit})`}
                           onChange={(e) =>
                             setLimits((prev) => ({ ...prev, [dim.key]: e.target.value }))
                           }
                         />
                         <p className="mt-1 text-[11px] text-muted-foreground">
-                          {unlimited ? "Sınırsız" : `${raw} ${dim.unit}`}
+                          {unlimited ? t.platform.plans.unlimited : `${raw} ${dim.unit}`}
                           {dim.enforced_at === "assignment" && " · atamada engellenir"}
                         </p>
                       </div>
@@ -339,14 +342,16 @@ export default function PlansPage() {
               onChange={(e) => setRateCardText(e.target.value)}
             />
             <p className="mt-1 text-xs text-muted-foreground">
-              Şekil: {"[{dimension, unit_price, included_quota, overage_rule}]"} — finans
-              ekibi rakamları model değişmeden günceller.
+              {t.platform.plans.rateCardShape(
+                "[{dimension, unit_price, included_quota, overage_rule}]",
+              )}
+              {t.platform.plans.rateCardTail}
             </p>
           </div>
           {formError && <p className="text-sm text-destructive">{formError}</p>}
           <div className="flex justify-end gap-2">
             <Button variant="secondary" onClick={() => setDrawer({ open: false, editing: null })}>
-              İptal
+              {t.common.cancel}
             </Button>
             <Button onClick={onSubmit} disabled={mutations.save.isPending || !name.trim()}>
               {mutations.save.isPending ? "Kaydediliyor…" : "Kaydet"}
@@ -357,9 +362,9 @@ export default function PlansPage() {
 
       <ConfirmDialog
         open={retireTarget !== null}
-        title="Planı emekliye ayır"
-        message={`"${retireTarget?.name}" retired olur: mevcut atamalar bozulmaz ancak yeni atama yapılamaz.`}
-        confirmLabel="Emekliye Ayır"
+        title={t.platform.plans.retireTitle}
+        message={t.platform.plans.retireMessage(retireTarget?.name ?? "")}
+        confirmLabel={t.platform.plans.retire}
         loading={mutations.retire.isPending}
         onConfirm={onRetire}
         onClose={() => setRetireTarget(null)}
