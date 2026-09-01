@@ -4,6 +4,7 @@ import { Check, Search, X } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { cn, normalizeSearch } from "@/lib/utils";
+import { useT } from "@/lib/i18n/provider";
 
 export interface MultiSelectOption {
   value: string;
@@ -42,6 +43,7 @@ export function MultiSelectField({
   emptyHint,
   searchPlaceholder = "Ara…",
 }: MultiSelectFieldProps) {
+  const t = useT();
   const [query, setQuery] = useState("");
 
   const selectedSet = useMemo(() => new Set(value), [value]);
@@ -99,7 +101,7 @@ export function MultiSelectField({
     <div className="flex flex-col gap-2">
       <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
         <span className="text-xs text-muted-foreground">
-          {value.length} / {options.length} seçili
+          {t.components.multiSelect.countOf(value.length, options.length)} seçili
         </span>
         {options.length > 0 && (
           <div className="flex items-center gap-3 text-xs font-medium">
@@ -111,11 +113,11 @@ export function MultiSelectField({
             >
               {allFilteredSelected
                 ? query
-                  ? "Sonuçları kaldır"
-                  : "Tümünü kaldır"
+                  ? t.components.multiSelect.removeResults
+                  : t.components.multiSelect.removeAll
                 : query
-                  ? "Sonuçları seç"
-                  : "Tümünü seç"}
+                  ? t.components.multiSelect.selectResults
+                  : t.components.multiSelect.selectAll}
             </button>
             {value.length > 0 && (
               <button
@@ -141,7 +143,7 @@ export function MultiSelectField({
               <button
                 type="button"
                 onClick={() => toggle(option.value)}
-                aria-label={`${option.label} seçimini kaldır`}
+                aria-label={t.components.multiSelect.toggle(option.label)}
                 className="rounded-full p-0.5 transition-colors hover:bg-primary/20"
               >
                 <X className="h-3 w-3" />
@@ -171,11 +173,11 @@ export function MultiSelectField({
       <div className="max-h-64 overflow-y-auto rounded-lg border border-border bg-card">
         {options.length === 0 ? (
           <p className="px-3 py-4 text-center text-xs text-muted-foreground">
-            Seçenek yok
+            {t.components.multiSelect.noOptions}
           </p>
         ) : visible.length === 0 ? (
           <p className="px-3 py-4 text-center text-xs text-muted-foreground">
-            “{query}” için sonuç yok
+            {t.components.multiSelect.noResults(query)}
           </p>
         ) : (
           <ul>
@@ -216,22 +218,21 @@ export function MultiSelectField({
 
       {hiddenCount > 0 && (
         <p className="text-xs text-muted-foreground">
-          {hiddenCount} sonuç daha var — aramayla daraltın.
+          {t.components.multiSelect.moreResults(hiddenCount)}
         </p>
       )}
 
       {orphanCount > 0 && (
         <div className="flex flex-wrap items-center gap-2 rounded-md bg-accent/10 px-2 py-1 text-xs text-accent-foreground/80">
           <span>
-            {orphanCount} seçim listede olmayan (pasifleştirilmiş/silinmiş) bir kayda
-            ait; kaydedildiğinde korunur.
+            {t.components.multiSelect.orphanNote(orphanCount)}
           </span>
           <button
             type="button"
             onClick={() => onChange(value.filter((v) => byValue.has(v)))}
             className="font-medium text-destructive transition-opacity hover:opacity-70"
           >
-            Kaldır
+            {t.components.multiSelect.remove}
           </button>
         </div>
       )}

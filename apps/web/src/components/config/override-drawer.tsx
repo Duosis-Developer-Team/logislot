@@ -11,6 +11,7 @@ import { ApiError } from "@/lib/api/client";
 import { dockOverrides, docks } from "@/lib/api/resources";
 import type { OverrideDto, OverrideType } from "@/lib/api/types";
 import { useSession } from "@/lib/auth/session";
+import { useT } from "@/lib/i18n/provider";
 
 /**
  * Takvim istisnasi formu — Ayarlar > Takvim Istisnalari ve Takvim sekmesinin
@@ -46,6 +47,7 @@ export function OverrideDrawer({
   onClose,
   onSaved,
 }: OverrideDrawerProps) {
+  const t = useT();
   // Form state'i acilis parametrelerinden turer; effect ile senkronlamak yerine
   // key degisince govde yeniden mount edilir (temiz sifirlama).
   const formKey = [
@@ -59,8 +61,10 @@ export function OverrideDrawer({
     <Drawer
       open={open}
       onClose={onClose}
-      title={editing ? "İstisnayı Düzenle" : "Yeni Takvim İstisnası"}
-      description="Kapalı gün müsaitlikte sert engel üretir; saat değişikliği o günün çalışma penceresinin YERİNE geçer — saatleri uzatabilir de kısaltabilir de."
+      title={
+        editing ? t.components.overrideDrawer.editTitle : t.components.overrideDrawer.createTitle
+      }
+      description={t.components.overrideDrawer.description}
     >
       <OverrideForm
         key={formKey}
@@ -79,6 +83,7 @@ function OverrideForm({
   onClose,
   onSaved,
 }: Omit<OverrideDrawerProps, "open">) {
+  const t = useT();
   const { activeFacilityId } = useSession();
   const queryClient = useQueryClient();
   const dockList = docks.useList(activeFacilityId);
@@ -115,16 +120,16 @@ function OverrideForm({
     event.preventDefault();
     setFormError(null);
     if (!editing && selected.length === 0) {
-      setFormError("En az bir rampa seçin.");
+      setFormError(t.components.overrideDrawer.needsDock);
       return;
     }
     if (type === "extra_hours") {
       if (!startTime || !endTime) {
-        setFormError("Saat değişikliği için başlangıç ve bitiş saati zorunludur.");
+        setFormError(t.components.overrideDrawer.needsHours);
         return;
       }
       if (endTime <= startTime) {
-        setFormError("Bitiş, başlangıçtan sonra olmalı.");
+        setFormError(t.components.overrideDrawer.endBeforeStart);
         return;
       }
     }
@@ -144,10 +149,10 @@ function OverrideForm({
       await queryClient.invalidateQueries({ queryKey: ["calendar"] });
       onSaved(
         editing
-          ? "İstisna güncellendi."
+          ? t.components.overrideDrawer.updated
           : selected.length > 1
-            ? `${selected.length} rampa için istisna oluşturuldu.`
-            : "İstisna oluşturuldu.",
+            ? t.components.overrideDrawer.createdMany(selected.length)
+            : t.components.overrideDrawer.created,
       );
       onClose();
     } catch (err) {
@@ -158,12 +163,14 @@ function OverrideForm({
   return (
     <form onSubmit={onSubmit} className="flex flex-col gap-4">
       <div>
-        <Label>{editing ? "Rampa" : "Rampalar (çoklu seçim)"}</Label>
+        <Label>
+          {editing ? t.components.overrideDrawer.dock : t.components.overrideDrawer.docks}
+        </Label>
         {editing ? (
           <p className="rounded-lg border border-border bg-muted/50 px-3 py-2 text-sm">
             {dockName(editing.dock_id)}
             <span className="ml-2 text-xs text-muted-foreground">
-              (rampa değiştirilemez; yeni istisna oluşturun)
+              {t.components.overrideDrawer.dockLocked}
             </span>
           </p>
         ) : (
@@ -175,11 +182,11 @@ function OverrideForm({
               value={selected}
               onChange={setDockIds}
               searchPlaceholder="Rampa ara…"
-              emptyHint="İstisnanın uygulanacağı rampaları seçin."
+              emptyHint={t.components.overrideDrawer.dockEmptyHint}
             />
             {takenNames.length > 0 && (
               <p className="mt-2 text-xs text-muted-foreground">
-                Bu tarihte zaten istisnası olan rampalar listede yok: {takenNames.join(", ")}.
+                {t.components.overrideDrawer.alreadyExists}
               </p>
             )}
           </>
@@ -188,14 +195,14 @@ function OverrideForm({
 
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <Label>Tarih</Label>
+          <Label>{t.admin.emailLogs.start}</Label>
           <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
         </div>
         <div>
-          <Label>Tip</Label>
+          <Label>{t.admin.overrides.colHours}</Label>
           <Select value={type} onChange={(e) => setType(e.target.value as OverrideType)}>
-            <option value="closed">Kapalı (bakım, tatil…)</option>
-            <option value="extra_hours">Saat değişikliği (uzat / kısalt)</option>
+            <option value="closed">{t.components.overrideDrawer.typeClosed}</option>
+            <option value="extra_hours">{t.components.overrideDrawer.typeHours}</option>
           </Select>
         </div>
       </div>
@@ -203,26 +210,26 @@ function OverrideForm({
       {type === "extra_hours" ? (
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <Label>Başlangıç</Label>
-            <TimeSelect ariaLabel="Başlangıç" value={startTime} onChange={setStartTime} />
+            <Label>{t.components.overrideDrawer.start}</Label>
+            <TimeSelect ariaLabel={t.components.overrideDrawer.start} value={startTime} onChange={setStartTime} />
           </div>
           <div>
-            <Label>Bitiş</Label>
-            <TimeSelect ariaLabel="Bitiş" value={endTime} onChange={setEndTime} />
+            <Label>{t.components.overrideDrawer.end}</Label>
+            <TimeSelect ariaLabel={t.components.overrideDrawer.end} value={endTime} onChange={setEndTime} />
           </div>
         </div>
       ) : (
         <p className="text-xs text-muted-foreground">
-          Kapalı istisna, seçilen rampaların o gününü tamamen randevuya kapatır.
+          {t.components.overrideDrawer.closedHint}
         </p>
       )}
 
       <div>
-        <Label>Sebep</Label>
+        <Label>{t.admin.appointments.rejectTitle}</Label>
         <Input
           value={reason}
           onChange={(e) => setReason(e.target.value)}
-          placeholder="Örn. Planlı bakım"
+          placeholder={t.components.overrideDrawer.reasonPlaceholder}
         />
       </div>
 
@@ -230,7 +237,7 @@ function OverrideForm({
 
       <div className="mt-2 flex justify-end gap-2">
         <Button type="button" variant="secondary" onClick={onClose}>
-          İptal
+          {t.common.cancel}
         </Button>
         <Button type="submit" disabled={save.isPending}>
           {save.isPending ? "Kaydediliyor…" : "Kaydet"}

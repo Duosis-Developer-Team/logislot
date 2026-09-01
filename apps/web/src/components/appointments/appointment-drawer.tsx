@@ -40,6 +40,8 @@ import {
 } from "@/lib/api/resources";
 import { useSession } from "@/lib/auth/session";
 import { formatDate, isoFromWallClock, timeInTz } from "@/lib/utils";
+import { useApiErrorMessage } from "@/lib/i18n/api-error";
+import { useT } from "@/lib/i18n/provider";
 
 interface AppointmentDrawerProps {
   appointmentId: string | null;
@@ -53,6 +55,8 @@ export function AppointmentDrawer({
   onClose,
   onActionSuccess,
 }: AppointmentDrawerProps) {
+  const t = useT();
+  const errorMessage = useApiErrorMessage();
   const { activeFacilityId, activeFacility, can } = useSession();
   const detail = useAppointmentDetail(activeFacilityId, appointmentId);
   const dockList = dockResource.useList(activeFacilityId);
@@ -102,11 +106,11 @@ export function AppointmentDrawer({
     try {
       const result = await emailResend.mutateAsync(logId);
       if (result.status === "failed") {
-        setResendError(result.error_message ?? "Gönderim yine başarısız oldu.");
+        setResendError(result.error_message ?? t.appointmentDrawer.resendFailed);
       }
       void emailLogs.refetch();
     } catch (err) {
-      setResendError(err instanceof ApiError ? err.message : "Tekrar gönderilemedi");
+      setResendError(errorMessage(err, t.appointmentDrawer.resendError));
     }
   }
 
@@ -206,7 +210,7 @@ export function AppointmentDrawer({
       setDialog(null);
       onActionSuccess?.(successMessage);
     } catch (err) {
-      setActionError(err instanceof ApiError ? err.message : "İşlem başarısız");
+      setActionError(errorMessage(err, t.appointmentDrawer.actionFailed));
     }
   }
 
@@ -218,11 +222,11 @@ export function AppointmentDrawer({
     actions.revise.isPending;
 
   return (
-    <Modal open={appointmentId !== null} onClose={onClose} title="Randevu Detayı">
+    <Modal open={appointmentId !== null} onClose={onClose} title={t.appointmentDrawer.title}>
       {detail.isLoading ? (
         <LoadingState />
       ) : detail.isError || !a ? (
-        <ErrorState message="Randevu yüklenemedi." onRetry={() => detail.refetch()} />
+        <ErrorState message={t.appointmentDrawer.loadError} onRetry={() => detail.refetch()} />
       ) : (
         <div className="flex flex-col gap-5">
           {/* Baslik + statu */}
@@ -257,7 +261,7 @@ export function AppointmentDrawer({
               {a.quantity}{" "}
               {QUANTITY_UNIT_LABELS[a.quantity_unit as QuantityUnit] ?? a.quantity_unit}
             </dd>
-            <dt className="text-muted-foreground">Araç</dt>
+            <dt className="text-muted-foreground">{t.appointmentDrawer.vehicle}</dt>
             <dd>{a.vehicle_category_name ?? "—"}</dd>
             {a.license_plate && (
               <>
@@ -267,13 +271,13 @@ export function AppointmentDrawer({
             )}
             {a.driver_name && (
               <>
-                <dt className="text-muted-foreground">Sürücü</dt>
+                <dt className="text-muted-foreground">{t.appointmentDrawer.driver}</dt>
                 <dd>{a.driver_name}</dd>
               </>
             )}
             {a.supplier_contact?.phone && (
               <>
-                <dt className="text-muted-foreground">İletişim</dt>
+                <dt className="text-muted-foreground">{t.appointmentDrawer.contact}</dt>
                 <dd className="flex items-center gap-1">
                   <Phone className="h-3 w-3" />
                   {a.supplier_contact.phone}
@@ -285,8 +289,7 @@ export function AppointmentDrawer({
           {a.delivery_type === "cargo" && (
             <p className="flex items-center gap-2 rounded-lg bg-cargo/10 px-3 py-2 text-xs text-cargo">
               <Package className="h-4 w-4 shrink-0" />
-              Kargo teslimatı — varış saati kesinleşince mevcut Revize Et akışıyla
-              güncelleyin; yeni statü yoktur.
+              {t.appointmentDrawer.cargoNote}
             </p>
           )}
 
@@ -297,10 +300,10 @@ export function AppointmentDrawer({
                 Tekrarlayan serinin {a.series.occurrence_index}/{a.series.occurrence_count}.
                 randevusu (
                 {a.series.frequency === "weekly"
-                  ? "haftalık"
+                  ? t.appointmentDrawer.weekly
                   : a.series.frequency === "biweekly"
                     ? "2 haftada bir"
-                    : "aylık"}
+                    : t.appointmentDrawer.monthly}
                 ). Randevular tek tek revize/iptal edilebilir.
               </span>
               {can("appt.cancel") && (
@@ -314,7 +317,7 @@ export function AppointmentDrawer({
                     setDialog("cancel-series");
                   }}
                 >
-                  Seriyi İptal Et
+                  {t.appointmentDrawer.cancelSeries}
                 </Button>
               )}
             </div>
@@ -327,7 +330,7 @@ export function AppointmentDrawer({
           )}
           {a.cancellation_reason && (
             <p className="rounded-lg bg-status-cancelled/10 px-3 py-2 text-sm text-status-cancelled">
-              İptal sebebi: {a.cancellation_reason}
+              {t.appointmentDrawer.cancellationReason} {a.cancellation_reason}
             </p>
           )}
           {a.completion_note && (
@@ -340,7 +343,7 @@ export function AppointmentDrawer({
           {(a.revisions?.length ?? 0) > 0 && (
             <div className="flex flex-col gap-2">
               <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Revizyon Geçmişi
+                {t.appointmentDrawer.revisionHistory}
               </h4>
               {a.revisions!.map((r) => (
                 <div
@@ -362,7 +365,7 @@ export function AppointmentDrawer({
           {(emailLogs.data?.length ?? 0) > 0 && (
             <div className="flex flex-col gap-2">
               <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                E-posta Logları
+                {t.appointmentDrawer.emailLogs}
               </h4>
               {resendError && (
                 <p className="text-xs text-destructive">{resendError}</p>
@@ -421,11 +424,11 @@ export function AppointmentDrawer({
                         disabled={emailResend.isPending}
                         onClick={() => void onResend(log.id)}
                       >
-                        {emailResend.isPending ? "Gönderiliyor…" : "Tekrar Gönder"}
+                        {emailResend.isPending ? t.appointmentDrawer.sending : t.appointmentDrawer.resend}
                       </Button>
                     ) : (
                       <span className="shrink-0 text-[10px] text-muted-foreground">
-                        Deneme hakkı doldu
+                        {t.appointmentDrawer.noAttemptsLeft}
                       </span>
                     ))}
                 </div>
@@ -458,7 +461,7 @@ export function AppointmentDrawer({
                   variant="secondary"
                   onClick={() => openDialog("dock-change")}
                 >
-                  Rampa Değiştir
+                  {t.appointmentDrawer.changeDock}
                 </Button>
               )}
               {allowed.complete && (
@@ -478,7 +481,7 @@ export function AppointmentDrawer({
                   className="text-destructive"
                   onClick={() => openDialog("cancel")}
                 >
-                  İptal Et
+                  {t.appointmentDrawer.cancel}
                 </Button>
               )}
             </div>
@@ -490,11 +493,11 @@ export function AppointmentDrawer({
       <ConfirmDialog
         open={dialog === "approve"}
         title="Randevuyu onayla"
-        message={`${a?.supplier_name ?? ""} — "${a?.product_name ?? ""}" onaylanacak; tedarikçiye bildirim gider.`}
+        message={t.appointmentDrawer.approveMessage(a?.supplier_name ?? "", a?.product_name ?? "")}
         confirmLabel="Onayla"
         loading={actions.approve.isPending}
         onConfirm={() =>
-          run(() => actions.approve.mutateAsync({ id: a!.id }), "Randevu onaylandı.")
+          run(() => actions.approve.mutateAsync({ id: a!.id }), t.appointmentDrawer.approved)
         }
         onClose={() => setDialog(null)}
       />
@@ -503,18 +506,18 @@ export function AppointmentDrawer({
       <Dialog open={dialog === "reject"} onClose={() => setDialog(null)} title="Randevuyu reddet">
         <div className="flex flex-col gap-3">
           <div>
-            <Label>Red Sebebi (zorunlu — tedarikçiye iletilir)</Label>
+            <Label>{t.appointmentDrawer.rejectReason}</Label>
             <Input
               value={reason}
               onChange={(e) => setReason(e.target.value)}
-              placeholder="Örn. Uygun olmayan saat"
+              placeholder={t.appointmentDrawer.rejectPlaceholder}
               autoFocus
             />
           </div>
           {actionError && <p className="text-sm text-destructive">{actionError}</p>}
           <div className="flex justify-end gap-2">
             <Button variant="secondary" onClick={() => setDialog(null)}>
-              Vazgeç
+              {t.common.cancel}
             </Button>
             <Button
               variant="destructive"
@@ -544,27 +547,27 @@ export function AppointmentDrawer({
       >
         <div className="flex flex-col gap-3">
           <p className="text-sm text-muted-foreground">
-            Mal kabul gerçekleşti olarak işaretlenecek.
+            {t.appointmentDrawer.completeNote}
           </p>
           <div>
             <Label>Not (opsiyonel)</Label>
             <Input
               value={note}
               onChange={(e) => setNote(e.target.value)}
-              placeholder="Örn. Eksiksiz teslim alındı"
+              placeholder={t.appointmentDrawer.completePlaceholder}
             />
           </div>
           {actionError && <p className="text-sm text-destructive">{actionError}</p>}
           <div className="flex justify-end gap-2">
             <Button variant="secondary" onClick={() => setDialog(null)}>
-              Vazgeç
+              {t.common.cancel}
             </Button>
             <Button
               disabled={isBusy}
               onClick={() =>
                 run(
                   () => actions.complete.mutateAsync({ id: a!.id, note }),
-                  "Randevu tamamlandı.",
+                  t.appointmentDrawer.completed,
                 )
               }
             >
@@ -578,17 +581,17 @@ export function AppointmentDrawer({
       <Dialog open={dialog === "cancel"} onClose={() => setDialog(null)} title="Randevuyu iptal et">
         <div className="flex flex-col gap-3">
           <div>
-            <Label>İptal Sebebi (opsiyonel)</Label>
+            <Label>{t.appointmentDrawer.cancelReason}</Label>
             <Input
               value={reason}
               onChange={(e) => setReason(e.target.value)}
-              placeholder="Örn. Operasyon iptali"
+              placeholder={t.appointmentDrawer.cancelPlaceholder}
             />
           </div>
           {actionError && <p className="text-sm text-destructive">{actionError}</p>}
           <div className="flex justify-end gap-2">
             <Button variant="secondary" onClick={() => setDialog(null)}>
-              Vazgeç
+              {t.common.cancel}
             </Button>
             <Button
               variant="destructive"
@@ -600,7 +603,7 @@ export function AppointmentDrawer({
                 )
               }
             >
-              İptal Et
+              {t.appointmentDrawer.cancel}
             </Button>
           </div>
         </div>
@@ -614,22 +617,22 @@ export function AppointmentDrawer({
       >
         <div className="flex flex-col gap-3">
           <p className="text-sm text-muted-foreground">
-            Bu serinin <strong>gelecekteki tüm bekleyen/onaylı randevuları</strong> iptal
-            edilecek. Tamamlanmış, reddedilmiş veya geçmiş randevular etkilenmez.
-            Tedarikçiye tek bir özet bildirim ve e-posta gönderilir.
+            {t.appointmentDrawer.seriesCancelLead}{" "}
+            <strong>{t.appointmentDrawer.seriesCancelStrong}</strong>{" "}
+            {t.appointmentDrawer.seriesCancelTail}
           </p>
           <div>
-            <Label>İptal Sebebi (opsiyonel)</Label>
+            <Label>{t.appointmentDrawer.cancelReason}</Label>
             <Input
               value={reason}
               onChange={(e) => setReason(e.target.value)}
-              placeholder="Örn. Tedarikçi talebiyle seri iptali"
+              placeholder={t.appointmentDrawer.seriesCancelPlaceholder}
             />
           </div>
           {actionError && <p className="text-sm text-destructive">{actionError}</p>}
           <div className="flex justify-end gap-2">
             <Button variant="secondary" onClick={() => setDialog(null)}>
-              Vazgeç
+              {t.common.cancel}
             </Button>
             <Button
               variant="destructive"
@@ -641,10 +644,12 @@ export function AppointmentDrawer({
                     reason,
                   });
                   return result;
-                }, "Serinin gelecekteki randevuları iptal edildi.")
+                }, t.appointmentDrawer.seriesCancelled)
               }
             >
-              {seriesCancel.isPending ? "İptal ediliyor…" : "Seriyi İptal Et"}
+              {seriesCancel.isPending
+                ? t.appointmentDrawer.cancelling
+                : t.appointmentDrawer.cancelSeries}
             </Button>
           </div>
         </div>
@@ -654,17 +659,16 @@ export function AppointmentDrawer({
       <Dialog
         open={dialog === "dock-change"}
         onClose={() => setDialog(null)}
-        title="Rampa değiştir"
+        title={t.appointmentDrawer.changeDockTitle}
       >
         <div className="flex flex-col gap-3">
           <p className="text-sm text-muted-foreground">
-            Saat ve süre değişmez, randevu durumu korunur. Tedarikçiden yeniden
-            onay istenmez; yalnızca yeni rampa bildirilir.
+            {t.appointmentDrawer.changeDockLead}
           </p>
           <div>
             <Label>Rampa</Label>
             {dockOptions.isLoading ? (
-              <p className="text-xs text-muted-foreground">Uygun rampalar yükleniyor…</p>
+              <p className="text-xs text-muted-foreground">{t.appointmentDrawer.loadingDocks}</p>
             ) : (
               <Select value={dockTarget} onChange={(e) => setDockTarget(e.target.value)}>
                 <option value="auto">Otomatik ata (en az dolu uygun rampa)</option>
@@ -672,14 +676,13 @@ export function AppointmentDrawer({
                   <option key={o.dock_id} value={o.dock_id} disabled={!o.available}>
                     {o.name}
                     {o.is_current ? " (mevcut)" : ""}
-                    {o.available ? "" : ` — ${o.reason ?? "uygun değil"}`}
+                    {o.available ? "" : ` — ${o.reason ?? t.appointmentDrawer.notAvailable}`}
                   </option>
                 ))}
               </Select>
             )}
             <p className="mt-1 text-xs text-muted-foreground">
-              Yalnızca bu randevunun ürün/araç kategorisiyle uyumlu rampalar
-              listelenir; o saatte dolu olanlar seçilemez.
+              {t.appointmentDrawer.dockFilterHint}
             </p>
           </div>
           <div>
@@ -687,13 +690,13 @@ export function AppointmentDrawer({
             <Input
               value={dockNote}
               onChange={(e) => setDockNote(e.target.value)}
-              placeholder="Tedarikçiye iletilir (opsiyonel)"
+              placeholder={t.appointmentDrawer.supplierNotePlaceholder}
             />
           </div>
           {actionError && <p className="text-sm text-destructive">{actionError}</p>}
           <div className="flex justify-end gap-2">
             <Button variant="secondary" onClick={() => setDialog(null)}>
-              Vazgeç
+              {t.common.cancel}
             </Button>
             <Button
               disabled={isBusy}
@@ -705,11 +708,13 @@ export function AppointmentDrawer({
                       dock_id: dockTarget === "auto" ? null : dockTarget,
                       note: dockNote || null,
                     }),
-                  "Rampa değiştirildi; tedarikçi bilgilendirildi.",
+                  t.appointmentDrawer.dockChanged,
                 )
               }
             >
-              {actions.changeDock.isPending ? "Kaydediliyor…" : "Rampayı Değiştir"}
+              {actions.changeDock.isPending
+                ? t.appointmentDrawer.saving
+                : t.appointmentDrawer.changeDockConfirm}
             </Button>
           </div>
         </div>
@@ -734,7 +739,7 @@ export function AppointmentDrawer({
               />
             </div>
             <div>
-              <Label>Yeni Başlangıç</Label>
+              <Label>{t.appointmentDrawer.newStart}</Label>
               <Input
                 type="time"
                 value={reviseTime}
@@ -742,7 +747,7 @@ export function AppointmentDrawer({
               />
             </div>
             <div>
-              <Label>Süre</Label>
+              <Label>{t.appointmentDrawer.duration}</Label>
               <Select
                 value={reviseDuration}
                 onChange={(e) => setReviseDuration(Number(e.target.value))}
@@ -753,14 +758,14 @@ export function AppointmentDrawer({
                     {reviseCategoryRange &&
                     (d < reviseCategoryRange.min ||
                       (reviseCategoryRange.max != null && d > reviseCategoryRange.max))
-                      ? " (mevcut süre — kategori aralığı dışında)"
+                      ? t.appointmentDrawer.outOfRange
                       : ""}
                   </option>
                 ))}
               </Select>
               {reviseCategoryRange && (
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Kategori aralığı:{" "}
+                  {t.appointmentDrawer.categoryRange}{" "}
                   {formatDurationRange(reviseCategoryRange.min, reviseCategoryRange.max)}
                 </p>
               )}
@@ -777,7 +782,7 @@ export function AppointmentDrawer({
                 ))}
               </Select>
               <p className="mt-1 text-xs text-muted-foreground">
-                Yalnızca bu randevunun ürün/araç kategorisiyle uyumlu rampalar
+                {t.appointmentDrawer.dockFilterHint}
                 listelenir.
               </p>
             </div>
@@ -787,25 +792,23 @@ export function AppointmentDrawer({
             <Input
               value={reviseNote}
               onChange={(e) => setReviseNote(e.target.value)}
-              placeholder="Tedarikçiye iletilir (opsiyonel)"
+              placeholder={t.appointmentDrawer.supplierNotePlaceholder}
             />
           </div>
           {reviseAdvisories.length > 0 && (
             <p className="flex items-start gap-2 rounded-lg border border-cargo/40 bg-cargo/10 px-3 py-2 text-xs text-cargo">
               <Package className="mt-0.5 h-4 w-4 shrink-0" />
-              Hedef saatte bu rampada kargo bekleniyor. Revize engellenmez; planlamacı
-              boşluk bırakmak isteyebilir.
+              {t.appointmentDrawer.cargoWarning}
             </p>
           )}
           <p className="text-xs text-muted-foreground">
-            Yeni aralık kaydetmeden önce sunucuda yeniden doğrulanır: rampa uyumu,
-            çalışma saatleri, çakışma ve çakışma grupları. Revize sonrası durum
+            {t.appointmentDrawer.reviseHint}
             &quot;{APPOINTMENT_STATUS_LABELS.revision_pending}&quot; olur.
           </p>
           {actionError && <p className="text-sm text-destructive">{actionError}</p>}
           <div className="flex justify-end gap-2">
             <Button variant="secondary" onClick={() => setDialog(null)}>
-              Vazgeç
+              {t.common.cancel}
             </Button>
             <Button
               disabled={isBusy || !reviseDate || !reviseTime}
@@ -821,7 +824,7 @@ export function AppointmentDrawer({
                       note: reviseNote || null,
                       acknowledged_warning_codes: reviseAdvisories.map((w) => w.code),
                     }),
-                  "Randevu revize edildi; tedarikçiye bildirim gitti.",
+                  t.appointmentDrawer.revised,
                 )
               }
             >
