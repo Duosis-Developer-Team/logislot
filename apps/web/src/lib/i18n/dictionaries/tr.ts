@@ -62,6 +62,56 @@ export const tr = {
     goToLogin: "Giriş sayfasına dön",
   },
 
+  platform: {
+    tenants: {
+      status: { trial: "Deneme", active: "Aktif", suspended: "Askıda", archived: "Arşiv" },
+      loadError: "Müşteri hesapları yüklenemedi.",
+      title: "Müşteri Hesapları",
+      description:
+        "Her müşteri hesabı tek bir operasyonel kapsamdır (rampalar, kategoriler, kullanıcılar ve randevular buraya bağlıdır). Plan ataması Kullanım sayfasından yapılır.",
+      create: "Yeni Müşteri Hesabı",
+      colCustomer: "Müşteri",
+      colCreated: "Oluşturulma",
+      editTitle: "Müşteri Hesabını Düzenle",
+      createSubtitle: "Hesap ve operasyonel kapsamı tek adımda açılır.",
+      displayName: "Görünen Ad",
+      displayNamePlaceholder: "Örn. Pilot Gıda",
+      displayNameHint: "Operasyonel kapsam da bu adla açılır.",
+      commercialPlaceholder: "Boş bırakılırsa görünen ad kullanılır",
+      slugHint: "Görünen addan otomatik türetilir; sonradan değiştirilemez.",
+      statusHint: "Askıya alınan/arşivlenen hesabın operasyonel kapsamı da pasifleşir.",
+      contactName: "İletişim Adı",
+      contactEmail: "İletişim E-postası",
+      brandedHostsTitle: "Markalı alan adları",
+      brandedHostsHint:
+        "Doldurulursa bu müşterinin kullanıcıları giriş yaptıktan sonra otomatik olarak buraya yönlendirilir. Önce alan adının DNS kaydı ve ingress girdisi açılmış olmalı — aksi halde kullanıcı ulaşılamayan bir adrese gider. Boş bırakılırsa yönlendirme yapılmaz.",
+      brandedAdmin: "Yönetim paneli",
+      brandedSupplier: "Tedarikçi portalı",
+      bootstrapLabel:
+        "Başlangıç konfigürasyonunu kur (araç/ürün kategorileri, Rampa 1, sistem rolleri)",
+      createAdminLabel: "İlk yönetici hesabını oluştur",
+      adminName: "Yönetici Adı",
+      adminEmail: "Yönetici E-postası",
+      tempPassword: "Geçici Parola",
+      tempPasswordPlaceholder: "Boş bırakılırsa güçlü parola üretilir",
+      validationRequired: "Görünen ad ve slug zorunludur.",
+      validationAdmin: "İlk yönetici için ad ve e-posta zorunludur.",
+      updated: "Müşteri hesabı güncellendi.",
+      createdWithBootstrap: (docks: number, roles: number) =>
+        `Hesap açıldı; başlangıç konfigürasyonu kuruldu (${docks} rampa, ${roles} rol).`,
+      createdEmpty: "Hesap açıldı (boş konfigürasyon).",
+      adminCreatedTitle: "İlk Yönetici Oluşturuldu",
+      adminCreatedHint:
+        "Geçici parola YALNIZCA burada gösterilir; kaydetmeden kapatmayın.",
+      credentials: "Giriş bilgileri",
+      tempPasswordLabel: "Geçici parola",
+      copied: "Kopyalandı",
+      copyCredentials: "Bilgileri kopyala",
+      copyBody: (email: string, password: string) =>
+        `E-posta: ${email}\nGeçici parola: ${password}`,
+    },
+  },
+
   supplier: {
     appointments: {
       fallbackTitle: "Randevularım",

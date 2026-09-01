@@ -66,6 +66,57 @@ export const en: Dictionary = {
     goToLogin: "Back to sign in",
   },
 
+  platform: {
+    tenants: {
+      status: { trial: "Trial", active: "Active", suspended: "Suspended", archived: "Archived" },
+      loadError: "We couldn't load the customer accounts.",
+      title: "Customer accounts",
+      description:
+        "Each customer account is a single operational scope — docks, categories, users and appointments all hang off it. Plans are assigned from the Usage page.",
+      create: "New customer account",
+      colCustomer: "Customer",
+      colCreated: "Created",
+      editTitle: "Edit customer account",
+      createSubtitle: "The account and its operational scope are created in one step.",
+      displayName: "Display name",
+      displayNamePlaceholder: "e.g. Pilot Foods",
+      displayNameHint: "The operational scope is created under this name too.",
+      commercialPlaceholder: "Leave blank to use the display name",
+      slugHint: "Derived automatically from the display name; can't be changed later.",
+      statusHint:
+        "Suspending or archiving an account also deactivates its operational scope.",
+      contactName: "Contact name",
+      contactEmail: "Contact e-mail",
+      brandedHostsTitle: "Branded domains",
+      brandedHostsHint:
+        "If set, this customer's users are redirected here automatically after signing in. The domain's DNS record and ingress entry must exist first — otherwise users land on an unreachable address. Leave blank for no redirect.",
+      brandedAdmin: "Operations panel",
+      brandedSupplier: "Supplier portal",
+      bootstrapLabel:
+        "Set up the starting configuration (vehicle/product categories, Dock 1, system roles)",
+      createAdminLabel: "Create the first administrator account",
+      adminName: "Administrator name",
+      adminEmail: "Administrator e-mail",
+      tempPassword: "Temporary password",
+      tempPasswordPlaceholder: "Leave blank to generate a strong password",
+      validationRequired: "Display name and slug are required.",
+      validationAdmin: "The first administrator needs a name and an e-mail address.",
+      updated: "Customer account updated.",
+      createdWithBootstrap: (docks: number, roles: number) =>
+        `Account created with a starting configuration (${docks} docks, ${roles} roles).`,
+      createdEmpty: "Account created with an empty configuration.",
+      adminCreatedTitle: "First administrator created",
+      adminCreatedHint:
+        "The temporary password is shown ONLY here — don't close this without saving it.",
+      credentials: "Sign-in details",
+      tempPasswordLabel: "Temporary password",
+      copied: "Copied",
+      copyCredentials: "Copy details",
+      copyBody: (email: string, password: string) =>
+        `E-mail: ${email}\nTemporary password: ${password}`,
+    },
+  },
+
   supplier: {
     appointments: {
       fallbackTitle: "My appointments",
