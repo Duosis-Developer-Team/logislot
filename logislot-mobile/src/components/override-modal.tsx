@@ -121,7 +121,7 @@ function OverrideForm({
     }
     if (type === "extra_hours") {
       if (!startTime || !endTime) {
-        setFormError("Ek mesai için başlangıç ve bitiş saati zorunludur.");
+        setFormError("Saat değişikliği için başlangıç ve bitiş saati zorunludur.");
         return;
       }
       if (endTime <= startTime) {
@@ -203,7 +203,7 @@ function OverrideForm({
             onPress={() => setType("closed")}
           />
           <Chip
-            label="Ek Mesai"
+            label="Saat değişikliği"
             selected={type === "extra_hours"}
             onPress={() => setType("extra_hours")}
           />

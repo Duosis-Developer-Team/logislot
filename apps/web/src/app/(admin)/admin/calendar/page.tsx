@@ -200,7 +200,7 @@ export default function CalendarPage() {
               size="sm"
               variant="secondary"
               onClick={() => openOverride()}
-              title={`${dateLabel} için kapalı gün / ek mesai tanımla`}
+              title={`${dateLabel} için kapalı gün / saat değişikliği tanımla`}
             >
               <CalendarOff className="mr-1.5 h-4 w-4" />
               İstisna Ekle

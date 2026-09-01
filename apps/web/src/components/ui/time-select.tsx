@@ -15,6 +15,14 @@ export const QUARTER_HOUR_MINUTES = ["00", "15", "30", "45"] as const;
 
 const HOURS = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, "0"));
 
+/** Kompakt secici.
+ *
+ * `Select`in varsayilan dolgusu `px-3.5` + `pr-8` = 46px'tir; 4.5rem (72px)
+ * genislikte metne 26px kaliyordu ve dar bir kapta `shrink` devreye girince
+ * "00" yarim gorunuyordu (ekran goruntusunde "(" olarak). Burada dolgu
+ * kucultulur ve `shrink-0` ile kap daralsa bile secici EZILMEZ. */
+const SELECT_CLASS = "h-8 w-[3.75rem] shrink-0 px-2 pr-6 text-xs";
+
 /** "8:5" / bozuk deger gelse bile ekran kirilmasin diye normalize edilir. */
 function split(value: string): { hour: string; minute: string } {
   const [h = "", m = ""] = value.split(":");
@@ -38,10 +46,10 @@ export function TimeSelect({
 }) {
   const { hour, minute } = split(value);
   return (
-    <span className="flex items-center gap-1">
+    <span className="flex shrink-0 items-center gap-1">
       <Select
         aria-label={ariaLabel ? `${ariaLabel} saat` : "Saat"}
-        className="h-8 w-[4.5rem] text-xs"
+        className={SELECT_CLASS}
         value={hour}
         onChange={(e) => onChange(`${e.target.value}:${minute}`)}
       >
@@ -54,7 +62,7 @@ export function TimeSelect({
       <span className="text-xs text-muted-foreground">:</span>
       <Select
         aria-label={ariaLabel ? `${ariaLabel} dakika` : "Dakika"}
-        className="h-8 w-[4.5rem] text-xs"
+        className={SELECT_CLASS}
         value={minute}
         onChange={(e) => onChange(`${hour}:${e.target.value}`)}
       >
