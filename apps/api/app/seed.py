@@ -356,25 +356,25 @@ async def seed_data(db, tenant_id: uuid.UUID | None = None) -> dict:
     db.add_all([sup_un, sup_soguk, sup_kargo])
     await db.flush()
 
-    db.add_all(
-        [
-            SupplierUser(
-                supplier_id=sup_un.id, name="Anadolu Un Portal",
-                email="tedarikci@anadoluun.com",
-                password_hash=hash_password(DEMO_PASSWORD),
-            ),
-            SupplierUser(
-                supplier_id=sup_soguk.id, name="Marmara Soguk Portal",
-                email="tedarikci@marmarasoguk.com",
-                password_hash=hash_password(DEMO_PASSWORD),
-            ),
-            SupplierUser(
-                supplier_id=sup_kargo.id, name="Hizli Kargo Portal",
-                email="tedarikci@hizlikargo.com",
-                password_hash=hash_password(DEMO_PASSWORD),
-            ),
-        ]
-    )
+    supplier_accounts = [
+        SupplierUser(
+            supplier_id=sup_un.id, name="Anadolu Un Portal",
+            email="tedarikci@anadoluun.com",
+            password_hash=hash_password(DEMO_PASSWORD),
+        ),
+        SupplierUser(
+            supplier_id=sup_soguk.id, name="Marmara Soguk Portal",
+            email="tedarikci@marmarasoguk.com",
+            password_hash=hash_password(DEMO_PASSWORD),
+        ),
+        SupplierUser(
+            supplier_id=sup_kargo.id, name="Hizli Kargo Portal",
+            email="tedarikci@hizlikargo.com",
+            password_hash=hash_password(DEMO_PASSWORD),
+        ),
+    ]
+    db.add_all(supplier_accounts)
+    await db.flush()
 
     # --- Tenant kullanicilari ---
     user_admin = TenantUser(
@@ -660,6 +660,14 @@ async def seed_data(db, tenant_id: uuid.UUID | None = None) -> dict:
         "conflict_group": group,
         "suppliers": {"un": sup_un, "soguk": sup_soguk, "kargo": sup_kargo},
         "users": {"admin": user_admin, "dock": user_dock, "viewer": user_viewer},
+        # Dizin kaydi TENANT oturumu kapandiktan SONRA, control-plane
+        # oturumunda yazilir. Oraya ORM nesnesi tasimak `supplier.users`
+        # tembel yuklemesini kopuk nesne uzerinde tetikler ve seed patlar;
+        # bu yuzden id/e-posta ciftleri BURADA, oturum acikken duz veriye
+        # cevrilir.
+        "supplier_accounts": [
+            (account.id, account.email) for account in supplier_accounts
+        ],
     }
 
 
@@ -723,12 +731,11 @@ async def register_seeded_principals(control_db, refs: dict, tenant_id) -> None:
             control_db, principal_id=user.id, user_type="tenant",
             email=user.email, tenant_id=tenant_id,
         )
-    for supplier in refs["suppliers"].values():
-        for account in supplier.users:
-            await ensure_registered(
-                control_db, principal_id=account.id, user_type="supplier",
-                email=account.email, tenant_id=tenant_id,
-            )
+    for account_id, account_email in refs["supplier_accounts"]:
+        await ensure_registered(
+            control_db, principal_id=account_id, user_type="supplier",
+            email=account_email, tenant_id=tenant_id,
+        )
 
 
 if __name__ == "__main__":
