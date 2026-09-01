@@ -60,7 +60,7 @@ export function OverrideDrawer({
       open={open}
       onClose={onClose}
       title={editing ? "İstisnayı Düzenle" : "Yeni Takvim İstisnası"}
-      description="Kapalı gün müsaitlikte sert engel üretir; ek mesai o günün çalışma penceresinin yerine geçer."
+      description="Kapalı gün müsaitlikte sert engel üretir; saat değişikliği o günün çalışma penceresinin YERİNE geçer — saatleri uzatabilir de kısaltabilir de."
     >
       <OverrideForm
         key={formKey}
@@ -120,7 +120,7 @@ function OverrideForm({
     }
     if (type === "extra_hours") {
       if (!startTime || !endTime) {
-        setFormError("Ek mesai için başlangıç ve bitiş saati zorunludur.");
+        setFormError("Saat değişikliği için başlangıç ve bitiş saati zorunludur.");
         return;
       }
       if (endTime <= startTime) {
@@ -195,7 +195,7 @@ function OverrideForm({
           <Label>Tip</Label>
           <Select value={type} onChange={(e) => setType(e.target.value as OverrideType)}>
             <option value="closed">Kapalı (bakım, tatil…)</option>
-            <option value="extra_hours">Ek Mesai</option>
+            <option value="extra_hours">Saat değişikliği (uzat / kısalt)</option>
           </Select>
         </div>
       </div>

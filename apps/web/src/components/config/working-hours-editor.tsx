@@ -40,8 +40,10 @@ export function WorkingHoursEditor({ value, onChange }: WorkingHoursEditorProps)
         const day = value[key] ?? null;
         const open = day !== null;
         return (
-          <div key={key} className="grid grid-cols-[7rem_auto_1fr] items-center gap-2">
-            <span className="text-sm font-medium">{label}</span>
+          // `flex-wrap`: saatler sigmazsa alt satira gecer. Sabit genislikli
+          // grid kolonunda kalsalardi kap daraldikca seciciler ezilirdi.
+          <div key={key} className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
+            <span className="w-24 shrink-0 text-sm font-medium">{label}</span>
             <Switch
               checked={open}
               onChange={(checked) =>

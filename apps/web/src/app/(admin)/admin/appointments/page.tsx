@@ -1,6 +1,6 @@
 "use client";
 
-import { Search } from "lucide-react";
+import { Download, Search } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useState } from "react";
 import {
@@ -19,11 +19,26 @@ import { StatusBadge } from "@/components/domain/status-badge";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { Input, Label } from "@/components/ui/input";
-import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
+import {
+  SortableTH,
+  Table,
+  TBody,
+  TD,
+  TH,
+  THead,
+  TR,
+  type SortDirection,
+} from "@/components/ui/table";
 import { ApiError } from "@/lib/api/client";
-import { useAppointmentActions, useAppointments } from "@/lib/api/appointments";
+import {
+  APPOINTMENT_PAGE_LIMIT,
+  isTruncated,
+  useAppointmentActions,
+  useAppointments,
+} from "@/lib/api/appointments";
 import type { AppointmentDto } from "@/lib/api/types";
 import { useSession } from "@/lib/auth/session";
+import { downloadCsv, timestampedFileName, toCsv } from "@/lib/csv";
 import { cn, formatDateTime } from "@/lib/utils";
 
 const FILTERS: ("all" | AppointmentStatus)[] = [
@@ -36,12 +51,69 @@ const FILTERS: ("all" | AppointmentStatus)[] = [
   "cancelled",
 ];
 
+type SortKey =
+  | "scheduled_start_at"
+  | "supplier_name"
+  | "product_name"
+  | "quantity"
+  | "dock_name"
+  | "vehicle_category_name"
+  | "status";
+
+/** Turkce siralama: "İ/ı/ş/ğ" ingilizce siralamada yanlis yere duser. */
+const collator = new Intl.Collator("tr", { sensitivity: "base", numeric: true });
+
+function statusLabel(status: string): string {
+  return APPOINTMENT_STATUS_LABELS[status as AppointmentStatus] ?? status;
+}
+
+function unitLabel(unit: string): string {
+  return QUANTITY_UNIT_LABELS[unit as QuantityUnit] ?? unit;
+}
+
+/** Sutun degeri. Bos alanlar `null` doner ve YONDEN BAGIMSIZ en sona atilir —
+ *  "—" satirlarini listenin basina toplamak kullaniciya bilgi vermez. */
+function sortValue(a: AppointmentDto, key: SortKey): string | number | null {
+  switch (key) {
+    case "scheduled_start_at":
+      return new Date(a.scheduled_start_at).getTime();
+    case "quantity":
+      return a.quantity;
+    case "status":
+      return statusLabel(a.status);
+    case "supplier_name":
+      return a.supplier_name || null;
+    case "product_name":
+      return a.product_name || null;
+    case "dock_name":
+      return a.dock_name || null;
+    case "vehicle_category_name":
+      return a.vehicle_category_name || null;
+  }
+}
+
+function compareRows(a: AppointmentDto, b: AppointmentDto, key: SortKey, dir: SortDirection) {
+  const left = sortValue(a, key);
+  const right = sortValue(b, key);
+  if (left === null && right === null) return 0;
+  if (left === null) return 1; // bos deger daima sonda
+  if (right === null) return -1;
+  const result =
+    typeof left === "number" && typeof right === "number"
+      ? left - right
+      : collator.compare(String(left), String(right));
+  return dir === "asc" ? result : -result;
+}
+
 function AppointmentsListContent() {
   const { activeFacilityId, can } = useSession();
   const router = useRouter();
   const searchParams = useSearchParams();
   const [status, setStatus] = useState<(typeof FILTERS)[number]>("all");
   const [query, setQuery] = useState("");
+  // Siralama SECILENE KADAR API sirasi korunur; kullanici tiklamadan gorunum
+  // degismesin.
+  const [sort, setSort] = useState<{ key: SortKey; dir: SortDirection } | null>(null);
   const list = useAppointments(activeFacilityId, status);
   const actions = useAppointmentActions(activeFacilityId);
   const { flash, showFlash } = useFlash();
@@ -67,14 +139,66 @@ function AppointmentsListContent() {
   const rows = useMemo(() => {
     const all = list.data ?? [];
     const q = query.trim().toLocaleLowerCase("tr");
-    if (!q) return all;
-    return all.filter((a) =>
-      [a.supplier_name ?? "", a.product_name, a.license_plate ?? ""]
-        .join(" ")
-        .toLocaleLowerCase("tr")
-        .includes(q),
+    const filtered = q
+      ? all.filter((a) =>
+          [a.supplier_name ?? "", a.product_name, a.license_plate ?? ""]
+            .join(" ")
+            .toLocaleLowerCase("tr")
+            .includes(q),
+        )
+      : all;
+    if (!sort) return filtered;
+    // Kopya uzerinde siralanir: `list.data` react-query onbellegidir.
+    return [...filtered].sort((a, b) => compareRows(a, b, sort.key, sort.dir));
+  }, [list.data, query, sort]);
+
+  /** Ayni sutuna tekrar tiklamak yonu cevirir, yeni sutun artan baslar. */
+  function toggleSort(key: SortKey) {
+    setSort((current) =>
+      current?.key === key
+        ? { key, dir: current.dir === "asc" ? "desc" : "asc" }
+        : { key, dir: "asc" },
     );
-  }, [list.data, query]);
+  }
+
+  /** EKRANDA NE VARSA onu indirir: aktif filtre, arama ve siralama dahil.
+   *  Kullanicinin gordugu liste ile dosyanin ayrilmasi kafa karistirirdi. */
+  function exportCsv() {
+    const content = toCsv(
+      [
+        "Tarih",
+        "Saat",
+        "Tedarikçi",
+        "Ürün",
+        "Miktar",
+        "Birim",
+        "Rampa",
+        "Araç",
+        "Durum",
+        "Plaka",
+        "Sürücü",
+        "Süre (dk)",
+      ],
+      rows.map((a) => {
+        const start = new Date(a.scheduled_start_at);
+        return [
+          start.toLocaleDateString("tr-TR"),
+          start.toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" }),
+          a.supplier_name ?? "",
+          a.product_name,
+          a.quantity,
+          unitLabel(a.quantity_unit),
+          a.dock_name ?? "",
+          a.vehicle_category_name ?? "",
+          statusLabel(a.status),
+          a.license_plate ?? "",
+          a.driver_name ?? "",
+          a.duration_minutes,
+        ];
+      }),
+    );
+    downloadCsv(timestampedFileName("randevular"), content);
+  }
 
   const pendingCount = (list.data ?? []).filter((a) => a.status === "pending").length;
 
@@ -135,14 +259,35 @@ function AppointmentsListContent() {
         </div>
       )}
 
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          className="pl-9"
-          placeholder="Tedarikçi, ürün veya plaka ara…"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-        />
+      {isTruncated(list.data) && (
+        // Sunucu toplam sayi dondurmuyor; sonuc limite dayandiysa daha fazlasi
+        // OLABILIR. Sessiz kirpma CSV'yi guvenilmez kilardi.
+        <p className="rounded-lg border border-status-pending/40 bg-status-pending/10 px-3 py-2 text-xs text-foreground">
+          En fazla {APPOINTMENT_PAGE_LIMIT} kayıt gösteriliyor; daha fazlası olabilir.
+          İndirilen CSV de bu listeyle aynıdır — tam liste için durum filtresiyle
+          daraltın.
+        </p>
+      )}
+
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="relative min-w-[16rem] flex-1">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            className="pl-9"
+            placeholder="Tedarikçi, ürün veya plaka ara…"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+        </div>
+        <Button
+          variant="secondary"
+          onClick={exportCsv}
+          disabled={rows.length === 0}
+          title="Ekranda görünen randevuları CSV olarak indir"
+        >
+          <Download className="h-4 w-4" />
+          CSV indir
+        </Button>
       </div>
 
       <div className="flex flex-wrap gap-1.5">
@@ -180,13 +325,25 @@ function AppointmentsListContent() {
         <Table>
           <THead>
             <TR>
-              <TH>Tarih / Saat</TH>
-              <TH>Tedarikçi</TH>
-              <TH>Ürün</TH>
-              <TH>Miktar</TH>
-              <TH>Rampa</TH>
-              <TH>Araç</TH>
-              <TH>Durum</TH>
+              {(
+                [
+                  ["scheduled_start_at", "Tarih / Saat"],
+                  ["supplier_name", "Tedarikçi"],
+                  ["product_name", "Ürün"],
+                  ["quantity", "Miktar"],
+                  ["dock_name", "Rampa"],
+                  ["vehicle_category_name", "Araç"],
+                  ["status", "Durum"],
+                ] as [SortKey, string][]
+              ).map(([key, label]) => (
+                <SortableTH
+                  key={key}
+                  label={label}
+                  active={sort?.key === key}
+                  direction={sort?.key === key ? sort.dir : "asc"}
+                  onSort={() => toggleSort(key)}
+                />
+              ))}
               <TH className="text-right">İşlem</TH>
             </TR>
           </THead>

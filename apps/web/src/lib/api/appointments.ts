@@ -19,14 +19,30 @@ const key = (facilityId: string | null, status?: string) => [
   status ?? "all",
 ];
 
+/** Sunucunun kabul ettigi en buyuk sayfa (`le=500`).
+ *
+ * Varsayilan 100'du ve istemci limit GONDERMIYORDU: liste sessizce kirpiliyor,
+ * kullanici eksik oldugunu anlamiyordu. CSV disa aktarimiyla birlikte bu daha
+ * da onemli hale geldi — eksik bir dosya karar verdirir. Kirpma artik acikca
+ * gosterilir (bkz. `isTruncated`). */
+export const APPOINTMENT_PAGE_LIMIT = 500;
+
 export function useAppointments(facilityId: string | null, status?: string) {
-  const query = status && status !== "all" ? `?status=${status}` : "";
+  const statusQuery = status && status !== "all" ? `&status=${status}` : "";
   return useQuery({
     queryKey: key(facilityId, status),
     queryFn: () =>
-      apiRequest<AppointmentDto[]>(`/facilities/${facilityId}/appointments${query}`),
+      apiRequest<AppointmentDto[]>(
+        `/facilities/${facilityId}/appointments?limit=${APPOINTMENT_PAGE_LIMIT}${statusQuery}`,
+      ),
     enabled: facilityId !== null,
   });
+}
+
+/** Sonuc sayisi limite DAYANDIYSA daha fazlasi olabilir; sunucu toplam sayi
+ *  dondurmuyor, dolayisiyla "kesin" degil "olabilir" denir. */
+export function isTruncated(rows: AppointmentDto[] | undefined): boolean {
+  return (rows?.length ?? 0) >= APPOINTMENT_PAGE_LIMIT;
 }
 
 export function useAppointmentDetail(facilityId: string | null, id: string | null) {

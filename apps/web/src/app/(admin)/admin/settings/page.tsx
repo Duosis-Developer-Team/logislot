@@ -72,7 +72,7 @@ export default function SettingsPage() {
     {
       icon: CalendarOff,
       title: "Takvim İstisnaları",
-      description: "Kapalı günler ve ek mesai pencereleri",
+      description: "Kapalı günler ve güne özel çalışma saatleri",
       stat: count(overrides),
       href: "/admin/settings/overrides",
       permission: "calendar.override",

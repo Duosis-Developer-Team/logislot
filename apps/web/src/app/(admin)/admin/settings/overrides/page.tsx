@@ -65,7 +65,7 @@ export default function OverridesPage() {
   return (
     <ConfigPageShell
       title="Takvim İstisnaları"
-      description="Kapalı gün müsaitlikte sert engel üretir; ek mesai o günün çalışma penceresinin yerine geçer ve normal saat dışına slot açabilir."
+      description="Kapalı gün müsaitlikte sert engel üretir; saat değişikliği o günün çalışma penceresinin YERİNE geçer — normal saat dışına slot açabilir ya da günü kısaltabilir."
       createLabel="Yeni İstisna"
       onCreate={openCreate}
       search={search}
@@ -81,7 +81,7 @@ export default function OverridesPage() {
       ) : rows.length === 0 ? (
         <EmptyState
           title="Takvim istisnası yok"
-          description="Bakım için kapalı gün ya da bayram öncesi ek mesai tanımlayın; müsaitlik anında güncellenir."
+          description="Bakım için kapalı gün ya da o güne özel çalışma saati tanımlayın; müsaitlik anında güncellenir."
           actionLabel="İlk istisnayı oluştur"
           onAction={openCreate}
         />
@@ -116,7 +116,7 @@ export default function OverridesPage() {
                     </Badge>
                   ) : (
                     <Badge className="bg-status-approved/15 text-status-approved">
-                      Ek Mesai
+                      Saat değişikliği
                     </Badge>
                   )}
                 </TD>

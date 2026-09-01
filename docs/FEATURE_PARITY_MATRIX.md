@@ -28,6 +28,8 @@ _Son güncelleme: 2026-08-25 (Hermes Ticket Hub entegrasyonu: müşteri destek p
 | Dashboard (KPI + bekleyen + yaklaşan) | ✅ | ✅ | ✅ | OK | Mobile: + bildirim zili |
 | Takvim | ✅ | ✅ | ✅ | OK | Web: saat-ızgara; mobile: agenda (gün okları + rampa grupları) |
 | Randevu listesi (statü filtreli) | ✅ | ✅ | ✅ | OK | |
+| Randevu listesi — sütundan sıralama | — | ✅ | ❌ | Backlog | Tablo başlığı etkileşimi; mobilde liste kart tabanlı, karşılığı ayrı bir sıralama kontrolü gerektirir |
+| Randevu listesi — CSV dışa aktarım | — | ✅ | ❌ | Backlog | Web'de istemci tarafı (ekranda ne varsa o); mobilde Share sheet ile yapılabilir, rapor CSV'sindeki desen kullanılır |
 | Randevu detay + Onayla/Reddet/Revize/Tamamla/İptal | ✅ | ✅ | ✅ | OK | allowed_actions haritasına göre; revize mobile'da auto-dock |
 | Aktif kapsam göstergesi | ✅ | ✅ | ✅ | OK | 1 hesap = 1 tesis: seçici yerine sade etiket (web: header, mobile: Menü → Hesap kartı) |
 | Admin adına randevu oluşturma | ✅ | ✅ | ✅ | OK | Tedarikçi/kategori/limit kuralları UI'da; seri desteği dahil; onaylı doğar |
