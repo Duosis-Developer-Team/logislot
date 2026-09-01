@@ -1,8 +1,10 @@
 import type { Metadata, Viewport } from "next";
+import { cookies } from "next/headers";
 import { Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 import { CookieNotice } from "@/components/landing/cookie-notice";
 import { Providers } from "./providers";
+import { LOCALE_COOKIE, parseLocale } from "@/lib/i18n/locale";
 
 /**
  * Ortak tipografi — tum portallar ayni fontu kullanir.
@@ -31,16 +33,20 @@ export const viewport: Viewport = {
   ],
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  // Dil SUNUCUDA okunur: istemcide okunsaydi Ingilizce kullanici ilk boyamada
+  // Turkce metni gorur, sonra ekran degisirdi (hydration uyusmazligi + goz
+  // rahatsiz eden sicrama).
+  const locale = parseLocale((await cookies()).get(LOCALE_COOKIE)?.value);
   return (
     <html
-      lang="tr"
+      lang={locale}
       // Bölüm çapalarına yumuşak kaydırma (reduced-motion tercihine saygılı)
       className={`${jakarta.variable} motion-safe:scroll-smooth`}
       suppressHydrationWarning
     >
       <body className="font-sans antialiased">
-        <Providers>
+        <Providers locale={locale}>
           {children}
           {/* KVKK: zorunlu çerez/yerel depolama bilgilendirmesi (tüm portallar) */}
           <CookieNotice />

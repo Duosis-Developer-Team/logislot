@@ -11,6 +11,7 @@ import { ChevronDown, LogOut, UserRound } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { useSession } from "@/lib/auth/session";
+import { useT } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
 
 const ROLE_LABELS: Record<string, string> = {
@@ -27,10 +28,11 @@ function initials(name: string): string {
 }
 
 export function UserMenu({ profileHref }: { profileHref?: string }) {
+  const t = useT();
   const session = useSession();
   const [open, setOpen] = useState(false);
   const me = session.me;
-  const name = me?.name ?? "Kullanıcı";
+  const name = me?.name ?? t.common.user;
   const roleLabel = me ? ROLE_LABELS[me.user_type] ?? me.user_type : "";
 
   return (
@@ -97,7 +99,7 @@ export function UserMenu({ profileHref }: { profileHref?: string }) {
                 )}
               >
                 <LogOut className="h-4 w-4" />
-                Çıkış Yap
+                {t.common.logout}
               </button>
             </div>
           </div>

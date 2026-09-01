@@ -3,6 +3,7 @@ import Link from "next/link";
 import { LogiSlotLogo } from "@/components/brand/logo";
 import { PortalAccessCards } from "@/components/landing/portal-access-cards";
 import { Reveal } from "@/components/landing/reveal";
+import { LanguageToggle } from "@/components/shell/language-toggle";
 import { ThemeToggle } from "@/components/shell/theme-toggle";
 
 /**
@@ -75,6 +76,7 @@ export function LandingTopbar({
             <CalendarPlus className="h-4 w-4" />
             Demo Talep Et
           </Link>
+          <LanguageToggle />
           <ThemeToggle />
         </div>
       </div>

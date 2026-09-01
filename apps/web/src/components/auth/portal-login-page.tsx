@@ -16,6 +16,7 @@ import { LoginBackground } from "@/components/auth/login-background";
 import { LoginFormCard } from "@/components/auth/login-form-card";
 import { PORTALS, type Portal } from "@/components/auth/portals";
 import { LogiSlotIcon, LogiSlotLogo } from "@/components/brand/logo";
+import { LanguageToggle } from "@/components/shell/language-toggle";
 import { ThemeToggle } from "@/components/shell/theme-toggle";
 import { apiRequest, authApi, clearSession, storeSession } from "@/lib/api/client";
 import type { MeDto } from "@/lib/api/types";
@@ -106,7 +107,8 @@ export function PortalLoginPage({
       <LoginBackground />
 
       <div className="absolute right-3 top-3 z-20">
-        <ThemeToggle />
+        <LanguageToggle />
+          <ThemeToggle />
       </div>
 
       {/* Büyük marka ikonu — sol (yalnızca masaüstü) */}

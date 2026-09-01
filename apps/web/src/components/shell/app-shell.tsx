@@ -18,9 +18,11 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { LogiSlotLogo } from "@/components/brand/logo";
+import { LanguageToggle } from "@/components/shell/language-toggle";
 import { ThemeToggle } from "@/components/shell/theme-toggle";
 import { UserMenu } from "@/components/shell/user-menu";
 import { useSession } from "@/lib/auth/session";
+import { useT } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
 
 export interface AppNavItem {
@@ -90,8 +92,9 @@ function NavLinks({
 
 /** Mobil drawer alt bilgisi: kullanici ozeti + gorunur cikis. */
 function MobileUserFooter() {
+  const t = useT();
   const session = useSession();
-  const name = session.me?.name ?? "Kullanıcı";
+  const name = session.me?.name ?? t.common.user;
   return (
     <div className="border-t border-border p-3">
       <div className="px-1 pb-2">
@@ -105,7 +108,7 @@ function MobileUserFooter() {
         className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-destructive transition-colors hover:bg-destructive/10"
       >
         <LogOut className="h-4 w-4" />
-        Çıkış Yap
+        {t.common.logout}
       </button>
     </div>
   );
@@ -122,13 +125,14 @@ export function AppShell({
   sidebarStyle,
   children,
 }: AppShellProps) {
+  const t = useT();
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
   const homeHref = nav[0]?.href ?? "/";
   const brandNode = (
     <Link
       href={homeHref}
-      aria-label="Ana sayfa"
+      aria-label={t.common.home}
       className="inline-flex items-center rounded-lg outline-none transition-opacity hover:opacity-80 focus-visible:ring-2 focus-visible:ring-ring/40"
     >
       {brand ?? <LogiSlotLogo size="lg" priority />}
@@ -138,7 +142,7 @@ export function AppShell({
   const sidebarBrand = (
     <Link
       href={homeHref}
-      aria-label="Ana sayfa"
+      aria-label={t.common.home}
       className="inline-flex items-center rounded-lg outline-none transition-opacity hover:opacity-80 focus-visible:ring-2 focus-visible:ring-ring/40"
     >
       <LogiSlotLogo size="xl" priority className="h-14 w-auto" />
@@ -183,7 +187,7 @@ export function AppShell({
               {brandNode}
               <button
                 onClick={() => setMobileOpen(false)}
-                aria-label="Menüyü kapat"
+                aria-label={t.common.closeMenu}
                 className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted"
               >
                 <X className="h-5 w-5" />
@@ -201,7 +205,7 @@ export function AppShell({
           <div className="flex min-w-0 items-center gap-2">
             <button
               onClick={() => setMobileOpen(true)}
-              aria-label="Menü"
+              aria-label={t.common.menu}
               className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted lg:hidden"
             >
               <Menu className="h-5 w-5" />
@@ -214,7 +218,8 @@ export function AppShell({
               {roleLabel}
             </span>
             {headerActions}
-            <ThemeToggle />
+            <LanguageToggle />
+          <ThemeToggle />
             <UserMenu profileHref={profileHref} />
           </div>
         </header>
