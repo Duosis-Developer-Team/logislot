@@ -11,6 +11,14 @@ import { useReportsSummary } from "@/lib/api/reports";
 import { useSession } from "@/lib/auth/session";
 import { downloadCsv } from "@/lib/api/client";
 import { cn } from "@/lib/utils";
+import type { Dictionary } from "@/lib/i18n/dictionaries/tr";
+import { useT } from "@/lib/i18n/provider";
+
+/** Aralik etiketi: "Bu ay" `ranges` altinda degil, ayri bir anahtardir. */
+function rangeLabel(t: Dictionary, key: string): string {
+  const ranges = t.admin.reports.ranges as Record<string, string>;
+  return ranges[key] ?? (t.admin.reports as unknown as Record<string, string>)[key] ?? key;
+}
 
 function iso(d: Date): string {
   return d.toLocaleDateString("sv-SE");
@@ -23,11 +31,11 @@ function daysAgo(n: number): string {
 }
 
 const PRESETS = [
-  { key: "7d", label: "Son 7 gün", from: () => daysAgo(6) },
-  { key: "30d", label: "Son 30 gün", from: () => daysAgo(29) },
+  { key: "7d", labelKey: "d7" as const, from: () => daysAgo(6) },
+  { key: "30d", labelKey: "d30" as const, from: () => daysAgo(29) },
   {
     key: "month",
-    label: "Bu ay",
+    labelKey: "thisMonth" as const,
     from: () => iso(new Date(new Date().getFullYear(), new Date().getMonth(), 1)),
   },
 ] as const;
@@ -44,6 +52,7 @@ function Bar({ value, max, className }: { value: number; max: number; className?
 }
 
 export default function ReportsPage() {
+  const t = useT();
   const { activeFacilityId } = useSession();
   const [preset, setPreset] = useState<string>("30d");
   const [dateFrom, setDateFrom] = useState(daysAgo(29));
@@ -59,9 +68,9 @@ export default function ReportsPage() {
     }
   }
 
-  if (report.isLoading) return <LoadingState label="Rapor hazırlanıyor…" />;
+  if (report.isLoading) return <LoadingState label={t.admin.reports.loading} />;
   if (report.isError || !report.data)
-    return <ErrorState message="Rapor yüklenemedi." onRetry={() => report.refetch()} />;
+    return <ErrorState message={t.admin.reports.loadError} onRetry={() => report.refetch()} />;
 
   const data = report.data;
   const totals = data.totals;
@@ -74,12 +83,12 @@ export default function ReportsPage() {
     { label: "Bekleyen", value: totals.pending, icon: Clock4 },
     { label: "Kargo", value: totals.cargo, icon: Package, accent: true },
     {
-      label: "Tamamlanma Oranı",
+      label: t.admin.reports.completionRate,
       value: `%${Math.round(data.rates.completion_rate * 100)}`,
       icon: CheckCircle2,
     },
     {
-      label: "Ort. Onay Süresi",
+      label: t.admin.reports.avgApproval,
       value:
         sla.average_minutes_to_decision !== null
           ? `${sla.average_minutes_to_decision} dk`
@@ -94,8 +103,8 @@ export default function ReportsPage() {
         <div>
           <h1 className="text-xl font-bold">Raporlar</h1>
           <p className="text-sm text-muted-foreground">
-            {data.range.date_from} – {data.range.date_to} operasyon özeti
-            {data.scope.restricted && " · Yalnızca yetkili rampalarınız gösteriliyor"}
+            {t.admin.reports.summaryLine(data.range.date_from, data.range.date_to)}
+            {data.scope.restricted && t.admin.reports.restricted}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -109,7 +118,7 @@ export default function ReportsPage() {
               )
             }
           >
-            <Download className="mr-1 h-3.5 w-3.5" /> Özet CSV
+            <Download className="mr-1 h-3.5 w-3.5" /> {t.admin.reports.summaryCsv}
           </Button>
           <Button
             size="sm"
@@ -134,7 +143,7 @@ export default function ReportsPage() {
                   : "border-border bg-card text-muted-foreground hover:border-primary/40",
               )}
             >
-              {p.label}
+              {rangeLabel(t, p.labelKey)}
             </button>
           ))}
           <Input
@@ -185,15 +194,15 @@ export default function ReportsPage() {
 
       {totals.appointments === 0 ? (
         <EmptyState
-          title="Bu aralıkta veri yok"
-          description="Farklı bir tarih aralığı seçin."
+          title={t.admin.reports.emptyTitle}
+          description={t.admin.reports.emptyDescription}
         />
       ) : (
         <>
           {/* Gunluk trend */}
           <Card>
             <CardHeader>
-              <CardTitle>Günlük Trend</CardTitle>
+              <CardTitle>{t.admin.reports.dailyTrend}</CardTitle>
             </CardHeader>
             <CardContent>
               {/* Kolonlar h-full olmali: yuzde yukseklik ancak tanimli yukseklikli
@@ -234,7 +243,7 @@ export default function ReportsPage() {
           <div className="grid gap-4 xl:grid-cols-2">
             <Card>
               <CardHeader>
-                <CardTitle>Durum Dağılımı</CardTitle>
+                <CardTitle>{t.admin.reports.statusBreakdown}</CardTitle>
               </CardHeader>
               <CardContent className="flex flex-col gap-2">
                 {data.by_status
@@ -247,15 +256,18 @@ export default function ReportsPage() {
                     </div>
                   ))}
                 <p className="mt-2 text-xs text-muted-foreground">
-                  Otomatik onaylı: {totals.auto_approved} · Manuel: {totals.manual_approval} ·
-                  2 saatten eski bekleyen: {sla.pending_over_2h}
+                  {t.admin.reports.slaLine(
+                    totals.auto_approved,
+                    totals.manual_approval,
+                    sla.pending_over_2h,
+                  )}
                 </p>
               </CardContent>
             </Card>
 
             <Card>
               <CardHeader>
-                <CardTitle>Kategori Dağılımı</CardTitle>
+                <CardTitle>{t.admin.reports.categoryBreakdown}</CardTitle>
               </CardHeader>
               <CardContent className="flex flex-col gap-2">
                 {data.by_category.map((c) => (
@@ -272,7 +284,7 @@ export default function ReportsPage() {
 
             <Card>
               <CardHeader>
-                <CardTitle>Rampa Kullanım Yoğunluğu</CardTitle>
+                <CardTitle>{t.admin.reports.dockUtilisation}</CardTitle>
               </CardHeader>
               <CardContent className="flex flex-col gap-2">
                 {data.by_dock.map((d) => (
@@ -299,16 +311,16 @@ export default function ReportsPage() {
 
             <Card>
               <CardHeader>
-                <CardTitle>Tedarikçi Aktivitesi</CardTitle>
+                <CardTitle>{t.admin.reports.supplierActivity}</CardTitle>
               </CardHeader>
               <CardContent className="p-0">
                 <Table className="border-0 shadow-none">
                   <THead>
                     <TR>
-                      <TH>Tedarikçi</TH>
+                      <TH>{t.admin.appointments.colSupplier}</TH>
                       <TH className="text-right">Randevu</TH>
                       <TH className="text-right">Tamam</TH>
-                      <TH className="text-right">İptal/Red</TH>
+                      <TH className="text-right">{t.admin.reports.colCancelled}</TH>
                       <TH className="text-right">Kargo</TH>
                     </TR>
                   </THead>

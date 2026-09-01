@@ -119,10 +119,10 @@ function AdminShell({ children }: { children: React.ReactNode }) {
       <div className="flex min-h-screen flex-col items-center justify-center gap-4 p-4">
         <LogiSlotLogo size="lg" />
         <p className="text-sm text-muted-foreground">
-          Bu panel için tenant yöneticisi girişi gerekli.
+          {t.admin.layout.wrongPortal}
         </p>
         <Link href="/login">
-          <Button>Giriş Ekranına Dön</Button>
+          <Button>{t.admin.layout.backToLogin}</Button>
         </Link>
       </div>
     );
@@ -132,7 +132,7 @@ function AdminShell({ children }: { children: React.ReactNode }) {
     return (
       <div className="flex min-h-screen items-center justify-center p-4">
         <ErrorState
-          message={`API'ye ulaşılamadı: ${session.error}. Backend'in çalıştığından emin olun (docker compose up).`}
+          message={t.admin.layout.apiUnreachable(session.error)}
           onRetry={() => window.location.reload()}
         />
       </div>
