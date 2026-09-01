@@ -139,6 +139,7 @@ export default function UsersPage() {
 
   // ---- onay/parola dialoglari ----
   const [deactivateUserTarget, setDeactivateUserTarget] = useState<FacilityUserDto | null>(null);
+  const [deleteUserTarget, setDeleteUserTarget] = useState<FacilityUserDto | null>(null);
   const [deactivateRoleTarget, setDeactivateRoleTarget] = useState<RoleDto | null>(null);
   const [resetTarget, setResetTarget] = useState<FacilityUserDto | null>(null);
   const [resetPassword, setResetPassword] = useState("");
@@ -294,6 +295,18 @@ export default function UsersPage() {
     }
   }
 
+  async function onDeleteUserPermanently() {
+    if (!deleteUserTarget) return;
+    try {
+      await userMutations.deletePermanently.mutateAsync(deleteUserTarget.id);
+      showFlash("success", t.admin.users.userDeleted(deleteUserTarget.name));
+    } catch (err) {
+      showFlash("error", errorMessage(err, t.admin.users.actionFailed));
+    } finally {
+      setDeleteUserTarget(null);
+    }
+  }
+
   async function onRoleDeactivate() {
     if (!deactivateRoleTarget) return;
     try {
@@ -436,13 +449,25 @@ export default function UsersPage() {
                       >
                         <KeyRound className="h-4 w-4" />
                       </Button>
-                      {user.is_active && (
+                      {user.is_active ? (
                         <Button
                           size="sm"
                           variant="ghost"
                           onClick={() => setDeactivateUserTarget(user)}
                         >
                           {t.admin.users.deactivate}
+                        </Button>
+                      ) : (
+                        // Kalici silme YALNIZCA pasif hesapta gorunur: iki
+                        // adimli olmasi, aktif bir hesabin tek tikla yok
+                        // edilmesini engeller.
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="text-destructive"
+                          onClick={() => setDeleteUserTarget(user)}
+                        >
+                          {t.admin.users.deletePermanently}
                         </Button>
                       )}
                     </div>
@@ -645,6 +670,16 @@ export default function UsersPage() {
       </Drawer>
 
       {/* ---------- onay/parola dialoglari ---------- */}
+      <ConfirmDialog
+        open={deleteUserTarget !== null}
+        title={t.admin.users.deleteUserTitle}
+        message={t.admin.users.deleteUserMessage(deleteUserTarget?.name ?? "")}
+        confirmLabel={t.admin.users.deletePermanently}
+        loading={userMutations.deletePermanently.isPending}
+        onConfirm={() => void onDeleteUserPermanently()}
+        onClose={() => setDeleteUserTarget(null)}
+      />
+
       <ConfirmDialog
         open={deactivateUserTarget !== null}
         title={t.admin.users.deactivateUserTitle}

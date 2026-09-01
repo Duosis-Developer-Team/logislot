@@ -830,3 +830,139 @@ async def test_plan_limit_dimensions_catalog(client, seeded):
     assert response.status_code == 200
     keys = [d["key"] for d in response.json()["data"]["dimensions"]]
     assert "max_tenants" in keys and "monthly_appointments" in keys
+
+
+# ------------------------------------------------- kalici kullanici silme
+
+
+async def test_permanent_delete_frees_email_and_requires_inactive(client, seeded):
+    """Yanlislikla acilan hesap KALICI silinir ve e-posta tekrar kullanilabilir.
+
+    Pasiflestirme e-postayi serbest BIRAKMAZ (dizin kaydi durur); yanlis
+    acilmis bir hesabin o e-postayi sonsuza kadar rezerve etmesi gercek bir
+    tikanmaydi.
+    """
+    headers = await admin(client)
+    fid = seeded["facility"].id
+    viewer_role_id = str(seeded["roles"]["viewer"].id)
+
+    response = await client.post(
+        f"/facilities/{fid}/users",
+        json={
+            "name": "Yanlis Acilan",
+            "email": "yanlis-acilan@ornek.com",
+            "role_ids": [viewer_role_id],
+            "is_active": True,
+        },
+        headers=headers,
+    )
+    assert response.status_code == 200
+    user_id = response.json()["data"]["id"]
+
+    # Aktifken kalici silinemez — once pasiflestirme sarttir.
+    response = await client.delete(
+        f"/facilities/{fid}/users/{user_id}/permanent", headers=headers
+    )
+    assert response.status_code == 409
+    assert response.json()["error"]["code"] == "USER_ACTIVE"
+
+    response = await client.delete(f"/facilities/{fid}/users/{user_id}", headers=headers)
+    assert response.status_code == 200
+
+    # Pasifken bile e-posta hala rezerve.
+    response = await client.post(
+        f"/facilities/{fid}/users",
+        json={
+            "name": "Ikinci Deneme",
+            "email": "yanlis-acilan@ornek.com",
+            "role_ids": [viewer_role_id],
+            "is_active": True,
+        },
+        headers=headers,
+    )
+    assert response.status_code == 409
+
+    response = await client.delete(
+        f"/facilities/{fid}/users/{user_id}/permanent", headers=headers
+    )
+    assert response.status_code == 200
+
+    listed = await client.get(f"/facilities/{fid}/users", headers=headers)
+    assert all(u["id"] != user_id for u in listed.json()["data"])
+
+    # Silindikten sonra ayni e-posta yeniden kullanilabilir.
+    response = await client.post(
+        f"/facilities/{fid}/users",
+        json={
+            "name": "Ikinci Deneme",
+            "email": "yanlis-acilan@ornek.com",
+            "role_ids": [viewer_role_id],
+            "is_active": True,
+        },
+        headers=headers,
+    )
+    assert response.status_code == 200
+
+
+async def test_permanent_delete_blocked_for_user_with_history(client, seeded):
+    """Is yapmis kullanici kalici silinemez — denetim izi anlamsizlasirdi."""
+    headers = await admin(client)
+    fid = seeded["facility"].id
+    admin_role_id = str(seeded["roles"]["sysadmin"].id)
+
+    response = await client.post(
+        f"/facilities/{fid}/users",
+        json={
+            "name": "Iz Birakan",
+            "email": "iz-birakan@ornek.com",
+            "role_ids": [admin_role_id],
+            "is_active": True,
+            "temporary_password": DEMO_PASSWORD,
+        },
+        headers=headers,
+    )
+    assert response.status_code == 200
+    user_id = response.json()["data"]["id"]
+
+    # Kullanici bir konfigurasyon degisikligi yapar -> actor_id'si denetim
+    # izine yazilir.
+    own = auth_headers(await login(client, "/auth/login", "iz-birakan@ornek.com"))
+    # Gecici parolayla acilan hesap parolasini degistirene kadar API kapalidir.
+    changed = await client.post(
+        "/auth/change-password",
+        headers=own,
+        json={"current_password": DEMO_PASSWORD, "new_password": "IzBirakan123!"},
+    )
+    assert changed.status_code == 200
+    relogin = await client.post(
+        "/auth/login",
+        json={"email": "iz-birakan@ornek.com", "password": "IzBirakan123!"},
+    )
+    own = auth_headers(relogin.json()["data"]["access_token"])
+    created = await client.post(
+        f"/facilities/{fid}/vehicle-categories",
+        json={"name": "Iz Araci", "display_name": "Iz Araci"},
+        headers=own,
+    )
+    assert created.status_code == 200
+
+    response = await client.delete(f"/facilities/{fid}/users/{user_id}", headers=headers)
+    assert response.status_code == 200
+
+    response = await client.delete(
+        f"/facilities/{fid}/users/{user_id}/permanent", headers=headers
+    )
+    assert response.status_code == 409
+    assert response.json()["error"]["code"] == "USER_HAS_HISTORY"
+
+
+async def test_permanent_delete_rejects_self(client, seeded):
+    headers = await admin(client)
+    fid = seeded["facility"].id
+    me = await client.get("/auth/me", headers=headers)
+    my_id = me.json()["data"]["id"]
+    response = await client.delete(
+        f"/facilities/{fid}/users/{my_id}/permanent", headers=headers
+    )
+    assert response.status_code == 409
+    assert response.json()["error"]["code"] in ("SELF_DELETE", "USER_ACTIVE")
