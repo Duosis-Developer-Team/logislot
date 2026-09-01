@@ -45,7 +45,13 @@ test("pasif kullanici kalici silinir; hesapsiz tedarikciye portal hesabi acilir"
   await expect(row).toHaveCount(0, { timeout: 15_000 });
 
   // ---------- 2) Hesapsiz tedarikciye portal hesabi ----------
-  await page.goto("/admin/settings/suppliers");
+  // Yonetici tedarikciyi ONCE Kullanicilar ekraninda ariyor; oradan
+  // tedarikci ekranina KOPRU olmali (yoksa ekran cikmaz sokak gibi durur).
+  await expect(
+    page.getByText(/Tedarikçiler burada değil/),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Tedarikçi Ekle" }).click();
+  await expect(page).toHaveURL(/\/admin\/settings\/suppliers/);
   await page.getByRole("button", { name: "Yeni Tedarikçi" }).click();
   const supplierDrawer = page.getByRole("dialog", { name: "Yeni Tedarikçi" });
   // Firma adi ve kod: etiketler input'a bagli degil, sirali secilir.

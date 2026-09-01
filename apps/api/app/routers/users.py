@@ -427,8 +427,8 @@ async def _ensure_no_footprint(
     if used is not None:
         raise ApiError(
             "USER_HAS_HISTORY",
-            "Bu kullanici operasyonda iz birakmis; kalici olarak silinemez. "
-            "Pasif kalmasi gecmisin dogru okunmasi icin gereklidir.",
+            "Bu kullanici operasyonda iz birakmis. Silmek isterseniz onaylayin; "
+            "denetim kayitlari korunur, silinen hesabin kimligi silme kaydinda saklanir.",
             409,
         )
 
@@ -436,11 +436,18 @@ async def _ensure_no_footprint(
 @router.delete("/users/{user_id}/permanent")
 async def delete_user_permanently(
     user_id: uuid.UUID,
+    force: bool = False,
     ctx: FacilityContext = Depends(require_facility_permissions(TenantPermission.USER_MANAGE)),
     db: AsyncSession = Depends(get_db),
     control_db: AsyncSession = Depends(get_control_db),
 ):
-    """Yanlislikla acilmis, hic kullanilmamis PASIF hesabi tamamen kaldirir."""
+    """Pasif hesabi tamamen kaldirir.
+
+    Iz birakmis kullanici VARSAYILAN olarak reddedilir; yonetici bilerek
+    israr ederse (`force=true`) silinir. Gecmis okunaksiz kalmaz: silme
+    denetim kaydi kullanicinin adini ve e-postasini tasir, boylece eski
+    satirlardaki aktor kimligi hala cozulebilir.
+    """
     membership = await _membership_of(db, ctx, user_id)
     user = membership.user
 
@@ -453,7 +460,8 @@ async def delete_user_permanently(
             409,
         )
     await _ensure_not_last_admin(db, ctx, user_id)
-    await _ensure_no_footprint(db, ctx, user_id)
+    if not force:
+        await _ensure_no_footprint(db, ctx, user_id)
 
     before = _user_out(membership)
     await revoke_user_sessions(db, user_type="tenant", user_id=user_id)
@@ -462,7 +470,7 @@ async def delete_user_permanently(
     _audit(
         db, ctx,
         action="user.delete", entity_type="tenant_user", entity_id=user_id,
-        before=before, after=None,
+        before=before, after={"forced": force},
     )
     # Bagli satirlar ACIKCA silinir. `db.delete(user)` tek basina yetmez:
     # SQLAlchemy iliskiyi "sil-degil-bosalt" olarak yorumlayip

@@ -1131,6 +1131,12 @@ export const en: Dictionary = {
         `"${name}" will be deactivated. Portal sign-in and new bookings will stop.`,
     },
     users: {
+      goToSuppliers: "Add supplier",
+      supplierHint:
+        "Suppliers are not managed here: a supplier is a company, not a site user. Company details, allowed categories, quotas and the portal login live under Administration → Suppliers.",
+      deleteAnyway: "Delete anyway",
+      deleteUserForceMessage: (name: string) =>
+        `"${name}" has acted in the system. Delete anyway? Audit records are kept, and the deleted account's name and email are preserved in the deletion record. This can't be undone.`,
       deletePermanently: "Delete permanently",
       deleteUserTitle: "Delete this user permanently",
       deleteUserMessage: (name: string) =>
