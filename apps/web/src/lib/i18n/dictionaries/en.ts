@@ -66,6 +66,61 @@ export const en: Dictionary = {
     goToLogin: "Back to sign in",
   },
 
+  auth: {
+    portals: {
+      supplier: {
+        title: "Supplier Portal",
+        short: "Supplier",
+        description: "Request and track delivery slots",
+        subtitle:
+          "Book your delivery appointments, track them and see their current status.",
+        buttonLabel: "Sign in to the Supplier Portal",
+        wrongRole:
+          "This account isn't authorised for the Supplier Portal. Please sign in through the right portal.",
+      },
+      admin: {
+        title: "Operations Panel",
+        short: "Operations",
+        description: "Schedule, approvals and facility settings",
+        subtitle: "Manage your dock schedule, approval flow and facility operations.",
+        buttonLabel: "Sign in to the Operations Panel",
+        wrongRole:
+          "This account isn't authorised for the Operations Panel. Please sign in through the right portal.",
+      },
+      platform: {
+        title: "Platform Administration",
+        short: "Platform",
+        description: "Customer accounts, usage and plans",
+        subtitle: "Manage customer accounts, facilities, plans and system health.",
+        buttonLabel: "Sign in to Platform Administration",
+        wrongRole: "This account isn't authorised for Platform Administration.",
+      },
+    },
+    email: "E-mail",
+    password: "Password",
+    showPassword: "Show password",
+    hidePassword: "Hide password",
+    signingIn: "Signing in…",
+    failed: "Sign-in failed — check that the API is reachable.",
+    backToPortals: "Back to portal selection",
+    handoffPending: "Signing you in…",
+    handoffFailed: "We couldn't transfer your session. The link may have expired.",
+    handoffBackToLogin: "Back to sign in",
+    changePassword: {
+      title: "Change password",
+      subtitle: "You signed in with a temporary password — please choose a new one.",
+      current: "Current password",
+      new: "New password",
+      confirm: "New password (repeat)",
+      policy: "At least 10 characters, including a letter, a number and a symbol.",
+      mismatch: "The new passwords don't match.",
+      failed: "We couldn't change your password — please try again.",
+      saving: "Saving…",
+      submit: "Change password",
+    },
+    copyDemo: "Copy demo account",
+  },
+
   errors: {
     byCode: {
       UNAUTHORIZED: "Incorrect e-mail or password.",

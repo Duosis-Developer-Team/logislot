@@ -62,6 +62,62 @@ export const tr = {
     goToLogin: "Giriş sayfasına dön",
   },
 
+  auth: {
+    portals: {
+      supplier: {
+        title: "Tedarikçi Portalı",
+        short: "Tedarikçi",
+        description: "Randevu talep edin, takip edin",
+        subtitle:
+          "Teslimat randevularınızı oluşturun, takip edin ve güncel durumları görüntüleyin.",
+        buttonLabel: "Tedarikçi Portalı'na Giriş",
+        wrongRole:
+          "Bu hesap Tedarikçi Portalı için yetkili değil. Lütfen doğru portal üzerinden giriş yapın.",
+      },
+      admin: {
+        title: "Yönetim Paneli",
+        short: "Yönetim",
+        description: "Takvim, onay ve tesis yönetimi",
+        subtitle: "Rampa takvimini, onay süreçlerini ve tesis operasyonlarını yönetin.",
+        buttonLabel: "Yönetim Paneli'ne Giriş",
+        wrongRole:
+          "Bu hesap Yönetim Paneli için yetkili değil. Lütfen doğru portal üzerinden giriş yapın.",
+      },
+      platform: {
+        title: "Platform Yönetimi",
+        short: "Platform",
+        description: "Tenant, kullanım ve plan yönetimi",
+        subtitle: "Tenant, tesis, plan ve sistem sağlığı süreçlerini yönetin.",
+        buttonLabel: "Platform Yönetimi'ne Giriş",
+        wrongRole: "Bu hesap Platform Yönetimi için yetkili değil.",
+      },
+    },
+    email: "E-posta",
+    password: "Parola",
+    showPassword: "Parolayı göster",
+    hidePassword: "Parolayı gizle",
+    signingIn: "Giriş yapılıyor…",
+    failed: "Giriş başarısız — API'nin çalıştığından emin olun.",
+    backToPortals: "Portal seçimine dön",
+    handoffPending: "Oturumunuz açılıyor…",
+    handoffFailed: "Oturum devri tamamlanamadı. Bağlantının süresi dolmuş olabilir.",
+    handoffBackToLogin: "Giriş sayfasına dön",
+    changePassword: {
+      title: "Parola Değiştir",
+      subtitle:
+        "Geçici parolayla giriş yaptınız; devam etmek için yeni bir parola belirleyin.",
+      current: "Mevcut Parola",
+      new: "Yeni Parola",
+      confirm: "Yeni Parola (Tekrar)",
+      policy: "En az 10 karakter; harf, rakam ve özel karakter içermeli.",
+      mismatch: "Yeni parolalar birbiriyle uyuşmuyor.",
+      failed: "Parola değiştirilemedi; tekrar deneyin.",
+      saving: "Kaydediliyor…",
+      submit: "Parolayı Değiştir",
+    },
+    copyDemo: "Demo hesabı kopyala",
+  },
+
   errors: {
     /** API hata KODUNA gore metin. Backend Turkce mesaj doner; kod stabil
      *  oldugu icin ceviri burada yapilir — sunucuda dil tutmaya gerek kalmaz.

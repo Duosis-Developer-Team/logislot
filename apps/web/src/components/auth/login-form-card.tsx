@@ -7,6 +7,7 @@ import { type PortalConfig } from "@/components/auth/portals";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import { demoCredentialsFor } from "@/lib/demo-mode";
+import { useT } from "@/lib/i18n/provider";
 
 /**
  * Premium login form kartı — 48px inputlar, parola göster/gizle, buton durumları,
@@ -32,13 +33,14 @@ export function LoginFormCard({
   onSubmit: (e: React.FormEvent) => void;
 }) {
   const [show, setShow] = useState(false);
+  const t = useT();
   // Demo modu kapaliyken (prod build) null doner ve ipucu hic render edilmez.
   const demo = demoCredentialsFor(active.key);
 
   return (
     <form onSubmit={onSubmit} className="flex flex-col gap-4">
       <div>
-        <Label htmlFor="email">E-posta</Label>
+        <Label htmlFor="email">{t.auth.email}</Label>
         <Input
           id="email"
           type="email"
@@ -51,7 +53,7 @@ export function LoginFormCard({
       </div>
 
       <div>
-        <Label htmlFor="password">Parola</Label>
+        <Label htmlFor="password">{t.auth.password}</Label>
         <div className="relative">
           <Input
             id="password"
@@ -65,7 +67,7 @@ export function LoginFormCard({
           <button
             type="button"
             onClick={() => setShow((v) => !v)}
-            aria-label={show ? "Parolayı gizle" : "Parolayı göster"}
+            aria-label={show ? t.auth.hidePassword : t.auth.showPassword}
             className="absolute right-1.5 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           >
             {show ? <EyeOff className="h-[1.15rem] w-[1.15rem]" /> : <Eye className="h-[1.15rem] w-[1.15rem]" />}
@@ -87,7 +89,7 @@ export function LoginFormCard({
         {loading ? (
           <>
             <Loader2 className="animate-spin" />
-            Giriş yapılıyor…
+            {t.auth.signingIn}
           </>
         ) : (
           <>

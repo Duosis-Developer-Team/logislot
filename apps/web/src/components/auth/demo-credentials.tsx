@@ -2,6 +2,7 @@
 
 import { Check, Copy, KeyRound } from "lucide-react";
 import { useState } from "react";
+import { useT } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
 
 /**
@@ -15,6 +16,7 @@ export function DemoCredentials({
   password: string;
 }) {
   const [copied, setCopied] = useState(false);
+  const t = useT();
 
   async function copy() {
     try {
@@ -42,7 +44,7 @@ export function DemoCredentials({
       <button
         type="button"
         onClick={copy}
-        aria-label="Demo hesabı kopyala"
+        aria-label={t.auth.copyDemo}
         className={cn(
           "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground transition-colors hover:text-foreground",
           copied && "border-status-approved/40 text-status-approved",

@@ -14,13 +14,14 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { LoginBackground } from "@/components/auth/login-background";
 import { LoginFormCard } from "@/components/auth/login-form-card";
-import { PORTALS, type Portal } from "@/components/auth/portals";
+import { portals, type Portal } from "@/components/auth/portals";
 import { LogiSlotIcon, LogiSlotLogo } from "@/components/brand/logo";
 import { LanguageToggle } from "@/components/shell/language-toggle";
 import { ThemeToggle } from "@/components/shell/theme-toggle";
 import { apiRequest, authApi, clearSession, storeSession } from "@/lib/api/client";
 import type { MeDto } from "@/lib/api/types";
 import { demoCredentialsFor } from "@/lib/demo-mode";
+import { useT } from "@/lib/i18n/provider";
 
 export function PortalLoginPage({
   portal,
@@ -30,8 +31,9 @@ export function PortalLoginPage({
   /** "Ana portal seçimine geri dön" hedefi; null = link gösterme (hidden platform). */
   entryUrl: string | null;
 }) {
+  const t = useT();
   const router = useRouter();
-  const config = PORTALS.find((p) => p.key === portal)!;
+  const config = portals(t).find((p) => p.key === portal)!;
   // Demo modu kapaliyken (prod) form bos baslar.
   const demo = demoCredentialsFor(portal);
   const [email, setEmail] = useState(demo?.email ?? "");
@@ -93,7 +95,7 @@ export function PortalLoginPage({
       setError(
         err instanceof Error
           ? err.message
-          : "Giriş başarısız — API'nin çalıştığından emin olun.",
+          : t.auth.failed,
       );
     } finally {
       setLoading(false);
@@ -155,7 +157,7 @@ export function PortalLoginPage({
               className="mt-5 flex items-center justify-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
             >
               <ArrowLeft className="h-4 w-4" />
-              Ana portal seçimine geri dön
+              {t.auth.backToPortals}
             </a>
           )}
         </div>

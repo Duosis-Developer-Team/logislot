@@ -7,6 +7,8 @@ import { LogiSlotLogo } from "@/components/brand/logo";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input, Label } from "@/components/ui/input";
+import { useApiErrorMessage } from "@/lib/i18n/api-error";
+import { useT } from "@/lib/i18n/provider";
 import {
   ApiError,
   authApi,
@@ -29,6 +31,8 @@ const PORTAL_TARGETS = {
  */
 export default function ChangePasswordPage() {
   const router = useRouter();
+  const t = useT();
+  const errorMessage = useApiErrorMessage();
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -43,7 +47,7 @@ export default function ChangePasswordPage() {
       return;
     }
     if (newPassword !== confirmPassword) {
-      setError("Yeni parolalar birbiriyle uyuşmuyor.");
+      setError(t.auth.changePassword.mismatch);
       return;
     }
     setLoading(true);
@@ -55,7 +59,7 @@ export default function ChangePasswordPage() {
       router.push(PORTAL_TARGETS[portal]);
     } catch (err) {
       setError(
-        err instanceof ApiError ? err.message : "Parola değiştirilemedi; tekrar deneyin.",
+        errorMessage(err, t.auth.changePassword.failed),
       );
     } finally {
       setLoading(false);
@@ -72,15 +76,15 @@ export default function ChangePasswordPage() {
               <KeyRound className="h-4 w-4 text-primary" />
             </span>
             <div>
-              <h1 className="text-base font-bold">Parola Değiştir</h1>
+              <h1 className="text-base font-bold">{t.auth.changePassword.title}</h1>
               <p className="text-xs text-muted-foreground">
-                Geçici parolayla giriş yaptınız; devam etmek için yeni bir parola belirleyin.
+                {t.auth.changePassword.subtitle}
               </p>
             </div>
           </div>
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             <div>
-              <Label htmlFor="current">Mevcut Parola</Label>
+              <Label htmlFor="current">{t.auth.changePassword.current}</Label>
               <Input
                 id="current"
                 type="password"
@@ -91,7 +95,7 @@ export default function ChangePasswordPage() {
               />
             </div>
             <div>
-              <Label htmlFor="new">Yeni Parola</Label>
+              <Label htmlFor="new">{t.auth.changePassword.new}</Label>
               <Input
                 id="new"
                 type="password"
@@ -101,11 +105,11 @@ export default function ChangePasswordPage() {
                 required
               />
               <p className="mt-1 text-xs text-muted-foreground">
-                En az 10 karakter; harf, rakam ve özel karakter içermeli.
+                {t.auth.changePassword.policy}
               </p>
             </div>
             <div>
-              <Label htmlFor="confirm">Yeni Parola (Tekrar)</Label>
+              <Label htmlFor="confirm">{t.auth.changePassword.confirm}</Label>
               <Input
                 id="confirm"
                 type="password"
@@ -117,7 +121,7 @@ export default function ChangePasswordPage() {
             </div>
             {error && <p className="text-sm text-destructive">{error}</p>}
             <Button type="submit" size="lg" disabled={loading}>
-              {loading ? "Kaydediliyor…" : "Parolayı Değiştir"}
+              {loading ? t.auth.changePassword.saving : t.auth.changePassword.submit}
             </Button>
           </form>
         </CardContent>
