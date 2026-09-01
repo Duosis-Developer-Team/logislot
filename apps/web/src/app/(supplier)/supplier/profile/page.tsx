@@ -10,12 +10,14 @@
 import { BadgeCheck, LogOut } from "lucide-react";
 import { ErrorState, LoadingState } from "@/components/config/states";
 import { Badge } from "@/components/ui/badge";
+import { useT } from "@/lib/i18n/provider";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useSupplierCatalog, useSupplierProfile } from "@/lib/api/supplier";
 import { useSession } from "@/lib/auth/session";
 
 export default function SupplierProfilePage() {
+  const t = useT();
   const session = useSession();
   const profile = useSupplierProfile();
   const catalog = useSupplierCatalog();
@@ -23,7 +25,7 @@ export default function SupplierProfilePage() {
   if (profile.isLoading) return <LoadingState />;
   if (profile.isError || !profile.data)
     return (
-      <ErrorState message="Profil yüklenemedi." onRetry={() => profile.refetch()} />
+      <ErrorState message={t.supplier.profile.loadError} onRetry={() => profile.refetch()} />
     );
 
   const data = profile.data;
@@ -39,7 +41,7 @@ export default function SupplierProfilePage() {
         </CardHeader>
         <CardContent className="flex flex-col gap-3">
           <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-            <dt className="text-muted-foreground">Tedarikçi Kodu</dt>
+            <dt className="text-muted-foreground">{t.supplier.profile.code}</dt>
             <dd className="font-mono">{data.code}</dd>
             {data.category_label && (
               <>
@@ -47,11 +49,11 @@ export default function SupplierProfilePage() {
                 <dd>{data.category_label}</dd>
               </>
             )}
-            <dt className="text-muted-foreground">İletişim</dt>
+            <dt className="text-muted-foreground">{t.supplier.profile.contact}</dt>
             <dd>{data.contact_name ?? "—"}</dd>
             <dt className="text-muted-foreground">E-posta</dt>
             <dd className="break-all">{data.contact_email ?? "—"}</dd>
-            <dt className="text-muted-foreground">Süre Limiti</dt>
+            <dt className="text-muted-foreground">{t.supplier.profile.durationLimit}</dt>
             <dd>
               {data.min_block_minutes ?? "—"}–{data.max_block_minutes ?? "—"} dk
             </dd>
@@ -70,12 +72,12 @@ export default function SupplierProfilePage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>İzinli Kategoriler</CardTitle>
+          <CardTitle>{t.supplier.profile.allowedCategories}</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-wrap gap-2">
           {allowedNames.length === 0 ? (
             <p className="text-sm text-muted-foreground">
-              Henüz izinli kategori tanımlanmamış; randevu için tesisinizle iletişime geçin.
+              {t.supplier.profile.noCategories}
             </p>
           ) : (
             allowedNames.map((name) => (

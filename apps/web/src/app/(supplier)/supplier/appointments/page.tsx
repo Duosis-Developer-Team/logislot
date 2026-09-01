@@ -20,7 +20,10 @@ import {
   useSupplierProfile,
 } from "@/lib/api/supplier";
 import type { AppointmentDto } from "@/lib/api/types";
-import { cn, formatDate, formatTime } from "@/lib/utils";
+import { useApiErrorMessage } from "@/lib/i18n/api-error";
+import { useLabels } from "@/lib/i18n/labels";
+import { useFormat, useT } from "@/lib/i18n/provider";
+import { cn } from "@/lib/utils";
 
 function canCancel(appointment: AppointmentDto): boolean {
   return (
@@ -30,6 +33,10 @@ function canCancel(appointment: AppointmentDto): boolean {
 }
 
 export default function SupplierAppointmentsPage() {
+  const t = useT();
+  const fmt = useFormat();
+  const labels = useLabels();
+  const errorMessage = useApiErrorMessage();
   const [activeTab, setActiveTab] = useState<"upcoming" | "past">("upcoming");
   const profile = useSupplierProfile();
   const list = useSupplierAppointments();
@@ -39,7 +46,7 @@ export default function SupplierAppointmentsPage() {
 
   if (list.isLoading) return <LoadingState />;
   if (list.isError)
-    return <ErrorState message="Randevular yüklenemedi." onRetry={() => list.refetch()} />;
+    return <ErrorState message={t.supplier.appointments.loadError} onRetry={() => list.refetch()} />;
 
   const all = list.data ?? [];
   const now = Date.now();
@@ -62,15 +69,15 @@ export default function SupplierAppointmentsPage() {
     icon: typeof Clock3;
     tone: "primary" | "pending" | "completed";
   }[] = [
-    { label: "Yaklaşan", value: upcoming.length, icon: Clock3, tone: "primary" },
+    { label: t.supplier.appointments.counters.upcoming, value: upcoming.length, icon: Clock3, tone: "primary" },
     {
-      label: "Bekleyen",
+      label: t.supplier.appointments.counters.pending,
       value: all.filter((a) => a.status === "pending").length,
       icon: Boxes,
       tone: "pending",
     },
     {
-      label: "Tamamlanan",
+      label: t.supplier.appointments.counters.completed,
       value: all.filter((a) => a.status === "completed").length,
       icon: Truck,
       tone: "completed",
@@ -83,7 +90,7 @@ export default function SupplierAppointmentsPage() {
       await cancel.mutateAsync(confirmTarget.id);
       showFlash("success", "Randevu iptal edildi.");
     } catch (err) {
-      showFlash("error", err instanceof ApiError ? err.message : "İptal edilemedi");
+      showFlash("error", errorMessage(err, t.supplier.appointments.cancelFailed));
     } finally {
       setConfirmTarget(null);
     }
@@ -92,10 +99,10 @@ export default function SupplierAppointmentsPage() {
   return (
     <PageContainer className="mx-auto max-w-5xl">
       <PageHeader
-        title={profile.data?.company_name ?? "Randevularım"}
+        title={profile.data?.company_name ?? t.supplier.appointments.fallbackTitle}
         description={
           profile.data
-            ? `Kod: ${profile.data.code}${
+            ? `${t.supplier.appointments.codePrefix} ${profile.data.code}${
                 profile.data.category_label ? ` · ${profile.data.category_label}` : ""
               }`
             : undefined
@@ -132,8 +139,8 @@ export default function SupplierAppointmentsPage() {
       <div className="flex rounded-xl bg-muted p-1">
         {(
           [
-            ["upcoming", "Yaklaşan"],
-            ["past", "Geçmiş"],
+            ["upcoming", t.supplier.appointments.tabs.upcoming],
+            ["past", t.supplier.appointments.tabs.past],
           ] as const
         ).map(([key, label]) => (
           <button
@@ -151,11 +158,11 @@ export default function SupplierAppointmentsPage() {
 
       {shown.length === 0 ? (
         <EmptyState
-          title="Randevu yok"
+          title={t.supplier.appointments.emptyTitle}
           description={
             activeTab === "upcoming"
-              ? "Yeni Randevu sekmesinden 3 adımda talep oluşturabilirsiniz."
-              : "Geçmiş randevunuz bulunmuyor."
+              ? t.supplier.appointments.emptyUpcoming
+              : t.supplier.appointments.emptyPast
           }
         />
       ) : (
@@ -168,16 +175,16 @@ export default function SupplierAppointmentsPage() {
                   <div className="break-words text-sm font-semibold">{a.product_name}</div>
                   <div className="break-words text-xs text-muted-foreground">
                     {a.quantity}{" "}
-                    {QUANTITY_UNIT_LABELS[a.quantity_unit as QuantityUnit] ?? a.quantity_unit}
+                    {labels.quantityUnit[a.quantity_unit as QuantityUnit] ?? a.quantity_unit}
                     {a.product_category_name ? ` · ${a.product_category_name}` : ""}
                   </div>
                 </div>
                 <StatusBadge status={a.status as never} className="shrink-0" />
               </div>
               <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                <span>{formatDate(a.scheduled_start_at)}</span>
+                <span>{fmt.date(a.scheduled_start_at)}</span>
                 <span>
-                  {formatTime(a.scheduled_start_at)}–{formatTime(a.scheduled_end_at)}
+                  {fmt.time(a.scheduled_start_at)}–{fmt.time(a.scheduled_end_at)}
                 </span>
                 {a.dock_name && <span>{a.dock_name}</span>}
                 {a.vehicle_category_name && <span>{a.vehicle_category_name}</span>}
@@ -189,27 +196,29 @@ export default function SupplierAppointmentsPage() {
               {a.series_id && a.occurrence_index && (
                 <span className="w-fit rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">
                   <Repeat className="mr-1 inline h-3 w-3" />
-                  Tekrarlayan {a.occurrence_index}. randevu
+                  {t.supplier.appointments.recurring(a.occurrence_index)}
                 </span>
               )}
               {a.status === "rejected" && a.rejection_reason && (
                 <p className="rounded-md bg-status-rejected/10 px-2 py-1 text-xs text-status-rejected">
-                  Red sebebi: {a.rejection_reason}
+                  {t.supplier.appointments.rejectionReason} {a.rejection_reason}
                 </p>
               )}
               {a.status === "revision_pending" && a.original_start_at && (
                 <div className="rounded-md bg-status-revision/10 px-2 py-1.5 text-xs text-status-revision">
-                  <div className="font-medium">Tesis yönetimi yeni saat önerdi:</div>
+                  <div className="font-medium">{t.supplier.appointments.revisionTitle}</div>
                   <div>
-                    {formatDate(a.original_start_at)} {formatTime(a.original_start_at)} →{" "}
-                    {formatDate(a.scheduled_start_at)} {formatTime(a.scheduled_start_at)}
+                    {fmt.date(a.original_start_at)} {fmt.time(a.original_start_at)} →{" "}
+                    {fmt.date(a.scheduled_start_at)} {fmt.time(a.scheduled_start_at)}
                   </div>
-                  {a.revision_note && <div className="mt-0.5">Not: {a.revision_note}</div>}
+                  {a.revision_note && <div className="mt-0.5">
+                      {t.supplier.appointments.revisionNote} {a.revision_note}
+                    </div>}
                 </div>
               )}
               {a.status === "cancelled" && a.cancellation_reason && (
                 <p className="rounded-md bg-status-cancelled/10 px-2 py-1 text-xs text-status-cancelled">
-                  İptal sebebi: {a.cancellation_reason}
+                  {t.supplier.appointments.cancellationReason} {a.cancellation_reason}
                 </p>
               )}
               {canCancel(a) && (
@@ -219,7 +228,7 @@ export default function SupplierAppointmentsPage() {
                   className="w-fit text-destructive"
                   onClick={() => setConfirmTarget(a)}
                 >
-                  İptal Et
+                  {t.supplier.appointments.cancel}
                 </Button>
               )}
             </CardContent>
@@ -230,9 +239,9 @@ export default function SupplierAppointmentsPage() {
 
       <ConfirmDialog
         open={confirmTarget !== null}
-        title="Randevuyu iptal et"
-        message={`"${confirmTarget?.product_name}" randevusu iptal edilecek. Bu işlem geri alınamaz.`}
-        confirmLabel="İptal Et"
+        title={t.supplier.appointments.cancelTitle}
+        message={t.supplier.appointments.cancelMessage(confirmTarget?.product_name ?? "")}
+        confirmLabel={t.supplier.appointments.cancel}
         loading={cancel.isPending}
         onConfirm={onCancel}
         onClose={() => setConfirmTarget(null)}

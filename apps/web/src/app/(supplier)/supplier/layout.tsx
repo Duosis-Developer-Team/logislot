@@ -60,10 +60,10 @@ function SupplierShell({ children }: { children: React.ReactNode }) {
       <div className="flex min-h-screen flex-col items-center justify-center gap-4 p-4">
         <LogiSlotLogo size="lg" />
         <p className="text-center text-sm text-muted-foreground">
-          Tedarikçi portalı için tedarikçi hesabıyla giriş yapın.
+          {t.supplier.layout.wrongPortal}
         </p>
         <Link href="/login">
-          <Button>Giriş Ekranına Dön</Button>
+          <Button>{t.supplier.layout.backToLogin}</Button>
         </Link>
       </div>
     );
@@ -75,7 +75,7 @@ function SupplierShell({ children }: { children: React.ReactNode }) {
       roleLabel={t.nav.role.supplier}
       brand={<LogiSlotLogo size="lg" priority />}
       profileHref="/supplier/profile"
-      footer="LogiSlot · Tedarikçi Portalı"
+      footer={t.supplier.layout.footer}
       headerActions={<NotificationBell variant="supplier" facilityId="self" />}
     >
       {children}
