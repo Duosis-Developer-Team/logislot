@@ -119,6 +119,9 @@ export const en: Dictionary = {
     },
     detail: {
       notFound: "Request not found.",
+      backToList: "Back to list",
+      summary: "Request summary",
+      scanningShort: "· scanning",
       pending: "Sending",
       deliveryFailedLead:
         "Your record is safe and will be retried automatically. If it keeps failing, contact your platform administrator",

@@ -114,6 +114,9 @@ export const tr = {
     },
     detail: {
       notFound: "Talep bulunamadı.",
+      backToList: "Listeye dön",
+      summary: "Talep özeti",
+      scanningShort: "· taranıyor",
       pending: "Gönderiliyor",
       deliveryFailedLead:
         "Kaydınız korunuyor ve otomatik olarak yeniden denenecek. Sorun devam ederse platform yöneticinize başvurun",
