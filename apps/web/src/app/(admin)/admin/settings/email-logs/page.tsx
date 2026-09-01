@@ -27,16 +27,14 @@ import {
 } from "@/lib/api/reports";
 import { useSession } from "@/lib/auth/session";
 import { cn } from "@/lib/utils";
+import { useApiErrorMessage } from "@/lib/i18n/api-error";
+import type { Dictionary } from "@/lib/i18n/dictionaries/tr";
+import { useT } from "@/lib/i18n/provider";
 
-const TEMPLATE_OPTIONS = [
-  ["appointment_approved", "Onay"],
-  ["appointment_rejected", "Red"],
-  ["appointment_revised", "Revize (tedarikçi)"],
-  ["appointment_revised_team", "Revize (ekip)"],
-  ["appointment_cancelled", "İptal"],
-  ["appointment_series_cancelled", "Seri iptal"],
-  ["appointment_series_revised", "Seri revize"],
-] as const;
+/** Sablon kodlari sabittir; etiketler sozlukten gelir. */
+function templateOptions(t: Dictionary): [string, string][] {
+  return Object.entries(t.admin.emailLogs.templates);
+}
 
 const STATUS_BADGE: Record<string, string> = {
   sent: "bg-status-approved/15 text-status-approved",
@@ -46,6 +44,8 @@ const STATUS_BADGE: Record<string, string> = {
 };
 
 export default function EmailLogsPage() {
+  const t = useT();
+  const errorMessage = useApiErrorMessage();
   const { activeFacilityId, can } = useSession();
   const queryClient = useQueryClient();
   const { flash, showFlash } = useFlash();
@@ -111,11 +111,11 @@ export default function EmailLogsPage() {
       showFlash(
         result.status === "sent" ? "success" : "error",
         result.status === "sent"
-          ? "E-posta yeniden gönderildi."
-          : `Gönderim yine başarısız: ${result.error_message ?? ""}`,
+          ? t.admin.emailLogs.resent
+          : t.admin.emailLogs.resendFailed(result.error_message ?? ""),
       );
     } catch (err) {
-      showFlash("error", err instanceof ApiError ? err.message : "Gönderilemedi");
+      showFlash("error", errorMessage(err, t.admin.emailLogs.sendFailed));
     }
   }
 
@@ -126,17 +126,17 @@ export default function EmailLogsPage() {
       const failed = result.results.filter((r) => r.result === "failed").length;
       showFlash(
         "success",
-        `Toplu gönderim: ${result.sent} gönderildi, ${failed} başarısız, ${skipped} atlandı.`,
+        t.admin.emailLogs.bulkResult(result.sent, failed, skipped),
       );
       setSelected(new Set());
     } catch (err) {
-      showFlash("error", err instanceof ApiError ? err.message : "Toplu gönderim başarısız");
+      showFlash("error", errorMessage(err, t.admin.emailLogs.bulkFailed));
     }
   }
 
   if (page.isLoading) return <LoadingState />;
   if (page.isError)
-    return <ErrorState message="E-posta logları yüklenemedi." onRetry={() => page.refetch()} />;
+    return <ErrorState message={t.admin.emailLogs.loadError} onRetry={() => page.refetch()} />;
 
   const data = page.data!;
   const failedSelectable = data.items.filter(
@@ -146,10 +146,9 @@ export default function EmailLogsPage() {
   return (
     <div className="flex flex-col gap-4">
       <div>
-        <h1 className="text-xl font-bold">E-posta Logları</h1>
+        <h1 className="text-xl font-bold">{t.admin.emailLogs.title}</h1>
         <p className="text-sm text-muted-foreground">
-          Giden tüm e-postalar. Yeniden gönderim randevu akışını tekrar çalıştırmaz;
-          yalnızca kayıtlı içerik gönderilir (en fazla 3 deneme).
+          {t.admin.emailLogs.description}
         </p>
       </div>
 
@@ -167,14 +166,13 @@ export default function EmailLogsPage() {
       )}
 
       <p className="text-xs text-muted-foreground">
-        Kartlar genel toplamları gösterir; tablo seçili filtrelerle
-        sınırlıdır.
+        {t.admin.emailLogs.summaryHint}
       </p>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {(
           [
-            ["Gönderilen", data.summary.sent, "text-status-approved"],
-            ["Başarısız", data.summary.failed, "text-status-rejected"],
+            [t.admin.emailLogs.sent, data.summary.sent, "text-status-approved"],
+            [t.admin.emailLogs.failed, data.summary.failed, "text-status-rejected"],
             ["Kuyrukta", data.summary.queued, "text-status-pending"],
             ["Atlanan", data.summary.skipped, "text-muted-foreground"],
           ] as const
@@ -192,9 +190,9 @@ export default function EmailLogsPage() {
         <div>
           <Label>Durum</Label>
           <Select value={status} onChange={(e) => { setStatus(e.target.value); setOffset(0); }}>
-            <option value="">Tümü</option>
-            <option value="sent">Gönderilen</option>
-            <option value="failed">Başarısız</option>
+            <option value="">{t.common.all}</option>
+            <option value="sent">{t.admin.emailLogs.sent}</option>
+            <option value="failed">{t.admin.emailLogs.failed}</option>
             <option value="queued">Kuyrukta</option>
             <option value="skipped">Atlanan</option>
           </Select>
@@ -202,25 +200,25 @@ export default function EmailLogsPage() {
         <div>
           <Label>Provider</Label>
           <Select value={provider} onChange={(e) => { setProvider(e.target.value); setOffset(0); }}>
-            <option value="">Tümü</option>
+            <option value="">{t.common.all}</option>
             <option value="log_only">log_only</option>
             <option value="smtp">smtp</option>
           </Select>
         </div>
         <div>
-          <Label>Şablon</Label>
+          <Label>{t.admin.emailLogs.template}</Label>
           <Select
             value={templateKey}
             onChange={(e) => { setTemplateKey(e.target.value); setOffset(0); }}
           >
-            <option value="">Tümü</option>
-            {TEMPLATE_OPTIONS.map(([value, label]) => (
+            <option value="">{t.common.all}</option>
+            {templateOptions(t).map(([value, label]) => (
               <option key={value} value={value}>{label}</option>
             ))}
           </Select>
         </div>
         <div>
-          <Label>Başlangıç</Label>
+          <Label>{t.admin.emailLogs.start}</Label>
           <Input
             type="date"
             value={dateFrom}
@@ -228,7 +226,7 @@ export default function EmailLogsPage() {
           />
         </div>
         <div>
-          <Label>Bitiş</Label>
+          <Label>{t.admin.emailLogs.end}</Label>
           <Input
             type="date"
             value={dateTo}
@@ -236,7 +234,7 @@ export default function EmailLogsPage() {
           />
         </div>
         <div className="min-w-48 flex-1">
-          <Label>Alıcı</Label>
+          <Label>{t.admin.emailLogs.recipient}</Label>
           <Input
             value={recipient}
             onChange={(e) => { setRecipient(e.target.value); setOffset(0); }}
@@ -249,7 +247,7 @@ export default function EmailLogsPage() {
             checked={onlyErrors}
             onChange={(e) => { setOnlyErrors(e.target.checked); setOffset(0); }}
           />
-          Yalnızca hatalılar
+          {t.admin.emailLogs.onlyFailed}
         </label>
         <Button size="sm" variant="ghost" onClick={clearFilters}>
           Filtreleri temizle
@@ -261,16 +259,16 @@ export default function EmailLogsPage() {
           >
             <RefreshCcw className="mr-1 h-4 w-4" />
             {bulkResend.isPending
-              ? "Gönderiliyor…"
-              : `Toplu Tekrar Gönder (${selected.size})`}
+              ? t.admin.emailLogs.sending
+              : t.admin.emailLogs.bulkResend(selected.size)}
           </Button>
         )}
       </div>
 
       {data.items.length === 0 ? (
         <EmptyState
-          title="Kayıt yok"
-          description="Filtrelere uyan e-posta logu bulunamadı."
+          title={t.admin.emailLogs.emptyTitle}
+          description={t.admin.emailLogs.emptyDescription}
         />
       ) : (
         <Table>
@@ -295,13 +293,13 @@ export default function EmailLogsPage() {
                 </TH>
               )}
               <TH>Tarih</TH>
-              <TH>Alıcı</TH>
+              <TH>{t.admin.emailLogs.recipient}</TH>
               <TH>Konu</TH>
-              <TH>Şablon</TH>
+              <TH>{t.admin.emailLogs.template}</TH>
               <TH>Provider</TH>
               <TH>Durum</TH>
               <TH>Deneme</TH>
-              <TH className="text-right">İşlem</TH>
+              <TH className="text-right">{t.common.actions}</TH>
             </TR>
           </THead>
           <TBody>
@@ -371,7 +369,7 @@ export default function EmailLogsPage() {
                           disabled={singleResend.isPending}
                           onClick={() => void onSingleResend(log.id)}
                         >
-                          Tekrar Gönder
+                          {t.admin.emailLogs.resend}
                         </Button>
                       ) : (
                         <span className="text-[10px] text-muted-foreground">
@@ -388,9 +386,11 @@ export default function EmailLogsPage() {
 
       <div className="flex items-center justify-between text-sm text-muted-foreground">
         <span>
-          Toplam {data.total} kayıt — {offset + 1}
-          {"–"}
-          {Math.min(offset + 50, data.total)} gösteriliyor
+          {t.admin.emailLogs.pagination(
+            data.total,
+            offset + 1,
+            Math.min(offset + 50, data.total),
+          )}
         </span>
         <div className="flex gap-2">
           <Button
@@ -399,7 +399,7 @@ export default function EmailLogsPage() {
             disabled={offset === 0}
             onClick={() => setOffset(Math.max(0, offset - 50))}
           >
-            Önceki
+            {t.admin.emailLogs.previous}
           </Button>
           <Button
             size="sm"

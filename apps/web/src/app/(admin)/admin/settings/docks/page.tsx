@@ -33,6 +33,8 @@ import {
 } from "@/lib/api/resources";
 import type { DockDto, WorkingHours } from "@/lib/api/types";
 import { useSession } from "@/lib/auth/session";
+import { useApiErrorMessage } from "@/lib/i18n/api-error";
+import { useT } from "@/lib/i18n/provider";
 
 const formSchema = z.object({
   name: z.string().min(1, "Ad zorunlu"),
@@ -42,6 +44,8 @@ const formSchema = z.object({
 type FormValues = z.infer<typeof formSchema>;
 
 export default function DocksPage() {
+  const t = useT();
+  const errorMessage = useApiErrorMessage();
   const { activeFacilityId } = useSession();
   const list = docks.useList(activeFacilityId);
   const categories = productCategories.useList(activeFacilityId);
@@ -103,7 +107,7 @@ export default function DocksPage() {
     };
     try {
       await save.mutateAsync({ id: drawer.editing?.id, body });
-      showFlash("success", drawer.editing ? "Rampa güncellendi." : "Rampa oluşturuldu.");
+      showFlash("success", drawer.editing ? t.admin.docks.updated : t.admin.docks.created);
       setDrawer({ open: false, editing: null });
     } catch (err) {
       setFormError(err instanceof ApiError ? err.message : "Kaydedilemedi");
@@ -114,9 +118,9 @@ export default function DocksPage() {
     if (!confirmTarget) return;
     try {
       await deactivate.mutateAsync(confirmTarget.id);
-      showFlash("success", `"${confirmTarget.name}" pasifleştirildi.`);
+      showFlash("success", t.admin.config.deactivated(confirmTarget.name));
     } catch (err) {
-      showFlash("error", err instanceof ApiError ? err.message : "İşlem başarısız");
+      showFlash("error", errorMessage(err, t.admin.config.actionFailed));
     } finally {
       setConfirmTarget(null);
     }
@@ -139,7 +143,7 @@ export default function DocksPage() {
   return (
     <ConfigPageShell
       title="Rampalar"
-      description="Kabul edilen ürün/araç kategorileri, çalışma saatleri ve çakışma grubu üyelikleri müsaitlik hesabını doğrudan belirler."
+      description={t.admin.docks.pageDescription}
       createLabel="Yeni Rampa"
       onCreate={openCreate}
       search={search}
@@ -151,12 +155,12 @@ export default function DocksPage() {
       {list.isLoading ? (
         <LoadingState />
       ) : list.isError ? (
-        <ErrorState message="Rampalar yüklenemedi." onRetry={() => list.refetch()} />
+        <ErrorState message={t.admin.docks.loadError} onRetry={() => list.refetch()} />
       ) : rows.length === 0 ? (
         <EmptyState
           title="Rampa yok"
-          description="Tedarikçi manuel rampa seçmez; sistem uygun rampayı burada tanımladığınız kısıtlara göre atar."
-          actionLabel="İlk rampayı oluştur"
+          description={t.admin.docks.emptyDescription}
+          actionLabel={t.admin.docks.emptyAction}
           onAction={openCreate}
         />
       ) : (
@@ -164,12 +168,12 @@ export default function DocksPage() {
           <THead>
             <TR>
               <TH>Rampa</TH>
-              <TH>Ürün Kategorileri</TH>
-              <TH>Araç Kategorileri</TH>
-              <TH>Çalışma Saatleri</TH>
-              <TH>Çakışma Grubu</TH>
+              <TH>{t.admin.docks.colProductCategories}</TH>
+              <TH>{t.admin.docks.colVehicleCategories}</TH>
+              <TH>{t.admin.docks.colWorkingHours}</TH>
+              <TH>{t.admin.docks.colConflictGroup}</TH>
               <TH>Durum</TH>
-              <TH className="text-right">İşlem</TH>
+              <TH className="text-right">{t.common.actions}</TH>
             </TR>
           </THead>
           <TBody>
@@ -184,7 +188,7 @@ export default function DocksPage() {
                 <TD>
                   <div className="flex max-w-56 flex-wrap gap-1">
                     {row.accepted_product_category_ids.length === 0 ? (
-                      <Badge className="bg-muted text-muted-foreground">Tümü</Badge>
+                      <Badge className="bg-muted text-muted-foreground">{t.common.all}</Badge>
                     ) : (
                       row.accepted_product_category_ids.map((id) => (
                         <Badge key={id} className="bg-primary/10 text-primary">
@@ -197,7 +201,7 @@ export default function DocksPage() {
                 <TD>
                   <div className="flex max-w-56 flex-wrap gap-1">
                     {row.accepted_vehicle_category_ids.length === 0 ? (
-                      <Badge className="bg-muted text-muted-foreground">Tüm araçlar</Badge>
+                      <Badge className="bg-muted text-muted-foreground">{t.admin.docks.allVehicles}</Badge>
                     ) : (
                       row.accepted_vehicle_category_ids.map((id) => (
                         <Badge key={id} className="bg-accent/15 text-accent-foreground">
@@ -227,11 +231,11 @@ export default function DocksPage() {
                 <TD className="text-right">
                   <div className="flex justify-end gap-1">
                     <Button size="sm" variant="secondary" onClick={() => openEdit(row)}>
-                      Düzenle
+                      {t.common.edit}
                     </Button>
                     {row.is_active && (
                       <Button size="sm" variant="ghost" onClick={() => setConfirmTarget(row)}>
-                        Pasifleştir
+                        {t.admin.config.deactivate}
                       </Button>
                     )}
                   </div>
@@ -245,14 +249,14 @@ export default function DocksPage() {
       <Drawer
         open={drawer.open}
         onClose={() => setDrawer({ open: false, editing: null })}
-        title={drawer.editing ? "Rampayı Düzenle" : "Yeni Rampa"}
-        description="Bu ayarlar randevu uygunluğunu ve akıllı rampa atamasını etkiler."
+        title={drawer.editing ? t.admin.docks.editTitle : t.admin.docks.createTitle}
+        description={t.admin.docks.drawerHint}
       >
         <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-5">
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label>Ad</Label>
-              <Input {...form.register("name")} placeholder="Örn. Rampa 4" />
+              <Input {...form.register("name")} placeholder={t.admin.docks.namePlaceholder} />
               {form.formState.errors.name && (
                 <p className="mt-1 text-xs text-destructive">
                   {form.formState.errors.name.message}
@@ -261,31 +265,31 @@ export default function DocksPage() {
             </div>
             <div>
               <Label>Not</Label>
-              <Input {...form.register("note")} placeholder="Örn. TIR uyumlu" />
+              <Input {...form.register("note")} placeholder={t.admin.docks.notePlaceholder} />
             </div>
           </div>
 
           <div>
-            <Label>Kabul Edilen Ürün Kategorileri</Label>
+            <Label>{t.admin.docks.acceptedProducts}</Label>
             <MultiSelectField
               options={(categories.data ?? [])
                 .filter((c) => c.is_active)
                 .map((c) => ({ value: c.id, label: c.display_name }))}
               value={acceptedProducts}
               onChange={setAcceptedProducts}
-              searchPlaceholder="Ürün kategorisi ara…"
+              searchPlaceholder={t.admin.docks.productSearch}
             />
           </div>
 
           <div>
-            <Label>Kabul Edilen Araç Kategorileri</Label>
+            <Label>{t.admin.docks.acceptedVehicles}</Label>
             <MultiSelectField
               options={(vehicles.data ?? [])
                 .filter((v) => v.is_active)
                 .map((v) => ({ value: v.id, label: v.display_name }))}
               value={acceptedVehicles}
               onChange={setAcceptedVehicles}
-              searchPlaceholder="Araç kategorisi ara…"
+              searchPlaceholder={t.admin.docks.vehicleSearch}
             />
           </div>
 
@@ -293,20 +297,20 @@ export default function DocksPage() {
             <Switch
               checked={customHours}
               onChange={setCustomHours}
-              label="Özel çalışma saatleri tanımla"
+              label={t.admin.docks.customHours}
             />
             {customHours ? (
               <WorkingHoursEditor value={hours} onChange={setHours} />
             ) : (
               <p className="text-xs text-muted-foreground">
-                Varsayılan çalışma profili uygulanır.
+                {t.admin.docks.defaultHours}
               </p>
             )}
           </div>
 
           <Switch checked={editActive} onChange={setEditActive} label="Aktif" />
           <p className="text-xs text-muted-foreground">
-            Pasif rampa müsaitlik ve akıllı atamada aday olmaz; geçmiş randevular korunur.
+            {t.admin.docks.inactiveHint}
           </p>
 
           {formError && <p className="text-sm text-destructive">{formError}</p>}
@@ -316,7 +320,7 @@ export default function DocksPage() {
               variant="secondary"
               onClick={() => setDrawer({ open: false, editing: null })}
             >
-              İptal
+              {t.common.cancel}
             </Button>
             <Button type="submit" disabled={save.isPending}>
               {save.isPending ? "Kaydediliyor…" : "Kaydet"}
@@ -327,8 +331,8 @@ export default function DocksPage() {
 
       <ConfirmDialog
         open={confirmTarget !== null}
-        title="Rampayı pasifleştir"
-        message={`"${confirmTarget?.name}" pasifleştirilecek. Yeni randevularda aday olmaz; mevcut randevu geçmişi bozulmaz.`}
+        title={t.admin.docks.deactivateTitle}
+        message={t.admin.docks.deactivateMessage(confirmTarget?.name ?? "")}
         loading={deactivate.isPending}
         onConfirm={onDeactivate}
         onClose={() => setConfirmTarget(null)}
