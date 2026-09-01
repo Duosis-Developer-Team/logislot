@@ -23,28 +23,22 @@ import { ApiError } from "@/lib/api/client";
 import { conflictGroups, docks, vehicleCategories } from "@/lib/api/resources";
 import type { ConflictGroupDto, ConflictRelationType } from "@/lib/api/types";
 import { useSession } from "@/lib/auth/session";
+import { useApiErrorMessage } from "@/lib/i18n/api-error";
+import type { Dictionary } from "@/lib/i18n/dictionaries/tr";
+import { useT } from "@/lib/i18n/provider";
 
-const TYPE_LABELS: Record<ConflictRelationType, string> = {
-  mutual_block: "Karşılıklı Bloke",
-  shared_capacity: "Paylaşımlı Kapasite",
-  conditional: "Koşullu",
-};
 
-const TYPE_HELP: Record<ConflictRelationType, string> = {
-  mutual_block: "Üye rampalardan biri doluyken diğerleri de bloke olur.",
-  shared_capacity:
-    "Rampalar tek fiziksel kapasiteyi paylaşır. (İlk sürümde karşılıklı bloke gibi davranır.)",
-  conditional: "Yalnızca seçtiğiniz araç kategorileri geldiğinde grup devreye girer.",
-};
 
 const formSchema = z.object({
-  name: z.string().min(1, "Ad zorunlu"),
+  name: z.string().min(1, "displayNameRequired"),
   relation_type: z.enum(["mutual_block", "shared_capacity", "conditional"]),
 });
 
 type FormValues = z.infer<typeof formSchema>;
 
 export default function ConflictGroupsPage() {
+  const t = useT();
+  const errorMessage = useApiErrorMessage();
   const { activeFacilityId } = useSession();
   const list = conflictGroups.useList(activeFacilityId);
   const dockList = docks.useList(activeFacilityId);
@@ -80,7 +74,9 @@ export default function ConflictGroupsPage() {
   function triggerSummary(group: ConflictGroupDto): string {
     const ids = group.trigger_condition_json?.vehicle_category_ids ?? [];
     if (group.relation_type !== "conditional" || ids.length === 0) return "Her zaman";
-    return `${ids.map(vehicleName).join(" veya ")} geldiğinde`;
+    return t.admin.conflictGroups.triggerWhen(
+      ids.map(vehicleName).join(t.admin.conflictGroups.or),
+    );
   }
 
   function openCreate() {
@@ -104,11 +100,11 @@ export default function ConflictGroupsPage() {
   async function onSubmit(values: FormValues) {
     setFormError(null);
     if (memberIds.length < 2) {
-      setFormError("Çakışma grubu en az 2 rampa içermeli.");
+      setFormError(t.admin.conflictGroups.needsTwoDocks);
       return;
     }
     if (values.relation_type === "conditional" && triggerVehicleIds.length === 0) {
-      setFormError("Koşullu grup için en az bir tetikleyici araç kategorisi seçin.");
+      setFormError(t.admin.conflictGroups.needsTrigger);
       return;
     }
     const body = {
@@ -123,7 +119,10 @@ export default function ConflictGroupsPage() {
     };
     try {
       await save.mutateAsync({ id: drawer.editing?.id, body });
-      showFlash("success", drawer.editing ? "Grup güncellendi." : "Grup oluşturuldu.");
+      showFlash(
+        "success",
+        drawer.editing ? t.admin.conflictGroups.updated : t.admin.conflictGroups.created,
+      );
       setDrawer({ open: false, editing: null });
     } catch (err) {
       setFormError(err instanceof ApiError ? err.message : "Kaydedilemedi");
@@ -134,9 +133,9 @@ export default function ConflictGroupsPage() {
     if (!confirmTarget) return;
     try {
       await deactivate.mutateAsync(confirmTarget.id);
-      showFlash("success", `"${confirmTarget.name}" pasifleştirildi.`);
+      showFlash("success", t.admin.config.deactivated(confirmTarget.name));
     } catch (err) {
-      showFlash("error", err instanceof ApiError ? err.message : "İşlem başarısız");
+      showFlash("error", errorMessage(err, t.admin.config.actionFailed));
     } finally {
       setConfirmTarget(null);
     }
@@ -146,8 +145,8 @@ export default function ConflictGroupsPage() {
 
   return (
     <ConfigPageShell
-      title="Rampa Çakışma Grupları"
-      description="Fiziksel rampa ilişkileri koda değil konfigürasyona yazılır. Aktif gruplar müsaitlik hesabında kardeş rampaları da kontrol eder."
+      title={t.admin.conflictGroups.title}
+      description={t.admin.conflictGroups.pageDescription}
       createLabel="Yeni Grup"
       onCreate={openCreate}
       search={search}
@@ -159,12 +158,12 @@ export default function ConflictGroupsPage() {
       {list.isLoading ? (
         <LoadingState />
       ) : list.isError ? (
-        <ErrorState message="Gruplar yüklenemedi." onRetry={() => list.refetch()} />
+        <ErrorState message={t.admin.conflictGroups.loadError} onRetry={() => list.refetch()} />
       ) : rows.length === 0 ? (
         <EmptyState
-          title="Çakışma grubu yok"
-          description='Örnek: "Rampa 1-2 bitişik; TIR yanaştığında ikisi birden bloke olur" senaryosu burada bir koşullu grupla tanımlanır.'
-          actionLabel="İlk grubu oluştur"
+          title={t.admin.conflictGroups.emptyTitle}
+          description={t.admin.conflictGroups.emptyDescription}
+          actionLabel={t.admin.conflictGroups.emptyAction}
           onAction={openCreate}
         />
       ) : (
@@ -173,10 +172,10 @@ export default function ConflictGroupsPage() {
             <TR>
               <TH>Grup</TH>
               <TH>Tip</TH>
-              <TH>Üye Rampalar</TH>
-              <TH>Tetik Koşulu</TH>
+              <TH>{t.admin.conflictGroups.colDocks}</TH>
+              <TH>{t.admin.conflictGroups.colTrigger}</TH>
               <TH>Durum</TH>
-              <TH className="text-right">İşlem</TH>
+              <TH className="text-right">{t.common.actions}</TH>
             </TR>
           </THead>
           <TBody>
@@ -185,7 +184,7 @@ export default function ConflictGroupsPage() {
                 <TD className="font-medium">{row.name}</TD>
                 <TD>
                   <Badge className="bg-primary/10 text-primary">
-                    {TYPE_LABELS[row.relation_type]}
+                    {t.admin.conflictGroups.types[row.relation_type]}
                   </Badge>
                 </TD>
                 <TD>
@@ -204,11 +203,11 @@ export default function ConflictGroupsPage() {
                 <TD className="text-right">
                   <div className="flex justify-end gap-1">
                     <Button size="sm" variant="secondary" onClick={() => openEdit(row)}>
-                      Düzenle
+                      {t.common.edit}
                     </Button>
                     {row.is_active && (
                       <Button size="sm" variant="ghost" onClick={() => setConfirmTarget(row)}>
-                        Pasifleştir
+                        {t.admin.config.deactivate}
                       </Button>
                     )}
                   </div>
@@ -222,13 +221,13 @@ export default function ConflictGroupsPage() {
       <Drawer
         open={drawer.open}
         onClose={() => setDrawer({ open: false, editing: null })}
-        title={drawer.editing ? "Grubu Düzenle" : "Yeni Çakışma Grubu"}
-        description="Bu ayar randevu uygunluğunu etkiler: grup üyesi rampalardan biri dolunca diğerleri de değerlendirilir."
+        title={drawer.editing ? t.admin.conflictGroups.editTitle : t.admin.conflictGroups.createTitle}
+        description={t.admin.conflictGroups.drawerHint}
       >
         <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-5">
           <div>
-            <Label>Grup Adı</Label>
-            <Input {...form.register("name")} placeholder='Örn. "Rampa 1-2 Bitişik Blok"' />
+            <Label>{t.admin.conflictGroups.groupName}</Label>
+            <Input {...form.register("name")} placeholder={t.admin.conflictGroups.groupNamePlaceholder} />
             {form.formState.errors.name && (
               <p className="mt-1 text-xs text-destructive">
                 {form.formState.errors.name.message}
@@ -237,19 +236,21 @@ export default function ConflictGroupsPage() {
           </div>
 
           <div>
-            <Label>İlişki Tipi</Label>
+            <Label>{t.admin.conflictGroups.relationType}</Label>
             <Select {...form.register("relation_type")}>
-              {(Object.keys(TYPE_LABELS) as ConflictRelationType[]).map((t) => (
-                <option key={t} value={t}>
-                  {TYPE_LABELS[t]}
+              {(
+                Object.keys(t.admin.conflictGroups.types) as ConflictRelationType[]
+              ).map((type) => (
+                <option key={type} value={type}>
+                  {t.admin.conflictGroups.types[type]}
                 </option>
               ))}
             </Select>
-            <p className="mt-1 text-xs text-muted-foreground">{TYPE_HELP[relationType]}</p>
+            <p className="mt-1 text-xs text-muted-foreground">{t.admin.conflictGroups.typeHints[relationType]}</p>
           </div>
 
           <div>
-            <Label>Üye Rampalar (en az 2)</Label>
+            <Label>{t.admin.conflictGroups.memberDocks}</Label>
             <MultiSelectField
               options={(dockList.data ?? [])
                 .filter((d) => d.is_active)
@@ -262,19 +263,20 @@ export default function ConflictGroupsPage() {
 
           {relationType === "conditional" && (
             <div>
-              <Label>Tetikleyici Araç Kategorileri</Label>
+              <Label>{t.admin.conflictGroups.triggerVehicles}</Label>
               <MultiSelectField
                 options={(vehicles.data ?? [])
                   .filter((v) => v.is_active)
                   .map((v) => ({ value: v.id, label: v.display_name }))}
                 value={triggerVehicleIds}
                 onChange={setTriggerVehicleIds}
-                searchPlaceholder="Araç kategorisi ara…"
+                searchPlaceholder={t.admin.conflictGroups.vehicleSearch}
               />
               {triggerVehicleIds.length > 0 && (
                 <p className="mt-2 rounded-md bg-primary/5 px-3 py-2 text-xs text-primary">
-                  {triggerVehicleIds.map(vehicleName).join(" veya ")} geldiğinde bu grup
-                  devreye girer; diğer araçlarda rampalar bağımsız çalışır.
+                  {t.admin.conflictGroups.triggerExplain(
+                    triggerVehicleIds.map(vehicleName).join(t.admin.conflictGroups.or),
+                  )}
                 </p>
               )}
             </div>
@@ -288,7 +290,7 @@ export default function ConflictGroupsPage() {
               onClick={() => setShowJson(!showJson)}
               className="text-xs text-muted-foreground underline"
             >
-              {showJson ? "Teknik görünümü gizle" : "Teknik görünüm (JSON)"}
+              {showJson ? t.admin.conflictGroups.hideJson : t.admin.conflictGroups.showJson}
             </button>
             {showJson && (
               <pre className="mt-2 overflow-x-auto rounded-lg bg-muted p-3 text-xs">
@@ -315,7 +317,7 @@ export default function ConflictGroupsPage() {
               variant="secondary"
               onClick={() => setDrawer({ open: false, editing: null })}
             >
-              İptal
+              {t.common.cancel}
             </Button>
             <Button type="submit" disabled={save.isPending}>
               {save.isPending ? "Kaydediliyor…" : "Kaydet"}
@@ -326,8 +328,8 @@ export default function ConflictGroupsPage() {
 
       <ConfirmDialog
         open={confirmTarget !== null}
-        title="Grubu pasifleştir"
-        message={`"${confirmTarget?.name}" pasifleştirilecek. Grup, müsaitlik hesabında artık dikkate alınmaz.`}
+        title={t.admin.conflictGroups.deactivateTitle}
+        message={t.admin.conflictGroups.deactivateMessage(confirmTarget?.name ?? "")}
         loading={deactivate.isPending}
         onConfirm={onDeactivate}
         onClose={() => setConfirmTarget(null)}

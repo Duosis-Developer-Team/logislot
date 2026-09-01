@@ -67,6 +67,123 @@ export const en: Dictionary = {
   },
 
   admin: {
+    config: {
+      displayNameRequired: "displayNameRequired",
+      numberRequired: "numberRequired",
+      mustBePositive: "mustBePositive",
+      maxBelowMin: "maxBelowMin",
+      messages: {
+        displayNameRequired: "A display name is required",
+        numberRequired: "Enter a number",
+        mustBePositive: "Must be positive",
+        maxBelowMin: "The maximum can't be lower than the minimum",
+      },
+      actionFailed: "That didn't work",
+      deactivate: "Deactivate",
+      deactivated: (name: string) => `"${name}" has been deactivated.`,
+      displayName: "Display name",
+      description: "Description",
+    },
+    categories: {
+      updated: "Category updated.",
+      created: "Category created.",
+      title: "Product categories",
+      pageDescription:
+        "The handling-time range and default vehicle class directly affect slot availability.",
+      loadError: "We couldn't load the categories.",
+      emptyTitle: "No categories found",
+      emptyDescription:
+        "Suppliers can only book slots for categories defined here and approved for them.",
+      emptyAction: "Create the first category",
+      colDuration: "Handling time",
+      colDefaultVehicle: "Default vehicle",
+      editTitle: "Edit category",
+      createTitle: "New product category",
+      drawerHint: "These settings are applied when an appointment is booked.",
+      namePlaceholder: "e.g. Chilled",
+      supplierFacingName: "Name shown to suppliers",
+      minDuration: "Min. handling time (min)",
+      minDurationHint: "Extra time such as quality checks is included in this minimum.",
+      maxDuration: "Max. handling time (min)",
+      unlimited: "Unlimited",
+      maxDurationHint: "If left blank, no upper limit is applied.",
+      intersectionLead:
+        "The durations offered when booking are limited to this range. If the supplier's own card also sets a limit, the",
+      intersectionStrong: "overlap",
+      intersectionTail: "of the two ranges applies.",
+      defaultVehicle: "Default vehicle class",
+      notSelected: "— Not selected —",
+      defaultVehicleHint: "The vehicle step in the wizard is pre-filled with this value.",
+      deactivateTitle: "Deactivate category",
+      deactivateMessage: (name: string) =>
+        `"${name}" will be deactivated. Past appointments are unaffected, but suppliers can no longer book for this category.`,
+    },
+    vehicleCategories: {
+      updated: "Vehicle class updated.",
+      created: "Vehicle class created.",
+      title: "Vehicle classes",
+      pageDescription:
+        "Vehicle class is a first-class entity: dock compatibility and conflict-group triggers depend on it.",
+      create: "New vehicle class",
+      loadError: "We couldn't load the vehicle classes.",
+      emptyTitle: "No vehicle classes",
+      emptyDescription:
+        "Define types such as semi-trailer, van or refrigerated; docks then decide which vehicles they accept.",
+      emptyAction: "Create the first class",
+      editTitle: "Edit vehicle class",
+      namePlaceholder: "e.g. Refrigerated semi-trailer",
+      descriptionPlaceholder: 'e.g. "long chassis, needs reversing space"',
+      descriptionHint: "Informational only — it doesn't create a hard rule.",
+      deactivateTitle: "Deactivate vehicle class",
+      deactivateMessage: (name: string) =>
+        `"${name}" will be deactivated. Dock compatibilities and triggers tied to it stop applying.`,
+    },
+    conflictGroups: {
+      types: {
+        mutual_block: "Mutual block",
+        shared_capacity: "Shared capacity",
+        conditional: "Conditional",
+      },
+      typeHints: {
+        mutual_block: "While one member dock is busy, the others are blocked too.",
+        shared_capacity:
+          "The docks share one physical capacity. (In this first release it behaves like a mutual block.)",
+        conditional: "The group only applies when the vehicle classes you pick arrive.",
+      },
+      triggerWhen: (vehicles: string) => `when ${vehicles} arrives`,
+      needsTwoDocks: "A conflict group must contain at least two docks.",
+      needsTrigger: "Pick at least one triggering vehicle class for a conditional group.",
+      updated: "Group updated.",
+      created: "Group created.",
+      title: "Dock conflict groups",
+      pageDescription:
+        "Physical dock relationships live in configuration, not in code. Active groups directly affect availability.",
+      loadError: "We couldn't load the groups.",
+      emptyTitle: "No conflict groups",
+      emptyDescription:
+        'For example: "Docks 1 and 2 are adjacent — when a semi-trailer pulls in, both are blocked."',
+      emptyAction: "Create the first group",
+      colDocks: "Member docks",
+      colTrigger: "Trigger condition",
+      editTitle: "Edit group",
+      createTitle: "New conflict group",
+      drawerHint:
+        "This affects slot availability: when one member dock is taken, the others are blocked too.",
+      groupName: "Group name",
+      groupNamePlaceholder: 'e.g. "Docks 1-2 adjacent block"',
+      relationType: "Relationship type",
+      memberDocks: "Member docks (at least 2)",
+      triggerVehicles: "Triggering vehicle classes",
+      vehicleSearch: "Search vehicle classes…",
+      triggerExplain: (vehicles: string) =>
+        `The group applies when ${vehicles} arrives; for other vehicles the docks work independently.`,
+      hideJson: "Hide technical view",
+      showJson: "Technical view (JSON)",
+      deactivateTitle: "Deactivate group",
+      deactivateMessage: (name: string) =>
+        `"${name}" will be deactivated and no longer counted in availability.`,
+      or: " or ",
+    },
     calendar: {
       weekOf: (label: string) => `Week of ${label}`,
       viewDay: "Day",

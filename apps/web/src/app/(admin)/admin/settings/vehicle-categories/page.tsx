@@ -21,17 +21,30 @@ import { ApiError } from "@/lib/api/client";
 import { vehicleCategories } from "@/lib/api/resources";
 import type { VehicleCategoryDto } from "@/lib/api/types";
 import { useSession } from "@/lib/auth/session";
+import { useApiErrorMessage } from "@/lib/i18n/api-error";
+import type { Dictionary } from "@/lib/i18n/dictionaries/tr";
+import { useT } from "@/lib/i18n/provider";
 
 const formSchema = z.object({
   name: z.string().min(1, "Ad zorunlu"),
-  display_name: z.string().min(1, "Görünen ad zorunlu"),
+  display_name: z.string().min(1, "displayNameRequired"),
   description: z.string().optional(),
   physical_note: z.string().optional(),
 });
 
 type FormValues = z.infer<typeof formSchema>;
 
+
+/** Zod semasi modul seviyesinde tanimlanir ve hook cagiramaz; mesaj olarak
+ *  ANAHTAR uretilir ve ekranda sozlukten cevrilir. */
+function fieldError(t: Dictionary, message: string | undefined): string | undefined {
+  if (!message) return undefined;
+  return (t.admin.config.messages as Record<string, string>)[message] ?? message;
+}
+
 export default function VehicleCategoriesPage() {
+  const t = useT();
+  const errorMessage = useApiErrorMessage();
   const { activeFacilityId } = useSession();
   const list = vehicleCategories.useList(activeFacilityId);
   const save = vehicleCategories.useSave(activeFacilityId);
@@ -81,7 +94,9 @@ export default function VehicleCategoriesPage() {
       await save.mutateAsync({ id: drawer.editing?.id, body });
       showFlash(
         "success",
-        drawer.editing ? "Araç kategorisi güncellendi." : "Araç kategorisi oluşturuldu.",
+        drawer.editing
+          ? t.admin.vehicleCategories.updated
+          : t.admin.vehicleCategories.created,
       );
       setDrawer({ open: false, editing: null });
     } catch (err) {
@@ -93,9 +108,9 @@ export default function VehicleCategoriesPage() {
     if (!confirmTarget) return;
     try {
       await deactivate.mutateAsync(confirmTarget.id);
-      showFlash("success", `"${confirmTarget.display_name}" pasifleştirildi.`);
+      showFlash("success", t.admin.config.deactivated(confirmTarget.display_name));
     } catch (err) {
-      showFlash("error", err instanceof ApiError ? err.message : "İşlem başarısız");
+      showFlash("error", errorMessage(err, t.admin.config.actionFailed));
     } finally {
       setConfirmTarget(null);
     }
@@ -110,9 +125,9 @@ export default function VehicleCategoriesPage() {
 
   return (
     <ConfigPageShell
-      title="Araç Kategorileri"
-      description="Araç kategorisi birinci sınıf varlıktır: rampa uyumluluğu ve çakışma grubu tetikleri buna bağlanır."
-      createLabel="Yeni Araç Kategorisi"
+      title={t.admin.vehicleCategories.title}
+      description={t.admin.vehicleCategories.pageDescription}
+      createLabel={t.admin.vehicleCategories.create}
       onCreate={openCreate}
       search={search}
       onSearchChange={setSearch}
@@ -123,12 +138,12 @@ export default function VehicleCategoriesPage() {
       {list.isLoading ? (
         <LoadingState />
       ) : list.isError ? (
-        <ErrorState message="Araç kategorileri yüklenemedi." onRetry={() => list.refetch()} />
+        <ErrorState message={t.admin.vehicleCategories.loadError} onRetry={() => list.refetch()} />
       ) : rows.length === 0 ? (
         <EmptyState
-          title="Araç kategorisi yok"
-          description="TIR, Kamyonet, Frigorifik gibi tipler tanımlayın; rampalar hangi araçları kabul edeceğini bunlara göre bilir."
-          actionLabel="İlk kategoriyi oluştur"
+          title={t.admin.vehicleCategories.emptyTitle}
+          description={t.admin.vehicleCategories.emptyDescription}
+          actionLabel={t.admin.vehicleCategories.emptyAction}
           onAction={openCreate}
         />
       ) : (
@@ -136,10 +151,10 @@ export default function VehicleCategoriesPage() {
           <THead>
             <TR>
               <TH>Ad</TH>
-              <TH>Görünen Ad</TH>
+              <TH>{t.admin.config.displayName}</TH>
               <TH>Fiziksel Not</TH>
               <TH>Durum</TH>
-              <TH className="text-right">İşlem</TH>
+              <TH className="text-right">{t.common.actions}</TH>
             </TR>
           </THead>
           <TBody>
@@ -156,11 +171,11 @@ export default function VehicleCategoriesPage() {
                 <TD className="text-right">
                   <div className="flex justify-end gap-1">
                     <Button size="sm" variant="secondary" onClick={() => openEdit(row)}>
-                      Düzenle
+                      {t.common.edit}
                     </Button>
                     {row.is_active && (
                       <Button size="sm" variant="ghost" onClick={() => setConfirmTarget(row)}>
-                        Pasifleştir
+                        {t.admin.config.deactivate}
                       </Button>
                     )}
                   </div>
@@ -174,39 +189,41 @@ export default function VehicleCategoriesPage() {
       <Drawer
         open={drawer.open}
         onClose={() => setDrawer({ open: false, editing: null })}
-        title={drawer.editing ? "Araç Kategorisini Düzenle" : "Yeni Araç Kategorisi"}
+        title={
+          drawer.editing ? t.admin.vehicleCategories.editTitle : t.admin.vehicleCategories.create
+        }
       >
         <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-4">
           <div>
             <Label>Ad</Label>
-            <Input {...form.register("name")} placeholder="Örn. Frigorifik TIR" />
+            <Input {...form.register("name")} placeholder={t.admin.vehicleCategories.namePlaceholder} />
             {form.formState.errors.name && (
               <p className="mt-1 text-xs text-destructive">
-                {form.formState.errors.name.message}
+                {fieldError(t, form.formState.errors.name.message)}
               </p>
             )}
           </div>
           <div>
-            <Label>Görünen Ad</Label>
+            <Label>{t.admin.config.displayName}</Label>
             <Input {...form.register("display_name")} />
             {form.formState.errors.display_name && (
               <p className="mt-1 text-xs text-destructive">
-                {form.formState.errors.display_name.message}
+                {fieldError(t, form.formState.errors.display_name.message)}
               </p>
             )}
           </div>
           <div>
-            <Label>Açıklama</Label>
+            <Label>{t.admin.config.description}</Label>
             <Input {...form.register("description")} placeholder="Opsiyonel" />
           </div>
           <div>
             <Label>Fiziksel Not</Label>
             <Input
               {...form.register("physical_note")}
-              placeholder='Örn. "uzun şasi, geri manevra alanı gerekir"'
+              placeholder={t.admin.vehicleCategories.descriptionPlaceholder}
             />
             <p className="mt-1 text-xs text-muted-foreground">
-              Bilgilendiricidir; zorlayıcı kural üretmez.
+              {t.admin.vehicleCategories.descriptionHint}
             </p>
           </div>
           {drawer.editing && (
@@ -219,7 +236,7 @@ export default function VehicleCategoriesPage() {
               variant="secondary"
               onClick={() => setDrawer({ open: false, editing: null })}
             >
-              İptal
+              {t.common.cancel}
             </Button>
             <Button type="submit" disabled={save.isPending}>
               {save.isPending ? "Kaydediliyor…" : "Kaydet"}
@@ -230,8 +247,8 @@ export default function VehicleCategoriesPage() {
 
       <ConfirmDialog
         open={confirmTarget !== null}
-        title="Araç kategorisini pasifleştir"
-        message={`"${confirmTarget?.display_name}" pasifleştirilecek. Bu kategoriye bağlı rampa uyumlulukları ve varsayılanlar yeni randevularda kullanılmaz.`}
+        title={t.admin.vehicleCategories.deactivateTitle}
+        message={t.admin.vehicleCategories.deactivateMessage(confirmTarget?.display_name ?? "")}
         loading={deactivate.isPending}
         onConfirm={onDeactivate}
         onClose={() => setConfirmTarget(null)}

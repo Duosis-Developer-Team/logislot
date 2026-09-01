@@ -63,6 +63,125 @@ export const tr = {
   },
 
   admin: {
+    config: {
+      displayNameRequired: "displayNameRequired",
+      numberRequired: "numberRequired",
+      mustBePositive: "mustBePositive",
+      maxBelowMin: "maxBelowMin",
+      messages: {
+        displayNameRequired: "Görünen ad zorunlu",
+        numberRequired: "Sayı girin",
+        mustBePositive: "Pozitif olmalı",
+        maxBelowMin: "Maksimum, minimumdan küçük olamaz",
+      },
+      actionFailed: "İşlem başarısız",
+      deactivate: "Pasifleştir",
+      deactivated: (name: string) => `"${name}" pasifleştirildi.`,
+      displayName: "Görünen Ad",
+      description: "Açıklama",
+    },
+    categories: {
+      updated: "Kategori güncellendi.",
+      created: "Kategori oluşturuldu.",
+      title: "Ürün Kategorileri",
+      pageDescription:
+        "Blokaj süresi aralığı ve varsayılan araç kategorisi randevu uygunluğunu doğrudan etkiler.",
+      loadError: "Kategoriler yüklenemedi.",
+      emptyTitle: "Kategori bulunamadı",
+      emptyDescription:
+        "Tedarikçiler yalnızca burada tanımlı ve kendilerine izinli kategorilerden randevu oluşturabilir.",
+      emptyAction: "İlk kategoriyi oluştur",
+      colDuration: "Blokaj Süresi",
+      colDefaultVehicle: "Varsayılan Araç",
+      editTitle: "Kategoriyi Düzenle",
+      createTitle: "Yeni Ürün Kategorisi",
+      drawerHint: "Bu ayarlar randevu oluşturma anında uygulanır.",
+      namePlaceholder: "Örn. Soğuk Zincir",
+      supplierFacingName: "Tedarikçiye Görünen Ad",
+      minDuration: "Min. Blokaj Süresi (dk)",
+      minDurationHint: "Kalite kontrol gibi ek süreler bu minimuma dahildir.",
+      maxDuration: "Maks. Blokaj Süresi (dk)",
+      unlimited: "Sınırsız",
+      maxDurationHint: "Boş bırakılırsa üst sınır uygulanmaz.",
+      intersectionLead:
+        "Randevu oluştururken seçilebilen süreler bu aralıkla sınırlanır. Tedarikçi kartında ayrıca bir limit tanımlıysa, iki aralığın",
+      intersectionStrong: "kesişimi",
+      intersectionTail: "uygulanır.",
+      defaultVehicle: "Varsayılan Araç Kategorisi",
+      notSelected: "— Seçilmedi —",
+      defaultVehicleHint: "Sihirbazda araç adımı bu değerle önceden doldurulur.",
+      deactivateTitle: "Kategoriyi pasifleştir",
+      deactivateMessage: (name: string) =>
+        `"${name}" pasifleştirilecek. Geçmiş randevular etkilenmez; tedarikçiler artık bu kategoriden randevu oluşturamaz.`,
+    },
+    vehicleCategories: {
+      updated: "Araç kategorisi güncellendi.",
+      created: "Araç kategorisi oluşturuldu.",
+      title: "Araç Kategorileri",
+      pageDescription:
+        "Araç kategorisi birinci sınıf varlıktır: rampa uyumluluğu ve çakışma grubu tetikleyicileri buna bağlıdır.",
+      create: "Yeni Araç Kategorisi",
+      loadError: "Araç kategorileri yüklenemedi.",
+      emptyTitle: "Araç kategorisi yok",
+      emptyDescription:
+        "TIR, Kamyonet, Frigorifik gibi tipler tanımlayın; rampalar hangi araçları kabul edeceğini buna göre belirler.",
+      emptyAction: "İlk kategoriyi oluştur",
+      editTitle: "Araç Kategorisini Düzenle",
+      namePlaceholder: "Örn. Frigorifik TIR",
+      descriptionPlaceholder: 'Örn. "uzun şasi, geri manevra alanı gerekir"',
+      descriptionHint: "Bilgilendiricidir; zorlayıcı kural üretmez.",
+      deactivateTitle: "Araç kategorisini pasifleştir",
+      deactivateMessage: (name: string) =>
+        `"${name}" pasifleştirilecek. Bu kategoriye bağlı rampa uyumlulukları ve tetikleyiciler devre dışı kalır.`,
+    },
+    conflictGroups: {
+      types: {
+        mutual_block: "Karşılıklı Bloke",
+        shared_capacity: "Paylaşımlı Kapasite",
+        conditional: "Koşullu",
+      },
+      typeHints: {
+        mutual_block: "Üye rampalardan biri doluyken diğerleri de bloke olur.",
+        shared_capacity:
+          "Rampalar tek fiziksel kapasiteyi paylaşır. (İlk sürümde karşılıklı bloke gibi davranır.)",
+        conditional:
+          "Yalnızca seçtiğiniz araç kategorileri geldiğinde grup devreye girer.",
+      },
+      triggerWhen: (vehicles: string) => `${vehicles} geldiğinde`,
+      needsTwoDocks: "Çakışma grubu en az 2 rampa içermeli.",
+      needsTrigger:
+        "Koşullu grup için en az bir tetikleyici araç kategorisi seçin.",
+      updated: "Grup güncellendi.",
+      created: "Grup oluşturuldu.",
+      title: "Rampa Çakışma Grupları",
+      pageDescription:
+        "Fiziksel rampa ilişkileri koda değil konfigürasyona yazılır. Aktif gruplar müsaitliği doğrudan etkiler.",
+      loadError: "Gruplar yüklenemedi.",
+      emptyTitle: "Çakışma grubu yok",
+      emptyDescription:
+        'Örnek: "Rampa 1-2 bitişik; TIR yanaştığında ikisi birden bloke olur" senaryosunu burada tanımlarsınız.',
+      emptyAction: "İlk grubu oluştur",
+      colDocks: "Üye Rampalar",
+      colTrigger: "Tetik Koşulu",
+      editTitle: "Grubu Düzenle",
+      createTitle: "Yeni Çakışma Grubu",
+      drawerHint:
+        "Bu ayar randevu uygunluğunu etkiler: grup üyesi rampalardan biri dolunca diğerleri de bloke olur.",
+      groupName: "Grup Adı",
+      groupNamePlaceholder: 'Örn. "Rampa 1-2 Bitişik Blok"',
+      relationType: "İlişki Tipi",
+      memberDocks: "Üye Rampalar (en az 2)",
+      triggerVehicles: "Tetikleyici Araç Kategorileri",
+      vehicleSearch: "Araç kategorisi ara…",
+      triggerExplain: (vehicles: string) =>
+        `${vehicles} geldiğinde bu grup devreye girer; diğer araçlarda rampalar bağımsız çalışır.`,
+      hideJson: "Teknik görünümü gizle",
+      showJson: "Teknik görünüm (JSON)",
+      deactivateTitle: "Grubu pasifleştir",
+      deactivateMessage: (name: string) =>
+        `"${name}" pasifleştirilecek. Grup, müsaitlik hesabında artık dikkate alınmaz.`,
+      or: " veya ",
+    },
     calendar: {
       weekOf: (label: string) => `${label} haftası`,
       viewDay: "Günlük",
