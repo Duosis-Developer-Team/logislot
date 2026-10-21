@@ -46,6 +46,7 @@ ACTION_LABELS = {
     "branding.reset": "Marka varsayılana sıfırlandı",
     "notification_preferences.update": "Bildirim tercihleri güncellendi",
     "supplier_notification_policy.update": "Tedarikçi bildirim politikası güncellendi",
+    "supplier_cancellation_policy.update": "Tedarikçi iptal kuralları güncellendi",
     "auth.login": "Giriş yapıldı",
     "auth.login_failed": "Başarısız giriş denemesi",
     "auth.logout": "Çıkış yapıldı",

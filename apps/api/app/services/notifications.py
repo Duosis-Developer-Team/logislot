@@ -10,6 +10,7 @@ REVISE hem tedarikciye hem ilgili ekibe gider (v1.0 saha davranisi).
 """
 
 import uuid
+from datetime import date
 from typing import Any
 from zoneinfo import ZoneInfo
 
@@ -321,6 +322,7 @@ async def on_lifecycle_action(
     new_start: str | None = None,
     old_dock_name: str | None = None,
     new_dock_name: str | None = None,
+    alternative_date: date | None = None,
 ) -> None:
     """approve/reject/revise/dock_change/complete/cancel bildirim + e-postalari."""
     when = await _facility_when(db, appointment)
@@ -422,12 +424,27 @@ async def on_lifecycle_action(
         )
     elif action == "cancel":
         if by_supplier:
+            # Musteri talebi (2026-10): tesis sebebi ve tedarikcinin onerdigi
+            # alternatif gonderim tarihini bildirimden gorup planlayabilsin.
+            body = f"{when} randevusu iptal edildi."
+            if reason:
+                body += f" Sebep: {reason}."
+            if alternative_date:
+                body += (
+                    f" Alternatif gönderim tarihi: {alternative_date.strftime('%d.%m.%Y')}."
+                )
             await notify_admins(
                 db, appointment,
                 type_="appointment_cancelled", severity="warning",
                 title="Randevu tedarikçi tarafından iptal edildi",
-                body=f"{when} randevusu iptal edildi.",
-                extra={"reason": reason},
+                body=body,
+                extra={
+                    "reason": reason,
+                    "reason_code": appointment.cancellation_reason_code,
+                    "alternative_date": (
+                        alternative_date.isoformat() if alternative_date else None
+                    ),
+                },
             )
         else:
             await notify_supplier(

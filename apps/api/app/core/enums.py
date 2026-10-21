@@ -106,6 +106,23 @@ class RecurringRule(StrEnum):
     monthly = "monthly"
 
 
+class SupplierCancellationReason(StrEnum):
+    """Tedarikcinin randevu iptalinde secebilecegi sabit sebep listesi.
+
+    Liste bilerek sabittir (musteri talebi 2026-10, Cakes&Bakes): kodlar iki
+    dilde cevrilir ve raporlanabilir. `other` secilirse aciklama ZORUNLUDUR.
+    Kolon varchar oldugu icin yeni deger eklemek migration gerektirmez.
+    """
+
+    product_not_ready = "product_not_ready"  # Urun / stok hazir degil
+    vehicle_issue = "vehicle_issue"  # Arac / nakliye sorunu
+    driver_unavailable = "driver_unavailable"  # Surucu bulunamadi
+    order_changed = "order_changed"  # Siparis iptal edildi / degisti
+    weather_road = "weather_road"  # Hava / yol kosullari
+    booked_by_mistake = "booked_by_mistake"  # Randevu yanlislikla olusturuldu
+    other = "other"  # Diger (aciklama zorunlu)
+
+
 class DatastoreStatus(StrEnum):
     """Bir tenant'in kendi veri alaninin yasam dongusu."""
 

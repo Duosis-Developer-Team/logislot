@@ -4,7 +4,13 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from app.core.enums import CargoWindow, DeliveryType, QuantityUnit, RecurringRule
+from app.core.enums import (
+    CargoWindow,
+    DeliveryType,
+    QuantityUnit,
+    RecurringRule,
+    SupplierCancellationReason,
+)
 
 
 class RecurringRequest(BaseModel):
@@ -47,6 +53,8 @@ class AppointmentOut(BaseModel):
     status: str
     rejection_reason: str | None = None
     cancellation_reason: str | None = None
+    cancellation_reason_code: str | None = None
+    cancellation_alternative_date: date | None = None
     completion_note: str | None = None
     revision_note: str | None = None
     original_start_at: datetime | None = None
@@ -138,6 +146,16 @@ class CompleteRequest(BaseModel):
 
 class CancelRequest(BaseModel):
     reason: str | None = None
+
+
+class SupplierCancelRequest(BaseModel):
+    """Tedarikci iptali. Hangi alanin zorunlu oldugunu TESIS POLITIKASI
+    belirler (services/cancellation_policy.py); burada yalnizca bicim
+    dogrulanir. `reason` serbest aciklamadir ('Diger' secilince zorunlu)."""
+
+    reason_code: SupplierCancellationReason | None = None
+    reason: str | None = Field(default=None, max_length=500)
+    alternative_date: date | None = None
 
 
 class AvailabilityRequest(BaseModel):

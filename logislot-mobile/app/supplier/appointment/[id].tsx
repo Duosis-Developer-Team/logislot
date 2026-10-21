@@ -2,17 +2,25 @@ import { router, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
 import { Alert, Text, View } from "react-native";
 import { ApiError } from "@/api/client";
-import { QUANTITY_UNIT_LABELS, type QuantityUnit } from "@/api/shared";
+import {
+  QUANTITY_UNIT_LABELS,
+  cancellationReasonText,
+  type QuantityUnit,
+} from "@/api/shared";
 import {
   useCancelSupplierAppointment,
   useSupplierAppointmentDetail,
   useSupplierProfile,
+  type SupplierCancelBody,
 } from "@/api/supplier";
 import { CargoBadge, StatusBadge } from "@/components/appointment";
+import { SupplierCancelModal } from "@/components/supplier-cancel";
 import { Button, Card, ErrorState, LoadingState, Screen } from "@/components/ui";
 import { useTheme } from "@/theme/theme";
 import { spacing } from "@/theme/tokens";
 import { formatDate, timeInTz } from "@/utils/format";
+
+const HOUR_MS = 3600_000;
 
 /** Tedarikçi randevu detayı + iptal (web kart aksiyonlarının ekran karşılığı). */
 export default function SupplierAppointmentDetail() {
@@ -23,6 +31,8 @@ export default function SupplierAppointmentDetail() {
   const cancel = useCancelSupplierAppointment();
   // Ekran acilis ani — gecmis/gelecek ayrimi icin tek seferlik referans.
   const [now] = useState(() => Date.now());
+  const [cancelOpen, setCancelOpen] = useState(false);
+  const [cancelError, setCancelError] = useState<string | null>(null);
 
   if (detail.isLoading) return <Screen scroll={false}><LoadingState /></Screen>;
   if (detail.isError || !detail.data)
@@ -34,31 +44,31 @@ export default function SupplierAppointmentDetail() {
 
   const a = detail.data;
   const tz = profile.data?.facility.timezone ?? "Europe/Istanbul";
-  const canCancel =
-    ["pending", "approved"].includes(a.status) &&
-    new Date(a.scheduled_start_at).getTime() > now;
+  const policy = profile.data?.cancellation_policy;
+  const startMs = new Date(a.scheduled_start_at).getTime();
+  const cancellableStatus = ["pending", "approved"].includes(a.status) && startMs > now;
+  // Tesisin iptal kurali: randevuya bu sureden az kalinca portaldan iptal kapanir.
+  const deadlineMs = policy?.min_notice_hours
+    ? startMs - policy.min_notice_hours * HOUR_MS
+    : null;
+  const windowClosed = deadlineMs !== null && deadlineMs < now;
+  // Kural profille gelir; yüklenmeden form eksik alanla açılmasın.
+  const canCancel = cancellableStatus && !windowClosed && profile.isSuccess;
 
-  function confirmCancel() {
-    Alert.alert(
-      "Randevuyu iptal et",
-      `"${a.product_name}" randevusu iptal edilecek. Bu işlem geri alınamaz.`,
-      [
-        { text: "Vazgeç", style: "cancel" },
-        {
-          text: "İptal Et",
-          style: "destructive",
-          onPress: () => {
-            cancel.mutate(a.id, {
-              onSuccess: () => router.back(),
-              onError: (err) =>
-                Alert.alert(
-                  "İptal edilemedi",
-                  err instanceof ApiError ? err.message : "Bir hata oluştu.",
-                ),
-            });
-          },
+  function submitCancel(body: SupplierCancelBody) {
+    setCancelError(null);
+    cancel.mutate(
+      { id: a.id, ...body },
+      {
+        onSuccess: () => {
+          setCancelOpen(false);
+          Alert.alert("Randevu iptal edildi", "Tesise bildirim gönderildi.");
+          router.back();
         },
-      ],
+        // Form açık kalır: kullanıcı seçimini kaybetmeden düzeltebilsin.
+        onError: (err) =>
+          setCancelError(err instanceof ApiError ? err.message : "Bir hata oluştu."),
+      },
     );
   }
 
@@ -111,19 +121,59 @@ export default function SupplierAppointmentDetail() {
             text={`Tesis yeni saat önerdi: ${formatDate(a.original_start_at)} ${timeInTz(a.original_start_at, tz)} → ${formatDate(a.scheduled_start_at)} ${timeInTz(a.scheduled_start_at, tz)}${a.revision_note ? `\nNot: ${a.revision_note}` : ""}`}
           />
         )}
-        {a.status === "cancelled" && a.cancellation_reason && (
-          <NoteBox color={colors.status.cancelled} text={`İptal sebebi: ${a.cancellation_reason}`} />
-        )}
-
-        {canCancel && (
-          <Button
-            title="Randevuyu İptal Et"
-            variant="destructive"
-            loading={cancel.isPending}
-            onPress={confirmCancel}
+        {a.status === "cancelled" && (a.cancellation_reason_code || a.cancellation_reason) && (
+          <NoteBox
+            color={colors.status.cancelled}
+            text={`İptal sebebi: ${cancellationReasonText(a.cancellation_reason_code, a.cancellation_reason)}${
+              a.cancellation_alternative_date
+                ? `\nAlternatif gönderim tarihi: ${formatDate(`${a.cancellation_alternative_date}T12:00:00`)}`
+                : ""
+            }`}
           />
         )}
+
+        {cancellableStatus && windowClosed && (
+          <NoteBox
+            color={colors.mutedText}
+            text={`Randevuya ${policy!.min_notice_hours} saatten az kaldığı için portaldan iptal edilemez. Değişiklik için tesisle iletişime geçin.`}
+          />
+        )}
+        {canCancel && (
+          <View style={{ gap: 6 }}>
+            <Button
+              title="Randevuyu İptal Et"
+              variant="destructive"
+              loading={cancel.isPending}
+              onPress={() => {
+                setCancelError(null);
+                setCancelOpen(true);
+              }}
+            />
+            {deadlineMs !== null && (
+              <Text style={{ color: colors.mutedText, fontSize: 12, textAlign: "center" }}>
+                İptal için son: {formatDate(new Date(deadlineMs).toISOString())}{" "}
+                {timeInTz(new Date(deadlineMs).toISOString(), tz)}
+              </Text>
+            )}
+          </View>
+        )}
       </View>
+
+      <SupplierCancelModal
+        visible={cancelOpen}
+        onClose={() => setCancelOpen(false)}
+        title="Randevuyu iptal et"
+        intro={
+          <Text style={{ color: colors.mutedText, fontSize: 13 }}>
+            {`"${a.product_name}" randevusu iptal edilecek. Bu işlem geri alınamaz.`}
+          </Text>
+        }
+        policy={policy}
+        confirmLabel="İptal Et"
+        pending={cancel.isPending}
+        error={cancelError}
+        onSubmit={submitCancel}
+      />
     </Screen>
   );
 }

@@ -65,12 +65,20 @@ export function useCreateSupplierAppointment() {
   });
 }
 
+/** Tedarikci iptal govdesi; hangi alanin zorunlu oldugunu tesis kurali belirler. */
+export interface SupplierCancelBody {
+  reason_code?: string;
+  reason?: string;
+  alternative_date?: string;
+}
+
 export function useCancelSupplierAppointment() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) =>
+    mutationFn: ({ id, ...body }: SupplierCancelBody & { id: string }) =>
       apiRequest<AppointmentDto>(`/supplier/appointments/${id}/cancel`, {
         method: "POST",
+        body,
       }),
     onSuccess: () =>
       queryClient.invalidateQueries({ queryKey: ["supplier", "appointments"] }),
@@ -109,14 +117,15 @@ export function useSupplierSeriesDetail(seriesId: string | null) {
   });
 }
 
-/** Tedarikci kendi serisinin GELECEK randevularini iptal eder (sebep zorunlu). */
+/** Tedarikci kendi serisinin GELECEK randevularini iptal eder (sebep zorunlu).
+ *  Tesisin bildirim suresi icindeki tekrarlar iptal edilmez, aktif kalir. */
 export function useSupplierSeriesCancel() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ seriesId, reason }: { seriesId: string; reason: string }) =>
-      apiRequest<{ affected_count: number }>(
+    mutationFn: ({ seriesId, ...body }: SupplierCancelBody & { seriesId: string }) =>
+      apiRequest<{ affected_count: number; kept_within_notice_count: number }>(
         `/supplier/appointment-series/${seriesId}/cancel`,
-        { method: "POST", body: { reason } },
+        { method: "POST", body },
       ),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["supplier"] });

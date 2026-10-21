@@ -2,6 +2,9 @@
  * Tedarikçi "Tekrarlayan Randevular" bölümü — web
  * components/domain/supplier-series-section.tsx karşılığı.
  * Seri kartları + occurrence detayı + GÜÇLÜ onaylı gelecek-iptal (sebep zorunlu).
+ *
+ * Seri iptali tesisin iptal kuralına tekil iptalle AYNEN tabidir (sebep,
+ * alternatif tarih, bildirim süresi); süre içindeki tekrarlar aktif kalır.
  */
 
 import { Ionicons } from "@expo/vector-icons";
@@ -10,12 +13,15 @@ import { Alert, Text, View } from "react-native";
 import { ApiError } from "@/api/client";
 import { APPOINTMENT_STATUS_LABELS, type AppointmentStatus } from "@/api/shared";
 import {
+  useSupplierProfile,
   useSupplierSeries,
   useSupplierSeriesCancel,
   useSupplierSeriesDetail,
+  type SupplierCancelBody,
 } from "@/api/supplier";
 import type { SupplierSeriesRowDto } from "@/api/types";
-import { AppModal, Badge, Button, Card, Field } from "@/components/ui";
+import { SupplierCancelModal } from "@/components/supplier-cancel";
+import { AppModal, Badge, Button, Card } from "@/components/ui";
 import { useTheme } from "@/theme/theme";
 import { spacing } from "@/theme/tokens";
 
@@ -27,31 +33,29 @@ const FREQUENCY_LABELS: Record<string, string> = {
 
 export function SupplierSeriesSection() {
   const { colors } = useTheme();
+  const profile = useSupplierProfile();
   const list = useSupplierSeries();
   const cancel = useSupplierSeriesCancel();
   const [detailId, setDetailId] = useState<string | null>(null);
   const detail = useSupplierSeriesDetail(detailId);
   const [cancelTarget, setCancelTarget] = useState<SupplierSeriesRowDto | null>(null);
-  const [reason, setReason] = useState("");
   const [cancelError, setCancelError] = useState<string | null>(null);
+  const policy = profile.data?.cancellation_policy;
 
   const rows = list.data ?? [];
   if (list.isLoading || rows.length === 0) return null;
 
-  async function onCancel() {
+  async function onCancel(body: SupplierCancelBody) {
     if (!cancelTarget) return;
     setCancelError(null);
-    if (reason.trim().length < 3) {
-      setCancelError("İptal sebebi zorunludur (en az 3 karakter).");
-      return;
-    }
     try {
-      const result = await cancel.mutateAsync({ seriesId: cancelTarget.id, reason });
+      const result = await cancel.mutateAsync({ seriesId: cancelTarget.id, ...body });
       setCancelTarget(null);
-      setReason("");
       Alert.alert(
         "Seri iptal edildi",
-        `Serinin gelecekteki ${result.affected_count} randevusu iptal edildi; tesise bildirim gönderildi.`,
+        result.kept_within_notice_count > 0
+          ? `Serinin gelecekteki ${result.affected_count} randevusu iptal edildi. İptal süresi geçtiği için ${result.kept_within_notice_count} randevu aktif kaldı; onlar için tesisle iletişime geçin.`
+          : `Serinin gelecekteki ${result.affected_count} randevusu iptal edildi; tesise bildirim gönderildi.`,
       );
     } catch (err) {
       setCancelError(err instanceof ApiError ? err.message : "İptal edilemedi");
@@ -124,12 +128,11 @@ export function SupplierSeriesSection() {
               onPress={() => setDetailId(row.id)}
               style={{ flex: 1, height: 40 }}
             />
-            {row.can_cancel_series && (
+            {row.can_cancel_series && profile.isSuccess && (
               <Button
                 title="Seriyi İptal Et"
                 variant="ghost"
                 onPress={() => {
-                  setReason("");
                   setCancelError(null);
                   setCancelTarget(row);
                 }}
@@ -201,57 +204,50 @@ export function SupplierSeriesSection() {
       </AppModal>
 
       {/* Güçlü onaylı iptal */}
-      <AppModal
+      <SupplierCancelModal
         visible={cancelTarget !== null}
         onClose={() => setCancelTarget(null)}
         title="Seriyi iptal et"
-      >
-        {cancelTarget && (
-          <View style={{ gap: spacing.md }}>
-            <View
-              style={{
-                borderWidth: 1,
-                borderColor: `${colors.status.cancelled}66`,
-                backgroundColor: `${colors.status.cancelled}15`,
-                borderRadius: 12,
-                padding: spacing.md,
-              }}
-            >
-              <Text style={{ color: colors.status.cancelled, fontSize: 13 }}>
-                Bu işlem gelecekteki{" "}
-                <Text style={{ fontWeight: "700" }}>
-                  {cancelTarget.future_cancellable_count} randevuyu
-                </Text>{" "}
-                iptal eder ve geri alınamaz. Tamamlanan randevular etkilenmez.
-              </Text>
+        intro={
+          cancelTarget && (
+            <View style={{ gap: spacing.sm }}>
+              <View
+                style={{
+                  borderWidth: 1,
+                  borderColor: `${colors.status.cancelled}66`,
+                  backgroundColor: `${colors.status.cancelled}15`,
+                  borderRadius: 12,
+                  padding: spacing.md,
+                }}
+              >
+                <Text style={{ color: colors.status.cancelled, fontSize: 13 }}>
+                  Bu işlem gelecekteki{" "}
+                  <Text style={{ fontWeight: "700" }}>
+                    {cancelTarget.future_cancellable_count} randevuyu
+                  </Text>{" "}
+                  iptal eder ve geri alınamaz. Tamamlanan randevular etkilenmez.
+                </Text>
+              </View>
+              {policy && policy.min_notice_hours > 0 && (
+                <Text style={{ color: colors.mutedText, fontSize: 12 }}>
+                  Randevuya {policy.min_notice_hours} saatten az kalan tekrarlar iptal edilmez
+                  ve aktif kalır.
+                </Text>
+              )}
             </View>
-            <Field
-              label="İptal Sebebi (zorunlu)"
-              value={reason}
-              onChangeText={setReason}
-              placeholder="Örn. Üretim planı değişti"
-            />
-            {cancelError && (
-              <Text style={{ color: colors.destructive, fontSize: 13 }}>{cancelError}</Text>
-            )}
-            <View style={{ flexDirection: "row", gap: spacing.sm }}>
-              <Button
-                title="Vazgeç"
-                variant="secondary"
-                onPress={() => setCancelTarget(null)}
-                style={{ flex: 1 }}
-              />
-              <Button
-                title={`${cancelTarget.future_cancellable_count} Randevuyu İptal Et`}
-                variant="destructive"
-                loading={cancel.isPending}
-                onPress={() => void onCancel()}
-                style={{ flex: 2 }}
-              />
-            </View>
-          </View>
-        )}
-      </AppModal>
+          )
+        }
+        policy={policy}
+        legacyReason={{
+          label: "İptal Sebebi (zorunlu)",
+          placeholder: "Örn. Üretim planı değişti",
+          minError: "İptal sebebi zorunludur (en az 3 karakter).",
+        }}
+        confirmLabel={`${cancelTarget?.future_cancellable_count ?? 0} Randevuyu İptal Et`}
+        pending={cancel.isPending}
+        error={cancelError}
+        onSubmit={(body) => void onCancel(body)}
+      />
     </View>
   );
 }

@@ -120,6 +120,13 @@ class Facility(Base, UUIDPkMixin, TimestampMixin):
     supplier_notification_policy_json: Mapped[dict[str, Any] | None] = mapped_column(
         JsonVariant
     )
+    # Tedarikcinin randevu iptal kurallari — YONETIM belirler. None = kural
+    # yok (sebep/tarih istenmez, baslangica kadar iptal serbest).
+    # Sekil: {"require_reason": bool, "require_alternative_date": bool,
+    #         "min_notice_hours": int}  (bkz. services/cancellation_policy.py)
+    supplier_cancellation_policy_json: Mapped[dict[str, Any] | None] = mapped_column(
+        JsonVariant
+    )
 
     tenant: Mapped[Tenant] = relationship(back_populates="facilities")
     plan_override: Mapped[Plan | None] = relationship()

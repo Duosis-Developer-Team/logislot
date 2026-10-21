@@ -307,7 +307,7 @@ async def cancel_appointment_series(
     Rampa yoneticisi yalnizca TUM etkilenen occurrence'lar kendi
     scope'undaysa iptal edebilir (all-or-nothing yetki karari).
     """
-    series, affected = await svc.cancel_appointment_series(
+    series, affected, _ = await svc.cancel_appointment_series(
         db,
         facility=ctx.facility,
         series_id=series_id,

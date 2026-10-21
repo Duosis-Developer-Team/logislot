@@ -6,6 +6,7 @@ import {
   DELIVERY_TYPE_LABELS_BY_LOCALE,
   QUANTITY_UNIT_LABELS_BY_LOCALE,
   SLOT_STATUS_LABELS_BY_LOCALE,
+  SUPPLIER_CANCELLATION_REASON_LABELS_BY_LOCALE,
   TICKET_CATEGORY_HINTS_BY_LOCALE,
   TICKET_CATEGORY_LABELS_BY_LOCALE,
   TICKET_DELIVERY_STATUS_LABELS_BY_LOCALE,
@@ -45,5 +46,16 @@ export function useLabels() {
       category,
     ticketImpactLabel: (impact: string) =>
       (TICKET_IMPACT_LABELS_BY_LOCALE[locale] as Record<string, string>)[impact] ?? impact,
+    supplierCancellationReason: SUPPLIER_CANCELLATION_REASON_LABELS_BY_LOCALE[locale],
+    /** "Arac / nakliye sorunu — aciklama"; kod yoksa (yonetim iptali) yalnizca metin. */
+    cancellationReasonText: (code: string | null | undefined, note: string | null | undefined) => {
+      const label = code
+        ? ((SUPPLIER_CANCELLATION_REASON_LABELS_BY_LOCALE[locale] as Record<string, string>)[
+            code
+          ] ?? code)
+        : null;
+      if (label && note) return `${label} — ${note}`;
+      return label ?? note ?? null;
+    },
   };
 }

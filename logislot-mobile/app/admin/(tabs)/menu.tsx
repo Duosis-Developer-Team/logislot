@@ -89,6 +89,12 @@ const CONFIG_ENTRIES: MenuEntry[] = [
     permission: "supplier.manage",
   },
   {
+    title: "Tedarikçi İptal Kuralları",
+    icon: "close-circle-outline",
+    route: "/admin/settings/supplier-cancellation",
+    permission: "supplier.manage",
+  },
+  {
     title: "Kullanıcılar & Roller",
     icon: "shield-checkmark-outline",
     route: "/admin/settings/users",

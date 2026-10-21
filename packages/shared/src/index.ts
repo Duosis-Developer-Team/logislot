@@ -47,6 +47,31 @@ export const QUANTITY_UNIT_LABELS: Record<QuantityUnit, string> = {
   carton: "Koli",
 };
 
+/** Tedarikcinin randevu iptalinde secebilecegi sabit sebepler. Backend
+ *  `SupplierCancellationReason` ile birebir; dizi sirasi ekrandaki siradir.
+ *  `other` secilirse aciklama zorunludur. */
+export const SUPPLIER_CANCELLATION_REASONS = [
+  "product_not_ready",
+  "vehicle_issue",
+  "driver_unavailable",
+  "order_changed",
+  "weather_road",
+  "booked_by_mistake",
+  "other",
+] as const;
+
+export type SupplierCancellationReason = (typeof SUPPLIER_CANCELLATION_REASONS)[number];
+
+export const SUPPLIER_CANCELLATION_REASON_LABELS: Record<SupplierCancellationReason, string> = {
+  product_not_ready: "Ürün / stok hazır değil",
+  vehicle_issue: "Araç / nakliye sorunu",
+  driver_unavailable: "Sürücü bulunamadı",
+  order_changed: "Sipariş iptal edildi / değişti",
+  weather_road: "Hava / yol koşulları",
+  booked_by_mistake: "Randevu yanlışlıkla oluşturuldu",
+  other: "Diğer",
+};
+
 export type SlotStatus = "available" | "partial" | "full";
 
 export const SLOT_STATUS_LABELS: Record<SlotStatus, string> = {
@@ -376,5 +401,18 @@ export const TICKET_STATUS_GROUP_LABELS_BY_LOCALE = byLocale(
     in_progress: "In progress",
     waiting_customer: "Waiting on you",
     closed: "Resolved / closed",
+  },
+);
+
+export const SUPPLIER_CANCELLATION_REASON_LABELS_BY_LOCALE = byLocale(
+  SUPPLIER_CANCELLATION_REASON_LABELS,
+  {
+    product_not_ready: "Goods / stock not ready",
+    vehicle_issue: "Vehicle / transport problem",
+    driver_unavailable: "No driver available",
+    order_changed: "Order cancelled / changed",
+    weather_road: "Weather / road conditions",
+    booked_by_mistake: "Appointment booked by mistake",
+    other: "Other",
   },
 );

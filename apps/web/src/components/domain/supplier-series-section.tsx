@@ -3,23 +3,28 @@
 /**
  * Tedarikci portali "Tekrarlayan Randevular" bolumu (Sprint 12).
  * Seri kartlari + occurrence detayi + GUCLU onayli gelecek-iptal.
+ *
+ * Seri iptali tesisin iptal kuralina tekil iptalle AYNEN tabidir (sebep,
+ * alternatif tarih, bildirim suresi); sure icindeki tekrarlar aktif kalir.
  */
 
 import { Repeat } from "lucide-react";
 import { useState } from "react";
 import { StatusBadge } from "@/components/domain/status-badge";
+import { SupplierCancelDialog } from "@/components/domain/supplier-cancel-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog } from "@/components/ui/dialog";
-import { Input, Label } from "@/components/ui/input";
-import { ApiError } from "@/lib/api/client";
 import {
+  useSupplierProfile,
   useSupplierSeries,
   useSupplierSeriesCancel,
   useSupplierSeriesDetail,
+  type SupplierCancelBody,
   type SupplierSeriesRowDto,
 } from "@/lib/api/supplier";
+import { useApiErrorMessage } from "@/lib/i18n/api-error";
 import { useLabels } from "@/lib/i18n/labels";
 import { useFormat, useT } from "@/lib/i18n/provider";
 
@@ -32,34 +37,33 @@ export function SupplierSeriesSection({
   const copy = t.tickets.series;
   const fmt = useFormat();
   const labels = useLabels();
+  const errorMessage = useApiErrorMessage();
+  const profile = useSupplierProfile();
   const list = useSupplierSeries();
   const cancel = useSupplierSeriesCancel();
   const [detailId, setDetailId] = useState<string | null>(null);
   const detail = useSupplierSeriesDetail(detailId);
   const [cancelTarget, setCancelTarget] = useState<SupplierSeriesRowDto | null>(null);
-  const [reason, setReason] = useState("");
   const [cancelError, setCancelError] = useState<string | null>(null);
+  const policy = profile.data?.cancellation_policy;
 
   const rows = list.data ?? [];
   if (list.isLoading || rows.length === 0) return null;
 
-  async function onCancel() {
+  async function onCancel(body: SupplierCancelBody) {
     if (!cancelTarget) return;
     setCancelError(null);
-    if (reason.trim().length < 3) {
-      setCancelError(copy.cancelReasonMin);
-      return;
-    }
     try {
-      const result = await cancel.mutateAsync({ seriesId: cancelTarget.id, reason });
+      const result = await cancel.mutateAsync({ seriesId: cancelTarget.id, ...body });
       onFlash(
         "success",
-        copy.cancelledWithNotice(result.affected_count),
+        result.kept_within_notice_count > 0
+          ? copy.cancelledKept(result.affected_count, result.kept_within_notice_count)
+          : copy.cancelledWithNotice(result.affected_count),
       );
       setCancelTarget(null);
-      setReason("");
     } catch (err) {
-      setCancelError(err instanceof ApiError ? err.message : copy.cancelFailed);
+      setCancelError(errorMessage(err, copy.cancelFailed));
     }
   }
 
@@ -112,13 +116,12 @@ export function SupplierSeriesSection({
                 <Button size="sm" variant="secondary" onClick={() => setDetailId(row.id)}>
                   {t.common.detail}
                 </Button>
-                {row.can_cancel_series && (
+                {row.can_cancel_series && profile.isSuccess && (
                   <Button
                     size="sm"
                     variant="ghost"
                     className="text-destructive"
                     onClick={() => {
-                      setReason("");
                       setCancelError(null);
                       setCancelTarget(row);
                     }}
@@ -169,44 +172,39 @@ export function SupplierSeriesSection({
       </Dialog>
 
       {/* Guclu onayli iptal */}
-      <Dialog
+      <SupplierCancelDialog
         open={cancelTarget !== null}
         onClose={() => setCancelTarget(null)}
         title={copy.cancelTitle}
-      >
-        {cancelTarget && (
-          <div className="flex flex-col gap-3">
-            <p className="rounded-lg border border-status-cancelled/40 bg-status-cancelled/10 px-3 py-2 text-sm text-status-cancelled">
-              {copy.cancelWarningLead}{" "}
-              <strong>{copy.cancelWarningStrong(cancelTarget.future_cancellable_count)}</strong>{" "}
-              {copy.cancelWarningTail}
-            </p>
-            <div>
-              <Label>{copy.cancelReasonRequiredLabel}</Label>
-              <Input
-                value={reason}
-                onChange={(e) => setReason(e.target.value)}
-                placeholder={copy.cancelReasonHint}
-              />
+        intro={
+          cancelTarget && (
+            <div className="flex flex-col gap-2">
+              <p className="rounded-lg border border-status-cancelled/40 bg-status-cancelled/10 px-3 py-2 text-status-cancelled">
+                {copy.cancelWarningLead}{" "}
+                <strong>{copy.cancelWarningStrong(cancelTarget.future_cancellable_count)}</strong>{" "}
+                {copy.cancelWarningTail}
+              </p>
+              {policy && policy.min_notice_hours > 0 && (
+                <p className="text-xs">{copy.noticeWarning(policy.min_notice_hours)}</p>
+              )}
             </div>
-            {cancelError && <p className="text-sm text-destructive">{cancelError}</p>}
-            <div className="flex justify-end gap-2">
-              <Button variant="secondary" onClick={() => setCancelTarget(null)}>
-                {t.common.cancel}
-              </Button>
-              <Button
-                variant="destructive"
-                disabled={cancel.isPending}
-                onClick={() => void onCancel()}
-              >
-                {cancel.isPending
-                  ? copy.cancelling
-                  : copy.cancelCount(cancelTarget.future_cancellable_count)}
-              </Button>
-            </div>
-          </div>
-        )}
-      </Dialog>
+          )
+        }
+        policy={policy}
+        legacyReason={{
+          label: copy.cancelReasonRequiredLabel,
+          placeholder: copy.cancelReasonHint,
+          minError: copy.cancelReasonMin,
+        }}
+        confirmLabel={
+          cancel.isPending
+            ? copy.cancelling
+            : copy.cancelCount(cancelTarget?.future_cancellable_count ?? 0)
+        }
+        pending={cancel.isPending}
+        error={cancelError}
+        onSubmit={(body) => void onCancel(body)}
+      />
     </div>
   );
 }

@@ -3,7 +3,7 @@
 Durumlar: ✅ tam · 🟡 kısmi · ❌ yok · — kapsam dışı
 Güncelleme kuralı: her feature sprint'inde bu matris güncellenir (bkz. WEB_MOBILE_PARITY.md).
 
-_Son güncelleme: 2026-09-01 (TR/EN dil desteği: landing + üç portal; mobil bilinçli olarak kapsam dışı)_
+_Son güncelleme: 2026-10-21 (tedarikçi iptal kuralları: sebep listesi + alternatif tarih + son iptal süresi)_
 
 | Feature | Backend | Web | Mobile | Status | Notes |
 |---|---|---|---|---|---|
@@ -19,9 +19,9 @@ _Son güncelleme: 2026-09-01 (TR/EN dil desteği: landing + üç portal; mobil b
 | Randevularım (liste + sayaçlar + yaklaşan/geçmiş) | ✅ | ✅ | ✅ | OK | Mobile: pull-to-refresh'li liste |
 | Yeni randevu sihirbazı (3 adım, gerçek müsaitlik) | ✅ | ✅ | ✅ | OK | Mobile: chip/slot dokunmatik UX |
 | Kargo teslimat talebi (pencere seçimi) | ✅ | ✅ | ✅ | OK | |
-| Randevu detay + iptal | ✅ | ✅ | ✅ | OK | |
+| Randevu detay + iptal | ✅ | ✅ | ✅ | OK | Tesis kuralı açıksa: sabit listeden sebep (Diğer → açıklama zorunlu) + alternatif gönderim tarihi; son iptal süresi dolunca buton yerine açıklama. Mobil tarih: gün çipleri (ilk 90 gün), web: takvim (365 gün) |
 | Tekrarlayan seri OLUŞTURMA | ✅ | ✅ | ✅ | OK | Sihirbazda sıklık + tekrar sayısı + tarih önizleme; hepsi-ya-hiç |
-| Seri görüntüleme / seri iptali | ✅ | ✅ | ✅ | OK | Seri kartları + occurrence detayı + sebep zorunlu gelecek-iptal |
+| Seri görüntüleme / seri iptali | ✅ | ✅ | ✅ | OK | Seri kartları + occurrence detayı + sebep zorunlu gelecek-iptal; tesis iptal kuralı tekil iptalle aynen uygulanır, süre içindeki tekrarlar aktif kalır |
 | Profil + bildirim tercihleri | ✅ | ✅ | ✅ | OK | Panel/e-posta tercihleri profil ekranında |
 | Bildirim zili + bildirim listesi | ✅ | ✅ | ✅ | OK | Mobile: tam ekran bildirim merkezi + unread rozeti |
 | **Yönetim (Admin)** |
@@ -36,6 +36,7 @@ _Son güncelleme: 2026-09-01 (TR/EN dil desteği: landing + üç portal; mobil b
 | Seri yönetimi (liste/toplu iptal/revize/onay) | ✅ | ✅ | ✅ | OK | future_only; occurrence detayından randevuya gidilir |
 | Config CRUD: kategoriler/araçlar/rampalar/çakışma/istisnalar | ✅ | ✅ | ✅ | OK | Rampa: çalışma saatleri editörü + çoklu kategori seçimi dahil |
 | Tedarikçi yönetimi + portal hesabı | ✅ | ✅ | ✅ | OK | CRUD + hesap oluştur/parola sıfırla/aktif-pasif |
+| Tedarikçi iptal kuralları (tesis ayarı) | ✅ | ✅ | ✅ | OK | Sebep zorunlu / alternatif tarih zorunlu / son iptal süresi (saat); varsayılan kapalı. Yönetim iptali kurala tabi değil. Randevu detayında sebep + alternatif tarih görünür |
 | Kullanıcılar & roller (RBAC) | ✅ | ✅ | ✅ | OK | Kullanıcı CRUD + parola reset + rol CRUD (izin grupları; sistem rolleri kilitli) |
 | Raporlar + CSV | ✅ | ✅ | ✅ | OK | Mobile: CSV Share sheet ile paylaşılır (özet + randevu detay) |
 | E-posta logları + resend | ✅ | ✅ | ✅ | OK | Filtre + sayfalama + tekil/toplu resend (toplu: user.manage) |

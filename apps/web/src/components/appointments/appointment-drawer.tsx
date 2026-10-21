@@ -40,7 +40,7 @@ import { useSession } from "@/lib/auth/session";
 import { formatDate, isoFromWallClock, timeInTz } from "@/lib/utils";
 import { useApiErrorMessage } from "@/lib/i18n/api-error";
 import { useLabels } from "@/lib/i18n/labels";
-import { useT } from "@/lib/i18n/provider";
+import { useFormat, useT } from "@/lib/i18n/provider";
 
 interface AppointmentDrawerProps {
   appointmentId: string | null;
@@ -56,6 +56,7 @@ export function AppointmentDrawer({
 }: AppointmentDrawerProps) {
   const t = useT();
   const labels = useLabels();
+  const fmt = useFormat();
   const errorMessage = useApiErrorMessage();
   const { activeFacilityId, activeFacility, can } = useSession();
   const detail = useAppointmentDetail(activeFacilityId, appointmentId);
@@ -331,10 +332,20 @@ export function AppointmentDrawer({
               {t.appointmentDrawer.rejectionReason} {a.rejection_reason}
             </p>
           )}
-          {a.cancellation_reason && (
-            <p className="rounded-lg bg-status-cancelled/10 px-3 py-2 text-sm text-status-cancelled">
-              {t.appointmentDrawer.cancellationReason} {a.cancellation_reason}
-            </p>
+          {(a.cancellation_reason || a.cancellation_reason_code) && (
+            <div className="rounded-lg bg-status-cancelled/10 px-3 py-2 text-sm text-status-cancelled">
+              <p>
+                {t.appointmentDrawer.cancellationReason}{" "}
+                {labels.cancellationReasonText(a.cancellation_reason_code, a.cancellation_reason)}
+              </p>
+              {a.cancellation_alternative_date && (
+                <p className="mt-0.5 font-medium">
+                  {t.appointmentDrawer.alternativeDate}{" "}
+                  {/* Yalnizca gun: oglen sabitlenir ki saat dilimi gunu kaydirmasin. */}
+                  {fmt.date(`${a.cancellation_alternative_date}T12:00:00`)}
+                </p>
+              )}
+            </div>
           )}
           {a.completion_note && (
             <p className="rounded-lg bg-status-completed/10 px-3 py-2 text-sm text-status-completed">

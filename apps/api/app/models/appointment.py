@@ -5,7 +5,7 @@ ve ayni statu yasam dongusunu kullanir.
 """
 
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 
 import sqlalchemy as sa
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -73,6 +73,12 @@ class Appointment(Base, UUIDPkMixin, TimestampMixin, FacilityScopedMixin):
     )
     rejection_reason: Mapped[str | None] = mapped_column(sa.Text)
     cancellation_reason: Mapped[str | None] = mapped_column(sa.Text)
+    # Tedarikci iptalinde secilen sabit sebep (SupplierCancellationReason) ve
+    # onerdigi alternatif gonderim tarihi. Yonetim iptalinde bos kalir; o
+    # durumda serbest metin `cancellation_reason`'dadir. Kod bilerek varchar:
+    # yeni sebep eklemek migration gerektirmesin.
+    cancellation_reason_code: Mapped[str | None] = mapped_column(sa.String(32))
+    cancellation_alternative_date: Mapped[date | None] = mapped_column(sa.Date)
     completion_note: Mapped[str | None] = mapped_column(sa.Text)
     revision_note: Mapped[str | None] = mapped_column(sa.Text)
     original_start_at: Mapped[datetime | None] = mapped_column(sa.DateTime(timezone=True))

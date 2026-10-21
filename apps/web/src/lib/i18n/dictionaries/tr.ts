@@ -331,6 +331,10 @@ export const tr = {
       cancelPlaceholder: "Örn. Planlarımız değişti",
       cancelling: "İptal ediliyor…",
       cancelCount: (count: number) => `${count} randevuyu iptal et`,
+      cancelledKept: (count: number, kept: number) =>
+        `Serinin gelecekteki ${count} randevusu iptal edildi. İptal süresi geçtiği için ${kept} randevu aktif kaldı; onlar için tesisle iletişime geçin.`,
+      noticeWarning: (hours: number) =>
+        `Randevuya ${hours} saatten az kalan tekrarlar iptal edilmez ve aktif kalır.`,
     },
   },
 
@@ -373,6 +377,20 @@ export const tr = {
       remove: "Kaldır",
       // Cip butonu secimi YALNIZCA kaldirir; "degistir" ne yapacagini soylemiyordu.
       toggle: (label: string) => `${label} seçimini kaldır`,
+    },
+    supplierCancelDialog: {
+      reasonLabel: "İptal sebebi",
+      reasonRequired: "Lütfen bir iptal sebebi seçin.",
+      noteLabelRequired: "Açıklama (zorunlu)",
+      noteLabelOptional: "Açıklama (isteğe bağlı)",
+      notePlaceholder: "Kısaca açıklayın",
+      noteRequired: "'Diğer' seçtiğinizde kısa bir açıklama yazın (en az 3 karakter).",
+      alternativeDateLabel: "Alternatif gönderim tarihi",
+      alternativeDateHint:
+        "Ürünleri gönderebileceğiniz yeni tarih. Tesis yönetimi bu tarihi görür; yeni randevu talebini ayrıca oluşturabilirsiniz.",
+      alternativeDateRequired: "Lütfen alternatif gönderim tarihini girin.",
+      alternativeDateInvalid: "Alternatif tarih bugünden önce veya bir yıldan sonra olamaz.",
+      required: "zorunlu",
     },
     notificationPreferences: {
       events: {
@@ -549,6 +567,7 @@ export const tr = {
     monthly: "aylık",
     cancelSeries: "Seriyi İptal Et",
     cancellationReason: "İptal sebebi:",
+    alternativeDate: "Alternatif gönderim tarihi:",
     revisionHistory: "Revizyon Geçmişi",
     emailLogs: "E-posta Logları",
     sending: "Gönderiliyor…",
@@ -826,6 +845,31 @@ export const tr = {
       deactivateMessage:
         "Bu istisna pasifleştirilecek ve rampa o gün normal çalışma düzenine döner.",
     },
+    supplierCancellation: {
+      needsPermission: "Bu sayfayı görüntülemek için tedarikçi yönetimi yetkisi gerekir.",
+      title: "Tedarikçi İptal Kuralları",
+      description:
+        "Tedarikçilerin portaldan randevu iptal ederken uyması gereken kurallar. Kurallar yalnızca tedarikçi iptallerine uygulanır; tesis yönetimi randevuları her zaman iptal edebilir.",
+      policyTitle: "İptal Kuralları",
+      stat: "Kural",
+      defaultPolicy:
+        "Henüz kural tanımlanmadı: tedarikçiler sebep girmeden, randevu başlayana kadar iptal edebilir.",
+      requireReason: "Sebep seçimi zorunlu",
+      requireReasonHint:
+        "Tedarikçi iptal ederken hazır listeden sebep seçer; 'Diğer' seçerse açıklama yazar.",
+      requireAlternativeDate: "Alternatif gönderim tarihi zorunlu",
+      requireAlternativeDateHint: "Tedarikçi ürünleri gönderebileceği yeni tarihi girer.",
+      minNotice: "İptal için son süre",
+      minNoticeHint:
+        "Randevuya bu süreden az kaldığında tedarikçi portaldan iptal edemez. 0 = randevu başlayana kadar iptal serbest.",
+      hours: "saat",
+      invalidHours: (max: number) => `0 ile ${max} arasında bir tam sayı girin.`,
+      saved: "İptal kuralları kaydedildi.",
+      loading: "Kurallar yükleniyor…",
+      loadError: "İptal kuralları yüklenemedi.",
+      saveFailed: "İptal kuralları kaydedilemedi.",
+      reasonsTitle: "Tedarikçinin göreceği sebep listesi",
+    },
     supplierNotifications: {
       needsPermission: "Bu sayfayı görüntülemek için tedarikçi yönetimi yetkisi gerekir.",
       title: "Tedarikçi Bildirimleri",
@@ -1010,6 +1054,7 @@ export const tr = {
         overrides: "Kapalı günler ve güne özel çalışma saatleri",
         suppliers: "İzinli kategoriler, kota, otomatik onay + portal hesabı",
         supplierNotifications: "Tedarikçilere hangi panel/e-posta bildirimlerinin gideceği",
+        supplierCancellation: "Tedarikçinin randevu iptalinde sebep, alternatif tarih ve süre kuralı",
         users: "Rol izinleri ve rampa bazlı kısıtlama",
         emailLogs: "Giden e-postalar, hatalılar ve toplu yeniden gönderim",
         auditLogs: "Hesabınızdaki yönetim işlemlerinin denetim kayıtları",
@@ -1503,6 +1548,10 @@ export const tr = {
       cancelMessage: (product: string) =>
         `"${product}" randevusu iptal edilecek. Bu işlem geri alınamaz.`,
       cancelFailed: "Randevu iptal edilemedi.",
+      alternativeDate: "Alternatif gönderim tarihi:",
+      cancelDeadline: (when: string) => `İptal için son: ${when}`,
+      cancelWindowClosed: (hours: number) =>
+        `Randevuya ${hours} saatten az kaldığı için portaldan iptal edilemez. Değişiklik için tesisle iletişime geçin.`,
     },
     newAppointment: {
       driverPlaceholder: "Ad Soyad",
@@ -2200,6 +2249,13 @@ export const tr = {
       TICKET_ATTACHMENT_NOT_READY: "Dosya henüz hazır değil; güvenlik kontrolü sürüyor.",
       TICKET_ATTACHMENT_IN_USE: "Ek dosya başka bir talebe bağlı.",
       TICKET_ATTACHMENT_UNKNOWN: "Ek dosya bulunamadı.",
+      CANCELLATION_NOTICE_TOO_SHORT:
+        "Randevuya iptal için gereken süreden az kaldı; değişiklik için tesisle iletişime geçin.",
+      CANCELLATION_REASON_REQUIRED: "İptal sebebi seçilmelidir.",
+      CANCELLATION_NOTE_REQUIRED: "'Diğer' seçildiğinde açıklama yazılmalıdır.",
+      ALTERNATIVE_DATE_REQUIRED: "Alternatif gönderim tarihi girilmelidir.",
+      ALTERNATIVE_DATE_INVALID:
+        "Alternatif gönderim tarihi bugünden önce veya bir yıldan sonra olamaz.",
     } as Record<string, string>,
     network: "Sunucuya ulaşılamadı; bağlantınızı kontrol edin.",
     unexpected: "Beklenmeyen bir hata oluştu.",

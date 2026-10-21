@@ -4,6 +4,7 @@ import {
   BellRing,
   Boxes,
   CalendarOff,
+  CalendarX,
   GitFork,
   Handshake,
   Truck,
@@ -93,6 +94,14 @@ export default function SettingsPage() {
       description: t.admin.settings.cards.supplierNotifications,
       stat: "Politika",
       href: "/admin/settings/supplier-notifications",
+      permission: "supplier.manage",
+    },
+    {
+      icon: CalendarX,
+      title: t.admin.supplierCancellation.title,
+      description: t.admin.settings.cards.supplierCancellation,
+      stat: t.admin.supplierCancellation.stat,
+      href: "/admin/settings/supplier-cancellation",
       permission: "supplier.manage",
     },
     {

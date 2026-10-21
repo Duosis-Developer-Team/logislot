@@ -337,6 +337,10 @@ export const en: Dictionary = {
       cancelPlaceholder: "e.g. Our plans changed",
       cancelling: "Cancelling…",
       cancelCount: (count: number) => `Cancel ${count} appointments`,
+      cancelledKept: (count: number, kept: number) =>
+        `${count} upcoming appointments in the series were cancelled. ${kept} stayed active because the cancellation deadline has passed — please contact the facility about them.`,
+      noticeWarning: (hours: number) =>
+        `Occurrences starting in less than ${hours} hours are not cancelled and stay active.`,
     },
   },
 
@@ -378,6 +382,20 @@ export const en: Dictionary = {
         `${count} selections aren't shown in the list (inactive or from another scope); they're kept when you save.`,
       remove: "Remove",
       toggle: (label: string) => `Remove ${label}`,
+    },
+    supplierCancelDialog: {
+      reasonLabel: "Reason for cancellation",
+      reasonRequired: "Please choose a reason for cancelling.",
+      noteLabelRequired: "Details (required)",
+      noteLabelOptional: "Details (optional)",
+      notePlaceholder: "Briefly explain",
+      noteRequired: "When you choose 'Other', please add a short explanation (at least 3 characters).",
+      alternativeDateLabel: "Alternative delivery date",
+      alternativeDateHint:
+        "The new date you can deliver the goods. The facility sees this date; you can book the new appointment separately.",
+      alternativeDateRequired: "Please enter an alternative delivery date.",
+      alternativeDateInvalid: "The alternative date can't be in the past or more than a year ahead.",
+      required: "required",
     },
     notificationPreferences: {
       events: {
@@ -554,6 +572,7 @@ export const en: Dictionary = {
     monthly: "monthly",
     cancelSeries: "Cancel series",
     cancellationReason: "Reason for cancellation:",
+    alternativeDate: "Alternative delivery date:",
     revisionHistory: "Change history",
     emailLogs: "E-mail logs",
     sending: "Sending…",
@@ -829,6 +848,31 @@ export const en: Dictionary = {
       deactivateMessage:
         "This exception will be deactivated and the dock returns to its normal schedule that day.",
     },
+    supplierCancellation: {
+      needsPermission: "You need supplier management permission to view this page.",
+      title: "Supplier Cancellation Rules",
+      description:
+        "Rules suppliers must follow when they cancel an appointment in the supplier portal. They apply only to supplier cancellations; facility staff can always cancel.",
+      policyTitle: "Cancellation rules",
+      stat: "Rules",
+      defaultPolicy:
+        "No rules set yet: suppliers can cancel without a reason until the appointment starts.",
+      requireReason: "Reason is required",
+      requireReasonHint:
+        "The supplier picks a reason from a fixed list; choosing 'Other' requires an explanation.",
+      requireAlternativeDate: "Alternative delivery date is required",
+      requireAlternativeDateHint: "The supplier enters the new date they can deliver the goods.",
+      minNotice: "Cancellation deadline",
+      minNoticeHint:
+        "Suppliers can't cancel in the portal once the appointment is closer than this. 0 = they can cancel until it starts.",
+      hours: "hours",
+      invalidHours: (max: number) => `Enter a whole number between 0 and ${max}.`,
+      saved: "Cancellation rules saved.",
+      loading: "Loading rules…",
+      loadError: "We couldn't load the cancellation rules.",
+      saveFailed: "We couldn't save the cancellation rules.",
+      reasonsTitle: "Reasons the supplier can choose from",
+    },
     supplierNotifications: {
       needsPermission: "Viewing this page requires the supplier management permission.",
       title: "Supplier notifications",
@@ -1013,6 +1057,7 @@ export const en: Dictionary = {
         overrides: "Closed days and date-specific working hours",
         suppliers: "Approved categories, quota, auto-approval + portal account",
         supplierNotifications: "Which in-app and e-mail notifications suppliers receive",
+        supplierCancellation: "Reason, alternative date and deadline rules for supplier cancellations",
         users: "Role permissions and dock-level restrictions",
         emailLogs: "Outgoing e-mails, failures and bulk resend",
         auditLogs: "Audit records of administrative actions in your account",
@@ -1505,6 +1550,10 @@ export const en: Dictionary = {
       cancelMessage: (product: string) =>
         `The "${product}" appointment will be cancelled. This can't be undone.`,
       cancelFailed: "We couldn't cancel the appointment.",
+      alternativeDate: "Alternative delivery date:",
+      cancelDeadline: (when: string) => `Cancel by: ${when}`,
+      cancelWindowClosed: (hours: number) =>
+        `This appointment starts in less than ${hours} hours, so it can't be cancelled in the portal. Please contact the facility to change it.`,
     },
     newAppointment: {
       driverPlaceholder: "Full name",
@@ -2201,6 +2250,13 @@ export const en: Dictionary = {
       TICKET_ATTACHMENT_NOT_READY: "The file isn't ready yet; the security scan is still running.",
       TICKET_ATTACHMENT_IN_USE: "That attachment belongs to another request.",
       TICKET_ATTACHMENT_UNKNOWN: "Attachment not found.",
+      CANCELLATION_NOTICE_TOO_SHORT:
+        "It's too close to the appointment to cancel; please contact the facility to change it.",
+      CANCELLATION_REASON_REQUIRED: "Please choose a reason for cancelling.",
+      CANCELLATION_NOTE_REQUIRED: "Please add an explanation when you choose 'Other'.",
+      ALTERNATIVE_DATE_REQUIRED: "Please enter an alternative delivery date.",
+      ALTERNATIVE_DATE_INVALID:
+        "The alternative delivery date can't be in the past or more than a year ahead.",
     },
     network: "Couldn't reach the server — check your connection.",
     unexpected: "Something unexpected went wrong.",

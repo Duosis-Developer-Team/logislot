@@ -7,6 +7,7 @@ import { productCategories } from "@/api/resources";
 import {
   QUANTITY_UNIT_LABELS,
   type QuantityUnit,
+  cancellationReasonText,
   formatDurationRange,
   resolveDurationRange,
 } from "@/api/shared";
@@ -164,8 +165,15 @@ export default function AdminAppointmentDetail() {
         {a.rejection_reason && (
           <NoteBox color={colors.status.rejected} text={`Red sebebi: ${a.rejection_reason}`} />
         )}
-        {a.cancellation_reason && (
-          <NoteBox color={colors.status.cancelled} text={`İptal sebebi: ${a.cancellation_reason}`} />
+        {(a.cancellation_reason || a.cancellation_reason_code) && (
+          <NoteBox
+            color={colors.status.cancelled}
+            text={`İptal sebebi: ${cancellationReasonText(a.cancellation_reason_code, a.cancellation_reason)}${
+              a.cancellation_alternative_date
+                ? `\nAlternatif gönderim tarihi: ${formatDate(`${a.cancellation_alternative_date}T12:00:00`)}`
+                : ""
+            }`}
+          />
         )}
         {a.completion_note && (
           <NoteBox color={colors.status.completed} text={`Tamamlama notu: ${a.completion_note}`} />

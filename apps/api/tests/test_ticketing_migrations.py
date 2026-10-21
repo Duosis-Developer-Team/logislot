@@ -57,7 +57,29 @@ def test_tenant_head_is_ticket_revision():
     # Sabitlenmis head: yeni bir tenant migration'i eklendiginde bu satirin
     # DEGISMESI gerekir. Amaci, tenant zincirine sessizce revizyon eklenmesini
     # engellemek — tasinmis ve tasinmamis tenant'lar ayri zincirlerden gecer.
-    assert tenant_head_revision() == "0005_ticket_event_sequence"
+    assert tenant_head_revision() == "0006_supplier_cancel_policy"
+
+
+def test_revision_ids_fit_the_alembic_version_column():
+    """Revizyon kimligi `alembic_version.version_num` (VARCHAR(32)) sutununa sigmali.
+
+    SQLite uzunluk sinirini UYGULAMADIGI icin test paketi bunu goremez;
+    Postgres'te tenant provisioning'i ve tenant migrationlari damgalama
+    aninda `StringDataRightTruncation` ile duser. 2026-10'da 33 karakterlik
+    `0006_supplier_cancellation_policy` tam olarak boyle yakalandi.
+    """
+    from alembic.config import Config
+    from alembic.script import ScriptDirectory
+
+    control = Config()
+    control.set_main_option("script_location", "alembic")
+    too_long = [
+        rev.revision
+        for cfg in (control, tenant_alembic_config())
+        for rev in ScriptDirectory.from_config(cfg).walk_revisions()
+        if len(rev.revision) > 32
+    ]
+    assert not too_long, too_long
 
 
 def test_upgrade_creates_all_ticket_tables_with_model_columns(tmp_path):

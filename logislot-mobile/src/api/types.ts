@@ -121,6 +121,15 @@ export interface SupplierProfileDto {
   weekly_quota: number | null;
   monthly_quota: number | null;
   facility: { id: string; name: string; timezone: string };
+  cancellation_policy: SupplierCancellationPolicyDto;
+}
+
+/** Tesisin tedarikçi iptal kuralı (yönetim belirler; sunucu da zorlar). */
+export interface SupplierCancellationPolicyDto {
+  require_reason: boolean;
+  require_alternative_date: boolean;
+  /** 0 = başlangıca kadar iptal serbest. */
+  min_notice_hours: number;
 }
 
 export interface SupplierCatalogDto {
@@ -176,6 +185,10 @@ export interface AppointmentDto {
   status: string;
   rejection_reason: string | null;
   cancellation_reason?: string | null;
+  /** Tedarikçi iptalinde seçilen sabit sebep (SUPPLIER_CANCELLATION_REASONS). */
+  cancellation_reason_code?: string | null;
+  /** Tedarikçinin önerdiği alternatif gönderim tarihi (YYYY-MM-DD). */
+  cancellation_alternative_date?: string | null;
   completion_note?: string | null;
   revision_note: string | null;
   original_start_at: string | null;

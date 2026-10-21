@@ -10,6 +10,7 @@ import type {
   DashboardSummaryDto,
   SeriesCreateResultDto,
   SlotDto,
+  SupplierCancellationPolicyDto,
 } from "./types";
 
 export function useAppointments(facilityId: string | null, status?: string) {
@@ -356,5 +357,47 @@ export function useAuditLogs(facilityId: string | null, filters: AuditLogFilters
         `/facilities/${facilityId}/audit-logs?${params.toString()}`,
       ),
     enabled: facilityId !== null,
+  });
+}
+
+// ------------------------------------------- tedarikçi iptal kuralları
+//
+// Müşteri talebi (2026-10): tedarikçi iptalinde sebep + alternatif tarih
+// zorunluluğu ve "randevuya X saat kala iptal kapanır" kuralı. Yönetim belirler;
+// yalnızca tedarikçi iptallerine uygulanır.
+
+export interface SupplierCancellationPolicyResponse extends SupplierCancellationPolicyDto {
+  /** false ise hiç kural kaydedilmemiş: eski davranış geçerli. */
+  is_customized: boolean;
+  max_notice_hours: number;
+}
+
+const cancellationPolicyKey = (facilityId: string | null) => [
+  "config",
+  "supplier-cancellation-policy",
+  facilityId ?? "none",
+];
+
+export function useSupplierCancellationPolicy(facilityId: string | null) {
+  return useQuery({
+    queryKey: cancellationPolicyKey(facilityId),
+    queryFn: () =>
+      apiRequest<SupplierCancellationPolicyResponse>(
+        `/facilities/${facilityId}/supplier-cancellation-policy`,
+      ),
+    enabled: facilityId !== null,
+  });
+}
+
+export function useSaveSupplierCancellationPolicy(facilityId: string | null) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (body: SupplierCancellationPolicyDto) =>
+      apiRequest<SupplierCancellationPolicyResponse>(
+        `/facilities/${facilityId}/supplier-cancellation-policy`,
+        { method: "PATCH", body },
+      ),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: cancellationPolicyKey(facilityId) }),
   });
 }

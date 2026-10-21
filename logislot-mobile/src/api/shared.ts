@@ -49,6 +49,43 @@ export const QUANTITY_UNIT_LABELS: Record<QuantityUnit, string> = {
   carton: "Koli",
 };
 
+/** Tedarikçinin randevu iptalinde seçebileceği sabit sebepler. Backend
+ *  `SupplierCancellationReason` ile birebir; dizi sırası ekrandaki sıradır.
+ *  `other` seçilirse açıklama zorunludur. */
+export const SUPPLIER_CANCELLATION_REASONS = [
+  "product_not_ready",
+  "vehicle_issue",
+  "driver_unavailable",
+  "order_changed",
+  "weather_road",
+  "booked_by_mistake",
+  "other",
+] as const;
+
+export type SupplierCancellationReason = (typeof SUPPLIER_CANCELLATION_REASONS)[number];
+
+export const SUPPLIER_CANCELLATION_REASON_LABELS: Record<SupplierCancellationReason, string> = {
+  product_not_ready: "Ürün / stok hazır değil",
+  vehicle_issue: "Araç / nakliye sorunu",
+  driver_unavailable: "Sürücü bulunamadı",
+  order_changed: "Sipariş iptal edildi / değişti",
+  weather_road: "Hava / yol koşulları",
+  booked_by_mistake: "Randevu yanlışlıkla oluşturuldu",
+  other: "Diğer",
+};
+
+/** "Araç / nakliye sorunu — açıklama"; kod yoksa (yönetim iptali) yalnızca metin. */
+export function cancellationReasonText(
+  code: string | null | undefined,
+  note: string | null | undefined,
+): string | null {
+  const label = code
+    ? ((SUPPLIER_CANCELLATION_REASON_LABELS as Record<string, string>)[code] ?? code)
+    : null;
+  if (label && note) return `${label} — ${note}`;
+  return label ?? note ?? null;
+}
+
 export type SlotStatus = "available" | "partial" | "full";
 
 export const SLOT_STATUS_LABELS: Record<SlotStatus, string> = {

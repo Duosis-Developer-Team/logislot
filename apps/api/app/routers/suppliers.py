@@ -11,7 +11,7 @@ Kurallar:
 import uuid
 
 from fastapi import APIRouter, Depends, Request
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -35,6 +35,10 @@ from app.schemas.config import (
 )
 from app.services.audit import record_audit
 from app.services.auth_sessions import revoke_user_sessions
+from app.services.cancellation_policy import (
+    MAX_NOTICE_HOURS,
+    resolve_cancellation_policy,
+)
 from app.services.config import (
     ensure_unique_value,
     get_scoped_or_404,
@@ -75,6 +79,12 @@ class SupplierNotificationPolicyPatch(BaseModel):
     in_app_enabled: bool | None = None
     email_enabled: bool | None = None
     email_events: dict[str, bool] | None = None
+
+
+class SupplierCancellationPolicyPatch(BaseModel):
+    require_reason: bool | None = None
+    require_alternative_date: bool | None = None
+    min_notice_hours: int | None = Field(default=None, ge=0, le=MAX_NOTICE_HOURS)
 
 
 def _policy_out(facility: Facility) -> dict:
@@ -484,3 +494,53 @@ async def patch_supplier_notification_policy(
     await db.commit()
     await db.refresh(facility)
     return ok(_policy_out(facility))
+
+
+# ------------------------------------------------- tedarikci iptal kurallari
+
+
+def _cancellation_policy_out(facility: Facility) -> dict:
+    """Cozulmus kural; is_customized=false ise kural yok (eski davranis)."""
+    return {
+        **resolve_cancellation_policy(facility),
+        "is_customized": bool(facility.supplier_cancellation_policy_json),
+        "max_notice_hours": MAX_NOTICE_HOURS,
+    }
+
+
+@router.get("/supplier-cancellation-policy")
+async def get_supplier_cancellation_policy(
+    ctx: FacilityContext = Depends(
+        require_facility_permissions(TenantPermission.SUPPLIER_MANAGE)
+    ),
+):
+    """Tedarikcinin portaldan randevu iptal kurallari (tesis geneli).
+
+    Yonetim belirler; tedarikci yalnizca SONUCUNU gorur (profilinde iptal
+    penceresi ve zorunlu alanlar). Yonetim iptali bu kurallara tabi degildir.
+    """
+    return ok(_cancellation_policy_out(ctx.facility))
+
+
+@router.patch("/supplier-cancellation-policy")
+async def patch_supplier_cancellation_policy(
+    body: SupplierCancellationPolicyPatch,
+    ctx: FacilityContext = Depends(
+        require_facility_permissions(TenantPermission.SUPPLIER_MANAGE)
+    ),
+    db: AsyncSession = Depends(get_db),
+):
+    """Kurallari gunceller; gonderilmeyen alan oldugu gibi kalir."""
+    facility = await db.get(Facility, ctx.facility_id)
+    assert facility is not None
+    before = resolve_cancellation_policy(facility)
+    current = {**before, **body.model_dump(exclude_unset=True, exclude_none=True)}
+    facility.supplier_cancellation_policy_json = current
+    _audit(
+        db, ctx,
+        action="supplier_cancellation_policy.update", entity_type="facility",
+        entity_id=ctx.facility_id, before=before, after=current,
+    )
+    await db.commit()
+    await db.refresh(facility)
+    return ok(_cancellation_policy_out(facility))

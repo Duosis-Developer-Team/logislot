@@ -4,6 +4,7 @@ Tedarikci yalnizca kendi supplier_id kayitlarini gorur; baska veri donmez.
 """
 
 import uuid
+from datetime import date
 
 from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, Field
@@ -18,6 +19,7 @@ from app.core.enums import (
     CargoWindow,
     CreatedByType,
     QuantityUnit,
+    SupplierCancellationReason,
 )
 from app.core.errors import NotFoundError
 from app.core.ratelimit import enforce_rate_limit
@@ -34,19 +36,28 @@ from app.schemas.appointment import (
     AvailabilityRequest,
     RevisionOut,
     SupplierAppointmentCreate,
+    SupplierCancelRequest,
 )
 from app.schemas.catalog import ProductCategoryOut, SupplierOut, VehicleCategoryOut
 from app.services import appointments as svc
 from app.services.appointments import allowed_delivery_types
+from app.services.cancellation_policy import notice_cutoff, resolve_cancellation_policy
 from app.tenancy.deps import FacilityContext, get_supplier_context
 
 router = APIRouter(prefix="/supplier", tags=["supplier-portal"])
 
 
 class SupplierSeriesCancelRequest(BaseModel):
-    """Sebep ZORUNLU: yanlislikla toplu iptal riskine karsi bilinçli surtunme."""
+    """Sebep ZORUNLU: yanlislikla toplu iptal riskine karsi bilinçli surtunme.
 
-    reason: str = Field(min_length=3)
+    Sebep ya listeden (`reason_code`) ya serbest metinle (`reason`, >= 3
+    karakter) verilir; tesis kurali sebep istiyorsa liste zorunludur. Kontrol
+    serviste yapilir (services/cancellation_policy.py).
+    """
+
+    reason_code: SupplierCancellationReason | None = None
+    reason: str | None = Field(default=None, max_length=500)
+    alternative_date: date | None = None
 
 QUANTITY_UNIT_LABELS = {
     QuantityUnit.pallet: "Palet",
@@ -72,6 +83,9 @@ async def profile(ctx: FacilityContext = Depends(get_supplier_context)):
                 "name": ctx.facility.name,
                 "timezone": ctx.facility.timezone,
             },
+            # Iptal penceresi ve zorunlu alanlar; arayuz buna gore iptal
+            # dugmesini kapatir ve formu kurar. Kural sunucuda da zorlanir.
+            "cancellation_policy": resolve_cancellation_policy(ctx.facility),
         }
     )
 
@@ -264,10 +278,17 @@ async def create_my_appointment(
 @router.post("/appointments/{appointment_id}/cancel")
 async def cancel_my_appointment(
     appointment_id: uuid.UUID,
+    body: SupplierCancelRequest | None = None,
     ctx: FacilityContext = Depends(get_supplier_context),
     db: AsyncSession = Depends(get_db),
 ):
+    """Tedarikci kendi randevusunu iptal eder.
+
+    Govde opsiyoneldir (eski istemciler bos POST atar); tesisin iptal kurali
+    sebep/alternatif tarih istiyorsa eksik govde 422 ile reddedilir.
+    """
     assert ctx.supplier is not None
+    body = body or SupplierCancelRequest()
     appointment = await svc.cancel_appointment(
         db,
         ctx.facility_id,
@@ -275,6 +296,9 @@ async def cancel_my_appointment(
         actor_type=ActorType.supplier_user,
         actor_id=ctx.identity.id,
         supplier_id=ctx.supplier.id,
+        reason=body.reason,
+        reason_code=body.reason_code,
+        alternative_date=body.alternative_date,
     )
     return ok(_appointment_out(appointment))
 
@@ -327,6 +351,9 @@ async def my_appointment_series(
         ).scalars()
     )
     now = datetime.now(UTC)
+    # Tesisin bildirim suresinden yakin occurrence'lar portaldan iptal
+    # edilemez; sayaclar ve "seriyi iptal et" hakki buna gore hesaplanir.
+    cutoff = notice_cutoff(resolve_cancellation_policy(ctx.facility), now)
     by_series: dict = {}
     for a in appointments:
         by_series.setdefault(a.series_id, []).append(a)
@@ -336,13 +363,16 @@ async def my_appointment_series(
         counts: dict[str, int] = {}
         for a in rows:
             counts[a.status.value] = counts.get(a.status.value, 0) + 1
-        future_cancellable = [
+        future_active = [
             a for a in rows
             if a.status.value in ("pending", "approved", "revision_pending")
             and to_utc(a.scheduled_start_at) > now
         ]
+        future_cancellable = [
+            a for a in future_active if to_utc(a.scheduled_start_at) >= cutoff
+        ]
         upcoming = min(
-            (to_utc(a.scheduled_start_at) for a in future_cancellable), default=None
+            (to_utc(a.scheduled_start_at) for a in future_active), default=None
         )
         return {
             "id": str(series.id),
@@ -413,13 +443,15 @@ async def cancel_my_appointment_series(
     tamamlanmis/gecmis randevulara dokunulmaz; adminlere TEK ozet bildirim.
     """
     assert ctx.supplier is not None
-    series, affected = await svc.cancel_appointment_series(
+    series, affected, kept_within_notice = await svc.cancel_appointment_series(
         db,
         facility=ctx.facility,
         series_id=series_id,
         actor_type=ActorType.supplier_user,
         actor_id=ctx.identity.id,
         reason=body.reason,
+        reason_code=body.reason_code,
+        alternative_date=body.alternative_date,
         supplier_id=ctx.supplier.id,
         by_supplier=True,
     )
@@ -428,5 +460,6 @@ async def cancel_my_appointment_series(
             "series_id": str(series.id),
             "status": series.status,
             "affected_count": len(affected),
+            "kept_within_notice_count": kept_within_notice,
         }
     )

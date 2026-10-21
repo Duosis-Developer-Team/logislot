@@ -3,8 +3,8 @@
 import { Boxes, Clock3, Repeat, Truck } from "lucide-react";
 import { useState } from "react";
 import { QUANTITY_UNIT_LABELS, type QuantityUnit } from "@logislot/shared";
-import { ConfirmDialog } from "@/components/config/confirm-dialog";
 import { useFlash } from "@/components/config/page-shell";
+import { SupplierCancelDialog } from "@/components/domain/supplier-cancel-dialog";
 import { SupplierSeriesSection } from "@/components/domain/supplier-series-section";
 import { EmptyState, ErrorState, LoadingState } from "@/components/config/states";
 import { CargoBadge } from "@/components/domain/cargo-badge";
@@ -13,22 +13,76 @@ import { MetricCard } from "@/components/shell/metric-card";
 import { PageContainer, PageHeader } from "@/components/shell/page";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { ApiError } from "@/lib/api/client";
 import {
   useCancelSupplierAppointment,
   useSupplierAppointments,
   useSupplierProfile,
+  type SupplierCancelBody,
 } from "@/lib/api/supplier";
-import type { AppointmentDto } from "@/lib/api/types";
+import type { AppointmentDto, SupplierCancellationPolicyDto } from "@/lib/api/types";
 import { useApiErrorMessage } from "@/lib/i18n/api-error";
 import { useLabels } from "@/lib/i18n/labels";
 import { useFormat, useT } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
 
-function canCancel(appointment: AppointmentDto): boolean {
+const HOUR_MS = 3600_000;
+
+/** Tedarikcinin iptal edebilecegi durum: bekleyen/onayli ve henuz baslamamis. */
+function isCancellableStatus(appointment: AppointmentDto): boolean {
   return (
     ["pending", "approved"].includes(appointment.status) &&
     new Date(appointment.scheduled_start_at).getTime() > Date.now()
+  );
+}
+
+/** Tesisin iptal kuralina gore son iptal ani (kural yoksa null). */
+function cancelDeadline(
+  appointment: AppointmentDto,
+  policy: SupplierCancellationPolicyDto | undefined,
+): Date | null {
+  if (!policy?.min_notice_hours) return null;
+  return new Date(
+    new Date(appointment.scheduled_start_at).getTime() - policy.min_notice_hours * HOUR_MS,
+  );
+}
+
+/** "YYYY-MM-DD" gun degerini saat dilimi kaymasi olmadan bicimler. */
+function dateOnlyIso(day: string): string {
+  return `${day}T12:00:00`;
+}
+
+/** Iptal dugmesi + son iptal ani; kural suresi dolduysa dugme yerine aciklama. */
+function CancelAction({
+  appointment,
+  policy,
+  now,
+  onCancel,
+}: {
+  appointment: AppointmentDto;
+  policy: SupplierCancellationPolicyDto | undefined;
+  now: number;
+  onCancel: () => void;
+}) {
+  const t = useT();
+  const fmt = useFormat();
+  const deadline = cancelDeadline(appointment, policy);
+  if (deadline && deadline.getTime() < now)
+    return (
+      <p className="rounded-md bg-muted px-2 py-1.5 text-xs text-muted-foreground">
+        {t.supplier.appointments.cancelWindowClosed(policy!.min_notice_hours)}
+      </p>
+    );
+  return (
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+      <Button size="sm" variant="ghost" className="w-fit text-destructive" onClick={onCancel}>
+        {t.supplier.appointments.cancel}
+      </Button>
+      {deadline && (
+        <span className="text-xs text-muted-foreground">
+          {t.supplier.appointments.cancelDeadline(fmt.dayMonthTime(deadline.toISOString()))}
+        </span>
+      )}
+    </div>
   );
 }
 
@@ -43,6 +97,8 @@ export default function SupplierAppointmentsPage() {
   const cancel = useCancelSupplierAppointment();
   const { flash, showFlash } = useFlash();
   const [confirmTarget, setConfirmTarget] = useState<AppointmentDto | null>(null);
+  const [cancelError, setCancelError] = useState<string | null>(null);
+  const policy = profile.data?.cancellation_policy;
 
   if (list.isLoading) return <LoadingState />;
   if (list.isError)
@@ -84,15 +140,16 @@ export default function SupplierAppointmentsPage() {
     },
   ];
 
-  async function onCancel() {
+  async function onCancel(body: SupplierCancelBody) {
     if (!confirmTarget) return;
+    setCancelError(null);
     try {
-      await cancel.mutateAsync(confirmTarget.id);
+      await cancel.mutateAsync({ id: confirmTarget.id, ...body });
       showFlash("success", t.appointmentDrawer.cancelled);
-    } catch (err) {
-      showFlash("error", errorMessage(err, t.supplier.appointments.cancelFailed));
-    } finally {
       setConfirmTarget(null);
+    } catch (err) {
+      // Form acik kalir: kullanici secimini kaybetmeden duzeltebilsin.
+      setCancelError(errorMessage(err, t.supplier.appointments.cancelFailed));
     }
   }
 
@@ -216,20 +273,33 @@ export default function SupplierAppointmentsPage() {
                     </div>}
                 </div>
               )}
-              {a.status === "cancelled" && a.cancellation_reason && (
-                <p className="rounded-md bg-status-cancelled/10 px-2 py-1 text-xs text-status-cancelled">
-                  {t.supplier.appointments.cancellationReason} {a.cancellation_reason}
-                </p>
-              )}
-              {canCancel(a) && (
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="w-fit text-destructive"
-                  onClick={() => setConfirmTarget(a)}
-                >
-                  {t.supplier.appointments.cancel}
-                </Button>
+              {a.status === "cancelled" &&
+                (a.cancellation_reason_code || a.cancellation_reason) && (
+                  <p className="rounded-md bg-status-cancelled/10 px-2 py-1 text-xs text-status-cancelled">
+                    {t.supplier.appointments.cancellationReason}{" "}
+                    {labels.cancellationReasonText(
+                      a.cancellation_reason_code,
+                      a.cancellation_reason,
+                    )}
+                    {a.cancellation_alternative_date && (
+                      <span className="block">
+                        {t.supplier.appointments.alternativeDate}{" "}
+                        {fmt.date(dateOnlyIso(a.cancellation_alternative_date))}
+                      </span>
+                    )}
+                  </p>
+                )}
+              {/* Kural profille gelir; yuklenmeden form eksik alanla acilmasin. */}
+              {isCancellableStatus(a) && profile.isSuccess && (
+                <CancelAction
+                  appointment={a}
+                  policy={policy}
+                  now={now}
+                  onCancel={() => {
+                    setCancelError(null);
+                    setConfirmTarget(a);
+                  }}
+                />
               )}
             </CardContent>
           </Card>
@@ -237,13 +307,15 @@ export default function SupplierAppointmentsPage() {
         </div>
       )}
 
-      <ConfirmDialog
+      <SupplierCancelDialog
         open={confirmTarget !== null}
         title={t.supplier.appointments.cancelTitle}
-        message={t.supplier.appointments.cancelMessage(confirmTarget?.product_name ?? "")}
+        intro={t.supplier.appointments.cancelMessage(confirmTarget?.product_name ?? "")}
+        policy={policy}
         confirmLabel={t.supplier.appointments.cancel}
-        loading={cancel.isPending}
-        onConfirm={onCancel}
+        pending={cancel.isPending}
+        error={cancelError}
+        onSubmit={(body) => void onCancel(body)}
         onClose={() => setConfirmTarget(null)}
       />
     </PageContainer>
