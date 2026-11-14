@@ -18,7 +18,14 @@ from app.core.enums import (
     QuantityUnit,
     RecurringRule,
 )
-from app.models.base import Base, FacilityScopedMixin, TimestampMixin, UUIDPkMixin, str_enum
+from app.models.base import (
+    Base,
+    FacilityScopedMixin,
+    JsonVariant,
+    TimestampMixin,
+    UUIDPkMixin,
+    str_enum,
+)
 
 
 class Appointment(Base, UUIDPkMixin, TimestampMixin, FacilityScopedMixin):
@@ -91,6 +98,10 @@ class Appointment(Base, UUIDPkMixin, TimestampMixin, FacilityScopedMixin):
         sa.Uuid, sa.ForeignKey("appointments.id", ondelete="SET NULL")
     )
     completion_note: Mapped[str | None] = mapped_column(sa.Text)
+    # Sevkiyatin siparis numaralari (musteri karari 2026-11: zorunlu, coklu
+    # olabilir). Zorunlulugu tesisin randevu formu ayari belirler
+    # (facilities.appointment_form_json). Sira korunur; bos liste = yok.
+    order_numbers: Mapped[list[str] | None] = mapped_column(JsonVariant)
     revision_note: Mapped[str | None] = mapped_column(sa.Text)
     original_start_at: Mapped[datetime | None] = mapped_column(sa.DateTime(timezone=True))
     original_end_at: Mapped[datetime | None] = mapped_column(sa.DateTime(timezone=True))

@@ -5,6 +5,7 @@ import { useState } from "react";
 import { QUANTITY_UNIT_LABELS, type QuantityUnit } from "@logislot/shared";
 import { useFlash } from "@/components/config/page-shell";
 import { MakeupBadge } from "@/components/domain/makeup-badge";
+import { OrderNumbersText } from "@/components/domain/order-numbers-input";
 import { SupplierCancelDialog } from "@/components/domain/supplier-cancel-dialog";
 import { SupplierSeriesSection } from "@/components/domain/supplier-series-section";
 import { EmptyState, ErrorState, LoadingState } from "@/components/config/states";
@@ -234,6 +235,10 @@ export default function SupplierAppointmentsPage() {
                     {labels.quantityUnit[a.quantity_unit as QuantityUnit] ?? a.quantity_unit}
                     {a.product_category_name ? ` · ${a.product_category_name}` : ""}
                   </div>
+                  <OrderNumbersText
+                    value={a.order_numbers}
+                    className="block break-words text-xs text-muted-foreground"
+                  />
                 </div>
                 <StatusBadge status={a.status as never} className="shrink-0" />
               </div>

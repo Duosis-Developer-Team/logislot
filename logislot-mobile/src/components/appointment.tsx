@@ -129,6 +129,11 @@ export function AppointmentCard({
             {showSupplier ? a.product_name : `${a.quantity} ${unitLabel}`}
             {a.product_category_name ? ` · ${a.product_category_name}` : ""}
           </Text>
+          {a.order_numbers && a.order_numbers.length > 0 && (
+            <Text numberOfLines={1} style={{ color: colors.faintText, fontSize: 12 }}>
+              Sipariş: {a.order_numbers.join(", ")}
+            </Text>
+          )}
         </View>
         <StatusBadge status={a.status} />
       </View>

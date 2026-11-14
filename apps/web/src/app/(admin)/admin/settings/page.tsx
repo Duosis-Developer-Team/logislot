@@ -5,6 +5,7 @@ import {
   Boxes,
   CalendarOff,
   CalendarX,
+  ClipboardList,
   GitFork,
   Handshake,
   Truck,
@@ -94,6 +95,14 @@ export default function SettingsPage() {
       description: t.admin.settings.cards.supplierNotifications,
       stat: "Politika",
       href: "/admin/settings/supplier-notifications",
+      permission: "supplier.manage",
+    },
+    {
+      icon: ClipboardList,
+      title: t.admin.appointmentForm.title,
+      description: t.admin.settings.cards.appointmentForm,
+      stat: t.admin.appointmentForm.stat,
+      href: "/admin/settings/appointment-form",
       permission: "supplier.manage",
     },
     {

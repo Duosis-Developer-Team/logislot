@@ -145,6 +145,9 @@ export default function AdminAppointmentDetail() {
 
         <Card style={{ gap: 8 }}>
           <Row label="Tarih" value={formatDate(a.scheduled_start_at)} />
+          {a.order_numbers && a.order_numbers.length > 0 && (
+            <Row label="Sipariş no" value={a.order_numbers.join(", ")} />
+          )}
           <Row
             label="Saat"
             value={`${timeInTz(a.scheduled_start_at, tz)}–${timeInTz(a.scheduled_end_at, tz)} (${a.duration_minutes} dk)`}

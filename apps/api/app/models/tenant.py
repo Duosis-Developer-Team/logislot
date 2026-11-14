@@ -127,6 +127,11 @@ class Facility(Base, UUIDPkMixin, TimestampMixin):
     supplier_cancellation_policy_json: Mapped[dict[str, Any] | None] = mapped_column(
         JsonVariant
     )
+    # Randevu formu ayarlari — alan bazinda gizli/istege bagli/zorunlu.
+    # None = varsayilanlar (yeni alanlar gizli; mevcut form aynen kalir).
+    # Sekil: {"order_numbers": "hidden" | "optional" | "required"}
+    # (bkz. services/appointment_form.py)
+    appointment_form_json: Mapped[dict[str, Any] | None] = mapped_column(JsonVariant)
 
     tenant: Mapped[Tenant] = relationship(back_populates="facilities")
     plan_override: Mapped[Plan | None] = relationship()

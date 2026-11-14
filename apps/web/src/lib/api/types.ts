@@ -101,6 +101,13 @@ export interface SupplierDto {
   account_active: boolean | null;
 }
 
+export type FormFieldMode = "hidden" | "optional" | "required";
+
+/** Tesisin randevu formu ayari (alan bazinda). */
+export interface AppointmentFormDto {
+  order_numbers: FormFieldMode;
+}
+
 /** Tesisin tedarikci iptal kurali (yonetim belirler; sunucu da zorlar). */
 export interface SupplierCancellationPolicyDto {
   require_reason: boolean;
@@ -150,6 +157,9 @@ export interface SupplierCatalogDto {
   /** Yalnizca tedarikciye ACIK tipler; kargo kapaliysa sadece "standard". */
   delivery_types: string[];
   cargo_windows: string[];
+  /** Tesisin randevu formu: hangi alan gizli/istege bagli/zorunlu. */
+  appointment_form: AppointmentFormDto;
+  max_order_numbers: number;
   cargo_default_min_block_minutes: number;
   quantity_units: { value: string; label: string }[];
 }
@@ -166,6 +176,8 @@ export interface AppointmentDto {
   license_plate: string | null;
   driver_name: string | null;
   driver_phone: string | null;
+  /** Siparis numaralari (tesis formu ayarina gore zorunlu olabilir). */
+  order_numbers?: string[];
   delivery_type: "standard" | "cargo";
   cargo_window: string | null;
   scheduled_start_at: string;

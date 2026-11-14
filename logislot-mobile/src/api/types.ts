@@ -170,6 +170,16 @@ export interface SupplierCatalogDto {
   cargo_windows: string[];
   cargo_default_min_block_minutes: number;
   quantity_units: { value: string; label: string }[];
+  /** Tesisin randevu formu: hangi alan gizli/isteğe bağlı/zorunlu. */
+  appointment_form: AppointmentFormDto;
+  max_order_numbers: number;
+}
+
+export type FormFieldMode = "hidden" | "optional" | "required";
+
+/** Tesisin randevu formu ayarı (alan bazında). */
+export interface AppointmentFormDto {
+  order_numbers: FormFieldMode;
 }
 
 export interface AllowedActions {
@@ -199,6 +209,8 @@ export interface AppointmentDto {
   license_plate: string | null;
   driver_name: string | null;
   driver_phone: string | null;
+  /** Sipariş numaraları (tesis formu ayarına göre zorunlu olabilir). */
+  order_numbers?: string[];
   delivery_type: "standard" | "cargo";
   cargo_window: string | null;
   scheduled_start_at: string;

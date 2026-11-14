@@ -850,6 +850,25 @@ export const en: Dictionary = {
       deactivateMessage:
         "This exception will be deactivated and the dock returns to its normal schedule that day.",
     },
+    appointmentForm: {
+      needsPermission: "You need supplier management permission to view this page.",
+      title: "Appointment Form",
+      description:
+        "Extra fields suppliers and staff fill in when booking. Each field can be hidden, optional or required.",
+      fieldsTitle: "Form fields",
+      stat: "Form",
+      orderNumbers: "Order no.",
+      orderNumbersHint: (max: number) =>
+        `The shipment's order numbers. Up to ${max} numbers per appointment.`,
+      modes: { hidden: "Hidden", optional: "Optional", required: "Required" } as Record<
+        string,
+        string
+      >,
+      appliesToNew: "Changes apply to new appointments only; existing ones stay as they are.",
+      saved: "Appointment form saved.",
+      loadError: "We couldn't load the appointment form settings.",
+      saveFailed: "We couldn't save the appointment form settings.",
+    },
     supplierCancellation: {
       needsPermission: "You need supplier management permission to view this page.",
       title: "Supplier Cancellation Rules",
@@ -923,7 +942,7 @@ export const en: Dictionary = {
       create: "New appointment",
       truncated: (limit: number) =>
         `Showing at most ${limit} records; there may be more. The downloaded CSV matches this list — narrow it with the status filter for the full set.`,
-      searchPlaceholder: "Search supplier, product or number plate…",
+      searchPlaceholder: "Search supplier, product, number plate or order no.…",
       loadError: "We couldn't load the appointments.",
       emptyTitle: "No appointments found",
       emptyDescription: "No appointment matches the selected filter.",
@@ -939,6 +958,7 @@ export const en: Dictionary = {
         time: "Time",
         supplier: "Supplier",
         product: "Goods",
+        orderNumbers: "Order no.",
         quantity: "Quantity",
         unit: "Unit",
         dock: "Dock",
@@ -1078,6 +1098,7 @@ export const en: Dictionary = {
         overrides: "Closed days and date-specific working hours",
         suppliers: "Approved categories, quota, auto-approval + portal account",
         supplierNotifications: "Which in-app and e-mail notifications suppliers receive",
+        appointmentForm: "Visibility and requirement of extra fields such as order numbers",
         supplierCancellation: "Reason, alternative date and deadline rules for supplier cancellations",
         users: "Role permissions and dock-level restrictions",
         emailLogs: "Outgoing e-mails, failures and bulk resend",
@@ -2212,6 +2233,18 @@ export const en: Dictionary = {
     },
   },
 
+  orderNumbers: {
+    label: "Order no.",
+    short: "Order",
+    required: "required",
+    optional: "optional",
+    placeholder: "Type the order number and press Enter",
+    hint: "If there are several orders, add each one or paste them separated by commas.",
+    limitReached: (max: number) => `You can add up to ${max} order numbers`,
+    remove: (value: string) => `Remove ${value}`,
+    requiredError: "Enter at least one order number.",
+  },
+
   makeup: {
     badge: "Make-up",
     badgeHint: "Make-up appointment booked in place of a cancelled one",
@@ -2290,6 +2323,9 @@ export const en: Dictionary = {
       MAKEUP_REQUIRED: "Please choose a day and time for the make-up appointment.",
       MAKEUP_SERIES_BLOCKED:
         "Make-up appointments are required, so the series can't be cancelled in bulk; cancel appointments one by one and book their make-ups.",
+      ORDER_NUMBER_REQUIRED: "Enter at least one order number.",
+      ORDER_NUMBERS_TOO_MANY: "Too many order numbers for one appointment.",
+      ORDER_NUMBER_TOO_LONG: "An order number can be at most 64 characters.",
     },
     network: "Couldn't reach the server — check your connection.",
     unexpected: "Something unexpected went wrong.",

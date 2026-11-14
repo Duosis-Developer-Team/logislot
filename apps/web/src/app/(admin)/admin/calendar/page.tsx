@@ -408,7 +408,7 @@ export default function CalendarPage() {
                                   a.delivery_type === "cargo" && "cargo-overlay",
                                 )}
                                 style={{ left, width }}
-                                title={`${timeInTz(a.scheduled_start_at, tz)} · ${a.supplier_name ?? ""} · ${a.product_name}${a.is_makeup ? ` · ${t.makeup.badge}` : ""}`}
+                                title={`${timeInTz(a.scheduled_start_at, tz)} · ${a.supplier_name ?? ""} · ${a.product_name}${a.is_makeup ? ` · ${t.makeup.badge}` : ""}${a.order_numbers?.length ? ` · ${t.orderNumbers.short}: ${a.order_numbers.join(", ")}` : ""}`}
                               >
                                 <div className="flex items-center gap-1 truncate font-semibold leading-tight">
                                   {a.delivery_type === "cargo" && (

@@ -18,6 +18,7 @@ import {
 } from "@/api/supplier";
 import type { AppointmentDto, SeriesCreateResultDto } from "@/api/types";
 import { Button, Card, Chip, ErrorState, Field, LoadingState } from "@/components/ui";
+import { OrderNumbersField } from "@/components/order-numbers";
 import { useTheme } from "@/theme/theme";
 import { spacing } from "@/theme/tokens";
 import { addDaysISO, dayLabel, timeInTz, todayISO } from "@/utils/format";
@@ -70,6 +71,7 @@ export default function NewAppointmentWizard() {
 
   // Adım 1 — ürün
   const [productName, setProductName] = useState("");
+  const [orderNumbers, setOrderNumbers] = useState<string[]>([]);
   const [categoryId, setCategoryId] = useState("");
   const [quantity, setQuantity] = useState("1");
   const [unit, setUnit] = useState("pallet");
@@ -130,9 +132,13 @@ export default function NewAppointmentWizard() {
   const selectedAdvisories = selectedSlotData?.advisory_warnings ?? [];
 
   const qty = Math.max(1, parseInt(quantity, 10) || 1);
+  // Tesisin form ayarı: sipariş no gizli / isteğe bağlı / zorunlu.
+  const orderMode = catalog.data?.appointment_form.order_numbers ?? "hidden";
   const canNext =
     step === 0
-      ? productName.trim().length > 0 && category !== null
+      ? productName.trim().length > 0 &&
+        category !== null &&
+        (orderMode !== "required" || orderNumbers.length > 0)
       : step === 1
         ? isCargo || plate.trim().length > 0
         : isCargo || selectedSlot !== null;
@@ -158,6 +164,7 @@ export default function NewAppointmentWizard() {
     const body = {
       product_category_id: categoryId,
       product_name: productName,
+      order_numbers: orderMode === "hidden" ? [] : orderNumbers,
       quantity: qty,
       quantity_unit: unit,
       vehicle_category_id: vehicleOverrideId,
@@ -385,6 +392,12 @@ export default function NewAppointmentWizard() {
               value={productName}
               onChangeText={setProductName}
               placeholder="Örn. Buğday Unu Tip 650"
+            />
+            <OrderNumbersField
+              mode={orderMode}
+              value={orderNumbers}
+              onChange={setOrderNumbers}
+              max={catalog.data?.max_order_numbers ?? 20}
             />
             <View style={{ gap: 8 }}>
               <Text style={{ color: colors.text, fontSize: 14, fontWeight: "500" }}>
@@ -672,6 +685,9 @@ export default function NewAppointmentWizard() {
                 Talep Özeti
               </Text>
               <SummaryRow label="Ürün" value={productName || "—"} />
+              {orderMode !== "hidden" && orderNumbers.length > 0 && (
+                <SummaryRow label="Sipariş no" value={orderNumbers.join(", ")} />
+              )}
               <SummaryRow label="Kategori" value={category?.display_name ?? "—"} />
               <SummaryRow
                 label="Miktar"

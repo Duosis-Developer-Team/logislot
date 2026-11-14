@@ -31,6 +31,7 @@ from app.core.timeutils import to_utc
 from app.models import Appointment, AuditLog, Dock, DockOverride
 from app.routers.appointments import facility_name_maps
 from app.rules.availability import WEEKDAY_KEYS
+from app.services.cancellation_policy import reason_text
 from app.services.overrides import pick_override
 from app.tenancy.deps import FacilityContext, require_facility_permissions
 
@@ -551,8 +552,9 @@ async def reports_appointments_csv(
 
     rows: list[list] = [
         [
-            "tarih", "saat", "tedarikci", "urun", "kategori", "rampa", "durum",
-            "teslimat_tipi", "sure_dk", "olusturulma", "onaylanma",
+            "tarih", "saat", "tedarikci", "urun", "siparis_no", "kategori", "rampa",
+            "durum", "teslimat_tipi", "sure_dk", "telafi", "iptal_sebebi",
+            "olusturulma", "onaylanma",
         ]
     ]
     for a in appointments:
@@ -563,11 +565,14 @@ async def reports_appointments_csv(
                 start_local.strftime("%H:%M"),
                 maps["suppliers"].get(a.supplier_id, ""),
                 a.product_name,
+                ", ".join(a.order_numbers or []),
                 maps["categories"].get(a.product_category_id, ""),
                 maps["docks"].get(a.dock_id, ""),
                 a.status.value,
                 a.delivery_type.value,
                 a.duration_minutes,
+                "evet" if a.is_makeup else "",
+                reason_text(a.cancellation_reason_label, a.cancellation_reason) or "",
                 local(a.created_at),
                 local(approved_at[a.id]) if a.id in approved_at else "",
             ]

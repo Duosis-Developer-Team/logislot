@@ -2,7 +2,7 @@ import uuid
 from datetime import date, datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from app.core.enums import CargoWindow, DeliveryType, QuantityUnit, RecurringRule
 
@@ -38,6 +38,7 @@ class AppointmentOut(BaseModel):
     license_plate: str | None = None
     driver_name: str | None = None
     driver_phone: str | None = None
+    order_numbers: list[str] = []
     delivery_type: str
     cargo_window: str | None = None
     cargo_min_block_minutes: int | None = None
@@ -60,6 +61,12 @@ class AppointmentOut(BaseModel):
     series_id: uuid.UUID | None = None
     occurrence_index: int | None = None
     created_at: datetime
+
+    @field_validator("order_numbers", mode="before")
+    @classmethod
+    def _order_numbers_list(cls, value):
+        # Kolon NULL olabilir (alan gizliyken); API her zaman liste dondurur.
+        return value or []
 
 
 class RevisionOut(BaseModel):
@@ -89,6 +96,9 @@ class SupplierAppointmentCreate(BaseModel):
     license_plate: str | None = Field(default=None, max_length=30)
     driver_name: str | None = None
     driver_phone: str | None = None
+    # Siparis numaralari; zorunlulugu tesis formu ayari belirler. Ham liste
+    # serviste kirpilir/bolunur/tekillestirilir (bkz. services/appointment_form).
+    order_numbers: list[str] = Field(default_factory=list, max_length=50)
     delivery_type: DeliveryType = DeliveryType.standard
     # Adim 3 — zaman (standart: start_at zorunlu; kargo: cargo_window zorunlu)
     target_date: date

@@ -2,8 +2,11 @@
 
 import uuid
 from datetime import date
+from typing import Literal
 
+import sqlalchemy as sa
 from fastapi import APIRouter, Depends, Query
+from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -17,6 +20,7 @@ from app.models import (
     Appointment,
     AppointmentSeries,
     Dock,
+    Facility,
     ProductCategory,
     Supplier,
     VehicleCategory,
@@ -38,6 +42,7 @@ from app.schemas.appointment import (
     SlotOut,
 )
 from app.services import appointments as svc
+from app.services.appointment_form import MAX_ORDER_NUMBERS, resolve_appointment_form
 from app.services.appointments import build_rule_context
 from app.tenancy.deps import FacilityContext, require_facility_permissions
 
@@ -95,9 +100,17 @@ async def list_appointments(
     date_to: date | None = None,
     supplier_id: uuid.UUID | None = None,
     dock_id: uuid.UUID | None = None,
+    order_no: str | None = Query(default=None, max_length=64),
     limit: int = Query(default=100, le=500),
 ):
     query = select(Appointment).where(Appointment.facility_id == ctx.facility_id)
+    if order_no and order_no.strip():
+        # JSON listesi metne cevrilip aranir: Postgres (jsonb) ve SQLite'ta ayni
+        # sekilde calisir; kismi eslesme (orn. "4500") desteklenir.
+        needle = order_no.strip().replace("%", "").replace("_", "")
+        query = query.where(
+            sa.cast(Appointment.order_numbers, sa.String).ilike(f"%{needle}%")
+        )
     if status is not None:
         query = query.where(Appointment.status == status)
     if delivery_type is not None:
@@ -450,6 +463,7 @@ async def create_appointment(
         license_plate=body.license_plate,
         driver_name=body.driver_name,
         driver_phone=body.driver_phone,
+        order_numbers=body.order_numbers,
         duration_minutes=body.duration_minutes,
         allowed_dock_ids=ctx.assigned_dock_ids,
         approved_override=True,
@@ -1185,3 +1199,62 @@ async def calendar_week(
             "days": day_rows,
         }
     )
+
+
+# ------------------------------------------------------ randevu formu ayarlari
+
+
+class AppointmentFormPatch(BaseModel):
+    order_numbers: Literal["hidden", "optional", "required"] | None = None
+
+
+def _appointment_form_out(facility: Facility) -> dict:
+    return {
+        **resolve_appointment_form(facility),
+        "is_customized": bool(facility.appointment_form_json),
+        "max_order_numbers": MAX_ORDER_NUMBERS,
+    }
+
+
+@router.get("/appointment-form")
+async def get_appointment_form(
+    ctx: FacilityContext = Depends(require_facility_permissions(TenantPermission.APPT_VIEW)),
+):
+    """Randevu formu alan ayarlari. Yonetim adina olusturma ekrani da okur."""
+    return ok(_appointment_form_out(ctx.facility))
+
+
+@router.patch("/appointment-form")
+async def patch_appointment_form(
+    body: AppointmentFormPatch,
+    ctx: FacilityContext = Depends(
+        require_facility_permissions(TenantPermission.SUPPLIER_MANAGE)
+    ),
+    db: AsyncSession = Depends(get_db),
+):
+    """Alan modlarini gunceller; gonderilmeyen alan oldugu gibi kalir.
+
+    Yeni mod YALNIZCA yeni randevulara uygulanir; mevcut randevular degismez.
+    """
+    from app.services.audit import record_audit
+
+    facility = await db.get(Facility, ctx.facility_id)
+    assert facility is not None
+    before = resolve_appointment_form(facility)
+    current = {**before, **body.model_dump(exclude_unset=True, exclude_none=True)}
+    facility.appointment_form_json = current
+    record_audit(
+        db,
+        actor_type=ActorType.tenant_user,
+        actor_id=ctx.identity.id,
+        action="appointment_form.update",
+        tenant_id=ctx.tenant_id,
+        facility_id=ctx.facility_id,
+        entity_type="facility",
+        entity_id=ctx.facility_id,
+        before=before,
+        after=current,
+    )
+    await db.commit()
+    await db.refresh(facility)
+    return ok(_appointment_form_out(facility))

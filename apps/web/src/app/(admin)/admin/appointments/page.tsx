@@ -16,6 +16,7 @@ import { useFlash } from "@/components/config/page-shell";
 import { EmptyState, ErrorState, LoadingState } from "@/components/config/states";
 import { CargoBadge } from "@/components/domain/cargo-badge";
 import { MakeupBadge } from "@/components/domain/makeup-badge";
+import { OrderNumbersText } from "@/components/domain/order-numbers-input";
 import { StatusBadge } from "@/components/domain/status-badge";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
@@ -149,7 +150,12 @@ function AppointmentsListContent() {
     const q = query.trim().toLocaleLowerCase("tr");
     const filtered = q
       ? all.filter((a) =>
-          [a.supplier_name ?? "", a.product_name, a.license_plate ?? ""]
+          [
+            a.supplier_name ?? "",
+            a.product_name,
+            a.license_plate ?? "",
+            ...(a.order_numbers ?? []),
+          ]
             .join(" ")
             .toLocaleLowerCase("tr")
             .includes(q),
@@ -178,6 +184,7 @@ function AppointmentsListContent() {
         t.admin.appointments.csv.time,
         t.admin.appointments.csv.supplier,
         t.admin.appointments.csv.product,
+        t.admin.appointments.csv.orderNumbers,
         t.admin.appointments.csv.quantity,
         t.admin.appointments.csv.unit,
         t.admin.appointments.csv.dock,
@@ -194,6 +201,7 @@ function AppointmentsListContent() {
           start.toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" }),
           a.supplier_name ?? "",
           a.product_name,
+          (a.order_numbers ?? []).join(", "),
           a.quantity,
           labels.quantityUnit[a.quantity_unit as QuantityUnit] ?? a.quantity_unit,
           a.dock_name ?? "",
@@ -365,7 +373,13 @@ function AppointmentsListContent() {
                 <TD>{a.supplier_name ?? "—"}</TD>
                 <TD>
                   <div className="flex items-center gap-2">
-                    {a.product_name}
+                    <span className="min-w-0">
+                      {a.product_name}
+                      <OrderNumbersText
+                        value={a.order_numbers}
+                        className="block text-[11px] text-muted-foreground"
+                      />
+                    </span>
                     {a.delivery_type === "cargo" && (
                       <CargoBadge window={a.cargo_window as never} />
                     )}

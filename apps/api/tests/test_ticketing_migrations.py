@@ -57,7 +57,7 @@ def test_tenant_head_is_ticket_revision():
     # Sabitlenmis head: yeni bir tenant migration'i eklendiginde bu satirin
     # DEGISMESI gerekir. Amaci, tenant zincirine sessizce revizyon eklenmesini
     # engellemek — tasinmis ve tasinmamis tenant'lar ayri zincirlerden gecer.
-    assert tenant_head_revision() == "0007_cancel_reasons_makeup"
+    assert tenant_head_revision() == "0008_order_numbers_form"
 
 
 def test_revision_ids_fit_the_alembic_version_column():

@@ -14,6 +14,7 @@ import { Package } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { type CargoWindow, resolveDurationRange } from "@logislot/shared";
 import { ErrorState, LoadingState } from "@/components/config/states";
+import { OrderNumbersInput } from "@/components/domain/order-numbers-input";
 import { Button } from "@/components/ui/button";
 import { Drawer } from "@/components/ui/drawer";
 import { Input, Label, Select } from "@/components/ui/input";
@@ -21,6 +22,7 @@ import { Switch } from "@/components/ui/switch";
 import {
   useAdminAvailability,
   useAdminCreateAppointment,
+  useAppointmentForm,
 } from "@/lib/api/appointments";
 import { ApiError } from "@/lib/api/client";
 import { docks, productCategories, suppliers, vehicleCategories } from "@/lib/api/resources";
@@ -62,11 +64,14 @@ export function AdminCreateDrawer({ open, onClose, onSuccess, initial }: AdminCr
   const vehicleList = vehicleCategories.useList(activeFacilityId);
   const dockList = docks.useList(activeFacilityId);
   const create = useAdminCreateAppointment(activeFacilityId);
+  const form = useAppointmentForm(activeFacilityId);
+  const orderMode = form.data?.order_numbers ?? "hidden";
   const tz = activeFacility?.timezone ?? "Europe/Istanbul";
 
   const [supplierId, setSupplierId] = useState("");
   const [categoryId, setCategoryId] = useState("");
   const [productName, setProductName] = useState("");
+  const [orderNumbers, setOrderNumbers] = useState<string[]>([]);
   const [quantity, setQuantity] = useState(1);
   const [unit, setUnit] = useState("pallet");
   const [vehicleOverrideId, setVehicleOverrideId] = useState<string | null>(null);
@@ -194,6 +199,7 @@ export function AdminCreateDrawer({ open, onClose, onSuccess, initial }: AdminCr
     setSupplierId("");
     setCategoryId("");
     setProductName("");
+    setOrderNumbers([]);
     setQuantity(1);
     setVehicleOverrideId(null);
     setPlate("");
@@ -215,6 +221,10 @@ export function AdminCreateDrawer({ open, onClose, onSuccess, initial }: AdminCr
       setFormError(copy.needsFields);
       return;
     }
+    if (orderMode === "required" && orderNumbers.length === 0) {
+      setFormError(t.orderNumbers.requiredError);
+      return;
+    }
     if (!isCargo && !selectedSlot) {
       setFormError(copy.needsStart);
       return;
@@ -228,6 +238,7 @@ export function AdminCreateDrawer({ open, onClose, onSuccess, initial }: AdminCr
         supplier_id: supplier.id,
         product_category_id: category.id,
         product_name: productName,
+        order_numbers: orderMode === "hidden" ? [] : orderNumbers,
         quantity,
         quantity_unit: unit,
         vehicle_category_id: vehicleOverrideId,
@@ -319,6 +330,23 @@ export function AdminCreateDrawer({ open, onClose, onSuccess, initial }: AdminCr
                   />
                 </div>
               </div>
+
+              {orderMode !== "hidden" && (
+                <div>
+                  <Label htmlFor="admin-order-numbers">
+                    {t.orderNumbers.label}{" "}
+                    <span className="text-xs font-normal text-muted-foreground">
+                      ({orderMode === "required" ? t.orderNumbers.required : t.orderNumbers.optional})
+                    </span>
+                  </Label>
+                  <OrderNumbersInput
+                    id="admin-order-numbers"
+                    value={orderNumbers}
+                    onChange={setOrderNumbers}
+                    max={form.data?.max_order_numbers ?? 20}
+                  />
+                </div>
+              )}
 
               <div className="grid grid-cols-3 gap-3">
                 <div>

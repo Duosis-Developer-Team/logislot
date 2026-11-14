@@ -41,6 +41,7 @@ from app.models import (
 )
 from app.rules.availability import AvailabilityService
 from app.rules.context import HardRuleCode, HardRuleResult, RuleEvaluationContext
+from app.services.appointment_form import validate_order_numbers
 from app.services.audit import record_audit
 from app.services.cancellation_policy import (
     ensure_cancellation_notice,
@@ -230,6 +231,7 @@ async def create_appointment(
     license_plate: str | None = None,
     driver_name: str | None = None,
     driver_phone: str | None = None,
+    order_numbers: list[str] | None = None,
     start_at: datetime | None = None,
     duration_minutes: int | None = None,
     cargo_window: CargoWindow | None = None,
@@ -244,6 +246,7 @@ async def create_appointment(
     _commit: bool = True,
     _notify: bool = True,
     _skip_lock: bool = False,
+    _enforce_form: bool = True,
 ) -> Appointment:
     # Savunma: pasif tedarikci hicbir yoldan randevu olusturamaz
     # (admin on-behalf dahil; portal tarafinda auth katmani zaten engeller).
@@ -253,6 +256,14 @@ async def create_appointment(
     # Kargo tedarikci bazinda acilir; kapaliyken admin adina olusturma dahil
     # hicbir yoldan kargo randevusu olusmaz.
     ensure_delivery_type_allowed(supplier, delivery_type)
+
+    # Tesisin randevu formu: siparis no gizli/istege bagli/zorunlu. Telafi gibi
+    # turetilmis randevular (_enforce_form=False) kaynaginin degerini tasir.
+    order_numbers = (
+        validate_order_numbers(facility, order_numbers)
+        if _enforce_form
+        else (order_numbers or None)
+    )
 
     # Eszamanlilik: kilit altinda son-an availability degerlendirmesi yapilir;
     # ayni tesise paralel create/revise istekleri serialize edilir.
@@ -375,6 +386,7 @@ async def create_appointment(
         license_plate=license_plate,
         driver_name=driver_name,
         driver_phone=driver_phone,
+        order_numbers=order_numbers,
         delivery_type=delivery_type,
         cargo_window=cargo_window,
         cargo_min_block_minutes=cargo_min_block,
@@ -1003,12 +1015,16 @@ async def supplier_cancel_appointment(
             license_plate=appointment.license_plate,
             driver_name=appointment.driver_name,
             driver_phone=appointment.driver_phone,
+            order_numbers=appointment.order_numbers,
             start_at=None if is_cargo else makeup.start_at,
             duration_minutes=appointment.duration_minutes,
             cargo_window=(makeup.cargo_window or appointment.cargo_window) if is_cargo else None,
             _audit_action="appointment.create_makeup",
             _commit=False,
             _skip_lock=True,
+            # Telafi, iptal edilenin siparis numaralarini aynen tasir; kural
+            # sonradan acildiysa eski randevunun iptali bu yuzden kilitlenmez.
+            _enforce_form=False,
         )
         makeup_appointment.is_makeup = True
         makeup_appointment.makeup_of_id = appointment.id

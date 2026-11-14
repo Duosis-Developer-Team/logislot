@@ -847,6 +847,26 @@ export const tr = {
       deactivateMessage:
         "Bu istisna pasifleştirilecek ve rampa o gün normal çalışma düzenine döner.",
     },
+    appointmentForm: {
+      needsPermission: "Bu sayfayı görüntülemek için tedarikçi yönetimi yetkisi gerekir.",
+      title: "Randevu Formu",
+      description:
+        "Tedarikçinin ve yönetimin randevu oluştururken dolduracağı ek alanlar. Her alanı gizleyebilir, isteğe bağlı ya da zorunlu yapabilirsiniz.",
+      fieldsTitle: "Form Alanları",
+      stat: "Form",
+      orderNumbers: "Sipariş no",
+      orderNumbersHint: (max: number) =>
+        `Sevkiyatın sipariş numaraları. Bir randevuya en fazla ${max} numara girilebilir.`,
+      modes: { hidden: "Gizli", optional: "İsteğe bağlı", required: "Zorunlu" } as Record<
+        string,
+        string
+      >,
+      appliesToNew:
+        "Değişiklik yalnızca yeni randevulara uygulanır; mevcut randevular etkilenmez.",
+      saved: "Randevu formu kaydedildi.",
+      loadError: "Randevu formu ayarları yüklenemedi.",
+      saveFailed: "Randevu formu ayarları kaydedilemedi.",
+    },
     supplierCancellation: {
       needsPermission: "Bu sayfayı görüntülemek için tedarikçi yönetimi yetkisi gerekir.",
       title: "Tedarikçi İptal Kuralları",
@@ -920,7 +940,7 @@ export const tr = {
       create: "Yeni Randevu",
       truncated: (limit: number) =>
         `En fazla ${limit} kayıt gösteriliyor; daha fazlası olabilir. İndirilen CSV de bu listeyle aynıdır — tam liste için durum filtresiyle daraltın.`,
-      searchPlaceholder: "Tedarikçi, ürün veya plaka ara…",
+      searchPlaceholder: "Tedarikçi, ürün, plaka veya sipariş no ara…",
       loadError: "Randevular yüklenemedi.",
       emptyTitle: "Randevu bulunamadı",
       emptyDescription: "Seçili filtreye uyan randevu yok.",
@@ -936,6 +956,7 @@ export const tr = {
         time: "Saat",
         supplier: "Tedarikçi",
         product: "Ürün",
+        orderNumbers: "Sipariş no",
         quantity: "Miktar",
         unit: "Birim",
         dock: "Rampa",
@@ -1075,6 +1096,7 @@ export const tr = {
         overrides: "Kapalı günler ve güne özel çalışma saatleri",
         suppliers: "İzinli kategoriler, kota, otomatik onay + portal hesabı",
         supplierNotifications: "Tedarikçilere hangi panel/e-posta bildirimlerinin gideceği",
+        appointmentForm: "Sipariş no gibi ek alanların görünürlüğü ve zorunluluğu",
         supplierCancellation: "Tedarikçinin randevu iptalinde sebep, alternatif tarih ve süre kuralı",
         users: "Rol izinleri ve rampa bazlı kısıtlama",
         emailLogs: "Giden e-postalar, hatalılar ve toplu yeniden gönderim",
@@ -2208,6 +2230,18 @@ export const tr = {
     },
   },
 
+  orderNumbers: {
+    label: "Sipariş no",
+    short: "Sipariş",
+    required: "zorunlu",
+    optional: "isteğe bağlı",
+    placeholder: "Sipariş numarasını yazıp Enter'a basın",
+    hint: "Birden fazla sipariş varsa her birini ayrı ekleyin ya da virgülle yapıştırın.",
+    limitReached: (max: number) => `En fazla ${max} sipariş numarası eklenebilir`,
+    remove: (value: string) => `${value} numarasını kaldır`,
+    requiredError: "En az bir sipariş numarası girin.",
+  },
+
   makeup: {
     badge: "Telafi",
     badgeHint: "İptal edilen bir randevunun yerine açılan telafi randevusu",
@@ -2289,6 +2323,9 @@ export const tr = {
       MAKEUP_REQUIRED: "İptal için telafi randevusunun gün ve saatini seçmelisiniz.",
       MAKEUP_SERIES_BLOCKED:
         "Telafi zorunlu olduğu için seri toplu iptal edilemez; randevuları tek tek iptal edip telafilerini oluşturun.",
+      ORDER_NUMBER_REQUIRED: "En az bir sipariş numarası girilmelidir.",
+      ORDER_NUMBERS_TOO_MANY: "Bir randevuya girilebilecek sipariş numarası sınırı aşıldı.",
+      ORDER_NUMBER_TOO_LONG: "Sipariş numarası en fazla 64 karakter olabilir.",
     } as Record<string, string>,
     network: "Sunucuya ulaşılamadı; bağlantınızı kontrol edin.",
     unexpected: "Beklenmeyen bir hata oluştu.",

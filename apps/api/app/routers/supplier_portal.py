@@ -39,6 +39,7 @@ from app.schemas.appointment import (
 )
 from app.schemas.catalog import ProductCategoryOut, SupplierOut, VehicleCategoryOut
 from app.services import appointments as svc
+from app.services.appointment_form import MAX_ORDER_NUMBERS, resolve_appointment_form
 from app.services.appointments import allowed_delivery_types
 from app.services.cancellation_policy import (
     list_reasons,
@@ -169,6 +170,9 @@ async def catalog(
                 {"value": u.value, "label": label}
                 for u, label in QUANTITY_UNIT_LABELS.items()
             ],
+            # Tesisin form ayari: hangi alan gizli/istege bagli/zorunlu.
+            "appointment_form": resolve_appointment_form(ctx.facility),
+            "max_order_numbers": MAX_ORDER_NUMBERS,
         }
     )
 
@@ -254,6 +258,7 @@ async def create_my_appointment(
             license_plate=body.license_plate,
             driver_name=body.driver_name,
             driver_phone=body.driver_phone,
+            order_numbers=body.order_numbers,
             duration_minutes=body.duration_minutes,
         )
         return ok(
@@ -281,6 +286,7 @@ async def create_my_appointment(
         license_plate=body.license_plate,
         driver_name=body.driver_name,
         driver_phone=body.driver_phone,
+        order_numbers=body.order_numbers,
         start_at=body.start_at,
         duration_minutes=body.duration_minutes,
         cargo_window=body.cargo_window,

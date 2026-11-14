@@ -89,6 +89,12 @@ const CONFIG_ENTRIES: MenuEntry[] = [
     permission: "supplier.manage",
   },
   {
+    title: "Randevu Formu",
+    icon: "clipboard-outline",
+    route: "/admin/settings/appointment-form",
+    permission: "supplier.manage",
+  },
+  {
     title: "Tedarikçi İptal Kuralları",
     icon: "close-circle-outline",
     route: "/admin/settings/supplier-cancellation",

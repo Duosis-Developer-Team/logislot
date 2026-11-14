@@ -9,6 +9,7 @@ import {
   resolveDurationRange,
 } from "@logislot/shared";
 import { ErrorState, LoadingState } from "@/components/config/states";
+import { OrderNumbersInput } from "@/components/domain/order-numbers-input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog } from "@/components/ui/dialog";
@@ -83,6 +84,7 @@ export default function NewAppointmentWizard() {
   const [productName, setProductName] = useState("");
   const [categoryId, setCategoryId] = useState<string>("");
   const [quantity, setQuantity] = useState(1);
+  const [orderNumbers, setOrderNumbers] = useState<string[]>([]);
   const [unit, setUnit] = useState("pallet");
 
   // Adim 2 — arac & teslimat
@@ -149,9 +151,14 @@ export default function NewAppointmentWizard() {
       timeZone: tz,
     });
 
+  // Tesisin form ayari: siparis no gizli / istege bagli / zorunlu.
+  const orderMode = catalog.data?.appointment_form.order_numbers ?? "hidden";
   const canNext =
     step === 0
-      ? productName.trim().length > 0 && category !== null && quantity > 0
+      ? productName.trim().length > 0 &&
+        category !== null &&
+        quantity > 0 &&
+        (orderMode !== "required" || orderNumbers.length > 0)
       : step === 1
         ? isCargo || plate.trim().length > 0
         : isCargo || selectedSlot !== null;
@@ -173,6 +180,7 @@ export default function NewAppointmentWizard() {
     const body = {
       product_category_id: categoryId,
       product_name: productName,
+      order_numbers: orderMode === "hidden" ? [] : orderNumbers,
       quantity,
       quantity_unit: unit,
       vehicle_category_id: vehicleOverrideId, // null -> backend kategori varsayilanini cozer
@@ -350,6 +358,22 @@ export default function NewAppointmentWizard() {
                 placeholder={t.supplier.newAppointment.productPlaceholder}
               />
             </div>
+            {orderMode !== "hidden" && (
+              <div>
+                <Label htmlFor="order-numbers">
+                  {t.orderNumbers.label}{" "}
+                  <span className="text-xs font-normal text-muted-foreground">
+                    ({orderMode === "required" ? t.orderNumbers.required : t.orderNumbers.optional})
+                  </span>
+                </Label>
+                <OrderNumbersInput
+                  id="order-numbers"
+                  value={orderNumbers}
+                  onChange={setOrderNumbers}
+                  max={catalog.data?.max_order_numbers ?? 20}
+                />
+              </div>
+            )}
             <div>
               <Label>{t.supplier.newAppointment.category}</Label>
               <Select
@@ -681,6 +705,12 @@ export default function NewAppointmentWizard() {
               <dl className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
                 <dt className="text-muted-foreground">{t.supplier.newAppointment.summaryProduct}</dt>
                 <dd>{productName || "—"}</dd>
+                {orderNumbers.length > 0 && orderMode !== "hidden" && (
+                  <>
+                    <dt className="text-muted-foreground">{t.orderNumbers.label}</dt>
+                    <dd className="font-mono">{orderNumbers.join(", ")}</dd>
+                  </>
+                )}
                 <dt className="text-muted-foreground">{t.supplier.newAppointment.category}</dt>
                 <dd>{category?.display_name ?? "—"}</dd>
                 <dt className="text-muted-foreground">{t.supplier.newAppointment.quantity}</dt>

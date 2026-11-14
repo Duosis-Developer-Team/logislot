@@ -49,6 +49,7 @@ ACTION_LABELS = {
     "supplier_notification_policy.update": "Tedarikçi bildirim politikası güncellendi",
     "supplier_cancellation_policy.update": "Tedarikçi iptal kuralları güncellendi",
     "cancellation_reasons.update": "İptal sebebi listesi güncellendi",
+    "appointment_form.update": "Randevu formu ayarları güncellendi",
     "auth.login": "Giriş yapıldı",
     "auth.login_failed": "Başarısız giriş denemesi",
     "auth.logout": "Çıkış yapıldı",

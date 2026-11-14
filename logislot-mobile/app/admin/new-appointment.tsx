@@ -12,7 +12,7 @@
 import { router } from "expo-router";
 import { useMemo, useState } from "react";
 import { Alert, ScrollView, Text, View } from "react-native";
-import { useAdminAvailability, useAdminCreateAppointment } from "@/api/admin";
+import { useAdminAvailability, useAdminCreateAppointment, useAppointmentForm } from "@/api/admin";
 import { ApiError } from "@/api/client";
 import {
   CARGO_WINDOW_LABELS,
@@ -32,6 +32,7 @@ import {
   PickerField,
   SwitchRow,
 } from "@/components/ui";
+import { OrderNumbersField } from "@/components/order-numbers";
 import { useTheme } from "@/theme/theme";
 import { spacing } from "@/theme/tokens";
 import { addDaysISO, dayLabel, timeInTz, todayISO } from "@/utils/format";
@@ -58,6 +59,9 @@ export default function AdminNewAppointment() {
   const [supplierId, setSupplierId] = useState("");
   const [categoryId, setCategoryId] = useState("");
   const [productName, setProductName] = useState("");
+  const [orderNumbers, setOrderNumbers] = useState<string[]>([]);
+  const form = useAppointmentForm(session.activeFacilityId);
+  const orderMode = form.data?.order_numbers ?? "hidden";
   const [quantity, setQuantity] = useState("1");
   const [unit, setUnit] = useState("pallet");
   const [vehicleOverrideId, setVehicleOverrideId] = useState<string | null>(null);
@@ -151,6 +155,10 @@ export default function AdminNewAppointment() {
       setFormError("Tedarikçi, kategori ve ürün adı zorunludur.");
       return;
     }
+    if (orderMode === "required" && orderNumbers.length === 0) {
+      setFormError("En az bir sipariş numarası girin.");
+      return;
+    }
     if (!isCargo && !selectedSlot) {
       setFormError("Başlangıç saati seçin.");
       return;
@@ -164,6 +172,7 @@ export default function AdminNewAppointment() {
         supplier_id: supplier.id,
         product_category_id: category.id,
         product_name: productName,
+        order_numbers: orderMode === "hidden" ? [] : orderNumbers,
         quantity: Math.max(1, parseInt(quantity, 10) || 1),
         quantity_unit: unit,
         vehicle_category_id: vehicleOverrideId,
@@ -249,6 +258,12 @@ export default function AdminNewAppointment() {
               value={productName}
               onChangeText={setProductName}
               placeholder="Örn. Acil teslimat"
+            />
+            <OrderNumbersField
+              mode={orderMode}
+              value={orderNumbers}
+              onChange={setOrderNumbers}
+              max={form.data?.max_order_numbers ?? 20}
             />
             <View style={{ flexDirection: "row", gap: spacing.md }}>
               <View style={{ flex: 1 }}>

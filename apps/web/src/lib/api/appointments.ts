@@ -6,6 +6,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/api/client";
 import type {
   AppointmentDto,
+  AppointmentFormDto,
   CalendarDayDto,
   CalendarWeekDto,
   DashboardSummaryDto,
@@ -357,6 +358,46 @@ export function useSeriesApprove(facilityId: string | null) {
       for (const prefix of ["series", "appointments", "appointment", "calendar", "dashboard"]) {
         queryClient.invalidateQueries({ queryKey: [prefix, fid] });
       }
+    },
+  });
+}
+
+// ------------------------------------------------------ randevu formu ayarlari
+
+export interface AppointmentFormResponse extends AppointmentFormDto {
+  is_customized: boolean;
+  max_order_numbers: number;
+}
+
+const appointmentFormKey = (facilityId: string | null) => [
+  "config",
+  "appointment-form",
+  facilityId ?? "none",
+];
+
+/** Yonetim adina olusturma ve ayar ekrani ayni ayari okur. */
+export function useAppointmentForm(facilityId: string | null) {
+  return useQuery({
+    queryKey: appointmentFormKey(facilityId),
+    queryFn: () =>
+      apiRequest<AppointmentFormResponse>(`/facilities/${facilityId}/appointment-form`),
+    enabled: facilityId !== null,
+    staleTime: 60_000,
+  });
+}
+
+export function useSaveAppointmentForm(facilityId: string | null) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (body: Partial<AppointmentFormDto>) =>
+      apiRequest<AppointmentFormResponse>(`/facilities/${facilityId}/appointment-form`, {
+        method: "PATCH",
+        body,
+      }),
+    onSuccess: (data) => {
+      queryClient.setQueryData(appointmentFormKey(facilityId), data);
+      // Tedarikci sihirbazi formu katalogdan okur.
+      queryClient.invalidateQueries({ queryKey: ["supplier", "catalog"] });
     },
   });
 }

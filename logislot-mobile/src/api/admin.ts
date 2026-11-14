@@ -10,6 +10,7 @@ import type {
   DashboardSummaryDto,
   SeriesCreateResultDto,
   SlotDto,
+  AppointmentFormDto,
   CancellationReasonDto,
   SupplierCancellationPolicyDto,
 } from "./types";
@@ -441,6 +442,43 @@ export function useSaveCancellationReasons(facilityId: string | null) {
     onSuccess: (rows) => {
       queryClient.setQueryData(cancellationReasonsKey(facilityId), rows);
       queryClient.invalidateQueries({ queryKey: ["supplier", "profile"] });
+    },
+  });
+}
+
+// ------------------------------------------- randevu formu ayarları
+
+export interface AppointmentFormResponse extends AppointmentFormDto {
+  is_customized: boolean;
+  max_order_numbers: number;
+}
+
+const appointmentFormKey = (facilityId: string | null) => [
+  "config",
+  "appointment-form",
+  facilityId ?? "none",
+];
+
+export function useAppointmentForm(facilityId: string | null) {
+  return useQuery({
+    queryKey: appointmentFormKey(facilityId),
+    queryFn: () =>
+      apiRequest<AppointmentFormResponse>(`/facilities/${facilityId}/appointment-form`),
+    enabled: facilityId !== null,
+  });
+}
+
+export function useSaveAppointmentForm(facilityId: string | null) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (body: Partial<AppointmentFormDto>) =>
+      apiRequest<AppointmentFormResponse>(`/facilities/${facilityId}/appointment-form`, {
+        method: "PATCH",
+        body,
+      }),
+    onSuccess: (data) => {
+      queryClient.setQueryData(appointmentFormKey(facilityId), data);
+      queryClient.invalidateQueries({ queryKey: ["supplier", "catalog"] });
     },
   });
 }
