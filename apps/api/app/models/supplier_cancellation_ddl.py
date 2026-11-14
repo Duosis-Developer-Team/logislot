@@ -1,5 +1,10 @@
 """Tedarikci iptal kurallari kolonlarinin TEK DDL tanimi (iki alembic zinciri de kullanir).
 
+TARIHCE: bu revizyonun ekledigi `cancellation_reason_code` ve
+`cancellation_alternative_date` kolonlari 2026-11 musteri toplantisinda
+istenmedi ve cancellation_reasons_ddl.py tarafindan dusurulur; model artik
+onlari icermez. Bu modul zincir gecmisi bozulmasin diye aynen korunur.
+
 `appointments` ve `facilities` tenant-plane tablolardir: kendi semasina
 tasinmis tenant'lar `alembic_tenant/` zincirinden, henuz tasinmamis olanlar
 ortak yerlesimde (`public`) `alembic/` zincirinden gecer. Iki zincir de bu

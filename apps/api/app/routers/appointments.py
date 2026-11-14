@@ -194,7 +194,23 @@ async def get_appointment(
     )
     data["allowed_actions"] = _allowed_actions(appointment, ctx)
     data["series"] = await _series_summary(db, appointment)
+    data["makeup_of"] = await _linked_summary(db, appointment.makeup_of_id)
+    data["makeup_appointment"] = await _linked_summary(db, appointment.makeup_appointment_id)
     return ok(data)
+
+
+async def _linked_summary(db: AsyncSession, appointment_id: uuid.UUID | None) -> dict | None:
+    """Telafi baglantisi icin kisa ozet (karsi randevuya gecis linki)."""
+    if appointment_id is None:
+        return None
+    linked = await db.get(Appointment, appointment_id)
+    if linked is None:
+        return None
+    return {
+        "id": str(linked.id),
+        "scheduled_start_at": linked.scheduled_start_at.isoformat(),
+        "status": linked.status.value,
+    }
 
 
 async def _series_summary(db: AsyncSession, appointment: Appointment) -> dict | None:

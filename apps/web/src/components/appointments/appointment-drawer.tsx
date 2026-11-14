@@ -16,6 +16,7 @@ import {
 import { ConfirmDialog } from "@/components/config/confirm-dialog";
 import { ErrorState, LoadingState } from "@/components/config/states";
 import { CargoBadge } from "@/components/domain/cargo-badge";
+import { MakeupBadge } from "@/components/domain/makeup-badge";
 import { StatusBadge } from "@/components/domain/status-badge";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
@@ -30,6 +31,7 @@ import {
   useSeriesCancel,
 } from "@/lib/api/appointments";
 import { ApiError } from "@/lib/api/client";
+import type { LinkedAppointmentDto } from "@/lib/api/types";
 import { emailProviderLabel, emailStatusLabel, emailTemplateLabel } from "@/lib/email-labels";
 import { useEmailLogs } from "@/lib/api/reports";
 import {
@@ -40,7 +42,7 @@ import { useSession } from "@/lib/auth/session";
 import { formatDate, isoFromWallClock, timeInTz } from "@/lib/utils";
 import { useApiErrorMessage } from "@/lib/i18n/api-error";
 import { useLabels } from "@/lib/i18n/labels";
-import { useFormat, useT } from "@/lib/i18n/provider";
+import { useT } from "@/lib/i18n/provider";
 
 interface AppointmentDrawerProps {
   appointmentId: string | null;
@@ -56,10 +58,14 @@ export function AppointmentDrawer({
 }: AppointmentDrawerProps) {
   const t = useT();
   const labels = useLabels();
-  const fmt = useFormat();
   const errorMessage = useApiErrorMessage();
   const { activeFacilityId, activeFacility, can } = useSession();
-  const detail = useAppointmentDetail(activeFacilityId, appointmentId);
+  // Telafi baglantisina tiklaninca drawer karsi randevuya gecer. Gecis,
+  // disaridan acilan randevuya baglidir: baska randevu acilinca kendiliginden
+  // sifirlanir (effect gerekmez).
+  const [linked, setLinked] = useState<{ from: string | null; id: string } | null>(null);
+  const currentId = linked && linked.from === appointmentId ? linked.id : appointmentId;
+  const detail = useAppointmentDetail(activeFacilityId, currentId);
   const dockList = dockResource.useList(activeFacilityId);
   const categoryList = categoryResource.useList(activeFacilityId);
   const actions = useAppointmentActions(activeFacilityId);
@@ -93,12 +99,12 @@ export function AppointmentDrawer({
   // Secenekler yalnizca diyalog acikken cekilir (gereksiz istek uretme).
   const dockOptions = useDockOptions(
     activeFacilityId,
-    dialog === "dock-change" ? appointmentId : null,
+    dialog === "dock-change" ? currentId : null,
   );
 
   const a = detail.data ?? null;
   const allowed = a?.allowed_actions;
-  const emailLogs = useEmailLogs(activeFacilityId, appointmentId);
+  const emailLogs = useEmailLogs(activeFacilityId, currentId);
   const emailResend = useEmailResend(activeFacilityId);
   const [resendError, setResendError] = useState<string | null>(null);
 
@@ -241,8 +247,31 @@ export function AppointmentDrawer({
               {a.delivery_type === "cargo" && (
                 <CargoBadge window={a.cargo_window as never} />
               )}
+              {a.is_makeup && <MakeupBadge />}
             </div>
           </div>
+
+          {/* Telafi baglantilari: iptal edilen <-> telafi randevusu */}
+          {(a.makeup_of || a.makeup_appointment) && (
+            <div className="flex flex-col gap-1.5 rounded-lg border border-status-revision/30 bg-status-revision/5 px-3 py-2 text-sm">
+              {a.makeup_of && (
+                <LinkedRow
+                  label={t.makeup.replacesLabel}
+                  linked={a.makeup_of}
+                  tz={tz}
+                  onOpen={() => setLinked({ from: appointmentId, id: a.makeup_of!.id })}
+                />
+              )}
+              {a.makeup_appointment && (
+                <LinkedRow
+                  label={t.makeup.makeupLabel}
+                  linked={a.makeup_appointment}
+                  tz={tz}
+                  onOpen={() => setLinked({ from: appointmentId, id: a.makeup_appointment!.id })}
+                />
+              )}
+            </div>
+          )}
 
           {/* Bilgi izgarasi */}
           <dl className="grid grid-cols-2 gap-x-4 gap-y-2 rounded-lg border border-border p-4 text-sm">
@@ -332,20 +361,11 @@ export function AppointmentDrawer({
               {t.appointmentDrawer.rejectionReason} {a.rejection_reason}
             </p>
           )}
-          {(a.cancellation_reason || a.cancellation_reason_code) && (
-            <div className="rounded-lg bg-status-cancelled/10 px-3 py-2 text-sm text-status-cancelled">
-              <p>
-                {t.appointmentDrawer.cancellationReason}{" "}
-                {labels.cancellationReasonText(a.cancellation_reason_code, a.cancellation_reason)}
-              </p>
-              {a.cancellation_alternative_date && (
-                <p className="mt-0.5 font-medium">
-                  {t.appointmentDrawer.alternativeDate}{" "}
-                  {/* Yalnizca gun: oglen sabitlenir ki saat dilimi gunu kaydirmasin. */}
-                  {fmt.date(`${a.cancellation_alternative_date}T12:00:00`)}
-                </p>
-              )}
-            </div>
+          {(a.cancellation_reason || a.cancellation_reason_label) && (
+            <p className="rounded-lg bg-status-cancelled/10 px-3 py-2 text-sm text-status-cancelled">
+              {t.appointmentDrawer.cancellationReason}{" "}
+              {labels.cancellationReasonText(a.cancellation_reason_label, a.cancellation_reason)}
+            </p>
           )}
           {a.completion_note && (
             <p className="rounded-lg bg-status-completed/10 px-3 py-2 text-sm text-status-completed">
@@ -849,5 +869,36 @@ export function AppointmentDrawer({
         </div>
       </Dialog>
     </Modal>
+  );
+}
+
+/** Telafi baglantisi satiri: tarih/saat + durum + karsi randevuya gecis. */
+function LinkedRow({
+  label,
+  linked,
+  tz,
+  onOpen,
+}: {
+  label: string;
+  linked: LinkedAppointmentDto;
+  tz: string;
+  onOpen: () => void;
+}) {
+  const t = useT();
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-2">
+      <span>
+        <span className="text-muted-foreground">{label}:</span>{" "}
+        <span className="font-medium">
+          {formatDate(linked.scheduled_start_at)} {timeInTz(linked.scheduled_start_at, tz)}
+        </span>
+      </span>
+      <span className="flex items-center gap-2">
+        <StatusBadge status={linked.status as never} />
+        <Button size="sm" variant="ghost" className="h-7 px-2" onClick={onOpen}>
+          {t.makeup.open}
+        </Button>
+      </span>
+    </div>
   );
 }

@@ -12,14 +12,12 @@
 
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { SUPPLIER_CANCELLATION_REASONS } from "@logislot/shared";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { apiRequest } from "@/lib/api/client";
 import type { SupplierCancellationPolicyDto } from "@/lib/api/types";
 import { useApiErrorMessage } from "@/lib/i18n/api-error";
-import { useLabels } from "@/lib/i18n/labels";
 import { useT } from "@/lib/i18n/provider";
 
 interface PolicyResponse extends SupplierCancellationPolicyDto {
@@ -37,7 +35,6 @@ const policyKey = (facilityId: string) => [
 export function SupplierCancellationPolicyForm({ facilityId }: { facilityId: string | null }) {
   const t = useT();
   const copy = t.admin.supplierCancellation;
-  const labels = useLabels();
   const errorMessage = useApiErrorMessage();
   const queryClient = useQueryClient();
   const policy = useQuery({
@@ -54,8 +51,8 @@ export function SupplierCancellationPolicyForm({ facilityId }: { facilityId: str
 
   useEffect(() => {
     if (policy.data && draft === null) {
-      const { require_reason, require_alternative_date, min_notice_hours } = policy.data;
-      setDraft({ require_reason, require_alternative_date, min_notice_hours });
+      const { require_reason, require_makeup, min_notice_hours } = policy.data;
+      setDraft({ require_reason, require_makeup, min_notice_hours });
       setHours(String(min_notice_hours));
     }
   }, [policy.data, draft]);
@@ -108,32 +105,15 @@ export function SupplierCancellationPolicyForm({ facilityId }: { facilityId: str
           label={copy.requireReason}
         />
         <p className="text-xs text-muted-foreground">{copy.requireReasonHint}</p>
-        {draft.require_reason && (
-          <div className="mt-1 border-t border-border pt-2">
-            <p className="mb-1.5 text-xs font-medium text-muted-foreground">
-              {copy.reasonsTitle}
-            </p>
-            <div className="flex flex-wrap gap-1.5">
-              {SUPPLIER_CANCELLATION_REASONS.map((code) => (
-                <span
-                  key={code}
-                  className="rounded-full bg-muted px-2.5 py-0.5 text-xs text-muted-foreground"
-                >
-                  {labels.supplierCancellationReason[code]}
-                </span>
-              ))}
-            </div>
-          </div>
-        )}
       </div>
 
       <div className="flex flex-col gap-2 rounded-lg border border-border p-3">
         <Switch
-          checked={draft.require_alternative_date}
-          onChange={(v) => setDraft({ ...draft, require_alternative_date: v })}
-          label={copy.requireAlternativeDate}
+          checked={draft.require_makeup}
+          onChange={(v) => setDraft({ ...draft, require_makeup: v })}
+          label={copy.requireMakeup}
         />
-        <p className="text-xs text-muted-foreground">{copy.requireAlternativeDateHint}</p>
+        <p className="text-xs text-muted-foreground">{copy.requireMakeupHint}</p>
       </div>
 
       <div className="flex flex-col gap-2 rounded-lg border border-border p-3">

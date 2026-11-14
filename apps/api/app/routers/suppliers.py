@@ -25,6 +25,11 @@ from app.core.ratelimit import enforce_rate_limit
 from app.core.responses import ok
 from app.core.security import hash_password
 from app.models import Facility, ProductCategory, Supplier, SupplierUser
+from app.models.cancellation import (
+    MAX_CANCELLATION_REASONS,
+    REASON_LABEL_MAX,
+    CancellationReason,
+)
 from app.schemas.catalog import SupplierOut
 from app.schemas.config import (
     SupplierAccountCreate,
@@ -37,6 +42,8 @@ from app.services.audit import record_audit
 from app.services.auth_sessions import revoke_user_sessions
 from app.services.cancellation_policy import (
     MAX_NOTICE_HOURS,
+    list_reasons,
+    reason_out,
     resolve_cancellation_policy,
 )
 from app.services.config import (
@@ -81,9 +88,22 @@ class SupplierNotificationPolicyPatch(BaseModel):
     email_events: dict[str, bool] | None = None
 
 
+class CancellationReasonIn(BaseModel):
+    """Liste satiri: `id` varsa mevcut sebep guncellenir, yoksa yeni acilir."""
+
+    id: uuid.UUID | None = None
+    label: str = Field(min_length=2, max_length=REASON_LABEL_MAX)
+    note_required: bool = False
+    is_active: bool = True
+
+
+class CancellationReasonsPut(BaseModel):
+    reasons: list[CancellationReasonIn] = Field(max_length=MAX_CANCELLATION_REASONS)
+
+
 class SupplierCancellationPolicyPatch(BaseModel):
     require_reason: bool | None = None
-    require_alternative_date: bool | None = None
+    require_makeup: bool | None = None
     min_notice_hours: int | None = Field(default=None, ge=0, le=MAX_NOTICE_HOURS)
 
 
@@ -544,3 +564,72 @@ async def patch_supplier_cancellation_policy(
     await db.commit()
     await db.refresh(facility)
     return ok(_cancellation_policy_out(facility))
+
+
+@router.get("/cancellation-reasons")
+async def get_cancellation_reasons(
+    ctx: FacilityContext = Depends(
+        require_facility_permissions(TenantPermission.SUPPLIER_MANAGE)
+    ),
+    db: AsyncSession = Depends(get_db),
+):
+    """Firmanin iptal sebebi listesi (pasifler dahil, siraya gore)."""
+    return ok([reason_out(r) for r in await list_reasons(db, ctx.facility_id)])
+
+
+@router.put("/cancellation-reasons")
+async def put_cancellation_reasons(
+    body: CancellationReasonsPut,
+    ctx: FacilityContext = Depends(
+        require_facility_permissions(TenantPermission.SUPPLIER_MANAGE)
+    ),
+    db: AsyncSession = Depends(get_db),
+):
+    """Listeyi GONDERILEN SIRAYLA yeniden yazar.
+
+    Gonderilmeyen sebep SILINIR. Silmek gecmisi bozmaz: randevu sebebin o anki
+    etiketini kendi uzerinde tasir, FK ise SET NULL olur. Tedarikcinin
+    secebilecegi en az bir aktif sebep kalmali (aksi halde "sebep zorunlu"
+    kurali tedarikciyi kilitler).
+    """
+    labels = [r.label.strip() for r in body.reasons]
+    if any(len(label) < 2 for label in labels):
+        raise ApiError("VALIDATION_ERROR", "Sebep adi en az 2 karakter olmali", 422)
+    if len({label.casefold() for label in labels}) != len(labels):
+        raise ApiError("DUPLICATE_NAME", "Ayni sebep birden fazla kez yazilmis", 409)
+    if not any(r.is_active for r in body.reasons):
+        raise ApiError(
+            "CANCELLATION_REASONS_EMPTY", "En az bir aktif iptal sebebi olmalidir", 422
+        )
+
+    existing = {r.id: r for r in await list_reasons(db, ctx.facility_id)}
+    before = [reason_out(r) for r in existing.values()]
+    unknown = [r.id for r in body.reasons if r.id is not None and r.id not in existing]
+    if unknown:
+        raise ApiError("NOT_FOUND", "Listede bu tesise ait olmayan sebep var", 404)
+
+    kept: set[uuid.UUID] = set()
+    for position, (item, label) in enumerate(zip(body.reasons, labels, strict=True)):
+        if item.id is not None:
+            row = existing[item.id]
+            kept.add(row.id)
+        else:
+            row = CancellationReason(tenant_id=ctx.tenant_id, facility_id=ctx.facility_id)
+            db.add(row)
+        row.label = label
+        row.note_required = item.note_required
+        row.is_active = item.is_active
+        row.position = position
+    for reason_id, row in existing.items():
+        if reason_id not in kept:
+            await db.delete(row)
+    await db.flush()
+
+    after = [reason_out(r) for r in await list_reasons(db, ctx.facility_id)]
+    _audit(
+        db, ctx,
+        action="cancellation_reasons.update", entity_type="facility",
+        entity_id=ctx.facility_id, before={"reasons": before}, after={"reasons": after},
+    )
+    await db.commit()
+    return ok(after)

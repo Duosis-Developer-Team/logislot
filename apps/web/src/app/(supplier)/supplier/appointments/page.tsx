@@ -4,6 +4,7 @@ import { Boxes, Clock3, Repeat, Truck } from "lucide-react";
 import { useState } from "react";
 import { QUANTITY_UNIT_LABELS, type QuantityUnit } from "@logislot/shared";
 import { useFlash } from "@/components/config/page-shell";
+import { MakeupBadge } from "@/components/domain/makeup-badge";
 import { SupplierCancelDialog } from "@/components/domain/supplier-cancel-dialog";
 import { SupplierSeriesSection } from "@/components/domain/supplier-series-section";
 import { EmptyState, ErrorState, LoadingState } from "@/components/config/states";
@@ -46,10 +47,6 @@ function cancelDeadline(
   );
 }
 
-/** "YYYY-MM-DD" gun degerini saat dilimi kaymasi olmadan bicimler. */
-function dateOnlyIso(day: string): string {
-  return `${day}T12:00:00`;
-}
 
 /** Iptal dugmesi + son iptal ani; kural suresi dolduysa dugme yerine aciklama. */
 function CancelAction({
@@ -105,6 +102,8 @@ export default function SupplierAppointmentsPage() {
     return <ErrorState message={t.supplier.appointments.loadError} onRetry={() => list.refetch()} />;
 
   const all = list.data ?? [];
+  // Telafi baglantilarini (iptal <-> telafi) kartta gostermek icin.
+  const byId = new Map(all.map((a) => [a.id, a]));
   const now = Date.now();
   const upcoming = all
     .filter(
@@ -145,7 +144,7 @@ export default function SupplierAppointmentsPage() {
     setCancelError(null);
     try {
       await cancel.mutateAsync({ id: confirmTarget.id, ...body });
-      showFlash("success", t.appointmentDrawer.cancelled);
+      showFlash("success", body.makeup ? t.makeup.cancelledWithMakeup : t.appointmentDrawer.cancelled);
       setConfirmTarget(null);
     } catch (err) {
       // Form acik kalir: kullanici secimini kaybetmeden duzeltebilsin.
@@ -250,6 +249,20 @@ export default function SupplierAppointmentsPage() {
               {a.delivery_type === "cargo" && (
                 <CargoBadge window={a.cargo_window as never} />
               )}
+              {a.is_makeup && (
+                <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                  <MakeupBadge />
+                  {a.makeup_of_id && byId.get(a.makeup_of_id) && (
+                    <span>
+                      {t.makeup.replaces(
+                        `${fmt.date(byId.get(a.makeup_of_id)!.scheduled_start_at)} ${fmt.time(
+                          byId.get(a.makeup_of_id)!.scheduled_start_at,
+                        )}`,
+                      )}
+                    </span>
+                  )}
+                </div>
+              )}
               {a.series_id && a.occurrence_index && (
                 <span className="w-fit rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">
                   <Repeat className="mr-1 inline h-3 w-3" />
@@ -274,20 +287,27 @@ export default function SupplierAppointmentsPage() {
                 </div>
               )}
               {a.status === "cancelled" &&
-                (a.cancellation_reason_code || a.cancellation_reason) && (
-                  <p className="rounded-md bg-status-cancelled/10 px-2 py-1 text-xs text-status-cancelled">
-                    {t.supplier.appointments.cancellationReason}{" "}
-                    {labels.cancellationReasonText(
-                      a.cancellation_reason_code,
-                      a.cancellation_reason,
+                (a.cancellation_reason_label || a.cancellation_reason || a.makeup_appointment_id) && (
+                  <div className="rounded-md bg-status-cancelled/10 px-2 py-1 text-xs text-status-cancelled">
+                    {(a.cancellation_reason_label || a.cancellation_reason) && (
+                      <p>
+                        {t.supplier.appointments.cancellationReason}{" "}
+                        {labels.cancellationReasonText(
+                          a.cancellation_reason_label,
+                          a.cancellation_reason,
+                        )}
+                      </p>
                     )}
-                    {a.cancellation_alternative_date && (
-                      <span className="block">
-                        {t.supplier.appointments.alternativeDate}{" "}
-                        {fmt.date(dateOnlyIso(a.cancellation_alternative_date))}
-                      </span>
+                    {a.makeup_appointment_id && byId.get(a.makeup_appointment_id) && (
+                      <p className="font-medium">
+                        {t.makeup.scheduledAt(
+                          `${fmt.date(byId.get(a.makeup_appointment_id)!.scheduled_start_at)} ${fmt.time(
+                            byId.get(a.makeup_appointment_id)!.scheduled_start_at,
+                          )}`,
+                        )}
+                      </p>
                     )}
-                  </p>
+                  </div>
                 )}
               {/* Kural profille gelir; yuklenmeden form eksik alanla acilmasin. */}
               {isCancellableStatus(a) && profile.isSuccess && (
@@ -312,6 +332,9 @@ export default function SupplierAppointmentsPage() {
         title={t.supplier.appointments.cancelTitle}
         intro={t.supplier.appointments.cancelMessage(confirmTarget?.product_name ?? "")}
         policy={policy}
+        reasons={profile.data?.cancellation_reasons ?? []}
+        appointment={confirmTarget ?? undefined}
+        timezone={profile.data?.facility.timezone}
         confirmLabel={t.supplier.appointments.cancel}
         pending={cancel.isPending}
         error={cancelError}

@@ -122,12 +122,34 @@ export interface SupplierProfileDto {
   monthly_quota: number | null;
   facility: { id: string; name: string; timezone: string };
   cancellation_policy: SupplierCancellationPolicyDto;
+  /** Firmanın AKTİF iptal sebepleri (sıraya göre). */
+  cancellation_reasons: CancellationReasonOptionDto[];
+}
+
+export interface CancellationReasonOptionDto {
+  id: string;
+  label: string;
+  note_required: boolean;
+}
+
+/** Yönetim ekranındaki tam sebep satırı (pasifler dahil). */
+export interface CancellationReasonDto extends CancellationReasonOptionDto {
+  is_active: boolean;
+  position: number;
+}
+
+/** Telafi bağlantısının kısa özeti (yönetim detayı). */
+export interface LinkedAppointmentDto {
+  id: string;
+  scheduled_start_at: string;
+  status: string;
 }
 
 /** Tesisin tedarikçi iptal kuralı (yönetim belirler; sunucu da zorlar). */
 export interface SupplierCancellationPolicyDto {
   require_reason: boolean;
-  require_alternative_date: boolean;
+  /** Tedarikçi iptalinde telafi randevusu aynı işlemde zorunlu. */
+  require_makeup: boolean;
   /** 0 = başlangıca kadar iptal serbest. */
   min_notice_hours: number;
 }
@@ -185,10 +207,16 @@ export interface AppointmentDto {
   status: string;
   rejection_reason: string | null;
   cancellation_reason?: string | null;
-  /** Tedarikçi iptalinde seçilen sabit sebep (SUPPLIER_CANCELLATION_REASONS). */
-  cancellation_reason_code?: string | null;
-  /** Tedarikçinin önerdiği alternatif gönderim tarihi (YYYY-MM-DD). */
-  cancellation_alternative_date?: string | null;
+  /** Tedarikçi iptalinde seçilen sebep ve O ANKİ etiketi. */
+  cancellation_reason_id?: string | null;
+  cancellation_reason_label?: string | null;
+  /** Telafi randevusu: iptal edilen randevunun yerine açıldı. */
+  is_makeup?: boolean;
+  makeup_of_id?: string | null;
+  makeup_appointment_id?: string | null;
+  /** Yalnızca yönetim detayında dolu. */
+  makeup_of?: LinkedAppointmentDto | null;
+  makeup_appointment?: LinkedAppointmentDto | null;
   completion_note?: string | null;
   revision_note: string | null;
   original_start_at: string | null;

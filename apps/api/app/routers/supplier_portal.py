@@ -4,7 +4,6 @@ Tedarikci yalnizca kendi supplier_id kayitlarini gorur; baska veri donmez.
 """
 
 import uuid
-from datetime import date
 
 from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, Field
@@ -19,7 +18,6 @@ from app.core.enums import (
     CargoWindow,
     CreatedByType,
     QuantityUnit,
-    SupplierCancellationReason,
 )
 from app.core.errors import NotFoundError
 from app.core.ratelimit import enforce_rate_limit
@@ -27,6 +25,7 @@ from app.core.responses import ok
 from app.models import Appointment, ProductCategory, VehicleCategory
 from app.routers.appointments import (
     _appointment_out,
+    _linked_summary,
     _series_summary,
     appointment_out_named,
     evaluate_availability,
@@ -41,7 +40,11 @@ from app.schemas.appointment import (
 from app.schemas.catalog import ProductCategoryOut, SupplierOut, VehicleCategoryOut
 from app.services import appointments as svc
 from app.services.appointments import allowed_delivery_types
-from app.services.cancellation_policy import notice_cutoff, resolve_cancellation_policy
+from app.services.cancellation_policy import (
+    list_reasons,
+    notice_cutoff,
+    resolve_cancellation_policy,
+)
 from app.tenancy.deps import FacilityContext, get_supplier_context
 
 router = APIRouter(prefix="/supplier", tags=["supplier-portal"])
@@ -50,14 +53,13 @@ router = APIRouter(prefix="/supplier", tags=["supplier-portal"])
 class SupplierSeriesCancelRequest(BaseModel):
     """Sebep ZORUNLU: yanlislikla toplu iptal riskine karsi bilinçli surtunme.
 
-    Sebep ya listeden (`reason_code`) ya serbest metinle (`reason`, >= 3
+    Sebep ya listeden (`reason_id`) ya serbest metinle (`reason`, >= 3
     karakter) verilir; tesis kurali sebep istiyorsa liste zorunludur. Kontrol
     serviste yapilir (services/cancellation_policy.py).
     """
 
-    reason_code: SupplierCancellationReason | None = None
+    reason_id: uuid.UUID | None = None
     reason: str | None = Field(default=None, max_length=500)
-    alternative_date: date | None = None
 
 QUANTITY_UNIT_LABELS = {
     QuantityUnit.pallet: "Palet",
@@ -69,7 +71,10 @@ QUANTITY_UNIT_LABELS = {
 
 @router.get("/profile")
 @router.get("/me")
-async def profile(ctx: FacilityContext = Depends(get_supplier_context)):
+async def profile(
+    ctx: FacilityContext = Depends(get_supplier_context),
+    db: AsyncSession = Depends(get_db),
+):
     supplier = ctx.supplier
     assert supplier is not None
     data = SupplierOut.model_validate(supplier)
@@ -86,6 +91,12 @@ async def profile(ctx: FacilityContext = Depends(get_supplier_context)):
             # Iptal penceresi ve zorunlu alanlar; arayuz buna gore iptal
             # dugmesini kapatir ve formu kurar. Kural sunucuda da zorlanir.
             "cancellation_policy": resolve_cancellation_policy(ctx.facility),
+            # Firmanin AKTIF sebep listesi (siraya gore). Tedarikci yalnizca
+            # bunlardan secebilir; aciklama zorunlulugu sebep bazindadir.
+            "cancellation_reasons": [
+                {"id": str(r.id), "label": r.label, "note_required": r.note_required}
+                for r in await list_reasons(db, ctx.facility_id, active_only=True)
+            ],
         }
     )
 
@@ -203,6 +214,9 @@ async def my_appointment_detail(
         RevisionOut.model_validate(r).model_dump(mode="json") for r in appointment.revisions
     ]
     data["series"] = await _series_summary(db, appointment)
+    # Telafi baglantilari (ayni tedarikcinin kendi randevulari arasinda).
+    data["makeup_of"] = await _linked_summary(db, appointment.makeup_of_id)
+    data["makeup_appointment"] = await _linked_summary(db, appointment.makeup_appointment_id)
     return ok(data)
 
 
@@ -282,25 +296,35 @@ async def cancel_my_appointment(
     ctx: FacilityContext = Depends(get_supplier_context),
     db: AsyncSession = Depends(get_db),
 ):
-    """Tedarikci kendi randevusunu iptal eder.
+    """Tedarikci kendi randevusunu iptal eder (+ zorunluysa telafi randevusu).
 
     Govde opsiyoneldir (eski istemciler bos POST atar); tesisin iptal kurali
-    sebep/alternatif tarih istiyorsa eksik govde 422 ile reddedilir.
+    sebep veya telafi istiyorsa eksik govde 422 ile reddedilir. Telafi
+    olusturulamazsa (slot dolu vb.) iptal de YAPILMAZ.
     """
     assert ctx.supplier is not None
     body = body or SupplierCancelRequest()
-    appointment = await svc.cancel_appointment(
+    appointment, makeup = await svc.supplier_cancel_appointment(
         db,
-        ctx.facility_id,
-        appointment_id,
-        actor_type=ActorType.supplier_user,
+        facility=ctx.facility,
+        supplier=ctx.supplier,
+        appointment_id=appointment_id,
         actor_id=ctx.identity.id,
-        supplier_id=ctx.supplier.id,
-        reason=body.reason,
-        reason_code=body.reason_code,
-        alternative_date=body.alternative_date,
+        reason_id=body.reason_id,
+        note=body.reason,
+        makeup=(
+            svc.MakeupSlot(
+                target_date=body.makeup.target_date,
+                start_at=body.makeup.start_at,
+                cargo_window=body.makeup.cargo_window,
+            )
+            if body.makeup
+            else None
+        ),
     )
-    return ok(_appointment_out(appointment))
+    data = _appointment_out(appointment)
+    data["makeup_appointment"] = _appointment_out(makeup) if makeup else None
+    return ok(data)
 
 
 @router.post("/availability/evaluate")
@@ -353,7 +377,8 @@ async def my_appointment_series(
     now = datetime.now(UTC)
     # Tesisin bildirim suresinden yakin occurrence'lar portaldan iptal
     # edilemez; sayaclar ve "seriyi iptal et" hakki buna gore hesaplanir.
-    cutoff = notice_cutoff(resolve_cancellation_policy(ctx.facility), now)
+    policy = resolve_cancellation_policy(ctx.facility)
+    cutoff = notice_cutoff(policy, now)
     by_series: dict = {}
     for a in appointments:
         by_series.setdefault(a.series_id, []).append(a)
@@ -382,7 +407,9 @@ async def my_appointment_series(
             "status_counts": counts,
             "next_appointment_at": upcoming.isoformat() if upcoming else None,
             "product_name": rows[0].product_name if rows else None,
-            "can_cancel_series": len(future_cancellable) > 0,
+            # Telafi zorunluysa seri toplu iptal edilemez (her iptal kendi
+            # telafisiyle tek tek yapilir).
+            "can_cancel_series": len(future_cancellable) > 0 and not policy["require_makeup"],
             "future_cancellable_count": len(future_cancellable),
         }
 
@@ -450,8 +477,7 @@ async def cancel_my_appointment_series(
         actor_type=ActorType.supplier_user,
         actor_id=ctx.identity.id,
         reason=body.reason,
-        reason_code=body.reason_code,
-        alternative_date=body.alternative_date,
+        reason_id=body.reason_id,
         supplier_id=ctx.supplier.id,
         by_supplier=True,
     )

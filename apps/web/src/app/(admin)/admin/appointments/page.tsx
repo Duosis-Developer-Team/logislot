@@ -15,6 +15,7 @@ import { ConfirmDialog } from "@/components/config/confirm-dialog";
 import { useFlash } from "@/components/config/page-shell";
 import { EmptyState, ErrorState, LoadingState } from "@/components/config/states";
 import { CargoBadge } from "@/components/domain/cargo-badge";
+import { MakeupBadge } from "@/components/domain/makeup-badge";
 import { StatusBadge } from "@/components/domain/status-badge";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
@@ -368,6 +369,7 @@ function AppointmentsListContent() {
                     {a.delivery_type === "cargo" && (
                       <CargoBadge window={a.cargo_window as never} />
                     )}
+                    {a.is_makeup && <MakeupBadge />}
                   </div>
                 </TD>
                 <TD className="whitespace-nowrap">

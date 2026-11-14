@@ -14,6 +14,7 @@ import { useFlash } from "@/components/config/page-shell";
 import { EmptyState, ErrorState, LoadingState } from "@/components/config/states";
 import { AppointmentDrawer } from "@/components/appointments/appointment-drawer";
 import { CargoBadge } from "@/components/domain/cargo-badge";
+import { MakeupBadge } from "@/components/domain/makeup-badge";
 import { StatusBadge } from "@/components/domain/status-badge";
 import { MetricCard } from "@/components/shell/metric-card";
 import { PageContainer, PageHeader } from "@/components/shell/page";
@@ -121,6 +122,7 @@ export default function DashboardPage() {
                     {a.delivery_type === "cargo" && (
                       <CargoBadge window={a.cargo_window as never} />
                     )}
+                    {a.is_makeup && <MakeupBadge />}
                   </div>
                 </button>
               ))

@@ -384,12 +384,15 @@ export const tr = {
       noteLabelRequired: "Açıklama (zorunlu)",
       noteLabelOptional: "Açıklama (isteğe bağlı)",
       notePlaceholder: "Kısaca açıklayın",
-      noteRequired: "'Diğer' seçtiğinizde kısa bir açıklama yazın (en az 3 karakter).",
-      alternativeDateLabel: "Alternatif gönderim tarihi",
-      alternativeDateHint:
-        "Ürünleri gönderebileceğiniz yeni tarih. Tesis yönetimi bu tarihi görür; yeni randevu talebini ayrıca oluşturabilirsiniz.",
-      alternativeDateRequired: "Lütfen alternatif gönderim tarihini girin.",
-      alternativeDateInvalid: "Alternatif tarih bugünden önce veya bir yıldan sonra olamaz.",
+      noteRequired: "Bu sebep için kısa bir açıklama yazın (en az 3 karakter).",
+      makeupTitle: "Telafi randevusu",
+      makeupHint:
+        "İptal, telafi randevusuyla birlikte yapılır. Telafi randevusu aynı ürün ve araç bilgileriyle açılır ve “Telafi” olarak işaretlenir.",
+      makeupDate: "Telafi günü",
+      makeupTime: "Saat",
+      makeupWindow: "Varış penceresi",
+      makeupNoSlots: "Bu gün için uygun saat yok; başka bir gün seçin.",
+      makeupRequired: "Lütfen telafi randevusu için gün ve saat seçin.",
       required: "zorunlu",
     },
     notificationPreferences: {
@@ -567,7 +570,6 @@ export const tr = {
     monthly: "aylık",
     cancelSeries: "Seriyi İptal Et",
     cancellationReason: "İptal sebebi:",
-    alternativeDate: "Alternatif gönderim tarihi:",
     revisionHistory: "Revizyon Geçmişi",
     emailLogs: "E-posta Logları",
     sending: "Gönderiliyor…",
@@ -856,9 +858,10 @@ export const tr = {
         "Henüz kural tanımlanmadı: tedarikçiler sebep girmeden, randevu başlayana kadar iptal edebilir.",
       requireReason: "Sebep seçimi zorunlu",
       requireReasonHint:
-        "Tedarikçi iptal ederken hazır listeden sebep seçer; 'Diğer' seçerse açıklama yazar.",
-      requireAlternativeDate: "Alternatif gönderim tarihi zorunlu",
-      requireAlternativeDateHint: "Tedarikçi ürünleri gönderebileceği yeni tarihi girer.",
+        "Tedarikçi iptal ederken aşağıdaki listeden sebep seçer. Açıklama isteğe bağlıdır; sebep bazında zorunlu yapılabilir.",
+      requireMakeup: "Telafi randevusu zorunlu",
+      requireMakeupHint:
+        "Tedarikçi iptal ederken telafi randevusunun gün ve saatini seçer; iptal ve telafi tek işlemde yapılır, telafi randevusu “Telafi” olarak işaretlenir. Açıkken seriler toplu iptal edilemez.",
       minNotice: "İptal için son süre",
       minNoticeHint:
         "Randevuya bu süreden az kaldığında tedarikçi portaldan iptal edemez. 0 = randevu başlayana kadar iptal serbest.",
@@ -868,7 +871,25 @@ export const tr = {
       loading: "Kurallar yükleniyor…",
       loadError: "İptal kuralları yüklenemedi.",
       saveFailed: "İptal kuralları kaydedilemedi.",
-      reasonsTitle: "Tedarikçinin göreceği sebep listesi",
+      reasons: {
+        title: "İptal Sebepleri",
+        hint: "Tedarikçinin iptal ederken göreceği liste. Sıra burada belirlediğiniz gibidir; pasif sebepler tedarikçiye gösterilmez. Silinen bir sebep geçmiş randevulardaki kaydı değiştirmez.",
+        placeholder: "Sebep adı",
+        labelField: "Sebep adı",
+        noteRequired: "Açıklama zorunlu",
+        active: "Aktif",
+        inactive: "Pasif",
+        moveUp: "Yukarı taşı",
+        moveDown: "Aşağı taşı",
+        remove: "Sebebi sil",
+        add: "Sebep ekle",
+        saved: "İptal sebepleri kaydedildi.",
+        loadError: "İptal sebepleri yüklenemedi.",
+        saveFailed: "İptal sebepleri kaydedilemedi.",
+        labelTooShort: "Her sebebin en az 2 karakterlik bir adı olmalı.",
+        duplicate: "Aynı sebep birden fazla kez yazılmış.",
+        noActive: "En az bir aktif sebep olmalı.",
+      },
     },
     supplierNotifications: {
       needsPermission: "Bu sayfayı görüntülemek için tedarikçi yönetimi yetkisi gerekir.",
@@ -1548,7 +1569,6 @@ export const tr = {
       cancelMessage: (product: string) =>
         `"${product}" randevusu iptal edilecek. Bu işlem geri alınamaz.`,
       cancelFailed: "Randevu iptal edilemedi.",
-      alternativeDate: "Alternatif gönderim tarihi:",
       cancelDeadline: (when: string) => `İptal için son: ${when}`,
       cancelWindowClosed: (hours: number) =>
         `Randevuya ${hours} saatten az kaldığı için portaldan iptal edilemez. Değişiklik için tesisle iletişime geçin.`,
@@ -2188,6 +2208,17 @@ export const tr = {
     },
   },
 
+  makeup: {
+    badge: "Telafi",
+    badgeHint: "İptal edilen bir randevunun yerine açılan telafi randevusu",
+    replaces: (when: string) => `${when} randevusunun telafisi`,
+    scheduledAt: (when: string) => `Telafi randevusu: ${when}`,
+    replacesLabel: "İptal edilen randevu",
+    makeupLabel: "Telafi randevusu",
+    open: "Aç",
+    cancelledWithMakeup: "Randevu iptal edildi ve telafi randevusu oluşturuldu.",
+  },
+
   errors: {
     /** API hata KODUNA gore metin. Backend Turkce mesaj doner; kod stabil
      *  oldugu icin ceviri burada yapilir — sunucuda dil tutmaya gerek kalmaz.
@@ -2252,10 +2283,12 @@ export const tr = {
       CANCELLATION_NOTICE_TOO_SHORT:
         "Randevuya iptal için gereken süreden az kaldı; değişiklik için tesisle iletişime geçin.",
       CANCELLATION_REASON_REQUIRED: "İptal sebebi seçilmelidir.",
-      CANCELLATION_NOTE_REQUIRED: "'Diğer' seçildiğinde açıklama yazılmalıdır.",
-      ALTERNATIVE_DATE_REQUIRED: "Alternatif gönderim tarihi girilmelidir.",
-      ALTERNATIVE_DATE_INVALID:
-        "Alternatif gönderim tarihi bugünden önce veya bir yıldan sonra olamaz.",
+      CANCELLATION_NOTE_REQUIRED: "Seçilen sebep için açıklama yazılmalıdır.",
+      CANCELLATION_REASON_INVALID: "Seçilen iptal sebebi artık geçerli değil; sayfayı yenileyin.",
+      CANCELLATION_REASONS_EMPTY: "En az bir aktif iptal sebebi olmalıdır.",
+      MAKEUP_REQUIRED: "İptal için telafi randevusunun gün ve saatini seçmelisiniz.",
+      MAKEUP_SERIES_BLOCKED:
+        "Telafi zorunlu olduğu için seri toplu iptal edilemez; randevuları tek tek iptal edip telafilerini oluşturun.",
     } as Record<string, string>,
     network: "Sunucuya ulaşılamadı; bağlantınızı kontrol edin.",
     unexpected: "Beklenmeyen bir hata oluştu.",

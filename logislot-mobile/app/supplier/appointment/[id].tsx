@@ -13,7 +13,7 @@ import {
   useSupplierProfile,
   type SupplierCancelBody,
 } from "@/api/supplier";
-import { CargoBadge, StatusBadge } from "@/components/appointment";
+import { CargoBadge, MakeupBadge, MakeupLinks, StatusBadge } from "@/components/appointment";
 import { SupplierCancelModal } from "@/components/supplier-cancel";
 import { Button, Card, ErrorState, LoadingState, Screen } from "@/components/ui";
 import { useTheme } from "@/theme/theme";
@@ -62,7 +62,12 @@ export default function SupplierAppointmentDetail() {
       {
         onSuccess: () => {
           setCancelOpen(false);
-          Alert.alert("Randevu iptal edildi", "Tesise bildirim gönderildi.");
+          Alert.alert(
+            "Randevu iptal edildi",
+            body.makeup
+              ? "Telafi randevusu oluşturuldu; tesise bildirim gönderildi."
+              : "Tesise bildirim gönderildi.",
+          );
           router.back();
         },
         // Form açık kalır: kullanıcı seçimini kaybetmeden düzeltebilsin.
@@ -86,7 +91,10 @@ export default function SupplierAppointmentDetail() {
               {a.product_category_name ? ` · ${a.product_category_name}` : ""}
             </Text>
           </View>
-          <StatusBadge status={a.status} />
+          <View style={{ alignItems: "flex-end", gap: 4 }}>
+            <StatusBadge status={a.status} />
+            {a.is_makeup && <MakeupBadge />}
+          </View>
         </View>
 
         <Card style={{ gap: 8 }}>
@@ -121,14 +129,18 @@ export default function SupplierAppointmentDetail() {
             text={`Tesis yeni saat önerdi: ${formatDate(a.original_start_at)} ${timeInTz(a.original_start_at, tz)} → ${formatDate(a.scheduled_start_at)} ${timeInTz(a.scheduled_start_at, tz)}${a.revision_note ? `\nNot: ${a.revision_note}` : ""}`}
           />
         )}
-        {a.status === "cancelled" && (a.cancellation_reason_code || a.cancellation_reason) && (
+        {a.status === "cancelled" && (a.cancellation_reason_label || a.cancellation_reason) && (
           <NoteBox
             color={colors.status.cancelled}
-            text={`İptal sebebi: ${cancellationReasonText(a.cancellation_reason_code, a.cancellation_reason)}${
-              a.cancellation_alternative_date
-                ? `\nAlternatif gönderim tarihi: ${formatDate(`${a.cancellation_alternative_date}T12:00:00`)}`
-                : ""
-            }`}
+            text={`İptal sebebi: ${cancellationReasonText(a.cancellation_reason_label, a.cancellation_reason)}`}
+          />
+        )}
+        {(a.makeup_of || a.makeup_appointment) && (
+          <MakeupLinks
+            makeupOf={a.makeup_of ?? null}
+            makeup={a.makeup_appointment ?? null}
+            tz={tz}
+            onOpen={(id) => router.push(`/supplier/appointment/${id}`)}
           />
         )}
 
@@ -169,6 +181,9 @@ export default function SupplierAppointmentDetail() {
           </Text>
         }
         policy={policy}
+        reasons={profile.data?.cancellation_reasons ?? []}
+        appointment={a}
+        timezone={tz}
         confirmLabel="İptal Et"
         pending={cancel.isPending}
         error={cancelError}

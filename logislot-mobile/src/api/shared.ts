@@ -34,6 +34,9 @@ export const DELIVERY_TYPE_LABELS: Record<DeliveryType, string> = {
 
 export type CargoWindow = "morning" | "afternoon" | "all_day";
 
+/** Kargo pencereleri — ekrandaki seçim sırası. */
+export const CARGO_WINDOWS: readonly CargoWindow[] = ["morning", "afternoon", "all_day"];
+
 export const CARGO_WINDOW_LABELS: Record<CargoWindow, string> = {
   morning: "Sabah (08:00–12:00)",
   afternoon: "Öğleden Sonra (12:00–18:00)",
@@ -49,39 +52,11 @@ export const QUANTITY_UNIT_LABELS: Record<QuantityUnit, string> = {
   carton: "Koli",
 };
 
-/** Tedarikçinin randevu iptalinde seçebileceği sabit sebepler. Backend
- *  `SupplierCancellationReason` ile birebir; dizi sırası ekrandaki sıradır.
- *  `other` seçilirse açıklama zorunludur. */
-export const SUPPLIER_CANCELLATION_REASONS = [
-  "product_not_ready",
-  "vehicle_issue",
-  "driver_unavailable",
-  "order_changed",
-  "weather_road",
-  "booked_by_mistake",
-  "other",
-] as const;
-
-export type SupplierCancellationReason = (typeof SUPPLIER_CANCELLATION_REASONS)[number];
-
-export const SUPPLIER_CANCELLATION_REASON_LABELS: Record<SupplierCancellationReason, string> = {
-  product_not_ready: "Ürün / stok hazır değil",
-  vehicle_issue: "Araç / nakliye sorunu",
-  driver_unavailable: "Sürücü bulunamadı",
-  order_changed: "Sipariş iptal edildi / değişti",
-  weather_road: "Hava / yol koşulları",
-  booked_by_mistake: "Randevu yanlışlıkla oluşturuldu",
-  other: "Diğer",
-};
-
-/** "Araç / nakliye sorunu — açıklama"; kod yoksa (yönetim iptali) yalnızca metin. */
+/** "Araç / nakliye sorunu — açıklama"; sebep yoksa (yönetim iptali) yalnızca metin. */
 export function cancellationReasonText(
-  code: string | null | undefined,
+  label: string | null | undefined,
   note: string | null | undefined,
 ): string | null {
-  const label = code
-    ? ((SUPPLIER_CANCELLATION_REASON_LABELS as Record<string, string>)[code] ?? code)
-    : null;
   if (label && note) return `${label} — ${note}`;
   return label ?? note ?? null;
 }

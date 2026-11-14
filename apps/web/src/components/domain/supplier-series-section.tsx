@@ -191,6 +191,7 @@ export function SupplierSeriesSection({
           )
         }
         policy={policy}
+        reasons={profile.data?.cancellation_reasons ?? []}
         legacyReason={{
           label: copy.cancelReasonRequiredLabel,
           placeholder: copy.cancelReasonHint,

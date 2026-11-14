@@ -67,19 +67,20 @@ export function useCreateSupplierAppointment() {
 
 /** Tedarikci iptal govdesi; hangi alanin zorunlu oldugunu tesis kurali belirler. */
 export interface SupplierCancelBody {
-  reason_code?: string;
+  reason_id?: string;
   reason?: string;
-  alternative_date?: string;
+  /** Telafi randevusu: standartta kesin saat, kargoda pencere. */
+  makeup?: { target_date: string; start_at?: string; cargo_window?: string };
 }
 
 export function useCancelSupplierAppointment() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ id, ...body }: SupplierCancelBody & { id: string }) =>
-      apiRequest<AppointmentDto>(`/supplier/appointments/${id}/cancel`, {
-        method: "POST",
-        body,
-      }),
+      apiRequest<AppointmentDto & { makeup_appointment: AppointmentDto | null }>(
+        `/supplier/appointments/${id}/cancel`,
+        { method: "POST", body },
+      ),
     onSuccess: () =>
       queryClient.invalidateQueries({ queryKey: ["supplier", "appointments"] }),
   });

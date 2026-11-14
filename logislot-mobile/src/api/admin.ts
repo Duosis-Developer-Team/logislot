@@ -10,6 +10,7 @@ import type {
   DashboardSummaryDto,
   SeriesCreateResultDto,
   SlotDto,
+  CancellationReasonDto,
   SupplierCancellationPolicyDto,
 } from "./types";
 
@@ -399,5 +400,47 @@ export function useSaveSupplierCancellationPolicy(facilityId: string | null) {
       ),
     onSuccess: () =>
       queryClient.invalidateQueries({ queryKey: cancellationPolicyKey(facilityId) }),
+  });
+}
+
+// ------------------------------------------- iptal sebebi listesi
+//
+// Firma kendi listesini düzenler; PUT listenin tamamını gönderilen sırayla
+// yazar, gönderilmeyen sebep silinir (geçmiş randevular etiketini korur).
+
+const cancellationReasonsKey = (facilityId: string | null) => [
+  "config",
+  "cancellation-reasons",
+  facilityId ?? "none",
+];
+
+export function useCancellationReasons(facilityId: string | null) {
+  return useQuery({
+    queryKey: cancellationReasonsKey(facilityId),
+    queryFn: () =>
+      apiRequest<CancellationReasonDto[]>(`/facilities/${facilityId}/cancellation-reasons`),
+    enabled: facilityId !== null,
+  });
+}
+
+export interface CancellationReasonInput {
+  id?: string;
+  label: string;
+  note_required: boolean;
+  is_active: boolean;
+}
+
+export function useSaveCancellationReasons(facilityId: string | null) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (reasons: CancellationReasonInput[]) =>
+      apiRequest<CancellationReasonDto[]>(`/facilities/${facilityId}/cancellation-reasons`, {
+        method: "PUT",
+        body: { reasons },
+      }),
+    onSuccess: (rows) => {
+      queryClient.setQueryData(cancellationReasonsKey(facilityId), rows);
+      queryClient.invalidateQueries({ queryKey: ["supplier", "profile"] });
+    },
   });
 }

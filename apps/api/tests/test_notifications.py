@@ -264,12 +264,16 @@ async def test_calendar_week_summary(client, seeded):
     today_row = by_date[today.isoformat()]
     # seed: bugun 1 approved (un) + 1 pending (donuk)
     assert today_row["approved"] >= 1 and today_row["pending"] >= 1
-    assert today_row["utilization_percent"] > 0
     assert today_row["dock_count"] == 3
-    assert today_row["top_docks"]
+    if today.weekday() < 5:
+        # Doluluk acik rampa saatine boluner; hafta sonu rampalar kapali
+        # oldugundan payda sifirdir ve oran tanimsizdir (0 doner).
+        assert today_row["utilization_percent"] > 0
+        assert today_row["top_docks"]
 
-    tomorrow_row = by_date.get((today + timedelta(days=1)).isoformat())
-    if tomorrow_row:  # hafta ici ayni haftadaysa
+    # Seed gelecek demo randevularini IS GUNUNE koyar.
+    tomorrow_row = by_date.get(next_weekday().isoformat())
+    if tomorrow_row:  # ayni haftadaysa
         assert tomorrow_row["cargo"] >= 1
 
     closed_day = (today + timedelta(days=3)).isoformat()

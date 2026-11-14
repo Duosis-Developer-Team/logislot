@@ -12,7 +12,7 @@ import {
   resolveDurationRange,
 } from "@/api/shared";
 import { useSession } from "@/auth/session";
-import { CargoBadge, StatusBadge } from "@/components/appointment";
+import { CargoBadge, MakeupBadge, MakeupLinks, StatusBadge } from "@/components/appointment";
 import { Button, Card, Chip, ErrorState, Field, LoadingState, Screen } from "@/components/ui";
 import { useTheme } from "@/theme/theme";
 import { spacing } from "@/theme/tokens";
@@ -139,6 +139,7 @@ export default function AdminAppointmentDetail() {
           <View style={{ gap: 6, alignItems: "flex-end" }}>
             <StatusBadge status={a.status} />
             {a.delivery_type === "cargo" && <CargoBadge window={a.cargo_window} />}
+            {a.is_makeup && <MakeupBadge />}
           </View>
         </View>
 
@@ -165,14 +166,18 @@ export default function AdminAppointmentDetail() {
         {a.rejection_reason && (
           <NoteBox color={colors.status.rejected} text={`Red sebebi: ${a.rejection_reason}`} />
         )}
-        {(a.cancellation_reason || a.cancellation_reason_code) && (
+        {(a.cancellation_reason || a.cancellation_reason_label) && (
           <NoteBox
             color={colors.status.cancelled}
-            text={`İptal sebebi: ${cancellationReasonText(a.cancellation_reason_code, a.cancellation_reason)}${
-              a.cancellation_alternative_date
-                ? `\nAlternatif gönderim tarihi: ${formatDate(`${a.cancellation_alternative_date}T12:00:00`)}`
-                : ""
-            }`}
+            text={`İptal sebebi: ${cancellationReasonText(a.cancellation_reason_label, a.cancellation_reason)}`}
+          />
+        )}
+        {(a.makeup_of || a.makeup_appointment) && (
+          <MakeupLinks
+            makeupOf={a.makeup_of ?? null}
+            makeup={a.makeup_appointment ?? null}
+            tz={tz}
+            onOpen={(linkedId) => router.push(`/admin/appointment/${linkedId}`)}
           />
         )}
         {a.completion_note && (

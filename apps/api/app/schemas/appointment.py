@@ -4,13 +4,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from app.core.enums import (
-    CargoWindow,
-    DeliveryType,
-    QuantityUnit,
-    RecurringRule,
-    SupplierCancellationReason,
-)
+from app.core.enums import CargoWindow, DeliveryType, QuantityUnit, RecurringRule
 
 
 class RecurringRequest(BaseModel):
@@ -53,8 +47,11 @@ class AppointmentOut(BaseModel):
     status: str
     rejection_reason: str | None = None
     cancellation_reason: str | None = None
-    cancellation_reason_code: str | None = None
-    cancellation_alternative_date: date | None = None
+    cancellation_reason_id: uuid.UUID | None = None
+    cancellation_reason_label: str | None = None
+    is_makeup: bool = False
+    makeup_of_id: uuid.UUID | None = None
+    makeup_appointment_id: uuid.UUID | None = None
     completion_note: str | None = None
     revision_note: str | None = None
     original_start_at: datetime | None = None
@@ -148,14 +145,23 @@ class CancelRequest(BaseModel):
     reason: str | None = None
 
 
+class MakeupSlotRequest(BaseModel):
+    """Telafi randevusunun zamani. Standart teslimatta `start_at` zorunlu,
+    kargoda `cargo_window` (verilmezse iptal edilenin penceresi) kullanilir."""
+
+    target_date: date
+    start_at: datetime | None = None
+    cargo_window: CargoWindow | None = None
+
+
 class SupplierCancelRequest(BaseModel):
     """Tedarikci iptali. Hangi alanin zorunlu oldugunu TESIS POLITIKASI
     belirler (services/cancellation_policy.py); burada yalnizca bicim
-    dogrulanir. `reason` serbest aciklamadir ('Diger' secilince zorunlu)."""
+    dogrulanir. `reason` serbest aciklamadir (sebep bazinda zorunlu olabilir)."""
 
-    reason_code: SupplierCancellationReason | None = None
+    reason_id: uuid.UUID | None = None
     reason: str | None = Field(default=None, max_length=500)
-    alternative_date: date | None = None
+    makeup: MakeupSlotRequest | None = None
 
 
 class AvailabilityRequest(BaseModel):

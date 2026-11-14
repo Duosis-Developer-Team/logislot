@@ -74,9 +74,10 @@ export function useCreateSupplierAppointment() {
 
 /** Tedarikçi iptal gövdesi; hangi alanın zorunlu olduğunu tesis kuralı belirler. */
 export interface SupplierCancelBody {
-  reason_code?: string;
+  reason_id?: string;
   reason?: string;
-  alternative_date?: string;
+  /** Telafi randevusu: standartta kesin saat, kargoda pencere. */
+  makeup?: { target_date: string; start_at?: string; cargo_window?: string };
 }
 
 export function useCancelSupplierAppointment() {

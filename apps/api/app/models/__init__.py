@@ -9,6 +9,7 @@ from app.models.audit import AuditLog
 from app.models.auth_handoff import AuthHandoffCode
 from app.models.auth_session import AuthSession
 from app.models.base import CONTROL_SCHEMA, Base
+from app.models.cancellation import CancellationReason
 from app.models.catalog import ProductCategory, VehicleCategory
 from app.models.dock import (
     Dock,
@@ -44,6 +45,7 @@ from app.models.ticketing_control import (
 )
 
 __all__ = [
+    "CancellationReason",
     "Base",
     "CONTROL_SCHEMA",
     "TenantDatastore",

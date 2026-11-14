@@ -3,13 +3,14 @@
 /**
  * Tedarikci iptal kurallari (yonetim ekrani).
  *
- * Musteri talebi (2026-10): tedarikci portaldan randevu iptal ederken sebep
- * ve alternatif gonderim tarihi girsin, randevuya belirli bir sureden az
- * kalinca iptal edemesin. Kural tesis genelinde tektir ve yalnizca tedarikci
- * iptallerine uygulanir.
+ * Musteri talebi (2026-10) ve 2026-11 toplantisi: tedarikci iptal ederken
+ * firmanin listesinden sebep secer, telafi randevusunu ayni islemde acar ve
+ * randevuya belirli bir sureden az kalinca iptal edemez. Kural tesis
+ * genelinde tektir ve yalnizca tedarikci iptallerine uygulanir.
  */
 
-import { CalendarX } from "lucide-react";
+import { CalendarX, ListChecks } from "lucide-react";
+import { CancellationReasonsEditor } from "@/components/domain/cancellation-reasons-editor";
 import { SupplierCancellationPolicyForm } from "@/components/domain/supplier-cancellation-policy-form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useSession } from "@/lib/auth/session";
@@ -44,6 +45,18 @@ export default function SupplierCancellationPage() {
         </CardHeader>
         <CardContent>
           <SupplierCancellationPolicyForm facilityId={activeFacilityId} />
+        </CardContent>
+      </Card>
+
+      <Card className="max-w-2xl">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <ListChecks className="h-4 w-4 text-primary" />{" "}
+            {t.admin.supplierCancellation.reasons.title}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <CancellationReasonsEditor facilityId={activeFacilityId} />
         </CardContent>
       </Card>
     </div>

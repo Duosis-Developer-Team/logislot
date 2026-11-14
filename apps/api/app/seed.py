@@ -48,6 +48,7 @@ from app.models import (
     TenantUser,
     VehicleCategory,
 )
+from app.services.cancellation_policy import seed_default_reasons
 
 WORKING_HOURS = {
     "mon": {"start": "08:00", "end": "18:00"},
@@ -161,6 +162,7 @@ async def seed_data(db, tenant_id: uuid.UUID | None = None) -> dict:
     )
     db.add(facility)
     await db.flush()
+    seed_default_reasons(db, facility)
 
     # --- Platform admin ---
     platform_role = PlatformRole(
@@ -420,6 +422,21 @@ async def seed_data(db, tenant_id: uuid.UUID | None = None) -> dict:
     tz = ZoneInfo(facility.timezone)
     today = datetime.now(tz).replace(hour=0, minute=0, second=0, microsecond=0)
 
+    def business_day(n: int) -> datetime:
+        """Bugunden sonraki n'inci IS GUNU (gece yarisi).
+
+        Gelecek demo randevulari takvim gunuyle (today+n) konunca hafta sonu
+        seed'i kapali gunlere randevu yaziyor ve "bir sonraki is gunu 09:00"a
+        randevu acan testlerle cakisiyordu (Cumartesi CI'i kiriliyordu). Hafta
+        ici davranis aynidir: hafta icinde business_day(1) == today + 1 gun.
+        """
+        day = today
+        for _ in range(n):
+            day += timedelta(days=1)
+            while day.weekday() >= 5:
+                day += timedelta(days=1)
+        return day
+
     def appt(
         supplier: Supplier,
         category: ProductCategory,
@@ -460,7 +477,7 @@ async def seed_data(db, tenant_id: uuid.UUID | None = None) -> dict:
     )
     appt_cargo = appt(
         sup_kargo, pc_genel, vc_kargo, dock3,
-        today + timedelta(days=1, hours=8), 90,
+        business_day(1) + timedelta(hours=8), 90,
         AppointmentStatus.pending, "Etiket Rulolari",
         delivery=DeliveryType.cargo, window=CargoWindow.morning,
     )
@@ -474,15 +491,17 @@ async def seed_data(db, tenant_id: uuid.UUID | None = None) -> dict:
                 today - timedelta(days=1) + timedelta(hours=11), 45,
                 AppointmentStatus.completed, "Kek Kaliplari", plate="06 XYZ 789",
             ),
-            # Haftalik gorunum icin haftaya yayilmis ek randevular
+            # Haftalik gorunum icin haftaya yayilmis ek randevular. 08:00'de
+            # dururlar: testler bu saate randevu acmaz, gun kaymasindan bagimsiz
+            # olarak test slotlariyla cakismazlar.
             appt(
                 sup_un, pc_ambalaj, vc_kamyon, dock1,
-                today + timedelta(days=2, hours=9), 45,
+                business_day(2) + timedelta(hours=8), 45,
                 AppointmentStatus.approved, "Karton Kutu", plate="34 KTN 200",
             ),
             appt(
                 sup_un, pc_unlu, vc_tir, dock2,
-                today + timedelta(days=4, hours=14), 60,
+                business_day(4) + timedelta(hours=8), 60,
                 AppointmentStatus.approved, "Cavdar Unu", plate="34 UNL 300",
             ),
         ]
@@ -589,11 +608,11 @@ async def seed_data(db, tenant_id: uuid.UUID | None = None) -> dict:
     # --- Revizyon gecmisi ornegi: 15:00'ten 16:00'ya revize edilmis randevu ---
     revised = appt(
         sup_soguk, pc_soguk, vc_frigo, dock2,
-        today + timedelta(days=1, hours=16), 60,
+        business_day(1) + timedelta(hours=16), 60,
         AppointmentStatus.revision_pending, "Sut Kremasi", plate="34 RVZ 100",
     )
-    revised.original_start_at = to_utc(today + timedelta(days=1, hours=15))
-    revised.original_end_at = to_utc(today + timedelta(days=1, hours=16))
+    revised.original_start_at = to_utc(business_day(1) + timedelta(hours=15))
+    revised.original_end_at = to_utc(business_day(1) + timedelta(hours=16))
     revised.revision_note = "Oglen yogunlugu nedeniyle bir saat sonraya alindi."
     db.add(revised)
     await db.flush()

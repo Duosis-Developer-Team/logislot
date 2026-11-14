@@ -6,6 +6,7 @@ UI/router katmaninda kural yazilmaz.
 
 import calendar
 import uuid
+from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
 
 from fastapi import status as http_status
@@ -22,7 +23,6 @@ from app.core.enums import (
     DeliveryType,
     QuantityUnit,
     RecurringRule,
-    SupplierCancellationReason,
     SupplierStatus,
 )
 from app.core.errors import ApiError, NotFoundError, RuleViolationError
@@ -47,7 +47,7 @@ from app.services.cancellation_policy import (
     notice_cutoff,
     reason_text,
     resolve_cancellation_policy,
-    validate_supplier_cancellation,
+    resolve_supplier_reason,
 )
 from app.services.notifications import on_appointment_created, on_lifecycle_action
 
@@ -903,68 +903,21 @@ async def cancel_appointment(
     *,
     actor_type: ActorType,
     actor_id: uuid.UUID | None,
-    supplier_id: uuid.UUID | None = None,
     reason: str | None = None,
-    reason_code: SupplierCancellationReason | None = None,
-    alternative_date: date | None = None,
 ) -> Appointment:
+    """YONETIM iptali: tesis kurallarina (sure, sebep, telafi) tabi degildir."""
     appointment = await _get_for_update(db, facility_id, appointment_id)
     before = appointment.status
-    audit_after: dict | None = None
-    alternative: date | None = None
-
-    if supplier_id is not None:
-        # Tedarikci yalnizca kendi gelecek tarihli bekleyen/onayli randevusunu iptal eder.
-        if appointment.supplier_id != supplier_id:
-            raise NotFoundError("Randevu bulunamadi")
-        if before not in (AppointmentStatus.pending, AppointmentStatus.approved):
-            raise InvalidTransitionError(before, "cancel")
-        now = datetime.now(UTC)
-        if to_utc(appointment.scheduled_start_at) <= now:
-            raise ApiError(
-                "APPOINTMENT_IN_PAST",
-                "Gecmis veya baslamis randevu iptal edilemez",
-                409,
-            )
-        # Tesisin iptal kurallari: bildirim suresi + zorunlu sebep/alternatif tarih.
-        facility = await db.get(Facility, facility_id)
-        ensure_cancellation_notice(
-            resolve_cancellation_policy(facility), appointment.scheduled_start_at, now
-        )
-        cancellation = validate_supplier_cancellation(
-            facility,
-            reason_code=reason_code,
-            note=reason,
-            alternative_date=alternative_date,
-            now=now,
-        )
-        reason = cancellation.note
-        alternative = cancellation.alternative_date
-        appointment.cancellation_reason_code = cancellation.reason_code
-        appointment.cancellation_alternative_date = alternative
-        audit_after = {
-            "reason_code": cancellation.reason_code,
-            "reason": reason,
-            "alternative_date": alternative.isoformat() if alternative else None,
-        }
-    else:
-        if before in (
-            AppointmentStatus.completed,
-            AppointmentStatus.cancelled,
-            AppointmentStatus.rejected,
-        ):
-            raise InvalidTransitionError(before, "cancel")
+    if before in (
+        AppointmentStatus.completed,
+        AppointmentStatus.cancelled,
+        AppointmentStatus.rejected,
+    ):
+        raise InvalidTransitionError(before, "cancel")
 
     appointment.status = AppointmentStatus.cancelled
     appointment.cancellation_reason = reason
-    await on_lifecycle_action(
-        db,
-        appointment,
-        action="cancel",
-        by_supplier=supplier_id is not None,
-        reason=reason_text(appointment.cancellation_reason_code, reason),
-        alternative_date=alternative,
-    )
+    await on_lifecycle_action(db, appointment, action="cancel", reason=reason)
     return await _finalize_action(
         db,
         appointment,
@@ -972,8 +925,123 @@ async def cancel_appointment(
         actor_type=actor_type,
         actor_id=actor_id,
         before_status=before,
-        audit_after=audit_after,
     )
+
+
+@dataclass(frozen=True)
+class MakeupSlot:
+    """Telafi randevusunun zamani: standartta kesin saat, kargoda pencere."""
+
+    target_date: date
+    start_at: datetime | None = None
+    cargo_window: CargoWindow | None = None
+
+
+async def supplier_cancel_appointment(
+    db: AsyncSession,
+    *,
+    facility: Facility,
+    supplier: Supplier,
+    appointment_id: uuid.UUID,
+    actor_id: uuid.UUID | None,
+    reason_id: uuid.UUID | None = None,
+    note: str | None = None,
+    makeup: MakeupSlot | None = None,
+) -> tuple[Appointment, Appointment | None]:
+    """Tedarikci iptali + (varsa) telafi randevusu — TEK transaction.
+
+    Siralama bilincli: once iptal (flush), sonra telafi olusturma. Boylece
+    iptal edilen randevu kota/rampa hesabinda telafinin onunu kesmez. Telafi
+    olusturulamazsa (slot dolu, kural ihlali) hata yukari cikar ve transaction
+    commit EDILMEDIGI icin iptal de geri alinir: "telafisiz iptal" olusmaz.
+    """
+    await acquire_facility_lock(db, facility.id)
+    appointment = await _get_for_update(db, facility.id, appointment_id)
+    before = appointment.status
+    # Tedarikci yalnizca kendi gelecek tarihli bekleyen/onayli randevusunu iptal eder.
+    if appointment.supplier_id != supplier.id:
+        raise NotFoundError("Randevu bulunamadi")
+    if before not in (AppointmentStatus.pending, AppointmentStatus.approved):
+        raise InvalidTransitionError(before, "cancel")
+    now = datetime.now(UTC)
+    if to_utc(appointment.scheduled_start_at) <= now:
+        raise ApiError("APPOINTMENT_IN_PAST", "Gecmis veya baslamis randevu iptal edilemez", 409)
+
+    policy = resolve_cancellation_policy(facility)
+    ensure_cancellation_notice(policy, appointment.scheduled_start_at, now)
+    reason, note = await resolve_supplier_reason(db, facility, reason_id=reason_id, note=note)
+    if policy["require_makeup"] and makeup is None:
+        raise ApiError(
+            "MAKEUP_REQUIRED",
+            "Iptal icin telafi randevusunun tarihini secmelisiniz",
+            422,
+        )
+
+    appointment.status = AppointmentStatus.cancelled
+    appointment.cancellation_reason = note
+    appointment.cancellation_reason_id = reason.id if reason else None
+    appointment.cancellation_reason_label = reason.label if reason else None
+    await db.flush()
+
+    makeup_appointment: Appointment | None = None
+    if makeup is not None:
+        is_cargo = appointment.delivery_type == DeliveryType.cargo
+        makeup_appointment = await create_appointment(
+            db,
+            facility=facility,
+            supplier=supplier,
+            actor_type=ActorType.supplier_user,
+            actor_id=actor_id,
+            created_by_type=CreatedByType.supplier,
+            product_category_id=appointment.product_category_id,
+            product_name=appointment.product_name,
+            quantity=appointment.quantity,
+            quantity_unit=appointment.quantity_unit,
+            target_date=makeup.target_date,
+            delivery_type=appointment.delivery_type,
+            vehicle_category_id=appointment.vehicle_category_id,
+            license_plate=appointment.license_plate,
+            driver_name=appointment.driver_name,
+            driver_phone=appointment.driver_phone,
+            start_at=None if is_cargo else makeup.start_at,
+            duration_minutes=appointment.duration_minutes,
+            cargo_window=(makeup.cargo_window or appointment.cargo_window) if is_cargo else None,
+            _audit_action="appointment.create_makeup",
+            _commit=False,
+            _skip_lock=True,
+        )
+        makeup_appointment.is_makeup = True
+        makeup_appointment.makeup_of_id = appointment.id
+        appointment.makeup_appointment_id = makeup_appointment.id
+        await db.flush()
+
+    await on_lifecycle_action(
+        db,
+        appointment,
+        action="cancel",
+        by_supplier=True,
+        reason=reason_text(appointment.cancellation_reason_label, note),
+        makeup=makeup_appointment,
+    )
+    result = await _finalize_action(
+        db,
+        appointment,
+        action="cancel",
+        actor_type=ActorType.supplier_user,
+        actor_id=actor_id,
+        before_status=before,
+        audit_after={
+            "reason_id": str(reason.id) if reason else None,
+            "reason_label": appointment.cancellation_reason_label,
+            "reason": note,
+            "makeup_appointment_id": (
+                str(makeup_appointment.id) if makeup_appointment else None
+            ),
+        },
+    )
+    if makeup_appointment is not None:
+        await db.refresh(makeup_appointment)
+    return result, makeup_appointment
 
 
 def _add_months_clamped(dt: datetime, months: int) -> datetime:
@@ -1147,8 +1215,7 @@ async def cancel_appointment_series(
     actor_type: ActorType,
     actor_id: uuid.UUID | None,
     reason: str | None = None,
-    reason_code: SupplierCancellationReason | None = None,
-    alternative_date: date | None = None,
+    reason_id: uuid.UUID | None = None,
     allowed_dock_ids: list[uuid.UUID] | None = None,
     supplier_id: uuid.UUID | None = None,
     by_supplier: bool = False,
@@ -1163,9 +1230,10 @@ async def cancel_appointment_series(
     gider, tedarikciye bildirim/e-posta uretilmez (islemi kendisi yapti).
 
     Tedarikci iptalinde tesisin iptal kurallari tekil iptalle AYNEN uygulanir
-    (seri iptali kurali delen bir kacis yolu olmasin): sebep/alternatif tarih
-    dogrulanir ve randevuya kural suresinden az kalan occurrence'lar iptal
-    EDILMEZ, aktif kalir.
+    (seri iptali kurali delen bir kacis yolu olmasin): sebep dogrulanir ve
+    randevuya kural suresinden az kalan occurrence'lar iptal EDILMEZ, aktif
+    kalir. Tesis TELAFI zorunlu tuttuysa tedarikci seriyi toplu iptal edemez:
+    her iptal kendi telafisiyle tek tek yapilmalidir.
 
     Kurallar (rapor):
     - Scope MVP'de future_only'dir: yalnizca pending/approved/revision_pending
@@ -1212,30 +1280,26 @@ async def cancel_appointment_series(
     upcoming = [a for a in rows if to_utc(a.scheduled_start_at) > now]
     affected = upcoming
     reason_label = reason
-    reason_code_value: str | None = None
-    if supplier_id is None:
-        alternative_date = None  # yonetim iptali alternatif tarih tasimaz
-    else:
+    chosen_reason = None
+    if supplier_id is not None:
         policy = resolve_cancellation_policy(facility)
-        cancellation = validate_supplier_cancellation(
-            facility,
-            reason_code=reason_code,
-            note=reason,
-            alternative_date=alternative_date,
-            now=now,
+        if policy["require_makeup"]:
+            raise ApiError(
+                "MAKEUP_SERIES_BLOCKED",
+                "Telafi randevusu zorunlu oldugu icin seri toplu iptal edilemez; "
+                "randevulari tek tek iptal edip telafilerini olusturun",
+                409,
+            )
+        chosen_reason, reason = await resolve_supplier_reason(
+            db, facility, reason_id=reason_id, note=reason
         )
         # Seri iptalinde sebep tesis kuralindan bagimsiz olarak hep zorunluydu
-        # (Sprint 12); kod secilmediyse serbest metin bu boslugu doldurur.
-        if cancellation.reason_code is None and (
-            cancellation.note is None or len(cancellation.note) < 3
-        ):
+        # (Sprint 12); listeden secilmediyse serbest metin bu boslugu doldurur.
+        if chosen_reason is None and (reason is None or len(reason) < 3):
             raise ApiError(
                 "CANCELLATION_REASON_REQUIRED", "Seri iptali icin sebep girilmelidir", 422
             )
-        reason = cancellation.note
-        reason_code_value = cancellation.reason_code
-        alternative_date = cancellation.alternative_date
-        reason_label = reason_text(reason_code_value, reason)
+        reason_label = reason_text(chosen_reason.label if chosen_reason else None, reason)
         cutoff = notice_cutoff(policy, now)
         affected = [a for a in upcoming if to_utc(a.scheduled_start_at) >= cutoff]
         if upcoming and not affected:
@@ -1260,8 +1324,8 @@ async def cancel_appointment_series(
     for appointment in affected:
         appointment.status = AppointmentStatus.cancelled
         appointment.cancellation_reason = reason
-        appointment.cancellation_reason_code = reason_code_value
-        appointment.cancellation_alternative_date = alternative_date
+        appointment.cancellation_reason_id = chosen_reason.id if chosen_reason else None
+        appointment.cancellation_reason_label = chosen_reason.label if chosen_reason else None
     series.status = "cancelled"
 
     first = affected[0]
@@ -1278,11 +1342,6 @@ async def cancel_appointment_series(
                 f"Tedarikçi, serinin gelecekteki {len(affected)} randevusunu iptal etti. "
                 f"Sebep: {reason_label}."
                 + (
-                    f" Alternatif gönderim tarihi: {alternative_date.strftime('%d.%m.%Y')}."
-                    if alternative_date
-                    else ""
-                )
-                + (
                     f" Bildirim süresi içinde kalan {kept_within_notice} randevu "
                     "iptal edilmedi."
                     if kept_within_notice
@@ -1293,8 +1352,7 @@ async def cancel_appointment_series(
                 "series_id": str(series.id),
                 "affected_count": len(affected),
                 "reason": reason_label,
-                "reason_code": reason_code_value,
-                "alternative_date": alternative_date.isoformat() if alternative_date else None,
+                "reason_id": str(chosen_reason.id) if chosen_reason else None,
                 "kept_within_notice": kept_within_notice,
             },
         )
@@ -1365,8 +1423,7 @@ async def cancel_appointment_series(
             "scope": "future_only",
             "affected_count": len(affected),
             "reason": reason,
-            "reason_code": reason_code_value,
-            "alternative_date": alternative_date.isoformat() if alternative_date else None,
+            "reason_id": str(chosen_reason.id) if chosen_reason else None,
             "kept_within_notice": kept_within_notice,
         },
     )

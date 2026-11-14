@@ -10,7 +10,6 @@ REVISE hem tedarikciye hem ilgili ekibe gider (v1.0 saha davranisi).
 """
 
 import uuid
-from datetime import date
 from typing import Any
 from zoneinfo import ZoneInfo
 
@@ -18,6 +17,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.core.enums import AppointmentStatus
 from app.core.permissions import TenantPermission
 from app.models import Appointment, Dock, Facility, FacilityMembership, Notification, Supplier
 from app.services.email import EmailMessage, send_email
@@ -322,7 +322,7 @@ async def on_lifecycle_action(
     new_start: str | None = None,
     old_dock_name: str | None = None,
     new_dock_name: str | None = None,
-    alternative_date: date | None = None,
+    makeup: Appointment | None = None,
 ) -> None:
     """approve/reject/revise/dock_change/complete/cancel bildirim + e-postalari."""
     when = await _facility_when(db, appointment)
@@ -424,15 +424,19 @@ async def on_lifecycle_action(
         )
     elif action == "cancel":
         if by_supplier:
-            # Musteri talebi (2026-10): tesis sebebi ve tedarikcinin onerdigi
-            # alternatif gonderim tarihini bildirimden gorup planlayabilsin.
+            # Tesis sebebi ve tedarikcinin actigi TELAFI randevusunu
+            # bildirimden gorup planlayabilsin (musteri karari 2026-11).
             body = f"{when} randevusu iptal edildi."
             if reason:
                 body += f" Sebep: {reason}."
-            if alternative_date:
-                body += (
-                    f" Alternatif gönderim tarihi: {alternative_date.strftime('%d.%m.%Y')}."
+            if makeup is not None:
+                makeup_when = await _facility_when(db, makeup)
+                state = (
+                    "onay bekliyor"
+                    if makeup.status == AppointmentStatus.pending
+                    else "onaylandı"
                 )
+                body += f" Telafi randevusu: {makeup_when} ({state})."
             await notify_admins(
                 db, appointment,
                 type_="appointment_cancelled", severity="warning",
@@ -440,10 +444,12 @@ async def on_lifecycle_action(
                 body=body,
                 extra={
                     "reason": reason,
-                    "reason_code": appointment.cancellation_reason_code,
-                    "alternative_date": (
-                        alternative_date.isoformat() if alternative_date else None
+                    "reason_id": (
+                        str(appointment.cancellation_reason_id)
+                        if appointment.cancellation_reason_id
+                        else None
                     ),
+                    "makeup_appointment_id": str(makeup.id) if makeup else None,
                 },
             )
         else:

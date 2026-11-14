@@ -5,7 +5,7 @@ ve ayni statu yasam dongusunu kullanir.
 """
 
 import uuid
-from datetime import date, datetime
+from datetime import datetime
 
 import sqlalchemy as sa
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -73,12 +73,23 @@ class Appointment(Base, UUIDPkMixin, TimestampMixin, FacilityScopedMixin):
     )
     rejection_reason: Mapped[str | None] = mapped_column(sa.Text)
     cancellation_reason: Mapped[str | None] = mapped_column(sa.Text)
-    # Tedarikci iptalinde secilen sabit sebep (SupplierCancellationReason) ve
-    # onerdigi alternatif gonderim tarihi. Yonetim iptalinde bos kalir; o
-    # durumda serbest metin `cancellation_reason`'dadir. Kod bilerek varchar:
-    # yeni sebep eklemek migration gerektirmesin.
-    cancellation_reason_code: Mapped[str | None] = mapped_column(sa.String(32))
-    cancellation_alternative_date: Mapped[date | None] = mapped_column(sa.Date)
+    # Tedarikci iptalinde secilen sebep (firmanin listesi) ve O ANKI etiketi.
+    # Etiket kopyalanir: sebep sonradan degisse/silinse de kayit bozulmaz.
+    # `cancellation_reason` serbest aciklamadir (yonetim iptalinde tek alan).
+    cancellation_reason_id: Mapped[uuid.UUID | None] = mapped_column(
+        sa.Uuid, sa.ForeignKey("cancellation_reasons.id", ondelete="SET NULL")
+    )
+    cancellation_reason_label: Mapped[str | None] = mapped_column(sa.String(120))
+    # Telafi randevusu (musteri karari 2026-11): tedarikci iptal ederken
+    # telafi randevusunu AYNI islemde acar. Yeni randevu bayrakla isaretlenir
+    # ve iki randevu birbirine baglanir.
+    is_makeup: Mapped[bool] = mapped_column(sa.Boolean, default=False, server_default=sa.false())
+    makeup_of_id: Mapped[uuid.UUID | None] = mapped_column(
+        sa.Uuid, sa.ForeignKey("appointments.id", ondelete="SET NULL")
+    )
+    makeup_appointment_id: Mapped[uuid.UUID | None] = mapped_column(
+        sa.Uuid, sa.ForeignKey("appointments.id", ondelete="SET NULL")
+    )
     completion_note: Mapped[str | None] = mapped_column(sa.Text)
     revision_note: Mapped[str | None] = mapped_column(sa.Text)
     original_start_at: Mapped[datetime | None] = mapped_column(sa.DateTime(timezone=True))

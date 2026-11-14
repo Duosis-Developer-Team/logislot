@@ -389,12 +389,15 @@ export const en: Dictionary = {
       noteLabelRequired: "Details (required)",
       noteLabelOptional: "Details (optional)",
       notePlaceholder: "Briefly explain",
-      noteRequired: "When you choose 'Other', please add a short explanation (at least 3 characters).",
-      alternativeDateLabel: "Alternative delivery date",
-      alternativeDateHint:
-        "The new date you can deliver the goods. The facility sees this date; you can book the new appointment separately.",
-      alternativeDateRequired: "Please enter an alternative delivery date.",
-      alternativeDateInvalid: "The alternative date can't be in the past or more than a year ahead.",
+      noteRequired: "Please add a short explanation for this reason (at least 3 characters).",
+      makeupTitle: "Make-up appointment",
+      makeupHint:
+        "Cancelling requires booking a make-up appointment. It keeps the same goods and vehicle details and is marked “Make-up”.",
+      makeupDate: "Make-up day",
+      makeupTime: "Time",
+      makeupWindow: "Arrival window",
+      makeupNoSlots: "No free time on this day; please pick another day.",
+      makeupRequired: "Please choose a day and time for the make-up appointment.",
       required: "required",
     },
     notificationPreferences: {
@@ -572,7 +575,6 @@ export const en: Dictionary = {
     monthly: "monthly",
     cancelSeries: "Cancel series",
     cancellationReason: "Reason for cancellation:",
-    alternativeDate: "Alternative delivery date:",
     revisionHistory: "Change history",
     emailLogs: "E-mail logs",
     sending: "Sending…",
@@ -859,9 +861,10 @@ export const en: Dictionary = {
         "No rules set yet: suppliers can cancel without a reason until the appointment starts.",
       requireReason: "Reason is required",
       requireReasonHint:
-        "The supplier picks a reason from a fixed list; choosing 'Other' requires an explanation.",
-      requireAlternativeDate: "Alternative delivery date is required",
-      requireAlternativeDateHint: "The supplier enters the new date they can deliver the goods.",
+        "The supplier picks a reason from the list below. Details are optional; you can make them required per reason.",
+      requireMakeup: "Make-up appointment is required",
+      requireMakeupHint:
+        "When cancelling, the supplier books the make-up appointment's day and time; cancellation and make-up happen together and the new appointment is marked “Make-up”. While on, series can't be cancelled in bulk.",
       minNotice: "Cancellation deadline",
       minNoticeHint:
         "Suppliers can't cancel in the portal once the appointment is closer than this. 0 = they can cancel until it starts.",
@@ -871,7 +874,25 @@ export const en: Dictionary = {
       loading: "Loading rules…",
       loadError: "We couldn't load the cancellation rules.",
       saveFailed: "We couldn't save the cancellation rules.",
-      reasonsTitle: "Reasons the supplier can choose from",
+      reasons: {
+        title: "Cancellation Reasons",
+        hint: "The list suppliers see when cancelling, in the order set here. Inactive reasons are hidden from suppliers. Deleting a reason doesn't change past appointments.",
+        placeholder: "Reason name",
+        labelField: "Reason name",
+        noteRequired: "Details required",
+        active: "Active",
+        inactive: "Inactive",
+        moveUp: "Move up",
+        moveDown: "Move down",
+        remove: "Delete reason",
+        add: "Add reason",
+        saved: "Cancellation reasons saved.",
+        loadError: "We couldn't load the cancellation reasons.",
+        saveFailed: "We couldn't save the cancellation reasons.",
+        labelTooShort: "Each reason needs a name of at least 2 characters.",
+        duplicate: "The same reason appears more than once.",
+        noActive: "At least one reason must be active.",
+      },
     },
     supplierNotifications: {
       needsPermission: "Viewing this page requires the supplier management permission.",
@@ -1550,7 +1571,6 @@ export const en: Dictionary = {
       cancelMessage: (product: string) =>
         `The "${product}" appointment will be cancelled. This can't be undone.`,
       cancelFailed: "We couldn't cancel the appointment.",
-      alternativeDate: "Alternative delivery date:",
       cancelDeadline: (when: string) => `Cancel by: ${when}`,
       cancelWindowClosed: (hours: number) =>
         `This appointment starts in less than ${hours} hours, so it can't be cancelled in the portal. Please contact the facility to change it.`,
@@ -2192,6 +2212,17 @@ export const en: Dictionary = {
     },
   },
 
+  makeup: {
+    badge: "Make-up",
+    badgeHint: "Make-up appointment booked in place of a cancelled one",
+    replaces: (when: string) => `Make-up for the ${when} appointment`,
+    scheduledAt: (when: string) => `Make-up appointment: ${when}`,
+    replacesLabel: "Cancelled appointment",
+    makeupLabel: "Make-up appointment",
+    open: "Open",
+    cancelledWithMakeup: "Appointment cancelled and make-up appointment booked.",
+  },
+
   errors: {
     byCode: {
       UNKNOWN: "Something went wrong",
@@ -2253,10 +2284,12 @@ export const en: Dictionary = {
       CANCELLATION_NOTICE_TOO_SHORT:
         "It's too close to the appointment to cancel; please contact the facility to change it.",
       CANCELLATION_REASON_REQUIRED: "Please choose a reason for cancelling.",
-      CANCELLATION_NOTE_REQUIRED: "Please add an explanation when you choose 'Other'.",
-      ALTERNATIVE_DATE_REQUIRED: "Please enter an alternative delivery date.",
-      ALTERNATIVE_DATE_INVALID:
-        "The alternative delivery date can't be in the past or more than a year ahead.",
+      CANCELLATION_NOTE_REQUIRED: "Please add details for the selected reason.",
+      CANCELLATION_REASON_INVALID: "The selected reason is no longer available; please refresh.",
+      CANCELLATION_REASONS_EMPTY: "At least one cancellation reason must be active.",
+      MAKEUP_REQUIRED: "Please choose a day and time for the make-up appointment.",
+      MAKEUP_SERIES_BLOCKED:
+        "Make-up appointments are required, so the series can't be cancelled in bulk; cancel appointments one by one and book their make-ups.",
     },
     network: "Couldn't reach the server — check your connection.",
     unexpected: "Something unexpected went wrong.",

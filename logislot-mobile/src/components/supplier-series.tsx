@@ -238,6 +238,7 @@ export function SupplierSeriesSection() {
           )
         }
         policy={policy}
+        reasons={profile.data?.cancellation_reasons ?? []}
         legacyReason={{
           label: "İptal Sebebi (zorunlu)",
           placeholder: "Örn. Üretim planı değişti",

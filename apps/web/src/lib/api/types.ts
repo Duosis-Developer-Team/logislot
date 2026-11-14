@@ -104,7 +104,8 @@ export interface SupplierDto {
 /** Tesisin tedarikci iptal kurali (yonetim belirler; sunucu da zorlar). */
 export interface SupplierCancellationPolicyDto {
   require_reason: boolean;
-  require_alternative_date: boolean;
+  /** Tedarikci iptalinde telafi randevusu ayni islemde zorunlu. */
+  require_makeup: boolean;
   /** 0 = baslangica kadar iptal serbest. */
   min_notice_hours: number;
 }
@@ -112,6 +113,27 @@ export interface SupplierCancellationPolicyDto {
 export interface SupplierProfileDto extends SupplierDto {
   facility: { id: string; name: string; timezone: string };
   cancellation_policy: SupplierCancellationPolicyDto;
+  /** Firmanin AKTIF iptal sebepleri (siraya gore). */
+  cancellation_reasons: CancellationReasonOptionDto[];
+}
+
+export interface CancellationReasonOptionDto {
+  id: string;
+  label: string;
+  note_required: boolean;
+}
+
+/** Yonetim ekranindaki tam sebep satiri (pasifler dahil). */
+export interface CancellationReasonDto extends CancellationReasonOptionDto {
+  is_active: boolean;
+  position: number;
+}
+
+/** Telafi baglantisinin kisa ozeti (yonetim detayi). */
+export interface LinkedAppointmentDto {
+  id: string;
+  scheduled_start_at: string;
+  status: string;
 }
 
 export interface SupplierCatalogDto {
@@ -152,10 +174,17 @@ export interface AppointmentDto {
   status: string;
   rejection_reason: string | null;
   cancellation_reason?: string | null;
-  /** Tedarikci iptalinde secilen sabit sebep (SUPPLIER_CANCELLATION_REASONS). */
-  cancellation_reason_code?: string | null;
-  /** Tedarikcinin onerdigi alternatif gonderim tarihi (YYYY-MM-DD). */
-  cancellation_alternative_date?: string | null;
+  /** Tedarikci iptalinde secilen sebep ve O ANKI etiketi. */
+  cancellation_reason_id?: string | null;
+  cancellation_reason_label?: string | null;
+  /** Telafi randevusu: iptal edilen randevunun yerine acildi. */
+  is_makeup?: boolean;
+  makeup_of_id?: string | null;
+  /** Iptal edilen randevunun telafisi. */
+  makeup_appointment_id?: string | null;
+  /** Yalnizca yonetim detayinda dolu. */
+  makeup_of?: LinkedAppointmentDto | null;
+  makeup_appointment?: LinkedAppointmentDto | null;
   completion_note?: string | null;
   revision_note: string | null;
   original_start_at: string | null;
