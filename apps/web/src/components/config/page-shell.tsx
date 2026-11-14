@@ -19,6 +19,8 @@ interface ConfigPageShellProps {
   activeFilter: ActiveFilter;
   onActiveFilterChange: (value: ActiveFilter) => void;
   flash: FlashMessage | null;
+  /** Olustur dugmesinin yanindaki ek eylemler (ör. Excel'den ice aktar). */
+  extraActions?: React.ReactNode;
   children: React.ReactNode;
 }
 
@@ -49,6 +51,7 @@ export function ConfigPageShell({
   activeFilter,
   onActiveFilterChange,
   flash,
+  extraActions,
   children,
 }: ConfigPageShellProps) {
   const t = useT();
@@ -59,9 +62,12 @@ export function ConfigPageShell({
           <h1 className="text-xl font-bold">{title}</h1>
           <p className="max-w-2xl text-sm text-muted-foreground">{description}</p>
         </div>
-        <Button onClick={onCreate}>
-          <Plus className="h-4 w-4" /> {createLabel}
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          {extraActions}
+          <Button onClick={onCreate}>
+            <Plus className="h-4 w-4" /> {createLabel}
+          </Button>
+        </div>
       </div>
 
       {flash && (

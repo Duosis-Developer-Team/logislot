@@ -21,6 +21,7 @@ from app.routers.notifications import router as notifications_router
 from app.routers.platform import router as platform_router
 from app.routers.platform_ticketing import router as platform_ticketing_router
 from app.routers.reports import router as reports_router
+from app.routers.supplier_import import router as supplier_import_router
 from app.routers.supplier_portal import router as supplier_router
 from app.routers.suppliers import router as suppliers_router
 from app.routers.tickets import router as tickets_router
@@ -96,6 +97,7 @@ def create_app() -> FastAPI:
     app.include_router(users_router)
     app.include_router(appointments_router)
     app.include_router(duration_router)
+    app.include_router(supplier_import_router)
     app.include_router(reports_router)
     app.include_router(supplier_router)
     app.include_router(notifications_router)

@@ -1,7 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { BadgeCheck, KeyRound, Package } from "lucide-react";
+import { BadgeCheck, FileSpreadsheet, KeyRound, Package } from "lucide-react";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -18,6 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Drawer } from "@/components/ui/drawer";
 import { EmailListInput } from "@/components/domain/email-list-input";
+import { SupplierImportDialog } from "@/components/domain/supplier-import-dialog";
 import {
   INHERIT_ALL,
   MINUTE_DIMENSIONS,
@@ -122,6 +123,7 @@ export default function SuppliersPage() {
   const { flash, showFlash } = useFlash();
 
   const [search, setSearch] = useState("");
+  const [importOpen, setImportOpen] = useState(false);
   const [activeFilter, setActiveFilter] = useState<ActiveFilter>("all");
   const [drawer, setDrawer] = useState<{ open: boolean; editing: SupplierDto | null }>({
     open: false,
@@ -342,7 +344,17 @@ export default function SuppliersPage() {
       activeFilter={activeFilter}
       onActiveFilterChange={setActiveFilter}
       flash={flash}
+      extraActions={
+        <Button variant="secondary" onClick={() => setImportOpen(true)}>
+          <FileSpreadsheet className="h-4 w-4" /> {t.admin.supplierImport.open}
+        </Button>
+      }
     >
+      <SupplierImportDialog
+        facilityId={activeFacilityId}
+        open={importOpen}
+        onClose={() => setImportOpen(false)}
+      />
       {list.isLoading ? (
         <LoadingState />
       ) : list.isError ? (

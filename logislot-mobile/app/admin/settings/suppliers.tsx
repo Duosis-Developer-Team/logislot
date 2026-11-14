@@ -245,7 +245,7 @@ export default function SuppliersScreen() {
         query={list}
         createLabel="Yeni Tedarikçi"
         onCreate={openCreate}
-        description="Tedarikçi yalnızca kendisine izinli kategorilerden randevu oluşturabilir; kota ve süre limitleri rule engine tarafından uygulanır."
+        description="Tedarikçi yalnızca kendisine izinli kategorilerden randevu oluşturabilir; kota ve süre limitleri rule engine tarafından uygulanır. Excel ile toplu içe aktarma web yönetim panelinden (Tedarikçiler → Excel'den içe aktar) yapılır."
         searchText={(r) =>
           `${r.company_name} ${r.code} ${r.contact_name ?? ""} ${r.contact_email ?? ""}`
         }

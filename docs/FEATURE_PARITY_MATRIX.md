@@ -3,7 +3,7 @@
 Durumlar: ✅ tam · 🟡 kısmi · ❌ yok · — kapsam dışı
 Güncelleme kuralı: her feature sprint'inde bu matris güncellenir (bkz. WEB_MOBILE_PARITY.md).
 
-_Son güncelleme: 2026-11-14 (müşteri toplantısı: iptal revizyonu + telafi randevusu, sipariş no, ek e-postalar, işlem süresi kuralları, süre limitleri)_
+_Son güncelleme: 2026-11-14 (müşteri toplantısı: iptal revizyonu + telafi randevusu, sipariş no, ek e-postalar, işlem süresi kuralları, süre limitleri, Excel içe aktarma)_
 
 | Feature | Backend | Web | Mobile | Status | Notes |
 |---|---|---|---|---|---|
@@ -37,6 +37,7 @@ _Son güncelleme: 2026-11-14 (müşteri toplantısı: iptal revizyonu + telafi r
 | Config CRUD: kategoriler/araçlar/rampalar/çakışma/istisnalar | ✅ | ✅ | ✅ | OK | Rampa: çalışma saatleri editörü + çoklu kategori seçimi dahil |
 | Tedarikçi yönetimi + portal hesabı | ✅ | ✅ | ✅ | OK | CRUD + hesap oluştur/parola sıfırla/aktif-pasif. 10'a kadar ek bildirim e-postası (her alıcıya ayrı e-posta logu) |
 | Tedarikçi iptal kuralları (tesis ayarı) | ✅ | ✅ | ✅ | OK | Sebep zorunlu / telafi randevusu zorunlu / son iptal süresi (saat); varsayılan kapalı. Sebep listesini firma düzenler (ekle/sırala/pasifleştir, sebep bazında açıklama zorunluluğu). Yönetim iptali kurala tabi değil |
+| Tedarikçi Excel şablonu + toplu içe aktarma | ✅ | ✅ | ❌ | **Bilinçli erteleme** | Web: şablon indir → önizleme → hepsi-ya-hiç uygula; kodla eşleşme (varsa güncelle), boş hücre değiştirmez, "-" temizler; isteğe bağlı portal hesabı (geçici parola bir kez). Dosya saklanmaz. Mobil: native dosya seçici + paylaşım yeni bağımlılık gerektirir; ekranda web paneline yönlendirme var |
 | Tedarikçi süre limitleri (günlük / haftalık / aylık dakika) | ✅ | ✅ | ✅ | OK | Tesis varsayılanı + tedarikçi kartında dönem bazında varsayılan / sınırsız / özel. İptal ve red sayılmaz; tedarikçi + yönetim adına + seri + telafi oluşturmada kilit altında zorlanır, revizede değil. Sihirbazlarda kalan süre çubuğu, aşımda gönderim kapalı |
 | Randevu formu ayarları (sipariş no) | ✅ | ✅ | ✅ | OK | Gizli / isteğe bağlı / zorunlu; yalnızca yeni randevulara uygulanır, sunucuda zorlanır. Liste araması ve rapor CSV'sinde sipariş no |
 | İşlem süresi kuralları | ✅ | ✅ | 🟡 | Partial | Mod (tedarikçi seçer / sistem önerir / sistem hesaplar) + yuvarlama; kural listesi (sıra, ölü kural uyarısı, "en özel kural üste"), deneme kutusu. Araç × miktar senaryo tablosu yalnızca webde (geniş ekran). Yönetim adına oluşturmada hesaplanan süre varsayılan, değiştirilebilir. Bkz. docs/SURE_HESAPLAMA.md |
