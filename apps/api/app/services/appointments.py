@@ -1394,10 +1394,13 @@ async def cancel_appointment_series(
         )
     # Tedarikciye TEK ozet e-posta (occurrence basina e-posta YOK; kendi
     # iptalinde e-posta da uretilmez)
-    from app.services.email import EmailMessage, send_email
     from app.services.email_templates import EmailContext, render_email
     from app.services.notification_preferences import prefs_email_allowed
-    from app.services.notifications import _supplier_email, _supplier_policy
+    from app.services.notifications import (
+        _supplier_email,
+        _supplier_policy,
+        send_supplier_email,
+    )
 
     email, supplier_name = await _supplier_email(db, series.supplier_id)
     policy = await _supplier_policy(db, facility.id)
@@ -1412,19 +1415,16 @@ async def cancel_appointment_series(
                 occurrence_count=len(affected),
             ),
         )
-        await send_email(
+        await send_supplier_email(
             db,
-            EmailMessage(
-                tenant_id=facility.tenant_id,
-                facility_id=facility.id,
-                recipient_email=email,
-                recipient_name=supplier_name,
-                subject=subject,
-                body=body,
-                template_key="appointment_series_cancelled",
-                appointment_id=first.id,
-                metadata={"series_id": str(series.id), "affected_count": len(affected)},
-            ),
+            supplier_id=series.supplier_id,
+            tenant_id=facility.tenant_id,
+            facility_id=facility.id,
+            subject=subject,
+            body=body,
+            template_key="appointment_series_cancelled",
+            appointment_id=first.id,
+            metadata={"series_id": str(series.id), "affected_count": len(affected)},
         )
     record_audit(
         db,
@@ -1653,10 +1653,13 @@ async def revise_appointment_series(
         ),
         extra={"series_id": str(series.id), "affected_count": len(affected)},
     )
-    from app.services.email import EmailMessage, send_email
     from app.services.email_templates import EmailContext, render_email
     from app.services.notification_preferences import prefs_email_allowed
-    from app.services.notifications import _supplier_email, _supplier_policy
+    from app.services.notifications import (
+        _supplier_email,
+        _supplier_policy,
+        send_supplier_email,
+    )
 
     email, supplier_name = await _supplier_email(db, series.supplier_id)
     policy = await _supplier_policy(db, facility.id)
@@ -1672,19 +1675,16 @@ async def revise_appointment_series(
                 occurrence_count=len(affected),
             ),
         )
-        await send_email(
+        await send_supplier_email(
             db,
-            EmailMessage(
-                tenant_id=facility.tenant_id,
-                facility_id=facility.id,
-                recipient_email=email,
-                recipient_name=supplier_name,
-                subject=subject,
-                body=body,
-                template_key="appointment_series_revised",
-                appointment_id=first.id,
-                metadata={"series_id": str(series.id), "affected_count": len(affected)},
-            ),
+            supplier_id=series.supplier_id,
+            tenant_id=facility.tenant_id,
+            facility_id=facility.id,
+            subject=subject,
+            body=body,
+            template_key="appointment_series_revised",
+            appointment_id=first.id,
+            metadata={"series_id": str(series.id), "affected_count": len(affected)},
         )
     record_audit(
         db,
@@ -1863,10 +1863,13 @@ async def approve_appointment_series(
         ),
         extra={"series_id": str(series.id), "affected_count": len(affected)},
     )
-    from app.services.email import EmailMessage, send_email
     from app.services.email_templates import EmailContext, render_email
     from app.services.notification_preferences import prefs_email_allowed
-    from app.services.notifications import _supplier_account, _supplier_policy
+    from app.services.notifications import (
+        _supplier_account,
+        _supplier_policy,
+        send_supplier_email,
+    )
 
     supplier_row, account = await _supplier_account(db, series.supplier_id)
     email = account.email if account else (supplier_row.contact_email if supplier_row else None)
@@ -1881,19 +1884,16 @@ async def approve_appointment_series(
                 status="approved",
             ),
         )
-        await send_email(
+        await send_supplier_email(
             db,
-            EmailMessage(
-                tenant_id=facility.tenant_id,
-                facility_id=facility.id,
-                recipient_email=email,
-                recipient_name=supplier_row.company_name if supplier_row else None,
-                subject=subject,
-                body=body_text,
-                template_key="appointment_approved",
-                appointment_id=first.id,
-                metadata={"series_id": str(series.id), "affected_count": len(affected)},
-            ),
+            supplier_id=series.supplier_id,
+            tenant_id=facility.tenant_id,
+            facility_id=facility.id,
+            subject=subject,
+            body=body_text,
+            template_key="appointment_approved",
+            appointment_id=first.id,
+            metadata={"series_id": str(series.id), "affected_count": len(affected)},
         )
     record_audit(
         db,

@@ -1183,6 +1183,15 @@ export const tr = {
       companyName: "Firma Adı",
       code: "Tedarikçi Kodu",
       contactPerson: "İletişim Kişisi",
+      additionalEmails: {
+        label: "Ek bildirim e-postaları",
+        placeholder: "ornek@firma.com yazıp Enter'a basın",
+        hint: (max: number) =>
+          `Tedarikçiye giden onay, red, revize ve iptal e-postaları bu adreslerin hepsine de gider (en fazla ${max}).`,
+        limitReached: (max: number) => `En fazla ${max} ek adres eklenebilir`,
+        invalid: (value: string) => `“${value}” geçerli bir e-posta adresi değil.`,
+        remove: (value: string) => `${value} adresini kaldır`,
+      },
       contactEmail: "İletişim E-postası",
       permissionsSection: "İzinler / Kategoriler",
       categorySearch: "Ürün kategorisi ara…",

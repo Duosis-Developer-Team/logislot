@@ -1185,6 +1185,15 @@ export const en: Dictionary = {
       companyName: "Company name",
       code: "Supplier code",
       contactPerson: "Contact person",
+      additionalEmails: {
+        label: "Additional notification e-mails",
+        placeholder: "Type name@company.com and press Enter",
+        hint: (max: number) =>
+          `Approval, rejection, change and cancellation e-mails to the supplier also go to all of these addresses (up to ${max}).`,
+        limitReached: (max: number) => `You can add up to ${max} additional addresses`,
+        invalid: (value: string) => `“${value}” isn't a valid e-mail address.`,
+        remove: (value: string) => `Remove ${value}`,
+      },
       contactEmail: "Contact e-mail",
       permissionsSection: "Permissions / categories",
       categorySearch: "Search product categories…",

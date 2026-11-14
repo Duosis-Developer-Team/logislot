@@ -22,6 +22,7 @@ import {
   SectionTitle,
   SwitchRow,
 } from "@/components/ui";
+import { EmailListField } from "@/components/email-list";
 import { useTheme } from "@/theme/theme";
 import { spacing } from "@/theme/tokens";
 
@@ -47,6 +48,7 @@ export default function SuppliersScreen() {
   const [categoryLabel, setCategoryLabel] = useState("");
   const [contactName, setContactName] = useState("");
   const [contactEmail, setContactEmail] = useState("");
+  const [additionalEmails, setAdditionalEmails] = useState<string[]>([]);
   const [contactPhone, setContactPhone] = useState("");
   const [minBlock, setMinBlock] = useState("");
   const [maxBlock, setMaxBlock] = useState("");
@@ -70,6 +72,7 @@ export default function SuppliersScreen() {
     setCategoryLabel("");
     setContactName("");
     setContactEmail("");
+    setAdditionalEmails([]);
     setContactPhone("");
     setMinBlock("");
     setMaxBlock("");
@@ -94,6 +97,7 @@ export default function SuppliersScreen() {
     setCategoryLabel(row.category_label ?? "");
     setContactName(row.contact_name ?? "");
     setContactEmail(row.contact_email ?? "");
+    setAdditionalEmails(row.additional_emails ?? []);
     setContactPhone(row.contact_phone ?? "");
     setMinBlock(row.min_block_minutes != null ? String(row.min_block_minutes) : "");
     setMaxBlock(row.max_block_minutes != null ? String(row.max_block_minutes) : "");
@@ -134,6 +138,7 @@ export default function SuppliersScreen() {
       category_label: categoryLabel || null,
       contact_name: contactName || null,
       contact_email: contactEmail || null,
+      additional_emails: additionalEmails,
       contact_phone: contactPhone || null,
       allowed_product_category_ids: allowedCategories,
       min_block_minutes: min,
@@ -326,6 +331,12 @@ export default function SuppliersScreen() {
             onChangeText={setContactEmail}
             keyboardType="email-address"
             autoCapitalize="none"
+          />
+          <EmailListField
+            label="Ek bildirim e-postaları"
+            value={additionalEmails}
+            onChange={setAdditionalEmails}
+            max={10}
           />
 
           <SectionTitle title="İzinler / Kategoriler" />

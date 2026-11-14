@@ -86,6 +86,8 @@ export interface SupplierDto {
   contact_name: string | null;
   contact_email: string | null;
   contact_phone: string | null;
+  /** Ek bildirim e-postalari (en fazla 10). */
+  additional_emails?: string[];
   status: string;
   is_active: boolean;
   auto_approval_enabled: boolean;

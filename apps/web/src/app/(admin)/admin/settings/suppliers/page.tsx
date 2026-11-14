@@ -17,6 +17,7 @@ import { ActiveBadge, EmptyState, ErrorState, LoadingState } from "@/components/
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Drawer } from "@/components/ui/drawer";
+import { EmailListInput } from "@/components/domain/email-list-input";
 import { Input, Label } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
@@ -129,6 +130,8 @@ export default function SuppliersPage() {
   const [accountActive, setAccountActive] = useState(true);
 
   const form = useForm<FormValues>({ resolver: zodResolver(formSchema) });
+  // Ek bildirim adresleri (en fazla 10); tedarikciye giden e-postalar bunlara da gider.
+  const [additionalEmails, setAdditionalEmails] = useState<string[]>([]);
   // Onerilen parola cekmece ACILIRKEN bir kez uretilir. Render sirasinda
   // uretilseydi ekranda gosterilen parola ile gonderilen farkli olabilirdi.
   const [generatedPassword, setGeneratedPassword] = useState("");
@@ -141,6 +144,7 @@ export default function SuppliersPage() {
       notes: "", account_email: "", account_password: "",
     });
     setAllowedCategories([]);
+    setAdditionalEmails([]);
     setAutoApprove(false);
     setCargoEnabled(false);
     setEditActive(true);
@@ -167,6 +171,7 @@ export default function SuppliersPage() {
       account_password: "",
     });
     setAllowedCategories(row.allowed_product_category_ids);
+    setAdditionalEmails(row.additional_emails ?? []);
     setAutoApprove(row.auto_approval_enabled);
     setCargoEnabled(row.cargo_enabled);
     setEditActive(row.is_active);
@@ -184,6 +189,7 @@ export default function SuppliersPage() {
       contact_name: values.contact_name || null,
       contact_email: values.contact_email || null,
       contact_phone: values.contact_phone || null,
+      additional_emails: additionalEmails,
       allowed_product_category_ids: allowedCategories,
       min_block_minutes: num(values.min_block_minutes),
       max_block_minutes: num(values.max_block_minutes),
@@ -484,6 +490,17 @@ export default function SuppliersPage() {
                     {fieldError(t, form.formState.errors.contact_email.message)}
                   </p>
                 )}
+              </div>
+              <div className="col-span-2">
+                <Label htmlFor="supplier-additional-emails">
+                  {t.admin.suppliers.additionalEmails.label}
+                </Label>
+                <EmailListInput
+                  id="supplier-additional-emails"
+                  value={additionalEmails}
+                  onChange={setAdditionalEmails}
+                  max={10}
+                />
               </div>
             </div>
           </Section>
