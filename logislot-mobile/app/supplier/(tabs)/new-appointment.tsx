@@ -5,6 +5,7 @@ import { Pressable, ScrollView, Switch, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ApiError } from "@/api/client";
 import { useSupplierDurationEstimate } from "@/api/duration";
+import { useSupplierMinuteUsage } from "@/api/supplier-limits";
 import {
   CARGO_WINDOW_LABELS,
   QUANTITY_UNIT_LABELS,
@@ -20,6 +21,7 @@ import {
 import type { AppointmentDto, SeriesCreateResultDto } from "@/api/types";
 import { Button, Card, Chip, ErrorState, Field, LoadingState } from "@/components/ui";
 import { DurationChips, DurationEstimateCard, withSuggested } from "@/components/duration";
+import { MinuteUsageCard, exceededUsage } from "@/components/minute-limits";
 import { OrderNumbersField } from "@/components/order-numbers";
 import { useTheme } from "@/theme/theme";
 import { spacing } from "@/theme/tokens";
@@ -160,6 +162,13 @@ export default function NewAppointmentWizard() {
   const selectedSlotData = slots.find((s) => s.start === selectedSlot) ?? null;
   const selectedAdvisories = selectedSlotData?.advisory_warnings ?? [];
 
+  // Süre limitleri (web ile aynı): hedef günün gün/hafta/ay dönemlerinde kalan süre.
+  const minuteUsage = useSupplierMinuteUsage(step === 2 ? date : null);
+  const bookedMinutes = isCargo
+    ? Math.max(catalog.data?.cargo_default_min_block_minutes ?? 0, category?.min_block_minutes ?? 0)
+    : effectiveDuration;
+  const limitExceeded = exceededUsage(minuteUsage.data?.usage, bookedMinutes) !== null;
+
   // Tesisin form ayarı: sipariş no gizli / isteğe bağlı / zorunlu.
   const orderMode = catalog.data?.appointment_form.order_numbers ?? "hidden";
   const canNext =
@@ -171,7 +180,8 @@ export default function NewAppointmentWizard() {
         ? isCargo || plate.trim().length > 0
         : // Seçili saat GÜNCEL listede açık olmalı (miktar/araç değişince süre
           // ve slot listesi değişebilir).
-          isCargo || slots.some((s) => s.start === selectedSlot && s.status !== "full");
+          !limitExceeded &&
+          (isCargo || slots.some((s) => s.start === selectedSlot && s.status !== "full"));
 
   const dayOptions = useMemo(
     () => Array.from({ length: 14 }, (_, i) => addDaysISO(todayISO(), i + 1)),
@@ -623,6 +633,8 @@ export default function NewAppointmentWizard() {
                 </View>
               </>
             )}
+
+            <MinuteUsageCard usage={minuteUsage.data?.usage} requested={bookedMinutes} />
 
             {/* Tekrarlayan seri — web ile aynı: yalnızca standart teslimatta */}
             {!isCargo && (

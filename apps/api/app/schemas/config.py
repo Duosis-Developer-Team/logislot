@@ -248,6 +248,34 @@ def _dedupe_emails(values: list[str] | None) -> list[str] | None:
     return result
 
 
+class MinuteLimitOverrideIn(BaseModel):
+    """Tek donem icin tedarikci ezmesi (bkz. services/supplier_limits.py)."""
+
+    mode: str = "inherit"  # inherit | unlimited | custom
+    minutes: int | None = Field(default=None, ge=1, le=31 * 1440)
+
+
+class SupplierMinuteLimitsIn(BaseModel):
+    """Tedarikcinin sure limitleri; donem bazinda tesis varsayilanini devral,
+    sinirsiz yap ya da ozel dakika ver."""
+
+    daily: MinuteLimitOverrideIn = Field(default_factory=MinuteLimitOverrideIn)
+    weekly: MinuteLimitOverrideIn = Field(default_factory=MinuteLimitOverrideIn)
+    monthly: MinuteLimitOverrideIn = Field(default_factory=MinuteLimitOverrideIn)
+
+    @model_validator(mode="after")
+    def _check(self) -> "SupplierMinuteLimitsIn":
+        from app.services.supplier_limits import normalize_supplier_overrides
+
+        normalize_supplier_overrides(self.model_dump())  # ValueError -> 422
+        return self
+
+    def to_json(self) -> dict[str, Any] | None:
+        from app.services.supplier_limits import normalize_supplier_overrides
+
+        return normalize_supplier_overrides(self.model_dump())
+
+
 class SupplierCreate(BaseModel):
     company_name: str = Field(min_length=1, max_length=255)
     code: str = Field(min_length=1, max_length=50)
@@ -262,6 +290,8 @@ class SupplierCreate(BaseModel):
     max_block_minutes: int | None = Field(default=None, gt=0, le=MAX_BLOCK_MINUTES_CAP)
     weekly_quota: int | None = Field(default=None, ge=0)
     monthly_quota: int | None = Field(default=None, ge=0)
+    # Sure limitleri (dakika). Verilmezse tesis varsayilani devralinir.
+    minute_limits: SupplierMinuteLimitsIn | None = None
     auto_approval_enabled: bool = False
     # Kargo teslimat tipi yalnizca acikca izin verilirse kullanilabilir.
     cargo_enabled: bool = False
@@ -296,6 +326,8 @@ class SupplierPatch(BaseModel):
     max_block_minutes: int | None = Field(default=None, gt=0, le=MAX_BLOCK_MINUTES_CAP)
     weekly_quota: int | None = Field(default=None, ge=0)
     monthly_quota: int | None = Field(default=None, ge=0)
+    # null = tum donemlerde tesis varsayilanina don.
+    minute_limits: SupplierMinuteLimitsIn | None = None
     auto_approval_enabled: bool | None = None
     cargo_enabled: bool | None = None
     is_active: bool | None = None

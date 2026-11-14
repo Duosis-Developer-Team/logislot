@@ -101,6 +101,8 @@ export interface SupplierDto {
   max_block_minutes: number | null;
   weekly_quota: number | null;
   monthly_quota: number | null;
+  /** Dönem bazında süre limiti ezmesi (devral / sınırsız / özel). */
+  minute_limits?: MinuteLimitOverrides;
   notes: string | null;
   allowed_product_category_ids: string[];
   account_email: string | null;
@@ -226,6 +228,31 @@ export interface DurationScenario {
   vehicle_category_id: string | null;
   quantity: number;
   quantity_unit: string;
+}
+
+/** Tedarikci sure limitleri (dakika) — bkz. apps/api/app/services/supplier_limits.py. */
+export type MinuteDimension = "daily" | "weekly" | "monthly";
+export type MinuteLimitMode = "inherit" | "unlimited" | "custom";
+export interface MinuteLimitOverride {
+  mode: MinuteLimitMode;
+  minutes: number | null;
+}
+export type MinuteLimitOverrides = Record<MinuteDimension, MinuteLimitOverride>;
+export interface SupplierMinuteLimitsDto {
+  daily: number | null;
+  weekly: number | null;
+  monthly: number | null;
+  is_customized: boolean;
+  max_minutes: Record<MinuteDimension, number>;
+}
+export interface MinuteUsageDto {
+  dimension: MinuteDimension;
+  limit: number | null;
+  source: "facility" | "supplier";
+  used: number;
+  remaining: number | null;
+  period_start: string;
+  period_end: string;
 }
 
 export type FormFieldMode = "hidden" | "optional" | "required";

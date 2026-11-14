@@ -71,6 +71,7 @@ export function useCreateSupplierAppointment() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["supplier", "appointments"] });
       queryClient.invalidateQueries({ queryKey: ["supplier", "availability"] });
+      queryClient.invalidateQueries({ queryKey: ["minute-usage"] });
     },
   });
 }
@@ -91,7 +92,10 @@ export function useCancelSupplierAppointment() {
         method: "POST",
         body,
       }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["supplier"] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["supplier"] });
+      queryClient.invalidateQueries({ queryKey: ["minute-usage"] });
+    },
   });
 }
 
@@ -128,6 +132,7 @@ export function useSupplierSeriesCancel() {
       ),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["supplier"] });
+      queryClient.invalidateQueries({ queryKey: ["minute-usage"] });
     },
   });
 }

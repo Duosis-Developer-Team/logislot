@@ -137,6 +137,7 @@ export function useAppointmentActions(facilityId: string | null) {
     queryClient.invalidateQueries({ queryKey: ["appointment", fid] });
     queryClient.invalidateQueries({ queryKey: ["calendar", fid] });
     queryClient.invalidateQueries({ queryKey: ["dashboard", fid] });
+    queryClient.invalidateQueries({ queryKey: ["minute-usage"] });
   };
 
   const approve = useMutation({
@@ -284,6 +285,7 @@ export function useAdminCreateAppointment(facilityId: string | null) {
       for (const prefix of ["appointments", "calendar", "dashboard", "series"]) {
         queryClient.invalidateQueries({ queryKey: [prefix, fid] });
       }
+      queryClient.invalidateQueries({ queryKey: ["minute-usage"] });
     },
   });
 }

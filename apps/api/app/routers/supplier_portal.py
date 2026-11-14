@@ -4,6 +4,7 @@ Tedarikci yalnizca kendi supplier_id kayitlarini gorur; baska veri donmez.
 """
 
 import uuid
+from datetime import date
 
 from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, Field
@@ -48,6 +49,7 @@ from app.services.cancellation_policy import (
     resolve_cancellation_policy,
 )
 from app.services.duration_rules import estimate_duration, resolve_duration_policy
+from app.services.supplier_limits import minute_usage
 from app.tenancy.deps import FacilityContext, get_supplier_context
 
 router = APIRouter(prefix="/supplier", tags=["supplier-portal"])
@@ -348,6 +350,22 @@ async def my_availability(
 ):
     assert ctx.supplier is not None
     return ok(await evaluate_availability(body, ctx, db, ctx.supplier, locked=True))
+
+
+@router.get("/minute-usage")
+async def my_minute_usage(
+    target_date: date,
+    ctx: FacilityContext = Depends(get_supplier_context),
+    db: AsyncSession = Depends(get_db),
+):
+    """Sihirbaz: hedef gunun gun/hafta/ay donemlerinde kullanilan ve kalan sure.
+
+    Limitler tesis varsayilani ya da tedarikciye ozel olabilir; sunucu
+    randevu olustururken ayni hesabi kilit altinda yeniden yapar.
+    """
+    assert ctx.supplier is not None
+    usage = await minute_usage(db, ctx.facility, ctx.supplier, target_date)
+    return ok({"target_date": target_date.isoformat(), "usage": [u.as_dict() for u in usage]})
 
 
 @router.post("/duration/estimate")

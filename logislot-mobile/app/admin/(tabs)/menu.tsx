@@ -83,6 +83,12 @@ const CONFIG_ENTRIES: MenuEntry[] = [
     permission: "supplier.manage",
   },
   {
+    title: "Tedarikçi Süre Limitleri",
+    icon: "speedometer-outline",
+    route: "/admin/settings/supplier-limits",
+    permission: "supplier.manage",
+  },
+  {
     title: "Tedarikçi Bildirimleri",
     icon: "notifications-outline",
     route: "/admin/settings/supplier-notifications",

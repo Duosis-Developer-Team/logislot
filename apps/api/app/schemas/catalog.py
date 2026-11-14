@@ -77,6 +77,8 @@ class SupplierOut(OrmModel):
     max_block_minutes: int | None = None
     weekly_quota: int | None = None
     monthly_quota: int | None = None
+    # Donem bazinda sure limiti ezmesi (cozulmus: inherit/unlimited/custom).
+    minute_limits: dict[str, Any] = {}
     notes: str | None = None
     allowed_product_category_ids: list[uuid.UUID] = []
 

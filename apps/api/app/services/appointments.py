@@ -53,6 +53,7 @@ from app.services.cancellation_policy import (
 )
 from app.services.duration_rules import estimate_duration, resolve_duration_policy
 from app.services.notifications import on_appointment_created, on_lifecycle_action
+from app.services.supplier_limits import minute_usage
 
 
 class InvalidTransitionError(ApiError):
@@ -210,6 +211,7 @@ async def build_rule_context(
         existing_appointments=existing,
         supplier_week_count=await _count_supplier_appointments(db, supplier.id, *week),
         supplier_month_count=await _count_supplier_appointments(db, supplier.id, *month),
+        supplier_minute_usage=await minute_usage(db, facility, supplier, target_date),
     )
 
 
@@ -340,7 +342,9 @@ async def create_appointment(
 
     check = engine.validate_request()
     if not check.ok:
-        raise RuleViolationError(check.code or "RULE_VIOLATION", check.message or "")
+        raise RuleViolationError(
+            check.code or "RULE_VIOLATION", check.message or "", details=check.details
+        )
 
     if not engine.compatible_docks():
         raise RuleViolationError(

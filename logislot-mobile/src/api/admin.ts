@@ -77,6 +77,7 @@ export function useAppointmentActions(facilityId: string | null) {
     for (const prefix of ["appointments", "appointment", "calendar", "dashboard"]) {
       queryClient.invalidateQueries({ queryKey: [prefix, fid] });
     }
+    queryClient.invalidateQueries({ queryKey: ["minute-usage"] });
   };
 
   const approve = useMutation({
@@ -233,6 +234,7 @@ function invalidateSeriesScope(
   for (const prefix of ["series", "appointments", "appointment", "calendar", "dashboard"]) {
     queryClient.invalidateQueries({ queryKey: [prefix, fid] });
   }
+  queryClient.invalidateQueries({ queryKey: ["minute-usage"] });
 }
 
 export interface SeriesCancelResultDto {

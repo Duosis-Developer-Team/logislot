@@ -9,6 +9,7 @@ Kurallar:
 """
 
 import uuid
+from datetime import date
 
 from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, Field
@@ -56,6 +57,13 @@ from app.services.notification_preferences import (
     SUPPLIER_EMAIL_EVENT_KEYS,
     resolve_supplier_policy,
 )
+from app.services.supplier_limits import (
+    MAX_MINUTES,
+    minute_usage,
+    normalize_facility_limits,
+    resolve_facility_limits,
+    resolve_supplier_overrides,
+)
 from app.tenancy.deps import FacilityContext, require_facility_permissions
 from app.tenancy.directory import claim_email_once
 
@@ -75,6 +83,7 @@ SUPPLIER_AUDIT_FIELDS = [
     "max_block_minutes",
     "weekly_quota",
     "monthly_quota",
+    "minute_limits_json",
     "notes",
 ]
 
@@ -123,6 +132,7 @@ def _supplier_out(supplier: Supplier) -> dict:
     account = supplier.users[0] if supplier.users else None
     data.account_email = account.email if account else None
     data.account_active = (account.status == UserStatus.active) if account else None
+    data.minute_limits = resolve_supplier_overrides(supplier)
     return data.model_dump(mode="json")
 
 
@@ -258,6 +268,7 @@ async def create_supplier(
         max_block_minutes=body.max_block_minutes,
         weekly_quota=body.weekly_quota,
         monthly_quota=body.monthly_quota,
+        minute_limits_json=body.minute_limits.to_json() if body.minute_limits else None,
         notes=body.notes,
         allowed_product_categories=categories,
     )
@@ -342,6 +353,11 @@ async def patch_supplier(
     if "is_active" in changes:
         supplier.status = (
             SupplierStatus.active if changes.pop("is_active") else SupplierStatus.inactive
+        )
+    if "minute_limits" in changes:
+        changes.pop("minute_limits")
+        supplier.minute_limits_json = (
+            body.minute_limits.to_json() if body.minute_limits else None
         )
     for key, value in changes.items():
         setattr(supplier, key, value)
@@ -635,3 +651,73 @@ async def put_cancellation_reasons(
     )
     await db.commit()
     return ok(after)
+
+
+# ------------------------------------------------- tedarikci sure limitleri
+
+
+class SupplierMinuteLimitsPut(BaseModel):
+    """Tesis varsayilani (dakika); null = sinirsiz."""
+
+    daily: int | None = Field(default=None, ge=1, le=MAX_MINUTES["daily"])
+    weekly: int | None = Field(default=None, ge=1, le=MAX_MINUTES["weekly"])
+    monthly: int | None = Field(default=None, ge=1, le=MAX_MINUTES["monthly"])
+
+
+def _minute_limits_out(facility: Facility) -> dict:
+    return {
+        **resolve_facility_limits(facility),
+        "is_customized": any(resolve_facility_limits(facility).values()),
+        "max_minutes": MAX_MINUTES,
+    }
+
+
+@router.get("/supplier-minute-limits")
+async def get_supplier_minute_limits(
+    ctx: FacilityContext = Depends(require_facility_permissions(TenantPermission.APPT_VIEW)),
+):
+    """Tum tedarikcilere uygulanan varsayilan sure limitleri (dakika).
+
+    Tedarikci kartinda donem bazinda devralinir, sinirsiz yapilir ya da ezilir.
+    """
+    return ok(_minute_limits_out(ctx.facility))
+
+
+@router.put("/supplier-minute-limits")
+async def put_supplier_minute_limits(
+    body: SupplierMinuteLimitsPut,
+    ctx: FacilityContext = Depends(
+        require_facility_permissions(TenantPermission.SUPPLIER_MANAGE)
+    ),
+    db: AsyncSession = Depends(get_db),
+):
+    facility = await db.get(Facility, ctx.facility_id)
+    assert facility is not None
+    before = resolve_facility_limits(facility)
+    try:
+        after = normalize_facility_limits(body.model_dump())
+    except ValueError as exc:  # pragma: no cover - Field sinirlari once yakalar
+        raise ApiError("VALIDATION_ERROR", str(exc), 422) from exc
+    facility.supplier_minute_limits_json = after if any(after.values()) else None
+    _audit(
+        db, ctx,
+        action="supplier_minute_limits.update", entity_type="facility",
+        entity_id=ctx.facility_id, before=before, after=after,
+    )
+    await db.commit()
+    await db.refresh(facility)
+    return ok(_minute_limits_out(facility))
+
+
+@router.get("/suppliers/{supplier_id}/minute-usage")
+async def get_supplier_minute_usage(
+    supplier_id: uuid.UUID,
+    target_date: date,
+    ctx: FacilityContext = Depends(require_facility_permissions(TenantPermission.APPT_VIEW)),
+    db: AsyncSession = Depends(get_db),
+):
+    """Hedef gunun gun/hafta/ay donemlerinde kullanilan ve kalan sure."""
+    supplier = await get_scoped_or_404(db, Supplier, supplier_id, ctx.facility_id)
+    usage = await minute_usage(db, ctx.facility, supplier, target_date)
+    return ok({"target_date": target_date.isoformat(), "usage": [u.as_dict() for u in usage]})
+

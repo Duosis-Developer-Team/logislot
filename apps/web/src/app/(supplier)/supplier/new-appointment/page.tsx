@@ -11,6 +11,7 @@ import {
 } from "@logislot/shared";
 import { ErrorState, LoadingState } from "@/components/config/states";
 import { DurationEstimatePanel } from "@/components/duration/duration-estimate-panel";
+import { MinuteUsagePanel, exceededUsage } from "@/components/domain/minute-limits";
 import { OrderNumbersInput } from "@/components/domain/order-numbers-input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -18,6 +19,7 @@ import { Dialog } from "@/components/ui/dialog";
 import { Input, Label, Select } from "@/components/ui/input";
 import { ApiError } from "@/lib/api/client";
 import { useSupplierDurationEstimate } from "@/lib/api/duration";
+import { useSupplierMinuteUsage } from "@/lib/api/supplier-limits";
 import {
   useCreateSupplierAppointment,
   useSupplierAvailability,
@@ -183,6 +185,14 @@ export default function NewAppointmentWizard() {
       timeZone: tz,
     });
 
+  // Sure limitleri: hedef gunun gun/hafta/ay donemlerinde kalan sure. Kargo
+  // suresini sunucu kargo tabani ve kategori tabanindan buyugu olarak alir.
+  const minuteUsage = useSupplierMinuteUsage(step === 2 ? date : null);
+  const bookedMinutes = isCargo
+    ? Math.max(catalog.data?.cargo_default_min_block_minutes ?? 0, category?.min_block_minutes ?? 0)
+    : effectiveDuration;
+  const limitExceeded = exceededUsage(minuteUsage.data?.usage, bookedMinutes) !== null;
+
   // Tesisin form ayari: siparis no gizli / istege bagli / zorunlu.
   const orderMode = catalog.data?.appointment_form.order_numbers ?? "hidden";
   const canNext =
@@ -195,7 +205,8 @@ export default function NewAppointmentWizard() {
         ? isCargo || plate.trim().length > 0
         : // Secili saat GUNCEL listede acik olmali: miktar/arac degisince sure
           // (ve slot listesi) degisebilir; eski secim gecersiz kalir.
-          isCargo || slots.some((s) => s.start === selectedSlot && s.status !== "full");
+          !limitExceeded &&
+          (isCargo || slots.some((s) => s.start === selectedSlot && s.status !== "full"));
 
   // Secili slottaki kargo tavsiye uyarilari (engellemez; yalnizca farkindalik).
   const selectedSlotData = slots.find((s) => s.start === selectedSlot) ?? null;
@@ -681,6 +692,7 @@ export default function NewAppointmentWizard() {
                   </div>
                 </>
               )}
+              <MinuteUsagePanel usage={minuteUsage.data?.usage} requested={bookedMinutes} />
             </CardContent>
           </Card>
 

@@ -136,6 +136,11 @@ class Facility(Base, UUIDPkMixin, TimestampMixin):
     # "rounding_minutes": 5|10|15|30}. None = tedarikci secer (eski davranis).
     # Kurallar duration_rules tablosundadir (bkz. services/duration_rules.py).
     duration_policy_json: Mapped[dict[str, Any] | None] = mapped_column(JsonVariant)
+    # Tedarikci SURE limitleri — tesis varsayilani (dakika). None = sinirsiz.
+    # Sekil: {"daily": int|None, "weekly": int|None, "monthly": int|None}
+    # Tedarikci karti bunu boyut bazinda devralir ya da ezer
+    # (bkz. services/supplier_limits.py).
+    supplier_minute_limits_json: Mapped[dict[str, Any] | None] = mapped_column(JsonVariant)
 
     tenant: Mapped[Tenant] = relationship(back_populates="facilities")
     plan_override: Mapped[Plan | None] = relationship()

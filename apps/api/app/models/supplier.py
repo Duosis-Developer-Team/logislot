@@ -2,6 +2,7 @@
 
 import uuid
 from datetime import datetime
+from typing import Any
 
 import sqlalchemy as sa
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -59,6 +60,10 @@ class Supplier(Base, UUIDPkMixin, TimestampMixin, FacilityScopedMixin):
     max_block_minutes: Mapped[int | None] = mapped_column(sa.Integer)
     weekly_quota: Mapped[int | None] = mapped_column(sa.Integer)
     monthly_quota: Mapped[int | None] = mapped_column(sa.Integer)
+    # Sure limitleri (dakika) icin tedarikci bazli ezme. None = tesis
+    # varsayilanini devral. Sekil: {"daily": {"mode": "inherit"|"unlimited"|
+    # "custom", "minutes": int|None}, "weekly": {...}, "monthly": {...}}
+    minute_limits_json: Mapped[dict[str, Any] | None] = mapped_column(JsonVariant)
     notes: Mapped[str | None] = mapped_column(sa.Text)
 
     allowed_product_categories: Mapped[list[ProductCategory]] = relationship(

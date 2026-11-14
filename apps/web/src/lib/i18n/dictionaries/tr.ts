@@ -967,6 +967,25 @@ export const tr = {
       sourceFallback: "kategori taban süresi (kural yok)",
       sourceManual: "elle girildi",
     },
+    supplierLimits: {
+      needsPermission: "Bu sayfayı görüntülemek için tedarikçi yönetimi yetkisi gerekir.",
+      title: "Tedarikçi Süre Limitleri",
+      description:
+        "Bir tedarikçinin rampada kaplayabileceği toplam süre. Tüm tedarikçilere uygulanan varsayılan burada belirlenir; tedarikçi kartında dönem bazında sınırsız yapılabilir ya da özel değer verilebilir.",
+      stat: "Limit",
+      cardTitle: "Varsayılan Limitler",
+      emptyHint: "Boş bırakılan dönem sınırsızdır.",
+      periodHint: {
+        daily: "Tesisin yerel günü",
+        weekly: "Pazartesi–Pazar",
+        monthly: "Takvim ayı",
+      } as Record<string, string>,
+      rulesNote:
+        "İptal ve reddedilen randevular sayılmaz; kargo dahil diğer tüm randevuların süresi toplanır. Limit tedarikçinin ve yönetimin tedarikçi adına açtığı yeni randevulara uygulanır; mevcut randevular ve yönetimin revizeleri etkilenmez.",
+      saved: "Süre limitleri kaydedildi.",
+      saveFailed: "Süre limitleri kaydedilemedi.",
+      loadError: "Süre limitleri yüklenemedi.",
+    },
     supplierCancellation: {
       needsPermission: "Bu sayfayı görüntülemek için tedarikçi yönetimi yetkisi gerekir.",
       title: "Tedarikçi İptal Kuralları",
@@ -1198,6 +1217,7 @@ export const tr = {
         supplierNotifications: "Tedarikçilere hangi panel/e-posta bildirimlerinin gideceği",
         appointmentForm: "Sipariş no gibi ek alanların görünürlüğü ve zorunluluğu",
         durationRules: "Araç, kategori, sevkiyat tipi ve miktara göre işlem süresi hesabı",
+        supplierLimits: "Tedarikçinin günlük, haftalık ve aylık rampa süresi sınırları",
         supplierCancellation: "Tedarikçinin randevu iptalinde sebep, alternatif tarih ve süre kuralı",
         users: "Rol izinleri ve rampa bazlı kısıtlama",
         emailLogs: "Giden e-postalar, hatalılar ve toplu yeniden gönderim",
@@ -1246,6 +1266,10 @@ export const tr = {
       accountActiveToggle: "Hesap aktif",
       minPasswordPlaceholder: "En az 6 karakter",
       blockAndQuota: "Blokaj & Kota",
+      minuteLimitsMissing: "Özel süre limiti seçilen dönem için dakika girin.",
+      minuteLimitsTitle: "Süre limitleri",
+      minuteLimitsHint:
+        "Dönem bazında tesis varsayılanını kullanın, sınırsız yapın ya da özel süre verin.",
       companyRequired: "companyRequired",
       validEmail: "validEmail",
       maxBelowMin: "maxBelowMin",
@@ -2361,6 +2385,25 @@ export const tr = {
     sourceLabel: "Süre kaynağı",
     useEstimate: (m: number) => `Hesaplanan süreyi kullan (${m} dk)`,
   },
+  minuteLimits: {
+    dimensions: { daily: "Günlük", weekly: "Haftalık", monthly: "Aylık" } as Record<string, string>,
+    modes: { inherit: "Varsayılan", unlimited: "Sınırsız", custom: "Özel" } as Record<string, string>,
+    duration: (h: number, m: number): string =>
+      h === 0 ? `${m} dk` : m === 0 ? `${h} sa` : `${h} sa ${m} dk`,
+    unlimited: "sınırsız",
+    minutesUnit: "dakika",
+    minutesLabel: (dimension: string) => `${dimension} limit (dakika)`,
+    inheritHint: (value: string) => `Tesis varsayılanı: ${value}`,
+    unlimitedHint: "Bu tedarikçi için sınır yok",
+    usageTitle: "Süre limitiniz",
+    usageLine: (used: string, limit: string, remaining: string) =>
+      `${used} / ${limit} · kalan ${remaining}`,
+    exceeded: (dimension: string, requested: string, remaining: string) =>
+      `${dimension} süre limiti aşılıyor: bu randevu ${requested}, kalan ${remaining}. Başka bir gün seçin ya da tesisle iletişime geçin.`,
+    fits: (requested: string) => `Bu randevu (${requested}) limitinize sığıyor.`,
+    errorDetail: (dimension: string, limit: string, used: string, requested: string) =>
+      `${dimension} süre limiti aşılıyor: limit ${limit}, kullanılan ${used}, bu randevu ${requested}.`,
+  },
   orderNumbers: {
     label: "Sipariş no",
     short: "Sipariş",
@@ -2424,6 +2467,7 @@ export const tr = {
       NO_COMPATIBLE_DOCK: "Bu yükü kabul eden uygun rampa yok.",
       SUPPLIER_INACTIVE: "Tedarikçi hesabı pasif durumda.",
       SUPPLIER_QUOTA_EXCEEDED: "Randevu kotanız doldu.",
+      SUPPLIER_MINUTE_LIMIT_EXCEEDED: "Tedarikçinin süre limiti aşılıyor.",
       SUPPLIER_CATEGORY_NOT_ALLOWED: "Bu ürün kategorisi için yetkiniz yok.",
       CARGO_NOT_ENABLED: "Bu tedarikçi için kargo teslimat kapalı.",
       RECURRING_CARGO_NOT_SUPPORTED: "Kargo teslimat için tekrarlayan seri oluşturulamaz.",

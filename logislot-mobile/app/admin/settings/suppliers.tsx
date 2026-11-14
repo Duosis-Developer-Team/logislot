@@ -9,7 +9,7 @@ import {
   suppliers,
   useSupplierAccountActions,
 } from "@/api/resources";
-import type { SupplierDto } from "@/api/types";
+import type { MinuteLimitOverrides, SupplierDto } from "@/api/types";
 import { useSession } from "@/auth/session";
 import { ActiveBadge, ConfigList, MultiSelectField } from "@/components/config";
 import {
@@ -23,6 +23,13 @@ import {
   SwitchRow,
 } from "@/components/ui";
 import { EmailListField } from "@/components/email-list";
+import {
+  INHERIT_ALL,
+  MINUTE_DIMENSIONS,
+  MinuteLimitsField,
+  overridesToBody,
+} from "@/components/minute-limits";
+import { useSupplierMinuteLimits } from "@/api/supplier-limits";
 import { useTheme } from "@/theme/theme";
 import { spacing } from "@/theme/tokens";
 
@@ -40,6 +47,7 @@ export default function SuppliersScreen() {
   const save = suppliers.useSave(facilityId);
   const deactivate = suppliers.useDeactivate(facilityId);
   const account = useSupplierAccountActions(facilityId);
+  const minuteDefaults = useSupplierMinuteLimits(facilityId);
 
   const [editing, setEditing] = useState<SupplierDto | null>(null);
   const [open, setOpen] = useState(false);
@@ -54,6 +62,7 @@ export default function SuppliersScreen() {
   const [maxBlock, setMaxBlock] = useState("");
   const [weeklyQuota, setWeeklyQuota] = useState("");
   const [monthlyQuota, setMonthlyQuota] = useState("");
+  const [minuteLimits, setMinuteLimits] = useState<MinuteLimitOverrides>(INHERIT_ALL);
   const [notes, setNotes] = useState("");
   const [allowedCategories, setAllowedCategories] = useState<string[]>([]);
   const [autoApprove, setAutoApprove] = useState(false);
@@ -78,6 +87,7 @@ export default function SuppliersScreen() {
     setMaxBlock("");
     setWeeklyQuota("");
     setMonthlyQuota("");
+    setMinuteLimits(INHERIT_ALL);
     setNotes("");
     setAllowedCategories([]);
     setAutoApprove(false);
@@ -103,6 +113,7 @@ export default function SuppliersScreen() {
     setMaxBlock(row.max_block_minutes != null ? String(row.max_block_minutes) : "");
     setWeeklyQuota(row.weekly_quota != null ? String(row.weekly_quota) : "");
     setMonthlyQuota(row.monthly_quota != null ? String(row.monthly_quota) : "");
+    setMinuteLimits(row.minute_limits ?? INHERIT_ALL);
     setNotes(row.notes ?? "");
     setAllowedCategories(row.allowed_product_category_ids);
     setAutoApprove(row.auto_approval_enabled);
@@ -132,6 +143,10 @@ export default function SuppliersScreen() {
       setFormError("Maks. süre, min. süreden küçük olamaz.");
       return;
     }
+    if (MINUTE_DIMENSIONS.some((d) => minuteLimits[d].mode === "custom" && !minuteLimits[d].minutes)) {
+      setFormError("Özel süre limiti seçilen dönem için dakika girin.");
+      return;
+    }
     const base = {
       company_name: companyName,
       code,
@@ -145,6 +160,7 @@ export default function SuppliersScreen() {
       max_block_minutes: max,
       weekly_quota: numOrNull(weeklyQuota),
       monthly_quota: numOrNull(monthlyQuota),
+      minute_limits: overridesToBody(minuteLimits),
       auto_approval_enabled: autoApprove,
       cargo_enabled: cargoEnabled,
       is_active: isActive,
@@ -386,6 +402,16 @@ export default function SuppliersScreen() {
           </View>
           <Text style={{ color: colors.faintText, fontSize: 12 }}>
             Boş bırakılan limitler uygulanmaz. Bu ayarlar randevu uygunluğunu etkiler.
+          </Text>
+
+          <SectionTitle title="Süre Limitleri" />
+          <MinuteLimitsField
+            value={minuteLimits}
+            onChange={setMinuteLimits}
+            defaults={minuteDefaults.data}
+          />
+          <Text style={{ color: colors.faintText, fontSize: 12 }}>
+            Dönem bazında tesis varsayılanını kullanın, sınırsız yapın ya da özel süre verin.
           </Text>
 
           <SectionTitle title="Portal Hesabı" />

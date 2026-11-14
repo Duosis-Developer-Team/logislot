@@ -15,6 +15,7 @@ import { Alert, ScrollView, Text, View } from "react-native";
 import { useAdminAvailability, useAdminCreateAppointment, useAppointmentForm } from "@/api/admin";
 import { ApiError } from "@/api/client";
 import { useDurationEvaluate, useDurationPolicy } from "@/api/duration";
+import { useAdminMinuteUsage } from "@/api/supplier-limits";
 import {
   CARGO_WINDOW_LABELS,
   type CargoWindow,
@@ -36,6 +37,7 @@ import {
   SwitchRow,
 } from "@/components/ui";
 import { DurationChips, withSuggested } from "@/components/duration";
+import { MinuteUsageCard, exceededUsage } from "@/components/minute-limits";
 import { OrderNumbersField } from "@/components/order-numbers";
 import { useTheme } from "@/theme/theme";
 import { spacing } from "@/theme/tokens";
@@ -123,6 +125,10 @@ export default function AdminNewAppointment() {
   const durationBlocked =
     durationRange?.conflicting === true &&
     (suggestedMinutes === null || effectiveDuration !== suggestedMinutes);
+  // Tedarikçinin süre limitleri yönetim adına oluşturmada da geçerli (sunucu zorlar).
+  const minuteUsage = useAdminMinuteUsage(facilityId, supplier?.id ?? null, date || null);
+  const limitExceeded =
+    !isCargo && exceededUsage(minuteUsage.data?.usage, effectiveDuration) !== null;
 
   const availability = useAdminAvailability(
     facilityId,
@@ -417,6 +423,11 @@ export default function AdminNewAppointment() {
                         Ayarlardan limitlerden birini güncelleyin.
                       </Text>
                     )}
+                    <MinuteUsageCard
+                      usage={minuteUsage.data?.usage}
+                      requested={effectiveDuration}
+                      title="Tedarikçinin süre limiti"
+                    />
                   </View>
                   <View style={{ gap: 8 }}>
                     <Text style={{ color: colors.text, fontSize: 14, fontWeight: "500" }}>
@@ -550,7 +561,7 @@ export default function AdminNewAppointment() {
           title={create.isPending ? "Oluşturuluyor…" : "Randevu Oluştur"}
           loading={create.isPending}
           // Çakışan limitlerde geçerli bir süre yok; sunucuya boşuna gitme.
-          disabled={!supplier || (!isCargo && durationBlocked)}
+          disabled={!supplier || (!isCargo && durationBlocked) || limitExceeded}
           onPress={() => void onSubmit()}
         />
       </ScrollView>

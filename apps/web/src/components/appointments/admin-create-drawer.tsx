@@ -31,6 +31,8 @@ import {
 } from "@/lib/api/appointments";
 import { ApiError } from "@/lib/api/client";
 import { useDurationEvaluate, useDurationPolicy } from "@/lib/api/duration";
+import { useAdminMinuteUsage } from "@/lib/api/supplier-limits";
+import { MinuteUsagePanel, exceededUsage } from "@/components/domain/minute-limits";
 import { docks, productCategories, suppliers, vehicleCategories } from "@/lib/api/resources";
 import type { AppointmentDto, SeriesCreateResultDto } from "@/lib/api/types";
 import { useSession } from "@/lib/auth/session";
@@ -165,6 +167,12 @@ export function AdminCreateDrawer({ open, onClose, onSuccess, initial }: AdminCr
   const durationBlocked =
     durationRange?.conflicting === true &&
     (suggestedMinutes === null || effectiveDuration !== suggestedMinutes);
+
+  // Tedarikcinin sure limitleri yonetim adina olusturmada da gecerli (sunucu
+  // zorlar); kalan sure burada gosterilir, asim varsa gonderim kapatilir.
+  const minuteUsage = useAdminMinuteUsage(activeFacilityId, supplier?.id ?? null, date || null);
+  const limitExceeded =
+    !isCargo && exceededUsage(minuteUsage.data?.usage, effectiveDuration) !== null;
 
   const availability = useAdminAvailability(
     activeFacilityId,
@@ -529,6 +537,12 @@ export function AdminCreateDrawer({ open, onClose, onSuccess, initial }: AdminCr
                 )}
               </div>
 
+              <MinuteUsagePanel
+                usage={minuteUsage.data?.usage}
+                requested={isCargo ? null : effectiveDuration}
+                title={t.admin.suppliers.minuteLimitsTitle}
+              />
+
               {!isCargo && durationBlocked && (
                 <p className="text-sm text-destructive">
                   {copy.conflictNote(
@@ -690,7 +704,8 @@ export function AdminCreateDrawer({ open, onClose, onSuccess, initial }: AdminCr
                 create.isPending ||
                 !supplier ||
                 // Cakisan limitlerde gecerli bir sure yok; sunucuya bosuna gitme.
-                (!isCargo && durationBlocked)
+                (!isCargo && durationBlocked) ||
+                limitExceeded
               }
             >
               {create.isPending ? copy.creating : copy.submit}

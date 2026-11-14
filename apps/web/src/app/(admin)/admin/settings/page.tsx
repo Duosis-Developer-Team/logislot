@@ -6,6 +6,7 @@ import {
   CalendarOff,
   CalendarX,
   ClipboardList,
+  Gauge,
   GitFork,
   Handshake,
   Timer,
@@ -88,6 +89,14 @@ export default function SettingsPage() {
       description: t.admin.settings.cards.suppliers,
       stat: t.admin.settings.manage,
       href: "/admin/settings/suppliers",
+      permission: "supplier.manage",
+    },
+    {
+      icon: Gauge,
+      title: t.admin.supplierLimits.title,
+      description: t.admin.settings.cards.supplierLimits,
+      stat: t.admin.supplierLimits.stat,
+      href: "/admin/settings/supplier-limits",
       permission: "supplier.manage",
     },
     {

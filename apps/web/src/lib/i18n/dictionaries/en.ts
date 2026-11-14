@@ -969,6 +969,25 @@ export const en: Dictionary = {
       sourceFallback: "category base duration (no rule)",
       sourceManual: "entered manually",
     },
+    supplierLimits: {
+      needsPermission: "You need the supplier management permission to view this page.",
+      title: "Supplier Time Limits",
+      description:
+        "The total dock time a supplier may book. The default for all suppliers is set here; on a supplier card each period can be made unlimited or given a custom value.",
+      stat: "Limits",
+      cardTitle: "Default Limits",
+      emptyHint: "A period left empty is unlimited.",
+      periodHint: {
+        daily: "Facility local day",
+        weekly: "Monday–Sunday",
+        monthly: "Calendar month",
+      } as Record<string, string>,
+      rulesNote:
+        "Cancelled and rejected appointments are not counted; every other appointment's duration, cargo included, is summed. Limits apply to new bookings by the supplier and by staff on the supplier's behalf; existing appointments and staff revisions are not affected.",
+      saved: "Time limits saved.",
+      saveFailed: "Time limits could not be saved.",
+      loadError: "Time limits could not be loaded.",
+    },
     supplierCancellation: {
       needsPermission: "You need supplier management permission to view this page.",
       title: "Supplier Cancellation Rules",
@@ -1200,6 +1219,7 @@ export const en: Dictionary = {
         supplierNotifications: "Which in-app and e-mail notifications suppliers receive",
         appointmentForm: "Visibility and requirement of extra fields such as order numbers",
         durationRules: "Handling time by vehicle, category, shipment type and quantity",
+        supplierLimits: "Daily, weekly and monthly dock time limits per supplier",
         supplierCancellation: "Reason, alternative date and deadline rules for supplier cancellations",
         users: "Role permissions and dock-level restrictions",
         emailLogs: "Outgoing e-mails, failures and bulk resend",
@@ -1248,6 +1268,10 @@ export const en: Dictionary = {
       accountActiveToggle: "Account is active",
       minPasswordPlaceholder: "At least 6 characters",
       blockAndQuota: "Duration & quota",
+      minuteLimitsMissing: "Enter minutes for each period with a custom time limit.",
+      minuteLimitsTitle: "Time limits",
+      minuteLimitsHint:
+        "Per period, use the facility default, make it unlimited or set a custom time.",
       companyRequired: "companyRequired",
       validEmail: "validEmail",
       maxBelowMin: "maxBelowMin",
@@ -2364,6 +2388,25 @@ export const en: Dictionary = {
     sourceLabel: "Duration source",
     useEstimate: (m: number) => `Use calculated duration (${m} min)`,
   },
+  minuteLimits: {
+    dimensions: { daily: "Daily", weekly: "Weekly", monthly: "Monthly" } as Record<string, string>,
+    modes: { inherit: "Default", unlimited: "Unlimited", custom: "Custom" } as Record<string, string>,
+    duration: (h: number, m: number): string =>
+      h === 0 ? `${m} min` : m === 0 ? `${h} h` : `${h} h ${m} min`,
+    unlimited: "unlimited",
+    minutesUnit: "minutes",
+    minutesLabel: (dimension: string) => `${dimension} limit (minutes)`,
+    inheritHint: (value: string) => `Facility default: ${value}`,
+    unlimitedHint: "No limit for this supplier",
+    usageTitle: "Your time limit",
+    usageLine: (used: string, limit: string, remaining: string) =>
+      `${used} / ${limit} · ${remaining} left`,
+    exceeded: (dimension: string, requested: string, remaining: string) =>
+      `${dimension} time limit exceeded: this booking takes ${requested}, ${remaining} left. Choose another day or contact the facility.`,
+    fits: (requested: string) => `This booking (${requested}) fits within your limit.`,
+    errorDetail: (dimension: string, limit: string, used: string, requested: string) =>
+      `${dimension} time limit exceeded: limit ${limit}, used ${used}, this booking ${requested}.`,
+  },
   orderNumbers: {
     label: "Order no.",
     short: "Order",
@@ -2424,6 +2467,7 @@ export const en: Dictionary = {
       NO_COMPATIBLE_DOCK: "No dock can accept this load.",
       SUPPLIER_INACTIVE: "This supplier account is inactive.",
       SUPPLIER_QUOTA_EXCEEDED: "You have used up your booking quota.",
+      SUPPLIER_MINUTE_LIMIT_EXCEEDED: "The supplier time limit would be exceeded.",
       SUPPLIER_CATEGORY_NOT_ALLOWED: "You aren't approved for this product category.",
       CARGO_NOT_ENABLED: "Courier delivery is disabled for this supplier.",
       RECURRING_CARGO_NOT_SUPPORTED: "Courier deliveries can't be booked as a recurring series.",
