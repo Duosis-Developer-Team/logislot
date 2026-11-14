@@ -111,6 +111,10 @@ class RuleEvaluationContext:
     target_date: date_type
     duration_minutes: int
     cargo_window: CargoWindow | None = None
+    # Sure tesisin sure KURALINDAN hesaplandiysa kategori/tedarikci min-maks
+    # sinirlari uygulanmaz (kurali yonetim acikca tanimladi); yalnizca gun
+    # siniri gecerlidir. Elle girilen sure her zaman sinirlara tabidir.
+    duration_from_rule: bool = False
 
     # Onceden yuklenmis tesis konfigurasyonu
     docks: list[Dock] = field(default_factory=list)

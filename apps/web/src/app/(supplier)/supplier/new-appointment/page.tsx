@@ -6,15 +6,18 @@ import { useMemo, useState } from "react";
 import {
   SLOT_STATUS_LABELS,
   type CargoWindow,
+  type QuantityUnit,
   resolveDurationRange,
 } from "@logislot/shared";
 import { ErrorState, LoadingState } from "@/components/config/states";
+import { DurationEstimatePanel } from "@/components/duration/duration-estimate-panel";
 import { OrderNumbersInput } from "@/components/domain/order-numbers-input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog } from "@/components/ui/dialog";
 import { Input, Label, Select } from "@/components/ui/input";
 import { ApiError } from "@/lib/api/client";
+import { useSupplierDurationEstimate } from "@/lib/api/duration";
 import {
   useCreateSupplierAppointment,
   useSupplierAvailability,
@@ -125,10 +128,37 @@ export default function NewAppointmentWizard() {
     () => (category ? resolveDurationRange(category, limits) : null),
     [category, limits],
   );
-  const durationOptions = durationRange?.options ?? [];
+  // Islem suresi politikasi (docs/SURE_HESAPLAMA.md):
+  // - supplier : eski davranis, tedarikci aralik icinden secer.
+  // - suggested: kurallardan hesaplanan sure secili gelir ("onerilen").
+  // - computed : tedarikci secmez; sure sunucuda hesaplanir, ekranda gosterilir.
+  const durationMode = catalog.data?.duration_policy?.mode ?? "supplier";
+  const estimateQuery = useSupplierDurationEstimate(
+    durationMode !== "supplier" && category && quantity > 0
+      ? {
+          product_category_id: category.id,
+          vehicle_category_id: effectiveVehicleId,
+          quantity,
+          quantity_unit: unit as QuantityUnit,
+        }
+      : null,
+  );
+  const estimate = durationMode !== "supplier" ? estimateQuery.data ?? null : null;
+  const suggestedMinutes = durationMode === "suggested" ? estimate?.minutes ?? null : null;
+  const durationOptions = useMemo(() => {
+    const base = durationRange?.options ?? [];
+    // Kuralin suresi kategori araliginin disinda olabilir (yonetim bilerek
+    // tanimladi); onerilen deger listede her zaman bulunur.
+    if (suggestedMinutes === null || base.includes(suggestedMinutes)) return base;
+    return [...base, suggestedMinutes].sort((a, b) => a - b);
+  }, [durationRange, suggestedMinutes]);
 
   const effectiveDuration =
-    duration && durationOptions.includes(duration) ? duration : durationOptions[0] ?? null;
+    durationMode === "computed"
+      ? estimate?.minutes ?? null
+      : duration && durationOptions.includes(duration)
+        ? duration
+        : suggestedMinutes ?? durationOptions[0] ?? null;
 
   // Availability: urun + arac + gun + sure sabitlenince GERCEK musaitlik cekilir.
   const availabilityParams =
@@ -138,6 +168,8 @@ export default function NewAppointmentWizard() {
           vehicle_category_id: effectiveVehicleId,
           target_date: date,
           duration_minutes: effectiveDuration,
+          quantity,
+          quantity_unit: unit,
         }
       : null;
   const availability = useSupplierAvailability(availabilityParams);
@@ -161,7 +193,9 @@ export default function NewAppointmentWizard() {
         (orderMode !== "required" || orderNumbers.length > 0)
       : step === 1
         ? isCargo || plate.trim().length > 0
-        : isCargo || selectedSlot !== null;
+        : // Secili saat GUNCEL listede acik olmali: miktar/arac degisince sure
+          // (ve slot listesi) degisebilir; eski secim gecersiz kalir.
+          isCargo || slots.some((s) => s.start === selectedSlot && s.status !== "full");
 
   // Secili slottaki kargo tavsiye uyarilari (engellemez; yalnizca farkindalik).
   const selectedSlotData = slots.find((s) => s.start === selectedSlot) ?? null;
@@ -536,28 +570,46 @@ export default function NewAppointmentWizard() {
                 </div>
               ) : (
                 <>
-                  <div>
-                    <Label>{t.supplier.newAppointment.estimatedDuration}</Label>
-                    <Select
-                      value={effectiveDuration ?? ""}
-                      disabled={durationOptions.length === 0}
-                      onChange={(e) => {
-                        setDuration(Number(e.target.value));
-                        setSelectedSlot(null);
-                      }}
-                    >
-                      {durationOptions.map((d) => (
-                        <option key={d} value={d}>
-                          {t.supplier.newAppointment.durationMinutes(d)}
-                        </option>
-                      ))}
-                    </Select>
-                    {durationRange?.conflicting && (
-                      <p className="mt-1 text-xs text-destructive">
-                        {t.supplier.newAppointment.durationMismatch}
-                      </p>
-                    )}
-                  </div>
+                  {durationMode === "computed" ? (
+                    <DurationEstimatePanel
+                      estimate={estimate}
+                      loading={estimateQuery.isLoading}
+                      error={estimateQuery.isError}
+                      onRetry={() => void estimateQuery.refetch()}
+                    />
+                  ) : (
+                    <div>
+                      <Label>{t.supplier.newAppointment.estimatedDuration}</Label>
+                      <Select
+                        value={effectiveDuration ?? ""}
+                        disabled={durationOptions.length === 0}
+                        onChange={(e) => {
+                          setDuration(Number(e.target.value));
+                          setSelectedSlot(null);
+                        }}
+                      >
+                        {durationOptions.map((d) => (
+                          <option key={d} value={d}>
+                            {d === suggestedMinutes
+                              ? t.duration.suggestedOption(d)
+                              : t.supplier.newAppointment.durationMinutes(d)}
+                          </option>
+                        ))}
+                      </Select>
+                      {suggestedMinutes !== null && estimate && (
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {effectiveDuration === suggestedMinutes
+                            ? t.duration.suggestedHint(estimate.source === "rule")
+                            : t.duration.deviatedHint(suggestedMinutes)}
+                        </p>
+                      )}
+                      {durationRange?.conflicting && suggestedMinutes === null && (
+                        <p className="mt-1 text-xs text-destructive">
+                          {t.supplier.newAppointment.durationMismatch}
+                        </p>
+                      )}
+                    </div>
+                  )}
                   <div>
                     <Label>{t.supplier.newAppointment.startTime}</Label>
                     {availability.isLoading ? (
@@ -735,7 +787,7 @@ export default function NewAppointmentWizard() {
                 <dt className="text-muted-foreground">{t.common.date}</dt>
                 <dd>
                   {date}
-                  {!isCargo && selectedSlot
+                  {!isCargo && selectedSlot && effectiveDuration
                     ? t.supplier.newAppointment.slotSummary(
                         slotLabel(selectedSlot),
                         effectiveDuration,

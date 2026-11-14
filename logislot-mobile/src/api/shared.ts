@@ -43,13 +43,27 @@ export const CARGO_WINDOW_LABELS: Record<CargoWindow, string> = {
   all_day: "Tüm Gün",
 };
 
-export type QuantityUnit = "pallet" | "piece" | "box" | "carton";
+export type QuantityUnit = "pallet" | "piece" | "box" | "carton" | "sack" | "big_bag" | "ton";
+
+/** Sevkiyat tipleri — ekrandaki seçim sırası (backend QuantityUnit ile birebir). */
+export const QUANTITY_UNITS: readonly QuantityUnit[] = [
+  "pallet",
+  "piece",
+  "box",
+  "carton",
+  "sack",
+  "big_bag",
+  "ton",
+];
 
 export const QUANTITY_UNIT_LABELS: Record<QuantityUnit, string> = {
   pallet: "Palet",
   piece: "Adet",
   box: "Kutu",
   carton: "Koli",
+  sack: "Çuval",
+  big_bag: "Big Bag",
+  ton: "Ton",
 };
 
 /** "Araç / nakliye sorunu — açıklama"; sebep yoksa (yönetim iptali) yalnızca metin. */

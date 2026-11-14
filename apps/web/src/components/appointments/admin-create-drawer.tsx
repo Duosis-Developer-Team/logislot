@@ -12,7 +12,12 @@
 
 import { Package } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { type CargoWindow, resolveDurationRange } from "@logislot/shared";
+import {
+  type CargoWindow,
+  QUANTITY_UNITS,
+  type QuantityUnit,
+  resolveDurationRange,
+} from "@logislot/shared";
 import { ErrorState, LoadingState } from "@/components/config/states";
 import { OrderNumbersInput } from "@/components/domain/order-numbers-input";
 import { Button } from "@/components/ui/button";
@@ -25,6 +30,7 @@ import {
   useAppointmentForm,
 } from "@/lib/api/appointments";
 import { ApiError } from "@/lib/api/client";
+import { useDurationEvaluate, useDurationPolicy } from "@/lib/api/duration";
 import { docks, productCategories, suppliers, vehicleCategories } from "@/lib/api/resources";
 import type { AppointmentDto, SeriesCreateResultDto } from "@/lib/api/types";
 import { useSession } from "@/lib/auth/session";
@@ -124,9 +130,41 @@ export function AdminCreateDrawer({ open, onClose, onSuccess, initial }: AdminCr
     () => (category ? resolveDurationRange(category, supplier) : null),
     [category, supplier],
   );
-  const durationOptions = durationRange?.options ?? [];
+  // Sure kurallari (docs/SURE_HESAPLAMA.md): tesis "tedarikci secer" disinda
+  // bir moddaysa hesaplanan sure varsayilan gelir. Yonetim her modda
+  // degistirebilir; farkli secim "elle" kaydedilir ve kategori sinirlarina
+  // tabidir.
+  const durationPolicy = useDurationPolicy(activeFacilityId);
+  const rulesActive = (durationPolicy.data?.mode ?? "supplier") !== "supplier";
+  const estimateQuery = useDurationEvaluate(
+    activeFacilityId,
+    rulesActive && category && quantity > 0
+      ? [
+          {
+            product_category_id: category.id,
+            vehicle_category_id: effectiveVehicleId,
+            quantity,
+            quantity_unit: unit as QuantityUnit,
+          },
+        ]
+      : null,
+  );
+  const estimate = rulesActive ? estimateQuery.data?.results[0] ?? null : null;
+  const suggestedMinutes = estimate?.minutes ?? null;
+  const durationOptions = useMemo(() => {
+    const base = durationRange?.options ?? [];
+    if (suggestedMinutes === null || base.includes(suggestedMinutes)) return base;
+    return [...base, suggestedMinutes].sort((a, b) => a - b);
+  }, [durationRange, suggestedMinutes]);
   const effectiveDuration =
-    duration && durationOptions.includes(duration) ? duration : durationOptions[0] ?? null;
+    duration && durationOptions.includes(duration)
+      ? duration
+      : suggestedMinutes ?? durationOptions[0] ?? null;
+  // Kural suresi kategori araligi disinda da gecerlidir; cakisma yalnizca
+  // hesaplanan sure YOKSA ya da elle baska sure secildiyse engeller.
+  const durationBlocked =
+    durationRange?.conflicting === true &&
+    (suggestedMinutes === null || effectiveDuration !== suggestedMinutes);
 
   const availability = useAdminAvailability(
     activeFacilityId,
@@ -137,6 +175,8 @@ export function AdminCreateDrawer({ open, onClose, onSuccess, initial }: AdminCr
           vehicle_category_id: effectiveVehicleId,
           target_date: date,
           duration_minutes: effectiveDuration,
+          quantity,
+          quantity_unit: unit,
         }
       : null,
   );
@@ -361,7 +401,7 @@ export function AdminCreateDrawer({ open, onClose, onSuccess, initial }: AdminCr
                 <div>
                   <Label>{copy.unit}</Label>
                   <Select value={unit} onChange={(e) => setUnit(e.target.value)}>
-                    {(["pallet", "piece", "box", "carton"] as const).map((u) => (
+                    {QUANTITY_UNITS.map((u) => (
                       <option key={u} value={u}>
                         {labels.quantityUnit[u]}
                       </option>
@@ -469,15 +509,27 @@ export function AdminCreateDrawer({ open, onClose, onSuccess, initial }: AdminCr
                     >
                       {durationOptions.map((d) => (
                         <option key={d} value={d}>
-                          {copy.durationOption(d)}
+                          {d === suggestedMinutes
+                            ? t.duration.suggestedOption(d)
+                            : copy.durationOption(d)}
                         </option>
                       ))}
                     </Select>
+                    {estimate && (
+                      <p
+                        className="mt-1 text-xs text-muted-foreground"
+                        title={estimate.steps.join(" · ")}
+                      >
+                        {effectiveDuration === suggestedMinutes
+                          ? t.duration.source[estimate.source]
+                          : t.duration.deviatedHint(estimate.minutes)}
+                      </p>
+                    )}
                   </div>
                 )}
               </div>
 
-              {!isCargo && durationRange?.conflicting && (
+              {!isCargo && durationBlocked && (
                 <p className="text-sm text-destructive">
                   {copy.conflictNote(
                     category?.min_block_minutes ?? 0,
@@ -638,7 +690,7 @@ export function AdminCreateDrawer({ open, onClose, onSuccess, initial }: AdminCr
                 create.isPending ||
                 !supplier ||
                 // Cakisan limitlerde gecerli bir sure yok; sunucuya bosuna gitme.
-                (!isCargo && durationRange?.conflicting === true)
+                (!isCargo && durationBlocked)
               }
             >
               {create.isPending ? copy.creating : copy.submit}

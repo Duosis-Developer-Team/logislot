@@ -90,6 +90,8 @@ export interface AdminAvailabilityParams {
   vehicle_category_id: string | null;
   target_date: string;
   duration_minutes: number;
+  quantity?: number;
+  quantity_unit?: string;
 }
 
 /** Revize formunda advisory onizlemesi icin admin availability sorgusu. */

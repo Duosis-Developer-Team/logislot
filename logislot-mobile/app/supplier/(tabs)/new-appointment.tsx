@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { Pressable, ScrollView, Switch, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ApiError } from "@/api/client";
+import { useSupplierDurationEstimate } from "@/api/duration";
 import {
   CARGO_WINDOW_LABELS,
   QUANTITY_UNIT_LABELS,
@@ -18,6 +19,7 @@ import {
 } from "@/api/supplier";
 import type { AppointmentDto, SeriesCreateResultDto } from "@/api/types";
 import { Button, Card, Chip, ErrorState, Field, LoadingState } from "@/components/ui";
+import { DurationChips, DurationEstimateCard, withSuggested } from "@/components/duration";
 import { OrderNumbersField } from "@/components/order-numbers";
 import { useTheme } from "@/theme/theme";
 import { spacing } from "@/theme/tokens";
@@ -110,10 +112,35 @@ export default function NewAppointmentWizard() {
     () => (category ? resolveDurationRange(category, limits) : null),
     [category, limits],
   );
-  const durationOptions = durationRange?.options ?? [];
+  const qty = Math.max(1, parseInt(quantity, 10) || 1);
+
+  // İşlem süresi politikası (web ile aynı; docs/SURE_HESAPLAMA.md):
+  // supplier = tedarikçi seçer, suggested = hesaplanan önceden seçili,
+  // computed = süre sunucuda hesaplanır, tedarikçi seçmez.
+  const durationMode = catalog.data?.duration_policy?.mode ?? "supplier";
+  const estimateQuery = useSupplierDurationEstimate(
+    durationMode !== "supplier" && category
+      ? {
+          product_category_id: category.id,
+          vehicle_category_id: effectiveVehicleId,
+          quantity: qty,
+          quantity_unit: unit,
+        }
+      : null,
+  );
+  const estimate = durationMode !== "supplier" ? estimateQuery.data ?? null : null;
+  const suggestedMinutes = durationMode === "suggested" ? estimate?.minutes ?? null : null;
+  const durationOptions = useMemo(
+    () => withSuggested(durationRange?.options ?? [], suggestedMinutes),
+    [durationRange, suggestedMinutes],
+  );
 
   const effectiveDuration =
-    duration && durationOptions.includes(duration) ? duration : durationOptions[0] ?? null;
+    durationMode === "computed"
+      ? estimate?.minutes ?? null
+      : duration && durationOptions.includes(duration)
+        ? duration
+        : suggestedMinutes ?? durationOptions[0] ?? null;
 
   const availabilityParams =
     step === 2 && !isCargo && category && effectiveDuration
@@ -122,6 +149,8 @@ export default function NewAppointmentWizard() {
           vehicle_category_id: effectiveVehicleId,
           target_date: date,
           duration_minutes: effectiveDuration,
+          quantity: qty,
+          quantity_unit: unit,
         }
       : null;
   const availability = useSupplierAvailability(availabilityParams);
@@ -131,7 +160,6 @@ export default function NewAppointmentWizard() {
   const selectedSlotData = slots.find((s) => s.start === selectedSlot) ?? null;
   const selectedAdvisories = selectedSlotData?.advisory_warnings ?? [];
 
-  const qty = Math.max(1, parseInt(quantity, 10) || 1);
   // Tesisin form ayarı: sipariş no gizli / isteğe bağlı / zorunlu.
   const orderMode = catalog.data?.appointment_form.order_numbers ?? "hidden";
   const canNext =
@@ -141,7 +169,9 @@ export default function NewAppointmentWizard() {
         (orderMode !== "required" || orderNumbers.length > 0)
       : step === 1
         ? isCargo || plate.trim().length > 0
-        : isCargo || selectedSlot !== null;
+        : // Seçili saat GÜNCEL listede açık olmalı (miktar/araç değişince süre
+          // ve slot listesi değişebilir).
+          isCargo || slots.some((s) => s.start === selectedSlot && s.status !== "full");
 
   const dayOptions = useMemo(
     () => Array.from({ length: 14 }, (_, i) => addDaysISO(todayISO(), i + 1)),
@@ -533,30 +563,33 @@ export default function NewAppointmentWizard() {
 
             {!isCargo && (
               <>
-                <View style={{ gap: 8 }}>
-                  <Text style={{ color: colors.text, fontSize: 14, fontWeight: "500" }}>
-                    Tahmini Süre
-                  </Text>
-                  <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
-                    {durationOptions.map((d) => (
-                      <Chip
-                        key={d}
-                        label={`${d} dk`}
-                        selected={effectiveDuration === d}
-                        onPress={() => {
-                          setDuration(d);
-                          setSelectedSlot(null);
-                        }}
-                      />
-                    ))}
+                {durationMode === "computed" ? (
+                  <DurationEstimateCard
+                    estimate={estimate}
+                    loading={estimateQuery.isLoading}
+                    error={estimateQuery.isError}
+                    onRetry={() => void estimateQuery.refetch()}
+                  />
+                ) : (
+                  <View style={{ gap: 8 }}>
+                    <DurationChips
+                      options={durationOptions}
+                      value={effectiveDuration}
+                      suggested={suggestedMinutes}
+                      estimate={estimate}
+                      onChange={(d) => {
+                        setDuration(d);
+                        setSelectedSlot(null);
+                      }}
+                    />
+                    {durationRange?.conflicting && suggestedMinutes === null && (
+                      <Text style={{ color: colors.destructive, fontSize: 12 }}>
+                        Bu kategorinin süre aralığı size tanımlı limitlerle kesişmiyor.
+                        Lütfen tesis yöneticisiyle iletişime geçin.
+                      </Text>
+                    )}
                   </View>
-                  {durationRange?.conflicting && (
-                    <Text style={{ color: colors.destructive, fontSize: 12 }}>
-                      Bu kategorinin süre aralığı size tanımlı limitlerle kesişmiyor.
-                      Lütfen tesis yöneticisiyle iletişime geçin.
-                    </Text>
-                  )}
-                </View>
+                )}
                 <View style={{ gap: 8 }}>
                   <Text style={{ color: colors.text, fontSize: 14, fontWeight: "500" }}>
                     Başlangıç Saati

@@ -76,6 +76,11 @@ class AvailabilityService:
         """
         ctx = self.ctx
 
+        if ctx.duration_from_rule:
+            if 0 < ctx.duration_minutes <= 1440:
+                return HardRuleResult.passed()
+            return HardRuleResult.failed(HardRuleCode.DURATION_ABOVE_CATEGORY_MAXIMUM)
+
         if ctx.duration_minutes < ctx.product_category.min_block_minutes:
             return HardRuleResult.failed(HardRuleCode.DURATION_BELOW_CATEGORY_MINIMUM)
 

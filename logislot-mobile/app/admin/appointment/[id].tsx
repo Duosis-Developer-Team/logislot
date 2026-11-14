@@ -13,6 +13,7 @@ import {
 } from "@/api/shared";
 import { useSession } from "@/auth/session";
 import { CargoBadge, MakeupBadge, MakeupLinks, StatusBadge } from "@/components/appointment";
+import { DURATION_SOURCE_LABELS } from "@/components/duration";
 import { Button, Card, Chip, ErrorState, Field, LoadingState, Screen } from "@/components/ui";
 import { useTheme } from "@/theme/theme";
 import { spacing } from "@/theme/tokens";
@@ -152,6 +153,9 @@ export default function AdminAppointmentDetail() {
             label="Saat"
             value={`${timeInTz(a.scheduled_start_at, tz)}–${timeInTz(a.scheduled_end_at, tz)} (${a.duration_minutes} dk)`}
           />
+          {(a.duration_source === "rule" || a.duration_source === "fallback") && (
+            <Row label="Süre kaynağı" value={DURATION_SOURCE_LABELS[a.duration_source]} />
+          )}
           <Row label="Rampa" value={a.dock_name ?? "—"} />
           <Row label="Kategori" value={a.product_category_name ?? "—"} />
           <Row

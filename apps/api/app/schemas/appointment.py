@@ -45,6 +45,7 @@ class AppointmentOut(BaseModel):
     scheduled_start_at: datetime
     scheduled_end_at: datetime
     duration_minutes: int
+    duration_source: str | None = None
     status: str
     rejection_reason: str | None = None
     cancellation_reason: str | None = None
@@ -183,6 +184,17 @@ class AvailabilityRequest(BaseModel):
     cargo_window: CargoWindow | None = None
     # Yonetim panelinden cagrildiginda zorunlu; supplier portalda context'ten gelir.
     supplier_id: uuid.UUID | None = None
+    # Sure kurallari icin (tesis "sistem hesaplar" modundaysa portalda sure
+    # bunlardan SUNUCUDA hesaplanir; istemcinin suresi kullanilmaz).
+    quantity: int | None = Field(default=None, ge=1)
+    quantity_unit: QuantityUnit | None = None
+
+
+class DurationEstimateRequest(BaseModel):
+    product_category_id: uuid.UUID
+    vehicle_category_id: uuid.UUID | None = None
+    quantity: int = Field(ge=1, le=1_000_000)
+    quantity_unit: QuantityUnit = QuantityUnit.pallet
 
 
 class SlotOut(BaseModel):

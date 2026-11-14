@@ -13,6 +13,7 @@ from app.routers.audit import router as audit_router
 from app.routers.branding import router as branding_router
 from app.routers.catalogs import router as catalogs_router
 from app.routers.docks import router as docks_router
+from app.routers.duration import router as duration_router
 from app.routers.health import router as health_router
 from app.routers.hermes_support_webhook import router as hermes_webhook_router
 from app.routers.me import router as me_router
@@ -94,6 +95,7 @@ def create_app() -> FastAPI:
     app.include_router(suppliers_router)
     app.include_router(users_router)
     app.include_router(appointments_router)
+    app.include_router(duration_router)
     app.include_router(reports_router)
     app.include_router(supplier_router)
     app.include_router(notifications_router)

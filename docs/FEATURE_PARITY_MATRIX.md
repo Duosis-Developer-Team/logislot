@@ -3,7 +3,7 @@
 Durumlar: ✅ tam · 🟡 kısmi · ❌ yok · — kapsam dışı
 Güncelleme kuralı: her feature sprint'inde bu matris güncellenir (bkz. WEB_MOBILE_PARITY.md).
 
-_Son güncelleme: 2026-10-21 (tedarikçi iptal kuralları: sebep listesi + alternatif tarih + son iptal süresi)_
+_Son güncelleme: 2026-11-14 (müşteri toplantısı: iptal revizyonu + telafi randevusu, sipariş no, ek e-postalar, işlem süresi kuralları)_
 
 | Feature | Backend | Web | Mobile | Status | Notes |
 |---|---|---|---|---|---|
@@ -17,11 +17,11 @@ _Son güncelleme: 2026-10-21 (tedarikçi iptal kuralları: sebep listesi + alter
 | Role-based yönlendirme + RBAC görünürlüğü | ✅ | ✅ | ✅ | OK | Mobile: RoleGuard + can(); menü girişleri izinle filtrelenir |
 | **Tedarikçi** |
 | Randevularım (liste + sayaçlar + yaklaşan/geçmiş) | ✅ | ✅ | ✅ | OK | Mobile: pull-to-refresh'li liste |
-| Yeni randevu sihirbazı (3 adım, gerçek müsaitlik) | ✅ | ✅ | ✅ | OK | Mobile: chip/slot dokunmatik UX |
+| Yeni randevu sihirbazı (3 adım, gerçek müsaitlik) | ✅ | ✅ | ✅ | OK | Mobile: chip/slot dokunmatik UX. Sipariş no alanı tesis formu ayarına göre gizli/isteğe bağlı/zorunlu (çoklu). Süre: tesis moduna göre tedarikçi seçer / önerilen süre seçili gelir / sistem hesaplar (salt okunur + "nasıl hesaplandı") |
 | Kargo teslimat talebi (pencere seçimi) | ✅ | ✅ | ✅ | OK | |
-| Randevu detay + iptal | ✅ | ✅ | ✅ | OK | Tesis kuralı açıksa: sabit listeden sebep (Diğer → açıklama zorunlu) + alternatif gönderim tarihi; son iptal süresi dolunca buton yerine açıklama. Mobil tarih: gün çipleri (ilk 90 gün), web: takvim (365 gün) |
+| Randevu detay + iptal | ✅ | ✅ | ✅ | OK | Tesis kuralı açıksa: firmanın düzenlediği listeden sebep (açıklama isteğe bağlı; sebep bazında zorunlu yapılabilir) + aynı işlemde telafi randevusu (gün + gerçek müsait saat); son iptal süresi dolunca buton yerine açıklama. Telafi rozetleri ve iki yönlü bağlantı detayda. Mobil tarih: gün çipleri (60 gün), web: takvim |
 | Tekrarlayan seri OLUŞTURMA | ✅ | ✅ | ✅ | OK | Sihirbazda sıklık + tekrar sayısı + tarih önizleme; hepsi-ya-hiç |
-| Seri görüntüleme / seri iptali | ✅ | ✅ | ✅ | OK | Seri kartları + occurrence detayı + sebep zorunlu gelecek-iptal; tesis iptal kuralı tekil iptalle aynen uygulanır, süre içindeki tekrarlar aktif kalır |
+| Seri görüntüleme / seri iptali | ✅ | ✅ | ✅ | OK | Seri kartları + occurrence detayı + sebep zorunlu gelecek-iptal; tesis iptal kuralı tekil iptalle aynen uygulanır, süre içindeki tekrarlar aktif kalır. Telafi zorunluysa toplu seri iptali kapalı (her tekrar tek tek iptal edilip telafisi seçilir) |
 | Profil + bildirim tercihleri | ✅ | ✅ | ✅ | OK | Panel/e-posta tercihleri profil ekranında |
 | Bildirim zili + bildirim listesi | ✅ | ✅ | ✅ | OK | Mobile: tam ekran bildirim merkezi + unread rozeti |
 | **Yönetim (Admin)** |
@@ -35,8 +35,10 @@ _Son güncelleme: 2026-10-21 (tedarikçi iptal kuralları: sebep listesi + alter
 | Admin adına randevu oluşturma | ✅ | ✅ | ✅ | OK | Tedarikçi/kategori/limit kuralları UI'da; seri desteği dahil; onaylı doğar |
 | Seri yönetimi (liste/toplu iptal/revize/onay) | ✅ | ✅ | ✅ | OK | future_only; occurrence detayından randevuya gidilir |
 | Config CRUD: kategoriler/araçlar/rampalar/çakışma/istisnalar | ✅ | ✅ | ✅ | OK | Rampa: çalışma saatleri editörü + çoklu kategori seçimi dahil |
-| Tedarikçi yönetimi + portal hesabı | ✅ | ✅ | ✅ | OK | CRUD + hesap oluştur/parola sıfırla/aktif-pasif |
-| Tedarikçi iptal kuralları (tesis ayarı) | ✅ | ✅ | ✅ | OK | Sebep zorunlu / alternatif tarih zorunlu / son iptal süresi (saat); varsayılan kapalı. Yönetim iptali kurala tabi değil. Randevu detayında sebep + alternatif tarih görünür |
+| Tedarikçi yönetimi + portal hesabı | ✅ | ✅ | ✅ | OK | CRUD + hesap oluştur/parola sıfırla/aktif-pasif. 10'a kadar ek bildirim e-postası (her alıcıya ayrı e-posta logu) |
+| Tedarikçi iptal kuralları (tesis ayarı) | ✅ | ✅ | ✅ | OK | Sebep zorunlu / telafi randevusu zorunlu / son iptal süresi (saat); varsayılan kapalı. Sebep listesini firma düzenler (ekle/sırala/pasifleştir, sebep bazında açıklama zorunluluğu). Yönetim iptali kurala tabi değil |
+| Randevu formu ayarları (sipariş no) | ✅ | ✅ | ✅ | OK | Gizli / isteğe bağlı / zorunlu; yalnızca yeni randevulara uygulanır, sunucuda zorlanır. Liste araması ve rapor CSV'sinde sipariş no |
+| İşlem süresi kuralları | ✅ | ✅ | 🟡 | Partial | Mod (tedarikçi seçer / sistem önerir / sistem hesaplar) + yuvarlama; kural listesi (sıra, ölü kural uyarısı, "en özel kural üste"), deneme kutusu. Araç × miktar senaryo tablosu yalnızca webde (geniş ekran). Yönetim adına oluşturmada hesaplanan süre varsayılan, değiştirilebilir. Bkz. docs/SURE_HESAPLAMA.md |
 | Kullanıcılar & roller (RBAC) | ✅ | ✅ | ✅ | OK | Kullanıcı CRUD + parola reset + rol CRUD (izin grupları; sistem rolleri kilitli) |
 | Raporlar + CSV | ✅ | ✅ | ✅ | OK | Mobile: CSV Share sheet ile paylaşılır (özet + randevu detay) |
 | E-posta logları + resend | ✅ | ✅ | ✅ | OK | Filtre + sayfalama + tekil/toplu resend (toplu: user.manage) |

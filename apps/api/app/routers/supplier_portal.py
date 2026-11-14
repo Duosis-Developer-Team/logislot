@@ -33,6 +33,7 @@ from app.routers.appointments import (
 )
 from app.schemas.appointment import (
     AvailabilityRequest,
+    DurationEstimateRequest,
     RevisionOut,
     SupplierAppointmentCreate,
     SupplierCancelRequest,
@@ -46,6 +47,7 @@ from app.services.cancellation_policy import (
     notice_cutoff,
     resolve_cancellation_policy,
 )
+from app.services.duration_rules import estimate_duration, resolve_duration_policy
 from app.tenancy.deps import FacilityContext, get_supplier_context
 
 router = APIRouter(prefix="/supplier", tags=["supplier-portal"])
@@ -67,6 +69,9 @@ QUANTITY_UNIT_LABELS = {
     QuantityUnit.piece: "Adet",
     QuantityUnit.box: "Kutu",
     QuantityUnit.carton: "Koli",
+    QuantityUnit.sack: "Çuval",
+    QuantityUnit.big_bag: "Big Bag",
+    QuantityUnit.ton: "Ton",
 }
 
 
@@ -172,6 +177,8 @@ async def catalog(
             ],
             # Tesisin form ayari: hangi alan gizli/istege bagli/zorunlu.
             "appointment_form": resolve_appointment_form(ctx.facility),
+            # Islem suresini kim belirler (supplier / suggested / computed).
+            "duration_policy": resolve_duration_policy(ctx.facility),
             "max_order_numbers": MAX_ORDER_NUMBERS,
         }
     )
@@ -340,7 +347,36 @@ async def my_availability(
     db: AsyncSession = Depends(get_db),
 ):
     assert ctx.supplier is not None
-    return ok(await evaluate_availability(body, ctx, db, ctx.supplier))
+    return ok(await evaluate_availability(body, ctx, db, ctx.supplier, locked=True))
+
+
+@router.post("/duration/estimate")
+async def estimate_my_duration(
+    body: DurationEstimateRequest,
+    ctx: FacilityContext = Depends(get_supplier_context),
+    db: AsyncSession = Depends(get_db),
+):
+    """Sihirbazin islem suresi: tesisin sure kurallarindan hesaplanir.
+
+    Mod "tedarikci secer" ise hesap yine doner (bilgi amacli) ama sihirbaz
+    secimi tedarikciye birakir. Yalnizca tedarikcinin izinli kategorileri.
+    """
+    assert ctx.supplier is not None
+    allowed = {c.id for c in ctx.supplier.allowed_product_categories}
+    if body.product_category_id not in allowed:
+        raise NotFoundError("Urun kategorisi bulunamadi")
+    category = await db.get(ProductCategory, body.product_category_id)
+    if category is None or category.facility_id != ctx.facility_id:
+        raise NotFoundError("Urun kategorisi bulunamadi")
+    estimate = await estimate_duration(
+        db,
+        ctx.facility,
+        product_category=category,
+        vehicle_category_id=body.vehicle_category_id,
+        quantity=body.quantity,
+        quantity_unit=body.quantity_unit.value,
+    )
+    return ok({**estimate.as_dict(), **resolve_duration_policy(ctx.facility)})
 
 
 # ---------- tekrarlayan seriler (Sprint 12) ----------

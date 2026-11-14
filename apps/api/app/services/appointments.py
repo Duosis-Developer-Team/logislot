@@ -21,6 +21,7 @@ from app.core.enums import (
     CargoWindow,
     CreatedByType,
     DeliveryType,
+    DurationMode,
     QuantityUnit,
     RecurringRule,
     SupplierStatus,
@@ -50,6 +51,7 @@ from app.services.cancellation_policy import (
     resolve_cancellation_policy,
     resolve_supplier_reason,
 )
+from app.services.duration_rules import estimate_duration, resolve_duration_policy
 from app.services.notifications import on_appointment_created, on_lifecycle_action
 
 
@@ -298,12 +300,26 @@ async def create_appointment(
             raise NotFoundError("Arac kategorisi bulunamadi")
 
     cargo_min_block: int | None = None
+    duration_source: str | None = None
+    duration_from_rule = False
     if delivery_type == DeliveryType.cargo:
         cargo_min_block = facility.cargo_default_min_block_minutes
         duration = duration_minutes or cargo_min_block
         duration = max(duration, cargo_min_block, category.min_block_minutes)
     else:
-        duration = duration_minutes or category.min_block_minutes
+        duration, duration_source = await _resolve_duration(
+            db,
+            facility,
+            category=category,
+            vehicle_category_id=resolved_vehicle_id,
+            quantity=quantity,
+            quantity_unit=quantity_unit,
+            requested=duration_minutes,
+            # Kilitli modda tedarikcinin gonderdigi sure yok sayilir; yonetim
+            # (ve onun adina olusturma) her modda elle sure verebilir.
+            locked=created_by_type == CreatedByType.supplier,
+        )
+        duration_from_rule = duration_source == "rule"
 
     ctx = await build_rule_context(
         db,
@@ -316,6 +332,7 @@ async def create_appointment(
         duration_minutes=duration,
         cargo_window=cargo_window,
     )
+    ctx.duration_from_rule = duration_from_rule
     if allowed_dock_ids is not None:
         # Rampa yoneticisi scope'u: yalnizca atanmis rampalar aday olur.
         ctx.docks = [d for d in ctx.docks if d.id in allowed_dock_ids]
@@ -395,6 +412,7 @@ async def create_appointment(
         scheduled_start_at=start_dt,
         scheduled_end_at=end_dt,
         duration_minutes=duration,
+        duration_source=duration_source,
         status=(
             AppointmentStatus.approved
             # Karar (Sprint 10): admin tesisin adina aciyorsa randevu ONAYLI dogar.
@@ -429,6 +447,44 @@ async def create_appointment(
         await db.commit()
         await db.refresh(appointment)
     return appointment
+
+
+async def _resolve_duration(
+    db: AsyncSession,
+    facility: Facility,
+    *,
+    category: ProductCategory,
+    vehicle_category_id: uuid.UUID | None,
+    quantity: int,
+    quantity_unit: QuantityUnit | str,
+    requested: int | None,
+    locked: bool,
+) -> tuple[int, str]:
+    """Standart randevunun suresi ve kaynagi ("rule" / "fallback" / "manual").
+
+    Tesis politikasi (services/duration_rules.py):
+    - supplier : istenen sure (yoksa kategori tabani) — eski davranis.
+    - suggested: istek yoksa ya da hesapla AYNIYSA hesaplanan; farkliysa elle.
+    - computed : tedarikci icin (locked) her zaman hesaplanan; yonetim farkli
+      bir sure verirse elle kabul edilir (sinirlara tabi).
+    """
+    policy = resolve_duration_policy(facility)
+    if policy["mode"] == DurationMode.supplier:
+        return requested or category.min_block_minutes, "manual"
+    estimate = await estimate_duration(
+        db,
+        facility,
+        product_category=category,
+        vehicle_category_id=vehicle_category_id,
+        quantity=quantity,
+        quantity_unit=str(quantity_unit),
+    )
+    if (policy["mode"] == DurationMode.computed and locked) or requested in (
+        None,
+        estimate.minutes,
+    ):
+        return estimate.minutes, estimate.source
+    return requested, "manual"
 
 
 async def _get_for_update(

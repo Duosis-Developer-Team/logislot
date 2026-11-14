@@ -39,6 +39,10 @@ export interface AvailabilityParams {
   vehicle_category_id: string | null;
   target_date: string;
   duration_minutes: number;
+  // Sure kurallari: "sistem hesaplar" modunda slotlar bunlardan SUNUCUDA
+  // hesaplanan sureyle aranir.
+  quantity?: number;
+  quantity_unit?: string;
 }
 
 export function useSupplierAvailability(params: AvailabilityParams | null) {

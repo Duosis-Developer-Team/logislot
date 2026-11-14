@@ -14,9 +14,12 @@ import { useMemo, useState } from "react";
 import { Alert, ScrollView, Text, View } from "react-native";
 import { useAdminAvailability, useAdminCreateAppointment, useAppointmentForm } from "@/api/admin";
 import { ApiError } from "@/api/client";
+import { useDurationEvaluate, useDurationPolicy } from "@/api/duration";
 import {
   CARGO_WINDOW_LABELS,
   type CargoWindow,
+  QUANTITY_UNIT_LABELS,
+  QUANTITY_UNITS,
   resolveDurationRange,
 } from "@/api/shared";
 import { docks, productCategories, suppliers, vehicleCategories } from "@/api/resources";
@@ -32,18 +35,14 @@ import {
   PickerField,
   SwitchRow,
 } from "@/components/ui";
+import { DurationChips, withSuggested } from "@/components/duration";
 import { OrderNumbersField } from "@/components/order-numbers";
 import { useTheme } from "@/theme/theme";
 import { spacing } from "@/theme/tokens";
 import { addDaysISO, dayLabel, timeInTz, todayISO } from "@/utils/format";
 
 const CARGO_WINDOWS: CargoWindow[] = ["morning", "afternoon", "all_day"];
-const UNITS = [
-  { value: "pallet", label: "Palet" },
-  { value: "piece", label: "Adet" },
-  { value: "box", label: "Kutu" },
-  { value: "carton", label: "Koli" },
-];
+const UNITS = QUANTITY_UNITS.map((u) => ({ value: u, label: QUANTITY_UNIT_LABELS[u] }));
 
 export default function AdminNewAppointment() {
   const { colors } = useTheme();
@@ -94,9 +93,36 @@ export default function AdminNewAppointment() {
   // useMemo yok: React Compiler türetilmiş listeyi kendisi optimize eder.
   // Kategori aralığı x tedarikçi aralığı kesişimi (backend ile aynı kural).
   const durationRange = category ? resolveDurationRange(category, supplier) : null;
-  const durationOptions = durationRange?.options ?? [];
+  // Süre kuralları: tesis "tedarikçi seçer" dışındaysa hesaplanan süre
+  // varsayılan gelir; yönetim her modda değiştirebilir (farklı seçim "elle"
+  // kaydedilir ve kategori sınırlarına tabidir).
+  const qty = Math.max(1, parseInt(quantity, 10) || 1);
+  const durationPolicy = useDurationPolicy(facilityId);
+  const rulesActive = (durationPolicy.data?.mode ?? "supplier") !== "supplier";
+  const estimateQuery = useDurationEvaluate(
+    facilityId,
+    rulesActive && category
+      ? [
+          {
+            product_category_id: category.id,
+            vehicle_category_id: effectiveVehicleId,
+            quantity: qty,
+            quantity_unit: unit,
+          },
+        ]
+      : null,
+  );
+  const estimate = rulesActive ? estimateQuery.data?.results[0] ?? null : null;
+  const suggestedMinutes = estimate?.minutes ?? null;
+  const durationOptions = withSuggested(durationRange?.options ?? [], suggestedMinutes);
   const effectiveDuration =
-    duration && durationOptions.includes(duration) ? duration : durationOptions[0] ?? null;
+    duration && durationOptions.includes(duration)
+      ? duration
+      : suggestedMinutes ?? durationOptions[0] ?? null;
+  // Kural süresi kategori aralığı dışında da geçerlidir.
+  const durationBlocked =
+    durationRange?.conflicting === true &&
+    (suggestedMinutes === null || effectiveDuration !== suggestedMinutes);
 
   const availability = useAdminAvailability(
     facilityId,
@@ -107,6 +133,8 @@ export default function AdminNewAppointment() {
           vehicle_category_id: effectiveVehicleId,
           target_date: date,
           duration_minutes: effectiveDuration,
+          quantity: qty,
+          quantity_unit: unit,
         }
       : null,
   );
@@ -173,7 +201,7 @@ export default function AdminNewAppointment() {
         product_category_id: category.id,
         product_name: productName,
         order_numbers: orderMode === "hidden" ? [] : orderNumbers,
-        quantity: Math.max(1, parseInt(quantity, 10) || 1),
+        quantity: qty,
         quantity_unit: unit,
         vehicle_category_id: vehicleOverrideId,
         license_plate: plate || null,
@@ -373,23 +401,17 @@ export default function AdminNewAppointment() {
               category && (
                 <>
                   <View style={{ gap: 8 }}>
-                    <Text style={{ color: colors.text, fontSize: 14, fontWeight: "500" }}>
-                      Süre
-                    </Text>
-                    <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
-                      {durationOptions.map((d) => (
-                        <Chip
-                          key={d}
-                          label={`${d} dk`}
-                          selected={effectiveDuration === d}
-                          onPress={() => {
-                            setDuration(d);
-                            setSelectedSlot(null);
-                          }}
-                        />
-                      ))}
-                    </View>
-                    {durationRange?.conflicting && (
+                    <DurationChips
+                      options={durationOptions}
+                      value={effectiveDuration}
+                      suggested={suggestedMinutes}
+                      estimate={estimate}
+                      onChange={(d) => {
+                        setDuration(d);
+                        setSelectedSlot(null);
+                      }}
+                    />
+                    {durationBlocked && (
                       <Text style={{ color: colors.destructive, fontSize: 12 }}>
                         Bu kategorinin süre aralığı tedarikçinin limitleriyle kesişmiyor.
                         Ayarlardan limitlerden birini güncelleyin.
@@ -528,7 +550,7 @@ export default function AdminNewAppointment() {
           title={create.isPending ? "Oluşturuluyor…" : "Randevu Oluştur"}
           loading={create.isPending}
           // Çakışan limitlerde geçerli bir süre yok; sunucuya boşuna gitme.
-          disabled={!supplier || (!isCargo && durationRange?.conflicting === true)}
+          disabled={!supplier || (!isCargo && durationBlocked)}
           onPress={() => void onSubmit()}
         />
       </ScrollView>

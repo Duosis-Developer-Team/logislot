@@ -175,6 +175,57 @@ export interface SupplierCatalogDto {
   /** Tesisin randevu formu: hangi alan gizli/isteğe bağlı/zorunlu. */
   appointment_form: AppointmentFormDto;
   max_order_numbers: number;
+  /** Tesisin işlem süresi politikası (tedarikçi seçer / sistem önerir / hesaplar). */
+  duration_policy?: { mode: DurationMode; rounding_minutes: number };
+}
+
+/** İşlem süresi kuralları — web lib/api/types.ts ile birebir (docs/SURE_HESAPLAMA.md). */
+export type DurationMode = "supplier" | "suggested" | "computed";
+
+export interface DurationPolicyDto {
+  mode: DurationMode;
+  rounding_minutes: number;
+  is_customized: boolean;
+  rounding_choices: number[];
+}
+
+export interface DurationRuleDto {
+  id: string;
+  position: number;
+  name: string | null;
+  is_active: boolean;
+  vehicle_category_id: string | null;
+  product_category_id: string | null;
+  quantity_unit: string | null;
+  min_quantity: number | null;
+  max_quantity: number | null;
+  calc_type: "fixed" | "per_unit";
+  fixed_minutes: number | null;
+  base_minutes: number | null;
+  per_unit_minutes: number | null;
+  min_minutes: number | null;
+  max_minutes: number | null;
+  specificity: number;
+  /** Ustteki bir kural her durumda once esliyorsa onun kimligi (kural olu). */
+  shadowed_by: string | null;
+}
+
+export type DurationRuleInput = Omit<DurationRuleDto, "id" | "position" | "specificity" | "shadowed_by">;
+
+export interface DurationEstimateDto {
+  minutes: number;
+  source: "rule" | "fallback";
+  rule_id: string | null;
+  rule_position: number | null;
+  rule_name: string | null;
+  steps: string[];
+}
+
+export interface DurationScenario {
+  product_category_id: string;
+  vehicle_category_id: string | null;
+  quantity: number;
+  quantity_unit: string;
 }
 
 export type FormFieldMode = "hidden" | "optional" | "required";
@@ -218,6 +269,8 @@ export interface AppointmentDto {
   scheduled_start_at: string;
   scheduled_end_at: string;
   duration_minutes: number;
+  /** Sürenin kaynağı: kural / kural yok (kategori tabanı) / elle. */
+  duration_source?: "rule" | "fallback" | "manual" | null;
   status: string;
   rejection_reason: string | null;
   cancellation_reason?: string | null;

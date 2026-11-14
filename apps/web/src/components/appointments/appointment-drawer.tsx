@@ -287,6 +287,13 @@ export function AppointmentDrawer({
             <dd>
               {timeInTz(a.scheduled_start_at, tz)}–{timeInTz(a.scheduled_end_at, tz)} (
               {t.appointmentDrawer.durationSuffix(a.duration_minutes)})
+              {/* Yalnizca kural motoru devredeyken anlamli; "elle" eski
+                  davranisla ayni oldugu icin gurultu yapmasin. */}
+              {(a.duration_source === "rule" || a.duration_source === "fallback") && (
+                <span className="block text-xs text-muted-foreground">
+                  {t.duration.source[a.duration_source]}
+                </span>
+              )}
             </dd>
             <dt className="text-muted-foreground">{t.common.dock}</dt>
             <dd>{a.dock_name ?? "—"}</dd>

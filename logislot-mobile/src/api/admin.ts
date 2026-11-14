@@ -167,6 +167,8 @@ export interface AdminAvailabilityParams {
   vehicle_category_id: string | null;
   target_date: string;
   duration_minutes: number;
+  quantity?: number;
+  quantity_unit?: string;
 }
 
 /** Revize/oluşturma formunda advisory önizlemesi için admin availability sorgusu. */

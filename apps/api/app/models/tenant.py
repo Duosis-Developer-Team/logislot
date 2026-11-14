@@ -132,6 +132,10 @@ class Facility(Base, UUIDPkMixin, TimestampMixin):
     # Sekil: {"order_numbers": "hidden" | "optional" | "required"}
     # (bkz. services/appointment_form.py)
     appointment_form_json: Mapped[dict[str, Any] | None] = mapped_column(JsonVariant)
+    # Islem suresi politikasi: {"mode": supplier|suggested|computed,
+    # "rounding_minutes": 5|10|15|30}. None = tedarikci secer (eski davranis).
+    # Kurallar duration_rules tablosundadir (bkz. services/duration_rules.py).
+    duration_policy_json: Mapped[dict[str, Any] | None] = mapped_column(JsonVariant)
 
     tenant: Mapped[Tenant] = relationship(back_populates="facilities")
     plan_override: Mapped[Plan | None] = relationship()

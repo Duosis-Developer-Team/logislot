@@ -12,7 +12,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.core.db import get_db
-from app.core.enums import ActorType, AppointmentStatus, CreatedByType, DeliveryType
+from app.core.enums import (
+    ActorType,
+    AppointmentStatus,
+    CreatedByType,
+    DeliveryType,
+    DurationMode,
+)
 from app.core.errors import ApiError, ForbiddenError, NotFoundError
 from app.core.permissions import TenantPermission
 from app.core.responses import ok
@@ -44,6 +50,7 @@ from app.schemas.appointment import (
 from app.services import appointments as svc
 from app.services.appointment_form import MAX_ORDER_NUMBERS, resolve_appointment_form
 from app.services.appointments import build_rule_context
+from app.services.duration_rules import estimate_duration, resolve_duration_policy
 from app.tenancy.deps import FacilityContext, require_facility_permissions
 
 router = APIRouter(prefix="/facilities/{facility_id}", tags=["appointments"])
@@ -677,6 +684,8 @@ async def evaluate_availability(
     ctx: FacilityContext,
     db: AsyncSession,
     supplier: Supplier,
+    *,
+    locked: bool = False,
 ) -> list[dict]:
     # Kargo kapali tedarikci icin kargo musaitligi de sorgulanamaz.
     svc.ensure_delivery_type_allowed(supplier, body.delivery_type)
@@ -692,6 +701,33 @@ async def evaluate_availability(
 
     vehicle_id = body.vehicle_category_id or category.default_vehicle_category_id
     duration = body.duration_minutes or category.min_block_minutes
+    from_rule = False
+    mode = resolve_duration_policy(ctx.facility)["mode"]
+    if (
+        mode != DurationMode.supplier
+        and body.quantity is not None
+        and body.quantity_unit is not None
+    ):
+        # Randevu olusturmayla (services.appointments._resolve_duration) AYNI
+        # karar: "sistem hesaplar" modunda tedarikci icin sure her zaman
+        # sunucuda hesaplanir; aksi halde sure istenmediyse ya da hesapla
+        # ayniysa hesaplanan kullanilir. Kuraldan gelen sure kategori
+        # sinirlarina takilmadigi icin slotlar da ayni muafiyetle aranir —
+        # yoksa olusturulabilecek randevunun slotlari "dolu" gorunurdu.
+        estimate = await estimate_duration(
+            db,
+            ctx.facility,
+            product_category=category,
+            vehicle_category_id=vehicle_id,
+            quantity=body.quantity,
+            quantity_unit=body.quantity_unit.value,
+        )
+        if (mode == DurationMode.computed and locked) or body.duration_minutes in (
+            None,
+            estimate.minutes,
+        ):
+            duration = estimate.minutes
+            from_rule = estimate.source == "rule"
 
     rule_ctx = await build_rule_context(
         db,
@@ -704,6 +740,7 @@ async def evaluate_availability(
         duration_minutes=duration,
         cargo_window=body.cargo_window,
     )
+    rule_ctx.duration_from_rule = from_rule
     engine = AvailabilityService(rule_ctx)
     slots = engine.evaluate_day()
     return [

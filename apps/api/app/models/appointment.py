@@ -74,6 +74,9 @@ class Appointment(Base, UUIDPkMixin, TimestampMixin, FacilityScopedMixin):
     scheduled_start_at: Mapped[datetime] = mapped_column(sa.DateTime(timezone=True))
     scheduled_end_at: Mapped[datetime] = mapped_column(sa.DateTime(timezone=True))
     duration_minutes: Mapped[int] = mapped_column(sa.Integer)
+    # Surenin kaynagi: "rule" (kuraldan hesaplandi), "fallback" (kural yok,
+    # kategori varsayilani), "manual" (tedarikci/yonetim secti). Eski kayit NULL.
+    duration_source: Mapped[str | None] = mapped_column(sa.String(16))
 
     status: Mapped[AppointmentStatus] = mapped_column(
         str_enum(AppointmentStatus), default=AppointmentStatus.pending, index=True

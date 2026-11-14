@@ -19,6 +19,7 @@ from app.models.dock import (
     dock_product_categories,
     dock_vehicle_categories,
 )
+from app.models.duration import DurationRule
 from app.models.email_log import EmailLog
 from app.models.maintenance_run import MaintenanceRun
 from app.models.notification import Notification
@@ -45,6 +46,7 @@ from app.models.ticketing_control import (
 )
 
 __all__ = [
+    "DurationRule",
     "CancellationReason",
     "Base",
     "CONTROL_SCHEMA",

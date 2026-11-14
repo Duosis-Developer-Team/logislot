@@ -8,6 +8,7 @@ import {
   ClipboardList,
   GitFork,
   Handshake,
+  Timer,
   Truck,
   Users2,
   Warehouse,
@@ -96,6 +97,14 @@ export default function SettingsPage() {
       stat: "Politika",
       href: "/admin/settings/supplier-notifications",
       permission: "supplier.manage",
+    },
+    {
+      icon: Timer,
+      title: t.admin.durationRules.title,
+      description: t.admin.settings.cards.durationRules,
+      stat: t.admin.durationRules.stat,
+      href: "/admin/settings/duration-rules",
+      permission: "category.manage",
     },
     {
       icon: ClipboardList,

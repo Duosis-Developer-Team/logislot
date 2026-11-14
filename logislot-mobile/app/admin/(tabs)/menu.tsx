@@ -89,6 +89,12 @@ const CONFIG_ENTRIES: MenuEntry[] = [
     permission: "supplier.manage",
   },
   {
+    title: "Süre Kuralları",
+    icon: "timer-outline",
+    route: "/admin/settings/duration-rules",
+    permission: "category.manage",
+  },
+  {
     title: "Randevu Formu",
     icon: "clipboard-outline",
     route: "/admin/settings/appointment-form",
