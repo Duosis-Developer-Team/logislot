@@ -6,7 +6,7 @@ from typing import Literal
 
 import sqlalchemy as sa
 from fastapi import APIRouter, Depends, Query
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -50,6 +50,12 @@ from app.schemas.appointment import (
 from app.services import appointments as svc
 from app.services.appointment_form import MAX_ORDER_NUMBERS, resolve_appointment_form
 from app.services.appointments import build_rule_context
+from app.services.driver_id import (
+    RETENTION_CHOICES,
+    resolve_retention_days,
+    search_hash,
+)
+from app.services.driver_id import reveal as reveal_driver_id_value
 from app.services.duration_rules import estimate_duration, resolve_duration_policy
 from app.tenancy.deps import FacilityContext, require_facility_permissions
 
@@ -177,6 +183,81 @@ def _allowed_actions(appointment: Appointment, ctx: FacilityContext) -> dict[str
             and scope_ok
         ),
     }
+
+
+class DriverIdSearch(BaseModel):
+    driver_id: str = Field(min_length=5, max_length=32)
+
+
+@router.post("/appointments/search-by-driver-id")
+async def search_by_driver_id(
+    body: DriverIdSearch,
+    ctx: FacilityContext = Depends(
+        require_facility_permissions(TenantPermission.APPT_DRIVER_ID_VIEW)
+    ),
+    db: AsyncSession = Depends(get_db),
+):
+    """Guvenlik kapisi: surucu kimlik numarasiyla randevu bulma.
+
+    Numara GOVDEDE gelir, URL'de DEGIL: sorgu dizesi erisim loglarina, proxy
+    kayitlarina ve tarayici gecmisine duz metin dusmesin. Tam eslesme, HMAC
+    ozeti uzerinden; en yeni 50 randevu.
+    """
+    result = await db.execute(
+        select(Appointment)
+        .where(
+            Appointment.facility_id == ctx.facility_id,
+            Appointment.driver_id_hash == search_hash(body.driver_id),
+        )
+        .order_by(Appointment.scheduled_start_at.desc())
+        .limit(50)
+    )
+    maps = await facility_name_maps(db, ctx.facility_id)
+    return ok([appointment_out_named(a, maps) for a in result.scalars()])
+
+
+@router.post("/appointments/{appointment_id}/driver-id/reveal")
+async def reveal_driver_id(
+    appointment_id: uuid.UUID,
+    ctx: FacilityContext = Depends(
+        require_facility_permissions(TenantPermission.APPT_DRIVER_ID_VIEW)
+    ),
+    db: AsyncSession = Depends(get_db),
+):
+    """Surucu kimlik numarasinin ACIK degeri (guvenlik personeli).
+
+    KISISEL VERI: her cagri denetim kaydina yazilir (deger YAZILMAZ). Saklama
+    suresi dolup silinmisse DRIVER_ID_PURGED doner.
+    """
+    from app.services.audit import record_audit
+
+    appointment = (
+        await db.execute(
+            select(Appointment).where(
+                Appointment.id == appointment_id, Appointment.facility_id == ctx.facility_id
+            )
+        )
+    ).scalar_one_or_none()
+    if appointment is None:
+        raise NotFoundError("Randevu bulunamadi")
+    if appointment.driver_id_purged_at is not None:
+        raise ApiError("DRIVER_ID_PURGED", "Saklama suresi doldugu icin kimlik silindi", 410)
+    value = reveal_driver_id_value(appointment)
+    if value is None:
+        raise NotFoundError("Bu randevuda surucu kimlik numarasi yok")
+    record_audit(
+        db,
+        actor_type=ActorType.tenant_user,
+        actor_id=ctx.identity.id,
+        action="appointment.driver_id_reveal",
+        tenant_id=ctx.tenant_id,
+        facility_id=ctx.facility_id,
+        entity_type="appointment",
+        entity_id=appointment.id,
+        metadata={"driver_id_type": appointment.driver_id_type},
+    )
+    await db.commit()
+    return ok({"type": appointment.driver_id_type, "value": value})
 
 
 @router.get("/appointments/{appointment_id}")
@@ -471,6 +552,7 @@ async def create_appointment(
         driver_name=body.driver_name,
         driver_phone=body.driver_phone,
         order_numbers=body.order_numbers,
+        driver_id_number=body.driver_id_number,
         duration_minutes=body.duration_minutes,
         allowed_dock_ids=ctx.assigned_dock_ids,
         approved_override=True,
@@ -1243,6 +1325,8 @@ async def calendar_week(
 
 class AppointmentFormPatch(BaseModel):
     order_numbers: Literal["hidden", "optional", "required"] | None = None
+    driver_id_number: Literal["hidden", "optional", "required"] | None = None
+    driver_id_retention_days: Literal[7, 30, 90, 180, 365] | None = None
 
 
 def _appointment_form_out(facility: Facility) -> dict:
@@ -1250,6 +1334,8 @@ def _appointment_form_out(facility: Facility) -> dict:
         **resolve_appointment_form(facility),
         "is_customized": bool(facility.appointment_form_json),
         "max_order_numbers": MAX_ORDER_NUMBERS,
+        "driver_id_retention_days": resolve_retention_days(facility),
+        "driver_id_retention_choices": list(RETENTION_CHOICES),
     }
 
 
@@ -1277,7 +1363,10 @@ async def patch_appointment_form(
 
     facility = await db.get(Facility, ctx.facility_id)
     assert facility is not None
-    before = resolve_appointment_form(facility)
+    before = {
+        **resolve_appointment_form(facility),
+        "driver_id_retention_days": resolve_retention_days(facility),
+    }
     current = {**before, **body.model_dump(exclude_unset=True, exclude_none=True)}
     facility.appointment_form_json = current
     record_audit(

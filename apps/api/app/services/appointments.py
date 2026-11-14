@@ -42,7 +42,7 @@ from app.models import (
 )
 from app.rules.availability import AvailabilityService
 from app.rules.context import HardRuleCode, HardRuleResult, RuleEvaluationContext
-from app.services.appointment_form import validate_order_numbers
+from app.services.appointment_form import resolve_appointment_form, validate_order_numbers
 from app.services.audit import record_audit
 from app.services.cancellation_policy import (
     ensure_cancellation_notice,
@@ -51,6 +51,7 @@ from app.services.cancellation_policy import (
     resolve_cancellation_policy,
     resolve_supplier_reason,
 )
+from app.services.driver_id import apply_driver_id, validate_driver_id
 from app.services.duration_rules import estimate_duration, resolve_duration_policy
 from app.services.notifications import on_appointment_created, on_lifecycle_action
 from app.services.supplier_limits import minute_usage
@@ -236,6 +237,7 @@ async def create_appointment(
     driver_name: str | None = None,
     driver_phone: str | None = None,
     order_numbers: list[str] | None = None,
+    driver_id_number: str | None = None,
     start_at: datetime | None = None,
     duration_minutes: int | None = None,
     cargo_window: CargoWindow | None = None,
@@ -267,6 +269,13 @@ async def create_appointment(
         validate_order_numbers(facility, order_numbers)
         if _enforce_form
         else (order_numbers or None)
+    )
+    # Surucu kimligi: telafi gibi turetilmis randevulara TASINMAZ (farkli surucu
+    # gelebilir; kisisel veri gereksiz cogaltilmaz).
+    driver_id = (
+        validate_driver_id(resolve_appointment_form(facility)["driver_id_number"], driver_id_number)
+        if _enforce_form
+        else None
     )
 
     # Eszamanlilik: kilit altinda son-an availability degerlendirmesi yapilir;
@@ -429,6 +438,7 @@ async def create_appointment(
         created_by_type=created_by_type,
         created_by_id=actor_id,
     )
+    apply_driver_id(appointment, driver_id)
     db.add(appointment)
     await db.flush()
 

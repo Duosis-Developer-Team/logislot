@@ -22,16 +22,26 @@ const MODES: { value: FormFieldMode; label: string }[] = [
   { value: "required", label: "Zorunlu" },
 ];
 
+type Draft = AppointmentFormDto & { driver_id_retention_days: number };
+
 export default function AdminAppointmentForm() {
   const { colors } = useTheme();
   const session = useSession();
   const facilityId = session.activeFacilityId;
   const form = useAppointmentForm(facilityId);
   const save = useSaveAppointmentForm(facilityId);
-  const [draftOverride, setDraft] = useState<AppointmentFormDto | null>(null);
+  const [draftOverride, setDraft] = useState<Draft | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
-  const draft = draftOverride ?? (form.data ? { order_numbers: form.data.order_numbers } : null);
+  const draft: Draft | null =
+    draftOverride ??
+    (form.data
+      ? {
+          order_numbers: form.data.order_numbers,
+          driver_id_number: form.data.driver_id_number,
+          driver_id_retention_days: form.data.driver_id_retention_days,
+        }
+      : null);
 
   if (!session.can("supplier.manage"))
     return (
@@ -91,6 +101,53 @@ export default function AdminAppointmentForm() {
                     />
                   ))}
                 </View>
+              </Card>
+              <Card style={{ gap: spacing.sm }}>
+                <Text style={{ color: colors.text, fontSize: 15, fontWeight: "600" }}>
+                  Sürücü kimlik no (T.C. / pasaport)
+                </Text>
+                <Text style={{ color: colors.faintText, fontSize: 12 }}>
+                  Güvenlik girişi için sürücünün T.C. kimlik ya da pasaport numarası. Kişisel
+                  veridir: şifreli saklanır, ekranlarda maskeli görünür.
+                </Text>
+                <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
+                  {MODES.map((mode) => (
+                    <Chip
+                      key={mode.value}
+                      label={mode.label}
+                      selected={draft.driver_id_number === mode.value}
+                      onPress={() => {
+                        setSaved(false);
+                        setDraft({ ...draft, driver_id_number: mode.value });
+                      }}
+                    />
+                  ))}
+                </View>
+                {draft.driver_id_number !== "hidden" && (
+                  <>
+                    <Text style={{ color: colors.text, fontSize: 14, fontWeight: "500" }}>
+                      Randevudan sonra saklama süresi
+                    </Text>
+                    <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
+                      {(form.data?.driver_id_retention_choices ?? [7, 30, 90, 180, 365]).map((d) => (
+                        <Chip
+                          key={d}
+                          label={`${d} gün`}
+                          selected={draft.driver_id_retention_days === d}
+                          onPress={() => {
+                            setSaved(false);
+                            setDraft({ ...draft, driver_id_retention_days: d });
+                          }}
+                        />
+                      ))}
+                    </View>
+                    <Text style={{ color: colors.faintText, fontSize: 12 }}>
+                      Numarayı açık görmek için “Sürücü kimlik numarasını görüntüle” izni gerekir;
+                      her görüntüleme denetim kaydına yazılır. Süre dolunca numara kalıcı olarak
+                      silinir. Raporlara, e-postalara ve bildirimlere eklenmez.
+                    </Text>
+                  </>
+                )}
               </Card>
               <Text style={{ color: colors.faintText, fontSize: 12 }}>
                 Değişiklik yalnızca yeni randevulara uygulanır; mevcut randevular etkilenmez.

@@ -39,6 +39,7 @@ import {
 import { DurationChips, withSuggested } from "@/components/duration";
 import { MinuteUsageCard, exceededUsage } from "@/components/minute-limits";
 import { OrderNumbersField } from "@/components/order-numbers";
+import { DriverIdField, driverIdError, driverIdErrorText } from "@/components/driver-id";
 import { useTheme } from "@/theme/theme";
 import { spacing } from "@/theme/tokens";
 import { addDaysISO, dayLabel, timeInTz, todayISO } from "@/utils/format";
@@ -63,11 +64,13 @@ export default function AdminNewAppointment() {
   const [orderNumbers, setOrderNumbers] = useState<string[]>([]);
   const form = useAppointmentForm(session.activeFacilityId);
   const orderMode = form.data?.order_numbers ?? "hidden";
+  const driverIdMode = form.data?.driver_id_number ?? "hidden";
   const [quantity, setQuantity] = useState("1");
   const [unit, setUnit] = useState("pallet");
   const [vehicleOverrideId, setVehicleOverrideId] = useState<string | null>(null);
   const [plate, setPlate] = useState("");
   const [driver, setDriver] = useState("");
+  const [driverId, setDriverId] = useState("");
   const [cargoSelected, setIsCargo] = useState(false);
   const [cargoWindow, setCargoWindow] = useState<CargoWindow>("morning");
   const [date, setDate] = useState(addDaysISO(todayISO(), 1));
@@ -193,6 +196,11 @@ export default function AdminNewAppointment() {
       setFormError("En az bir sipariş numarası girin.");
       return;
     }
+    const idError = driverIdError(driverIdMode, driverId);
+    if (idError) {
+      setFormError(driverIdErrorText(idError));
+      return;
+    }
     if (!isCargo && !selectedSlot) {
       setFormError("Başlangıç saati seçin.");
       return;
@@ -212,6 +220,7 @@ export default function AdminNewAppointment() {
         vehicle_category_id: vehicleOverrideId,
         license_plate: plate || null,
         driver_name: driver || null,
+        driver_id_number: driverIdMode === "hidden" ? null : driverId.trim() || null,
         delivery_type: isCargo ? "cargo" : "standard",
         cargo_window: isCargo ? cargoWindow : null,
         target_date: date,
@@ -348,6 +357,7 @@ export default function AdminNewAppointment() {
                 />
               </View>
             </View>
+            <DriverIdField mode={driverIdMode} value={driverId} onChange={setDriverId} />
 
             <View style={{ gap: 8 }}>
               <Text style={{ color: colors.text, fontSize: 14, fontWeight: "500" }}>

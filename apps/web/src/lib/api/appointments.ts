@@ -371,6 +371,8 @@ export function useSeriesApprove(facilityId: string | null) {
 export interface AppointmentFormResponse extends AppointmentFormDto {
   is_customized: boolean;
   max_order_numbers: number;
+  driver_id_retention_days: number;
+  driver_id_retention_choices: number[];
 }
 
 const appointmentFormKey = (facilityId: string | null) => [
@@ -393,7 +395,7 @@ export function useAppointmentForm(facilityId: string | null) {
 export function useSaveAppointmentForm(facilityId: string | null) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (body: Partial<AppointmentFormDto>) =>
+    mutationFn: (body: Partial<AppointmentFormDto> & { driver_id_retention_days?: number }) =>
       apiRequest<AppointmentFormResponse>(`/facilities/${facilityId}/appointment-form`, {
         method: "PATCH",
         body,
@@ -403,5 +405,23 @@ export function useSaveAppointmentForm(facilityId: string | null) {
       // Tedarikci sihirbazi formu katalogdan okur.
       queryClient.invalidateQueries({ queryKey: ["supplier", "catalog"] });
     },
+  });
+}
+
+// ------------------------------------------------------ surucu kimligi (guvenlik)
+
+/** Acik kimlik numarasi — `appt.driver_id.view` izni; her cagri denetlenir. */
+export async function revealDriverId(facilityId: string, appointmentId: string) {
+  return apiRequest<{ type: "tckn" | "passport"; value: string }>(
+    `/facilities/${facilityId}/appointments/${appointmentId}/driver-id/reveal`,
+    { method: "POST" },
+  );
+}
+
+/** Guvenlik kapisi: numarayla randevu bulma. Numara GOVDEDE (URL'de degil). */
+export async function searchByDriverId(facilityId: string, driverId: string) {
+  return apiRequest<AppointmentDto[]>(`/facilities/${facilityId}/appointments/search-by-driver-id`, {
+    method: "POST",
+    body: { driver_id: driverId },
   });
 }

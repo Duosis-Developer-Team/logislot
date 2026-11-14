@@ -11,6 +11,7 @@ import {
 } from "@logislot/shared";
 import { ErrorState, LoadingState } from "@/components/config/states";
 import { DurationEstimatePanel } from "@/components/duration/duration-estimate-panel";
+import { DriverIdInput, driverIdError } from "@/components/domain/driver-id";
 import { MinuteUsagePanel, exceededUsage } from "@/components/domain/minute-limits";
 import { OrderNumbersInput } from "@/components/domain/order-numbers-input";
 import { Button } from "@/components/ui/button";
@@ -96,6 +97,7 @@ export default function NewAppointmentWizard() {
   const [vehicleOverrideId, setVehicleOverrideId] = useState<string | null>(null);
   const [plate, setPlate] = useState("");
   const [driver, setDriver] = useState("");
+  const [driverId, setDriverId] = useState("");
   const [cargoSelected, setIsCargo] = useState(false);
   const [cargoWindow, setCargoWindow] = useState<CargoWindow>("morning");
 
@@ -195,6 +197,8 @@ export default function NewAppointmentWizard() {
 
   // Tesisin form ayari: siparis no gizli / istege bagli / zorunlu.
   const orderMode = catalog.data?.appointment_form.order_numbers ?? "hidden";
+  // Surucu kimlik no (guvenlik): ayni ayarin ikinci alani.
+  const driverIdMode = catalog.data?.appointment_form.driver_id_number ?? "hidden";
   const canNext =
     step === 0
       ? productName.trim().length > 0 &&
@@ -202,7 +206,7 @@ export default function NewAppointmentWizard() {
         quantity > 0 &&
         (orderMode !== "required" || orderNumbers.length > 0)
       : step === 1
-        ? isCargo || plate.trim().length > 0
+        ? (isCargo || plate.trim().length > 0) && driverIdError(driverIdMode, driverId) === null
         : // Secili saat GUNCEL listede acik olmali: miktar/arac degisince sure
           // (ve slot listesi) degisebilir; eski secim gecersiz kalir.
           !limitExceeded &&
@@ -231,6 +235,7 @@ export default function NewAppointmentWizard() {
       vehicle_category_id: vehicleOverrideId, // null -> backend kategori varsayilanini cozer
       license_plate: plate || null,
       driver_name: driver || null,
+      driver_id_number: driverIdMode === "hidden" ? null : driverId.trim() || null,
       delivery_type: isCargo ? "cargo" : "standard",
       cargo_window: isCargo ? cargoWindow : null,
       target_date: date,
@@ -499,6 +504,7 @@ export default function NewAppointmentWizard() {
                 />
               </div>
             </div>
+            <DriverIdInput mode={driverIdMode} value={driverId} onChange={setDriverId} />
 
             <div>
               <Label>{t.supplier.newAppointment.deliveryType}</Label>

@@ -27,6 +27,9 @@ dependencies = [
     # onunla ayristirir (XML bomb / dis varlik saldirilarina karsi).
     "openpyxl>=3.1",
     "defusedxml>=0.7",
+    # Surucu kimlik numarasi (TCKN/pasaport) AES-GCM ile sifreli saklanir
+    # (bkz. app/core/pii.py).
+    "cryptography>=42",
 ]
 
 [project.optional-dependencies]

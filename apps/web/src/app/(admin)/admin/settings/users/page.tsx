@@ -57,6 +57,8 @@ const PERMISSION_GROUPS: { titleKey: string; codes: string[] }[] = [
       "appt.revise",
       "appt.complete",
       "appt.cancel",
+      // Kisisel veri: surucu kimlik numarasini acik gorme (guvenlik personeli).
+      "appt.driver_id.view",
     ],
   },
   { titleKey: "calendar", codes: ["calendar.view", "calendar.override"] },

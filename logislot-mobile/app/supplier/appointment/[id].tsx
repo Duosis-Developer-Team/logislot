@@ -16,6 +16,7 @@ import {
 import { CargoBadge, MakeupBadge, MakeupLinks, StatusBadge } from "@/components/appointment";
 import { SupplierCancelModal } from "@/components/supplier-cancel";
 import { Button, Card, ErrorState, LoadingState, Screen } from "@/components/ui";
+import { DriverIdRow } from "@/components/driver-id";
 import { useTheme } from "@/theme/theme";
 import { spacing } from "@/theme/tokens";
 import { formatDate, timeInTz } from "@/utils/format";
@@ -110,6 +111,7 @@ export default function SupplierAppointmentDetail() {
           <Row label="Araç" value={a.vehicle_category_name ?? "—"} />
           {a.license_plate && <Row label="Plaka" value={a.license_plate} />}
           {a.driver_name && <Row label="Sürücü" value={a.driver_name} />}
+          <DriverIdRow appointment={a} />
         </Card>
 
         {a.delivery_type === "cargo" && <CargoBadge window={a.cargo_window} />}

@@ -50,6 +50,8 @@ ACTION_LABELS = {
     "supplier_cancellation_policy.update": "Tedarikçi iptal kuralları güncellendi",
     "supplier_minute_limits.update": "Tedarikçi süre limitleri güncellendi",
     "supplier.import": "Tedarikçiler Excel'den içe aktarıldı",
+    "appointment.driver_id_reveal": "Sürücü kimlik numarası görüntülendi",
+    "appointment.driver_id_purge": "Saklama süresi dolan sürücü kimlikleri silindi",
     "cancellation_reasons.update": "İptal sebebi listesi güncellendi",
     "appointment_form.update": "Randevu formu ayarları güncellendi",
     "duration_policy.update": "İşlem süresi politikası güncellendi",

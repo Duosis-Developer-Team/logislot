@@ -75,7 +75,7 @@ async def test_default_is_hidden_and_values_are_not_stored(client, seeded):
 
     token = await supplier(client)
     catalog = (await client.get("/supplier/catalog", headers=token)).json()["data"]
-    assert catalog["appointment_form"] == {"order_numbers": "hidden"}
+    assert catalog["appointment_form"] == {"order_numbers": "hidden", "driver_id_number": "hidden"}
     assert catalog["max_order_numbers"] == MAX_ORDER_NUMBERS
 
     response = await client.post(
@@ -111,7 +111,8 @@ async def test_form_patch_needs_supplier_manage_and_is_audited(client, seeded):
         )
     ).json()["data"]["items"]
     assert logs[0]["summary"] == "Randevu formu ayarları güncellendi"
-    assert logs[0]["after"] == {"order_numbers": "required"}
+    assert logs[0]["after"]["order_numbers"] == "required"
+    assert logs[0]["before"]["order_numbers"] == "hidden"
 
 
 async def test_required_mode_enforced_and_values_normalized(client, seeded):

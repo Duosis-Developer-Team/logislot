@@ -21,6 +21,8 @@ FIELD_MODES = ("hidden", "optional", "required")
 #: Ayarlanabilir alanlar ve varsayilan modlari.
 DEFAULT_APPOINTMENT_FORM: dict[str, str] = {
     "order_numbers": "hidden",
+    # Surucu kimlik numarasi (guvenlik). Kisisel veri: bkz. services/driver_id.py.
+    "driver_id_number": "hidden",
 }
 
 #: Bir randevudaki en fazla siparis numarasi ve tek numaranin uzunlugu.

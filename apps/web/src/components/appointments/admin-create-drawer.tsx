@@ -33,6 +33,7 @@ import { ApiError } from "@/lib/api/client";
 import { useDurationEvaluate, useDurationPolicy } from "@/lib/api/duration";
 import { useAdminMinuteUsage } from "@/lib/api/supplier-limits";
 import { MinuteUsagePanel, exceededUsage } from "@/components/domain/minute-limits";
+import { DriverIdInput, driverIdError } from "@/components/domain/driver-id";
 import { docks, productCategories, suppliers, vehicleCategories } from "@/lib/api/resources";
 import type { AppointmentDto, SeriesCreateResultDto } from "@/lib/api/types";
 import { useSession } from "@/lib/auth/session";
@@ -74,6 +75,7 @@ export function AdminCreateDrawer({ open, onClose, onSuccess, initial }: AdminCr
   const create = useAdminCreateAppointment(activeFacilityId);
   const form = useAppointmentForm(activeFacilityId);
   const orderMode = form.data?.order_numbers ?? "hidden";
+  const driverIdMode = form.data?.driver_id_number ?? "hidden";
   const tz = activeFacility?.timezone ?? "Europe/Istanbul";
 
   const [supplierId, setSupplierId] = useState("");
@@ -85,6 +87,7 @@ export function AdminCreateDrawer({ open, onClose, onSuccess, initial }: AdminCr
   const [vehicleOverrideId, setVehicleOverrideId] = useState<string | null>(null);
   const [plate, setPlate] = useState("");
   const [driver, setDriver] = useState("");
+  const [driverId, setDriverId] = useState("");
   const [cargoSelected, setIsCargo] = useState(false);
   const [cargoWindow, setCargoWindow] = useState<CargoWindow>("morning");
   const [date, setDate] = useState(addDaysISO(1));
@@ -252,6 +255,7 @@ export function AdminCreateDrawer({ open, onClose, onSuccess, initial }: AdminCr
     setVehicleOverrideId(null);
     setPlate("");
     setDriver("");
+    setDriverId("");
     setIsCargo(false);
     setDate(addDaysISO(1));
     setDuration(null);
@@ -273,6 +277,13 @@ export function AdminCreateDrawer({ open, onClose, onSuccess, initial }: AdminCr
       setFormError(t.orderNumbers.requiredError);
       return;
     }
+    const idError = driverIdError(driverIdMode, driverId);
+    if (idError) {
+      setFormError(
+        idError === "required" ? t.errors.byCode.DRIVER_ID_REQUIRED : t.driverId.errors[idError],
+      );
+      return;
+    }
     if (!isCargo && !selectedSlot) {
       setFormError(copy.needsStart);
       return;
@@ -292,6 +303,7 @@ export function AdminCreateDrawer({ open, onClose, onSuccess, initial }: AdminCr
         vehicle_category_id: vehicleOverrideId,
         license_plate: plate || null,
         driver_name: driver || null,
+        driver_id_number: driverIdMode === "hidden" ? null : driverId.trim() || null,
         delivery_type: isCargo ? "cargo" : "standard",
         cargo_window: isCargo ? cargoWindow : null,
         target_date: date,
@@ -455,6 +467,12 @@ export function AdminCreateDrawer({ open, onClose, onSuccess, initial }: AdminCr
                   />
                 </div>
               </div>
+              <DriverIdInput
+                id="admin-driver-id"
+                mode={driverIdMode}
+                value={driverId}
+                onChange={setDriverId}
+              />
 
               <div>
                 <Label>{copy.deliveryType}</Label>

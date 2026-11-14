@@ -14,6 +14,9 @@ class TenantPermission:
     APPT_REVISE = "appt.revise"
     APPT_COMPLETE = "appt.complete"
     APPT_CANCEL = "appt.cancel"
+    # Surucu kimlik numarasini (TCKN/pasaport) acik gorme — guvenlik personeli.
+    # KISISEL VERI: her goruntuleme denetim kaydina yazilir.
+    APPT_DRIVER_ID_VIEW = "appt.driver_id.view"
     CATEGORY_MANAGE = "category.manage"
     VEHICLE_CATEGORY_MANAGE = "vehicle_category.manage"
     DOCK_MANAGE = "dock.manage"
@@ -39,6 +42,7 @@ class TenantPermission:
         APPT_REVISE,
         APPT_COMPLETE,
         APPT_CANCEL,
+        APPT_DRIVER_ID_VIEW,
         CATEGORY_MANAGE,
         VEHICLE_CATEGORY_MANAGE,
         DOCK_MANAGE,
@@ -123,6 +127,7 @@ class SupplierPortalPermission:
 #: gorebilmeyi gerektirir. Backend rol dogrulamasi bu haritayi uygular, boylece
 #: UI'dan eksik secilse bile rol tutarli kaydedilir.
 TENANT_PERMISSION_DEPENDENCIES: dict[str, tuple[str, ...]] = {
+    TenantPermission.APPT_DRIVER_ID_VIEW: (TenantPermission.APPT_VIEW,),
     TenantPermission.TICKET_CREATE: (TenantPermission.TICKET_VIEW,),
     TenantPermission.TICKET_COMMENT: (TenantPermission.TICKET_VIEW,),
     TenantPermission.TICKET_VIEW_ALL: (TenantPermission.TICKET_VIEW,),

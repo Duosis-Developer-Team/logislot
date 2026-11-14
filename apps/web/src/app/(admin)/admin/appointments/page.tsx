@@ -1,6 +1,6 @@
 "use client";
 
-import { Download, Search } from "lucide-react";
+import { Download, Search, ShieldCheck } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useState } from "react";
 import {
@@ -11,6 +11,7 @@ import {
 } from "@logislot/shared";
 import { AdminCreateDrawer } from "@/components/appointments/admin-create-drawer";
 import { AppointmentDrawer } from "@/components/appointments/appointment-drawer";
+import { DriverIdSearchDialog } from "@/components/domain/driver-id";
 import { ConfirmDialog } from "@/components/config/confirm-dialog";
 import { useFlash } from "@/components/config/page-shell";
 import { EmptyState, ErrorState, LoadingState } from "@/components/config/states";
@@ -127,6 +128,7 @@ function AppointmentsListContent() {
   const actions = useAppointmentActions(activeFacilityId);
   const { flash, showFlash } = useFlash();
   const [createOpen, setCreateOpen] = useState(false);
+  const [idSearchOpen, setIdSearchOpen] = useState(false);
 
   const [approveTarget, setApproveTarget] = useState<AppointmentDto | null>(null);
   const [rejectTarget, setRejectTarget] = useState<AppointmentDto | null>(null);
@@ -256,9 +258,16 @@ function AppointmentsListContent() {
             {t.admin.appointments.description}
           </p>
         </div>
-        {can("appt.create") && (
-          <Button onClick={() => setCreateOpen(true)}>{t.admin.appointments.create}</Button>
-        )}
+        <div className="flex flex-wrap gap-2">
+          {can("appt.driver_id.view") && (
+            <Button variant="secondary" onClick={() => setIdSearchOpen(true)}>
+              <ShieldCheck className="h-4 w-4" /> {t.driverId.searchTitle}
+            </Button>
+          )}
+          {can("appt.create") && (
+            <Button onClick={() => setCreateOpen(true)}>{t.admin.appointments.create}</Button>
+          )}
+        </div>
       </div>
 
       {flash && (
@@ -433,6 +442,12 @@ function AppointmentsListContent() {
         appointmentId={selectedId}
         onClose={closeDrawer}
         onActionSuccess={(message) => showFlash("success", message)}
+      />
+
+      <DriverIdSearchDialog
+        open={idSearchOpen}
+        onClose={() => setIdSearchOpen(false)}
+        onSelect={setSelectedId}
       />
 
       <AdminCreateDrawer

@@ -260,6 +260,8 @@ export type FormFieldMode = "hidden" | "optional" | "required";
 /** Tesisin randevu formu ayarı (alan bazında). */
 export interface AppointmentFormDto {
   order_numbers: FormFieldMode;
+  /** Sürücü kimlik no (TCKN/pasaport) — güvenlik; kişisel veri. */
+  driver_id_number: FormFieldMode;
 }
 
 export interface AllowedActions {
@@ -291,6 +293,10 @@ export interface AppointmentDto {
   driver_phone: string | null;
   /** Sipariş numaraları (tesis formu ayarına göre zorunlu olabilir). */
   order_numbers?: string[];
+  /** Sürücü kimliği YALNIZCA maskeli; açık değer ayrı, izinli uçtan. */
+  driver_id_masked?: string | null;
+  driver_id_type?: "tckn" | "passport" | null;
+  driver_id_purged_at?: string | null;
   delivery_type: "standard" | "cargo";
   cargo_window: string | null;
   scheduled_start_at: string;

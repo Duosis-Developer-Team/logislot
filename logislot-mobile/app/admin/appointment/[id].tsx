@@ -15,6 +15,7 @@ import { useSession } from "@/auth/session";
 import { CargoBadge, MakeupBadge, MakeupLinks, StatusBadge } from "@/components/appointment";
 import { DURATION_SOURCE_LABELS } from "@/components/duration";
 import { Button, Card, Chip, ErrorState, Field, LoadingState, Screen } from "@/components/ui";
+import { DriverIdRow } from "@/components/driver-id";
 import { useTheme } from "@/theme/theme";
 import { spacing } from "@/theme/tokens";
 import { addDaysISO, dayLabel, formatDate, isoFromWallClock, timeInTz, todayISO } from "@/utils/format";
@@ -165,6 +166,7 @@ export default function AdminAppointmentDetail() {
           <Row label="Araç" value={a.vehicle_category_name ?? "—"} />
           {a.license_plate && <Row label="Plaka" value={a.license_plate} />}
           {a.driver_name && <Row label="Sürücü" value={a.driver_name} />}
+          <DriverIdRow appointment={a} />
           {a.supplier_contact?.phone && (
             <Row label="İletişim" value={a.supplier_contact.phone} />
           )}

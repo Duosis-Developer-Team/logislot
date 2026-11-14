@@ -455,6 +455,8 @@ export function useSaveCancellationReasons(facilityId: string | null) {
 export interface AppointmentFormResponse extends AppointmentFormDto {
   is_customized: boolean;
   max_order_numbers: number;
+  driver_id_retention_days: number;
+  driver_id_retention_choices: number[];
 }
 
 const appointmentFormKey = (facilityId: string | null) => [
@@ -475,7 +477,7 @@ export function useAppointmentForm(facilityId: string | null) {
 export function useSaveAppointmentForm(facilityId: string | null) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (body: Partial<AppointmentFormDto>) =>
+    mutationFn: (body: Partial<AppointmentFormDto> & { driver_id_retention_days?: number }) =>
       apiRequest<AppointmentFormResponse>(`/facilities/${facilityId}/appointment-form`, {
         method: "PATCH",
         body,
@@ -485,4 +487,22 @@ export function useSaveAppointmentForm(facilityId: string | null) {
       queryClient.invalidateQueries({ queryKey: ["supplier", "catalog"] });
     },
   });
+}
+
+// ------------------------------------------- sürücü kimliği (güvenlik)
+
+/** Açık kimlik numarası — `appt.driver_id.view` izni; her çağrı denetlenir. */
+export function revealDriverId(facilityId: string, appointmentId: string) {
+  return apiRequest<{ type: "tckn" | "passport"; value: string }>(
+    `/facilities/${facilityId}/appointments/${appointmentId}/driver-id/reveal`,
+    { method: "POST" },
+  );
+}
+
+/** Güvenlik kapısı: numarayla randevu bulma. Numara GÖVDEDE (URL'de değil). */
+export function searchByDriverId(facilityId: string, driverId: string) {
+  return apiRequest<AppointmentDto[]>(
+    `/facilities/${facilityId}/appointments/search-by-driver-id`,
+    { method: "POST", body: { driver_id: driverId } },
+  );
 }

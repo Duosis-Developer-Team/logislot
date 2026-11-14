@@ -43,6 +43,7 @@ const PERMISSION_GROUPS: { title: string; items: { code: string; label: string }
       { code: "appt.revise", label: "Randevu revize et" },
       { code: "appt.complete", label: "Randevu tamamla" },
       { code: "appt.cancel", label: "Randevu iptal et" },
+      { code: "appt.driver_id.view", label: "Sürücü kimlik numarasını görüntüle (güvenlik)" },
     ],
   },
   {

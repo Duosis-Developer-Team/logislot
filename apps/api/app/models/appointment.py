@@ -105,6 +105,15 @@ class Appointment(Base, UUIDPkMixin, TimestampMixin, FacilityScopedMixin):
     # olabilir). Zorunlulugu tesisin randevu formu ayari belirler
     # (facilities.appointment_form_json). Sira korunur; bos liste = yok.
     order_numbers: Mapped[list[str] | None] = mapped_column(JsonVariant)
+    # Surucu kimlik numarasi (guvenlik; musteri karari 2026-11). KISISEL VERI:
+    # duz metin YOK — AES-GCM sifreli deger + arama ozeti (HMAC) + maskeleme
+    # icin son 4 hane. Saklama suresi dolunca silinir (purged_at isaretlenir).
+    # Bkz. services/driver_id.py, core/pii.py.
+    driver_id_type: Mapped[str | None] = mapped_column(sa.String(16))
+    driver_id_ciphertext: Mapped[str | None] = mapped_column(sa.Text)
+    driver_id_hash: Mapped[str | None] = mapped_column(sa.String(64), index=True)
+    driver_id_last4: Mapped[str | None] = mapped_column(sa.String(4))
+    driver_id_purged_at: Mapped[datetime | None] = mapped_column(sa.DateTime(timezone=True))
     revision_note: Mapped[str | None] = mapped_column(sa.Text)
     original_start_at: Mapped[datetime | None] = mapped_column(sa.DateTime(timezone=True))
     original_end_at: Mapped[datetime | None] = mapped_column(sa.DateTime(timezone=True))

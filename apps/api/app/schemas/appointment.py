@@ -2,7 +2,14 @@ import uuid
 from datetime import date, datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    computed_field,
+    field_validator,
+    model_validator,
+)
 
 from app.core.enums import CargoWindow, DeliveryType, QuantityUnit, RecurringRule
 
@@ -39,6 +46,11 @@ class AppointmentOut(BaseModel):
     driver_name: str | None = None
     driver_phone: str | None = None
     order_numbers: list[str] = []
+    # Surucu kimligi YALNIZCA maskeli (son 4 hane). Acik deger ayri, izinli ve
+    # denetlenen bir uctan alinir; sifreli deger/ozet ASLA serilestirilmez.
+    driver_id_type: str | None = None
+    driver_id_last4: str | None = Field(default=None, exclude=True)
+    driver_id_purged_at: datetime | None = None
     delivery_type: str
     cargo_window: str | None = None
     cargo_min_block_minutes: int | None = None
@@ -68,6 +80,13 @@ class AppointmentOut(BaseModel):
     def _order_numbers_list(cls, value):
         # Kolon NULL olabilir (alan gizliyken); API her zaman liste dondurur.
         return value or []
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def driver_id_masked(self) -> str | None:
+        if not self.driver_id_last4:
+            return None
+        return "•" * (7 if self.driver_id_type == "tckn" else 4) + self.driver_id_last4
 
 
 class RevisionOut(BaseModel):
@@ -100,6 +119,9 @@ class SupplierAppointmentCreate(BaseModel):
     # Siparis numaralari; zorunlulugu tesis formu ayari belirler. Ham liste
     # serviste kirpilir/bolunur/tekillestirilir (bkz. services/appointment_form).
     order_numbers: list[str] = Field(default_factory=list, max_length=50)
+    # Surucu kimlik no (TCKN/pasaport); gorunurlugu tesis formu ayari belirler.
+    # Sifreli saklanir, yanitta yalnizca maskeli doner.
+    driver_id_number: str | None = Field(default=None, max_length=32)
     delivery_type: DeliveryType = DeliveryType.standard
     # Adim 3 — zaman (standart: start_at zorunlu; kargo: cargo_window zorunlu)
     target_date: date

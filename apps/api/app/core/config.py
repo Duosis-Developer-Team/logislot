@@ -137,6 +137,14 @@ class Settings(BaseSettings):
     email_retry_interval_seconds: int = 300
     notification_cleanup_interval_seconds: int = 86400
     notification_retention_days: int = 90
+    # Surucu kimlik numarasi saklama suresi dolanlari silen is (saat basi).
+    driver_id_purge_interval_seconds: int = 3600
+
+    # Kisisel veri (surucu TCKN/pasaport) sifreleme anahtari. Verilmezse
+    # secret_key'den HKDF ile turetilir. Uretimde AYRI verilmesi onerilir:
+    # secret_key degisirse (oturumlari dusurmek icin) sifreli veri okunamaz
+    # hale gelmesin. Bicim: serbest metin (en az 32 karakter onerilir).
+    pii_encryption_key: str | None = None
 
 
 @lru_cache

@@ -16,6 +16,7 @@ import {
 import { ConfirmDialog } from "@/components/config/confirm-dialog";
 import { ErrorState, LoadingState } from "@/components/config/states";
 import { CargoBadge } from "@/components/domain/cargo-badge";
+import { DriverIdValue } from "@/components/domain/driver-id";
 import { MakeupBadge } from "@/components/domain/makeup-badge";
 import { StatusBadge } from "@/components/domain/status-badge";
 import { Button } from "@/components/ui/button";
@@ -316,6 +317,14 @@ export function AppointmentDrawer({
               <>
                 <dt className="text-muted-foreground">{t.appointmentDrawer.driver}</dt>
                 <dd>{a.driver_name}</dd>
+              </>
+            )}
+            {(a.driver_id_masked || a.driver_id_purged_at) && (
+              <>
+                <dt className="text-muted-foreground">{t.driverId.shortLabel}</dt>
+                <dd>
+                  <DriverIdValue appointment={a} />
+                </dd>
               </>
             )}
             {a.supplier_contact?.phone && (

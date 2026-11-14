@@ -268,6 +268,7 @@ async def create_my_appointment(
             driver_name=body.driver_name,
             driver_phone=body.driver_phone,
             order_numbers=body.order_numbers,
+            driver_id_number=body.driver_id_number,
             duration_minutes=body.duration_minutes,
         )
         return ok(
@@ -296,6 +297,7 @@ async def create_my_appointment(
         driver_name=body.driver_name,
         driver_phone=body.driver_phone,
         order_numbers=body.order_numbers,
+        driver_id_number=body.driver_id_number,
         start_at=body.start_at,
         duration_minutes=body.duration_minutes,
         cargo_window=body.cargo_window,

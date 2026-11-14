@@ -184,6 +184,8 @@ export interface DurationScenario {
 /** Tesisin randevu formu ayari (alan bazinda). */
 export interface AppointmentFormDto {
   order_numbers: FormFieldMode;
+  /** Surucu kimlik no (TCKN/pasaport) — guvenlik; kisisel veri. */
+  driver_id_number: FormFieldMode;
 }
 
 /** Tesisin tedarikci iptal kurali (yonetim belirler; sunucu da zorlar). */
@@ -258,6 +260,11 @@ export interface AppointmentDto {
   driver_phone: string | null;
   /** Siparis numaralari (tesis formu ayarina gore zorunlu olabilir). */
   order_numbers?: string[];
+  /** Surucu kimligi YALNIZCA maskeli (son 4 hane); acik deger ayri uctan. */
+  driver_id_masked?: string | null;
+  driver_id_type?: "tckn" | "passport" | null;
+  /** Saklama suresi dolup silindiyse dolu. */
+  driver_id_purged_at?: string | null;
   delivery_type: "standard" | "cargo";
   cargo_window: string | null;
   scheduled_start_at: string;

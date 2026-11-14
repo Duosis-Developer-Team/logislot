@@ -23,6 +23,7 @@ import { Button, Card, Chip, ErrorState, Field, LoadingState } from "@/component
 import { DurationChips, DurationEstimateCard, withSuggested } from "@/components/duration";
 import { MinuteUsageCard, exceededUsage } from "@/components/minute-limits";
 import { OrderNumbersField } from "@/components/order-numbers";
+import { DriverIdField, driverIdError } from "@/components/driver-id";
 import { useTheme } from "@/theme/theme";
 import { spacing } from "@/theme/tokens";
 import { addDaysISO, dayLabel, timeInTz, todayISO } from "@/utils/format";
@@ -84,6 +85,7 @@ export default function NewAppointmentWizard() {
   const [vehicleOverrideId, setVehicleOverrideId] = useState<string | null>(null);
   const [plate, setPlate] = useState("");
   const [driver, setDriver] = useState("");
+  const [driverId, setDriverId] = useState("");
   const [cargoSelected, setIsCargo] = useState(false);
   const [cargoWindow, setCargoWindow] = useState<CargoWindow>("morning");
 
@@ -171,13 +173,14 @@ export default function NewAppointmentWizard() {
 
   // Tesisin form ayarı: sipariş no gizli / isteğe bağlı / zorunlu.
   const orderMode = catalog.data?.appointment_form.order_numbers ?? "hidden";
+  const driverIdMode = catalog.data?.appointment_form.driver_id_number ?? "hidden";
   const canNext =
     step === 0
       ? productName.trim().length > 0 &&
         category !== null &&
         (orderMode !== "required" || orderNumbers.length > 0)
       : step === 1
-        ? isCargo || plate.trim().length > 0
+        ? (isCargo || plate.trim().length > 0) && driverIdError(driverIdMode, driverId) === null
         : // Seçili saat GÜNCEL listede açık olmalı (miktar/araç değişince süre
           // ve slot listesi değişebilir).
           !limitExceeded &&
@@ -210,6 +213,7 @@ export default function NewAppointmentWizard() {
       vehicle_category_id: vehicleOverrideId,
       license_plate: plate || null,
       driver_name: driver || null,
+      driver_id_number: driverIdMode === "hidden" ? null : driverId.trim() || null,
       delivery_type: isCargo ? "cargo" : "standard",
       cargo_window: isCargo ? cargoWindow : null,
       target_date: date,
@@ -246,6 +250,7 @@ export default function NewAppointmentWizard() {
     setVehicleOverrideId(null);
     setPlate("");
     setDriver("");
+    setDriverId("");
     setIsCargo(false);
     setSelectedSlot(null);
     setSubmitError(null);
@@ -508,6 +513,7 @@ export default function NewAppointmentWizard() {
             </View>
             <Field label="Plaka" value={plate} onChangeText={setPlate} placeholder="34 ABC 123" autoCapitalize="characters" />
             <Field label="Sürücü" value={driver} onChangeText={setDriver} placeholder="Ad Soyad" />
+            <DriverIdField mode={driverIdMode} value={driverId} onChange={setDriverId} />
             <View style={{ gap: 8 }}>
               <Text style={{ color: colors.text, fontSize: 14, fontWeight: "500" }}>
                 Teslimat Tipi
