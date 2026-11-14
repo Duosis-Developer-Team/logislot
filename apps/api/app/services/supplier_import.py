@@ -345,6 +345,29 @@ def _parse_emails(text: str) -> list[str]:
     return seen
 
 
+def _split_categories(text: str, known: dict[str, Any]) -> list[str]:
+    """Hücreyi kategori adlarına böler; ADINDA VİRGÜL olan kategoriyi bölmez.
+
+    "Soğuk Zincir (Et, Donuk, Süt), Genel" düz virgülle bölününce "Soğuk Zincir (Et"
+    bilinmeyen kategori sayılırdı. Her parçadan başlayarak bilinen bir ada denk gelen
+    EN UZUN ardışık parça dizisi tek ad sayılır; denk gelmeyen parça kendi başına kalır
+    (bilinmeyen kategori olarak raporlanır).
+    """
+    spans = [(m.start(), m.end()) for m in re.finditer(r"[^,;\n\r\t]+", text)]
+    spans = [(a, b) for a, b in spans if text[a:b].strip()]
+    out: list[str] = []
+    i = 0
+    while i < len(spans):
+        best = i
+        for j in range(len(spans) - 1, i, -1):
+            if _fold(text[spans[i][0] : spans[j][1]]) in known:
+                best = j
+                break
+        out.append(text[spans[i][0] : spans[best][1]].strip())
+        i = best + 1
+    return out
+
+
 def _parse_minute_limit(text: str, dimension: str) -> dict[str, Any]:
     folded = _norm(text)
     if folded in _INHERIT:
@@ -461,10 +484,7 @@ def validate_rows(
             result.category_ids = []
         elif cats_raw:
             ids: list[uuid.UUID] = []
-            for part in _SPLIT.split(cats_raw):
-                part = part.strip()
-                if not part:
-                    continue
+            for part in _split_categories(cats_raw, by_name):
                 match = by_name.get(_fold(part))
                 if match is None:
                     errors.append(f"Bilinmeyen ürün kategorisi: {part}")

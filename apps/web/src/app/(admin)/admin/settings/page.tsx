@@ -61,7 +61,7 @@ export default function SettingsPage() {
     },
     {
       icon: Warehouse,
-      title: t.nav.admin.settings,
+      title: t.admin.docks.title,
       description: t.admin.settings.cards.docks,
       stat: count(dockList),
       href: "/admin/settings/docks",

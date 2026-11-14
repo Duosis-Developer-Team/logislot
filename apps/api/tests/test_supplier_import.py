@@ -221,3 +221,18 @@ async def test_file_level_errors_and_permissions(client, seeded):
     viewer = auth_headers(await login(client, "/auth/login", "izleyici@cakesbakes.com"))
     assert (await client.get(f"{base(seeded)}/template", headers=viewer)).status_code == 403
     assert DEMO_PASSWORD  # seed hesaplari kullanildi
+
+
+def test_category_names_with_commas_are_not_split():
+    from types import SimpleNamespace
+
+    from app.services.supplier_import import _fold, _split_categories
+
+    names = ["Soğuk Zincir (Et, Donuk, Süt)", "Genel", "Ambalaj Malzemesi"]
+    known = {_fold(n): SimpleNamespace(id=n) for n in names}
+    assert _split_categories("soğuk zincir (et, donuk, süt), Genel", known) == [
+        "soğuk zincir (et, donuk, süt)", "Genel",
+    ]
+    assert _split_categories("Genel; Yok Böyle, Ambalaj Malzemesi", known) == [
+        "Genel", "Yok Böyle", "Ambalaj Malzemesi",
+    ]
