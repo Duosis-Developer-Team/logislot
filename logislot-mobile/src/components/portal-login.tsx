@@ -212,6 +212,29 @@ export function PortalLoginScreen({ portal }: { portal: "supplier" | "admin" }) 
 
           <Button title="Giriş Yap" onPress={() => void handleSubmit()} loading={loading} />
 
+          {/* Self-servis hesap kurtarma (web ile parite). */}
+          <View
+            style={{ flexDirection: "row", justifyContent: "center", flexWrap: "wrap", gap: 12 }}
+          >
+            <Pressable
+              onPress={() => router.push({ pathname: "/forgot-password", params: { portal } })}
+              accessibilityRole="link"
+            >
+              <Text style={{ color: colors.accent, fontSize: 13, fontWeight: "600" }}>
+                Şifremi unuttum
+              </Text>
+            </Pressable>
+            <Text style={{ color: colors.faintText, fontSize: 13 }}>·</Text>
+            <Pressable
+              onPress={() => router.push({ pathname: "/forgot-username", params: { portal } })}
+              accessibilityRole="link"
+            >
+              <Text style={{ color: colors.accent, fontSize: 13, fontWeight: "600" }}>
+                Kullanıcı adımı unuttum
+              </Text>
+            </Pressable>
+          </View>
+
           {demo ? (
             <Text style={{ color: colors.faintText, fontSize: 12, textAlign: "center" }}>
               Demo hesap: {demo.email} / {demo.password}

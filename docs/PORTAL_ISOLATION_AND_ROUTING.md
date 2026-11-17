@@ -80,6 +80,17 @@ linki; platform'a verilmez).
 | platform | → `/login` | Platform girişi | `/supplier/*`, `/admin/*`, `/login/*` → `/login` |
 | all | Selector | → `/` | serbest (lokal) |
 
+**Self-servis hesap kurtarma** (`/forgot-password`, `/forgot-username`,
+`/reset-password`): supplier/admin modlarında portal moddan gelir; entry ve
+all modlarında `?portal=supplier|admin` ile servis edilir (portal URL'i
+tanımlı değilse e-posta bağlantıları public adrese düşer). **platform
+modunda → `/login`** — gizli portalda self-servis kurtarma yoktur; API de
+`portal` alanında yalnızca `supplier|admin` kabul eder. Ayrıntı:
+`apps/api/app/services/password_reset.py` (durumsuz, portal+parola-hash'e
+bağlı, 30 dk geçerli tek kullanımlık token). E-posta bağlantılarının tabanı
+API'de `LOGISLOT_SUPPLIER_PORTAL_URL` / `LOGISLOT_ADMIN_PORTAL_URL` (boşsa
+`LOGISLOT_PUBLIC_WEB_URL`).
+
 ## Login akışı ve rol çözümü
 
 1. Kullanıcı portal-specific login'de email/parola girer (portal switcher YOK).

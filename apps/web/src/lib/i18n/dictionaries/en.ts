@@ -2281,6 +2281,53 @@ export const en: Dictionary = {
     copyDemo: "Copy demo account",
   },
 
+  // Self-service "Forgot password" / "Forgot username" (separate section).
+  accountRecovery: {
+    /** Yönetim → E-posta Kayıtları satırındaki içerik açılır alanı. */
+    emailLogBody: "Show content",
+    forgotPasswordLink: "Forgot password?",
+    forgotUsernameLink: "Forgot username?",
+    backToLogin: "Back to sign in",
+    email: "Email",
+    sending: "Sending…",
+    failed: "Something went wrong — please try again.",
+    forgotPassword: {
+      title: "Forgot Password",
+      subtitle:
+        "Enter your account's email address and we'll send you a link to reset your password.",
+      submit: "Send reset link",
+      sentTitle: "Check your inbox",
+      sent: "If this address is registered, we've sent a password reset link. The link is valid for 30 minutes and can be used only once.",
+    },
+    forgotUsername: {
+      title: "Forgot Username",
+      supplierSubtitle:
+        "Enter one of your company's contact email addresses registered in LogiSlot and we'll send your portal usernames to that address.",
+      submit: "Send my usernames",
+      sentTitle: "Check your inbox",
+      sent: "If this address belongs to a registered supplier, we've sent your portal usernames to it.",
+      adminInfo:
+        "Your username is the email address you use to sign in to the Management Panel. If you don't remember it, please contact your facility's system administrator.",
+      adminForgotPasswordHint: "Forgot your password?",
+    },
+    resetPassword: {
+      title: "Set a New Password",
+      subtitle: "Choose a new password for your account.",
+      new: "New password",
+      confirm: "New password (repeat)",
+      policy: "At least 10 characters, including a letter, a number and a symbol.",
+      mismatch: "The new passwords don't match.",
+      submit: "Save password",
+      saving: "Saving…",
+      doneTitle: "Your password has been updated",
+      done: "You can now sign in with your new password. For your security, all open sessions have been signed out.",
+      goToLogin: "Sign in",
+      missingToken: "The link is missing or malformed. Please request a new reset link.",
+      invalidToken: "This password reset link is invalid or has expired. Please request a new one.",
+      requestNew: "Request a new link",
+    },
+  },
+
   legal: {
     kvkk: {
       metaTitle: "KVKK privacy notice — LogiSlot",

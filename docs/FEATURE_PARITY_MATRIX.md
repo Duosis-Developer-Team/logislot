@@ -69,6 +69,7 @@ _Son güncelleme: 2026-11-14 (müşteri toplantısı: iptal revizyonu + telafi r
 | Ticket yönlendirmesi (tenant → tek Hermes ekibi) | ✅ | ✅ | — | Kapsam dışı | Mobile ekran kodu mevcut ama erişilemez (platform login yolu yok) |
 | Platform denetim izleri | ✅ | ✅ | — | Kapsam dışı | |
 | **Ortak** |
+| Şifremi unuttum / kullanıcı adımı unuttum | ✅ | ✅ | ✅ | OK | Mobilde yalnızca istek akışları; e-postadaki sıfırlama bağlantısı web `/reset-password` sayfasını açar. Platform portalında YOK |
 | Light/dark/system tema | — | ✅ | ✅ | OK | Aynı navy/blue palet |
 | TR/EN dil seçimi (tema butonunun yanında) | — | ✅ | ❌ | Backlog | Web: `logislot.lang` cookie'si; sunucu ilk boyamada okur (dil sıçraması yok). Mobil bu turda bilinçli olarak Türkçe kaldı |
 | Çevrilmiş yüzeyler (landing, yasal, 3 portal) | — | ✅ | ❌ | Backlog | Nesne erişimli sözlük (`t.common.save`) — eksik anahtar DERLEMEDE hata verir; API hataları koda göre çevrilir |

@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.auth.password_reset import router as password_reset_router
 from app.auth.router import router as auth_router
 from app.core.config import get_settings
 from app.core.errors import register_error_handlers
@@ -87,6 +88,7 @@ def create_app() -> FastAPI:
 
     app.include_router(health_router)
     app.include_router(auth_router)
+    app.include_router(password_reset_router)
     app.include_router(me_router)
     app.include_router(platform_router)
     app.include_router(platform_ticketing_router)

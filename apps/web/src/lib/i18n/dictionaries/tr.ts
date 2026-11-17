@@ -2279,6 +2279,54 @@ export const tr = {
     copyDemo: "Demo hesabı kopyala",
   },
 
+  // Self-servis "Şifremi unuttum" / "Kullanıcı adımı unuttum" (ayrı bölüm).
+  accountRecovery: {
+    /** Yönetim → E-posta Kayıtları satırındaki içerik açılır alanı. */
+    emailLogBody: "İçeriği göster",
+    forgotPasswordLink: "Şifremi unuttum",
+    forgotUsernameLink: "Kullanıcı adımı unuttum",
+    backToLogin: "Girişe dön",
+    email: "E-posta",
+    sending: "Gönderiliyor…",
+    failed: "İşlem tamamlanamadı; lütfen tekrar deneyin.",
+    forgotPassword: {
+      title: "Şifremi Unuttum",
+      subtitle:
+        "Hesabınızın e-posta adresini girin; şifrenizi yenilemeniz için bir bağlantı gönderelim.",
+      submit: "Sıfırlama bağlantısı gönder",
+      sentTitle: "E-postanızı kontrol edin",
+      sent: "Bu adres kayıtlıysa şifre sıfırlama bağlantısını gönderdik. Bağlantı 30 dakika geçerlidir ve yalnızca bir kez kullanılabilir.",
+    },
+    forgotUsername: {
+      title: "Kullanıcı Adımı Unuttum",
+      supplierSubtitle:
+        "Firmanızın LogiSlot'a kayıtlı iletişim e-postalarından birini girin; portal kullanıcı adlarınızı o adrese gönderelim.",
+      submit: "Kullanıcı adlarımı gönder",
+      sentTitle: "E-postanızı kontrol edin",
+      sent: "Bu adres bir tedarikçi firmasına kayıtlıysa portal kullanıcı adlarınızı bu adrese gönderdik.",
+      adminInfo:
+        "Kullanıcı adınız, Yönetim Paneli'ne giriş yaptığınız e-posta adresinizdir. Hatırlamıyorsanız tesisinizin sistem yöneticisine başvurun.",
+      adminForgotPasswordHint: "Şifrenizi mi unuttunuz?",
+    },
+    resetPassword: {
+      title: "Yeni Şifre Belirle",
+      subtitle: "Hesabınız için yeni bir şifre belirleyin.",
+      new: "Yeni Şifre",
+      confirm: "Yeni Şifre (Tekrar)",
+      policy: "En az 10 karakter; harf, rakam ve özel karakter içermeli.",
+      mismatch: "Yeni şifreler birbiriyle uyuşmuyor.",
+      submit: "Şifreyi Kaydet",
+      saving: "Kaydediliyor…",
+      doneTitle: "Şifreniz güncellendi",
+      done: "Yeni şifrenizle giriş yapabilirsiniz. Güvenliğiniz için tüm açık oturumlarınız kapatıldı.",
+      goToLogin: "Giriş yap",
+      missingToken: "Bağlantı eksik veya hatalı. Lütfen yeni bir sıfırlama bağlantısı isteyin.",
+      invalidToken:
+        "Şifre sıfırlama bağlantısı geçersiz veya süresi dolmuş. Lütfen yeni bir bağlantı isteyin.",
+      requestNew: "Yeni bağlantı iste",
+    },
+  },
+
   legal: {
     kvkk: {
       metaTitle: "KVKK Aydınlatma Metni — LogiSlot",

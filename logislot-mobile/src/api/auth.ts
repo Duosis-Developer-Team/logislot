@@ -27,6 +27,21 @@ export const authApi = {
       method: "POST",
       body: { current_password: currentPassword, new_password: newPassword },
     }),
+  /**
+   * Self-servis hesap kurtarma (web ile aynı contract). Yanıt HER ZAMAN
+   * aynıdır — hesap var/yok bilgisi dönmez; bağlantı e-postayla gider ve
+   * web'deki /reset-password sayfasında tamamlanır. Platform YOK.
+   */
+  requestPasswordReset: (email: string, portal: "supplier" | "admin") =>
+    apiRequest<{ accepted: boolean; message: string }>("/auth/password-reset/request", {
+      method: "POST",
+      body: { email, portal },
+    }),
+  requestUsernameReminder: (email: string) =>
+    apiRequest<{ accepted: boolean; message: string }>("/auth/username-reminder/request", {
+      method: "POST",
+      body: { email },
+    }),
   me: () => apiRequest<MeDto>("/auth/me"),
   /** Sunucu tarafı oturum iptali (logout-everywhere). Best-effort. */
   logout: () => apiRequest<{ logged_out: boolean }>("/auth/logout", { method: "POST" }),

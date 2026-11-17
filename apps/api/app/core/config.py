@@ -16,6 +16,12 @@ class Settings(BaseSettings):
     cors_origins: list[str] = ["http://localhost:3000"]
     # Portal linki (e-posta sablonlarindaki yonlendirme adresi)
     public_web_url: str = "http://localhost:3010"
+    # Self-servis sifre sifirlama / kullanici adi e-postalarindaki portal
+    # taban adresleri (ornek: https://tedarikci.logislot.io). Bos ise
+    # public_web_url kullanilir; web bu sayfalari entry/"all" modunda da
+    # `?portal=` parametresiyle sunar.
+    supplier_portal_url: str = ""
+    admin_portal_url: str = ""
     # E-posta saglayicisi: log_only (varsayilan) | smtp
     email_provider: str = "log_only"
     smtp_host: str = ""
