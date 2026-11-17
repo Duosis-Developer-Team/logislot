@@ -41,7 +41,11 @@ from app.schemas.appointment import (
 )
 from app.schemas.catalog import ProductCategoryOut, SupplierOut, VehicleCategoryOut
 from app.services import appointments as svc
-from app.services.appointment_form import MAX_ORDER_NUMBERS, resolve_appointment_form
+from app.services.appointment_form import (
+    DESCRIPTION_MAX_LENGTH,
+    MAX_ORDER_NUMBERS,
+    resolve_appointment_form,
+)
 from app.services.appointments import allowed_delivery_types
 from app.services.cancellation_policy import (
     list_reasons,
@@ -182,6 +186,7 @@ async def catalog(
             # Islem suresini kim belirler (supplier / suggested / computed).
             "duration_policy": resolve_duration_policy(ctx.facility),
             "max_order_numbers": MAX_ORDER_NUMBERS,
+            "description_max_length": DESCRIPTION_MAX_LENGTH,
         }
     )
 
@@ -269,6 +274,7 @@ async def create_my_appointment(
             driver_phone=body.driver_phone,
             order_numbers=body.order_numbers,
             driver_id_number=body.driver_id_number,
+            description=body.description,
             duration_minutes=body.duration_minutes,
         )
         return ok(
@@ -298,6 +304,7 @@ async def create_my_appointment(
         driver_phone=body.driver_phone,
         order_numbers=body.order_numbers,
         driver_id_number=body.driver_id_number,
+        description=body.description,
         start_at=body.start_at,
         duration_minutes=body.duration_minutes,
         cargo_window=body.cargo_window,

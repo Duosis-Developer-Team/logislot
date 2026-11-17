@@ -103,6 +103,7 @@ export default function SupplierAppointmentDetail() {
           {a.order_numbers && a.order_numbers.length > 0 && (
             <Row label="Sipariş no" value={a.order_numbers.join(", ")} />
           )}
+          {a.description ? <Row label="Açıklama" value={a.description} /> : null}
           <Row
             label="Saat"
             value={`${timeInTz(a.scheduled_start_at, tz)}–${timeInTz(a.scheduled_end_at, tz)} (${a.duration_minutes} dk)`}

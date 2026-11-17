@@ -23,11 +23,17 @@ DEFAULT_APPOINTMENT_FORM: dict[str, str] = {
     "order_numbers": "hidden",
     # Surucu kimlik numarasi (guvenlik). Kisisel veri: bkz. services/driver_id.py.
     "driver_id_number": "hidden",
+    # Serbest metin aciklama (musteri karari 2026-11: ayni sevkiyatta birden
+    # fazla urun; "Urun Adi" yerine genel bir not). Urun adi aynen kalir.
+    "description": "hidden",
 }
 
 #: Bir randevudaki en fazla siparis numarasi ve tek numaranin uzunlugu.
 MAX_ORDER_NUMBERS = 20
 ORDER_NUMBER_MAX_LENGTH = 64
+
+#: Randevu aciklamasinin en fazla uzunlugu (kirpildiktan sonra).
+DESCRIPTION_MAX_LENGTH = 1000
 
 _SPLIT = re.compile(r"[,;\n\r\t]+")
 
@@ -88,3 +94,23 @@ def validate_order_numbers(facility: Any, values: list[str] | None) -> list[str]
     if mode == "required" and not numbers:
         raise ApiError("ORDER_NUMBER_REQUIRED", "En az bir siparis numarasi girilmelidir", 422)
     return numbers or None
+
+
+def validate_description(facility: Any, value: str | None) -> str | None:
+    """Tesis ayarina gore aciklamayi dogrular; kirpar, bos metni None yapar.
+
+    Gizli alanda gonderilen deger SAKLANMAZ (siparis numarasiyla ayni kural).
+    """
+    mode = resolve_appointment_form(facility)["description"]
+    if mode == "hidden":
+        return None
+    text = (value or "").strip()
+    if len(text) > DESCRIPTION_MAX_LENGTH:
+        raise ApiError(
+            "DESCRIPTION_TOO_LONG",
+            f"Aciklama en fazla {DESCRIPTION_MAX_LENGTH} karakter olabilir",
+            422,
+        )
+    if mode == "required" and not text:
+        raise ApiError("DESCRIPTION_REQUIRED", "Aciklama girilmelidir", 422)
+    return text or None

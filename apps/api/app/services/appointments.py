@@ -42,7 +42,11 @@ from app.models import (
 )
 from app.rules.availability import AvailabilityService
 from app.rules.context import HardRuleCode, HardRuleResult, RuleEvaluationContext
-from app.services.appointment_form import resolve_appointment_form, validate_order_numbers
+from app.services.appointment_form import (
+    resolve_appointment_form,
+    validate_description,
+    validate_order_numbers,
+)
 from app.services.audit import record_audit
 from app.services.cancellation_policy import (
     ensure_cancellation_notice,
@@ -238,6 +242,7 @@ async def create_appointment(
     driver_phone: str | None = None,
     order_numbers: list[str] | None = None,
     driver_id_number: str | None = None,
+    description: str | None = None,
     start_at: datetime | None = None,
     duration_minutes: int | None = None,
     cargo_window: CargoWindow | None = None,
@@ -269,6 +274,12 @@ async def create_appointment(
         validate_order_numbers(facility, order_numbers)
         if _enforce_form
         else (order_numbers or None)
+    )
+    # Aciklama: telafi kaynaginin aciklamasini aynen tasir (kurala takilmaz).
+    description = (
+        validate_description(facility, description)
+        if _enforce_form
+        else (description or None)
     )
     # Surucu kimligi: telafi gibi turetilmis randevulara TASINMAZ (farkli surucu
     # gelebilir; kisisel veri gereksiz cogaltilmaz).
@@ -417,6 +428,7 @@ async def create_appointment(
         driver_name=driver_name,
         driver_phone=driver_phone,
         order_numbers=order_numbers,
+        description=description,
         delivery_type=delivery_type,
         cargo_window=cargo_window,
         cargo_min_block_minutes=cargo_min_block,
@@ -1086,6 +1098,7 @@ async def supplier_cancel_appointment(
             driver_name=appointment.driver_name,
             driver_phone=appointment.driver_phone,
             order_numbers=appointment.order_numbers,
+            description=appointment.description,
             start_at=None if is_cargo else makeup.start_at,
             duration_minutes=appointment.duration_minutes,
             cargo_window=(makeup.cargo_window or appointment.cargo_window) if is_cargo else None,

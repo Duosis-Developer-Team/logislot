@@ -23,6 +23,11 @@ import { Button, Card, Chip, ErrorState, Field, LoadingState } from "@/component
 import { DurationChips, DurationEstimateCard, withSuggested } from "@/components/duration";
 import { MinuteUsageCard, exceededUsage } from "@/components/minute-limits";
 import { OrderNumbersField } from "@/components/order-numbers";
+import {
+  DescriptionField,
+  descriptionMissing,
+  descriptionPayload,
+} from "@/components/description";
 import { DriverIdField, driverIdError } from "@/components/driver-id";
 import { useTheme } from "@/theme/theme";
 import { spacing } from "@/theme/tokens";
@@ -77,6 +82,7 @@ export default function NewAppointmentWizard() {
   // Adım 1 — ürün
   const [productName, setProductName] = useState("");
   const [orderNumbers, setOrderNumbers] = useState<string[]>([]);
+  const [description, setDescription] = useState("");
   const [categoryId, setCategoryId] = useState("");
   const [quantity, setQuantity] = useState("1");
   const [unit, setUnit] = useState("pallet");
@@ -174,11 +180,13 @@ export default function NewAppointmentWizard() {
   // Tesisin form ayarı: sipariş no gizli / isteğe bağlı / zorunlu.
   const orderMode = catalog.data?.appointment_form.order_numbers ?? "hidden";
   const driverIdMode = catalog.data?.appointment_form.driver_id_number ?? "hidden";
+  const descriptionMode = catalog.data?.appointment_form.description ?? "hidden";
   const canNext =
     step === 0
       ? productName.trim().length > 0 &&
         category !== null &&
-        (orderMode !== "required" || orderNumbers.length > 0)
+        (orderMode !== "required" || orderNumbers.length > 0) &&
+        !descriptionMissing(descriptionMode, description)
       : step === 1
         ? (isCargo || plate.trim().length > 0) && driverIdError(driverIdMode, driverId) === null
         : // Seçili saat GÜNCEL listede açık olmalı (miktar/araç değişince süre
@@ -208,6 +216,7 @@ export default function NewAppointmentWizard() {
       product_category_id: categoryId,
       product_name: productName,
       order_numbers: orderMode === "hidden" ? [] : orderNumbers,
+      description: descriptionPayload(descriptionMode, description),
       quantity: qty,
       quantity_unit: unit,
       vehicle_category_id: vehicleOverrideId,
@@ -437,6 +446,12 @@ export default function NewAppointmentWizard() {
               value={productName}
               onChangeText={setProductName}
               placeholder="Örn. Buğday Unu Tip 650"
+            />
+            <DescriptionField
+              mode={descriptionMode}
+              value={description}
+              onChange={setDescription}
+              maxLength={catalog.data?.description_max_length}
             />
             <OrderNumbersField
               mode={orderMode}
@@ -736,6 +751,9 @@ export default function NewAppointmentWizard() {
                 Talep Özeti
               </Text>
               <SummaryRow label="Ürün" value={productName || "—"} />
+              {descriptionMode !== "hidden" && description.trim().length > 0 && (
+                <SummaryRow label="Açıklama" value={description.trim()} />
+              )}
               {orderMode !== "hidden" && orderNumbers.length > 0 && (
                 <SummaryRow label="Sipariş no" value={orderNumbers.join(", ")} />
               )}

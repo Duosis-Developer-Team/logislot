@@ -46,6 +46,7 @@ class AppointmentOut(BaseModel):
     driver_name: str | None = None
     driver_phone: str | None = None
     order_numbers: list[str] = []
+    description: str | None = None
     # Surucu kimligi YALNIZCA maskeli (son 4 hane). Acik deger ayri, izinli ve
     # denetlenen bir uctan alinir; sifreli deger/ozet ASLA serilestirilmez.
     driver_id_type: str | None = None
@@ -122,6 +123,9 @@ class SupplierAppointmentCreate(BaseModel):
     # Surucu kimlik no (TCKN/pasaport); gorunurlugu tesis formu ayari belirler.
     # Sifreli saklanir, yanitta yalnizca maskeli doner.
     driver_id_number: str | None = Field(default=None, max_length=32)
+    # Serbest metin aciklama; gorunurlugu tesis formu ayari belirler. Uzunluk
+    # (1000) kirpildiktan sonra serviste kontrol edilir; burasi yalnizca tavan.
+    description: str | None = Field(default=None, max_length=4000)
     delivery_type: DeliveryType = DeliveryType.standard
     # Adim 3 — zaman (standart: start_at zorunlu; kargo: cargo_window zorunlu)
     target_date: date

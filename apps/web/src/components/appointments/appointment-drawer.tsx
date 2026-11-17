@@ -284,6 +284,12 @@ export function AppointmentDrawer({
                 <dd className="break-words font-mono text-xs">{a.order_numbers.join(", ")}</dd>
               </>
             )}
+            {a.description && (
+              <>
+                <dt className="text-muted-foreground">{t.appointmentDescription.label}</dt>
+                <dd className="whitespace-pre-line break-words">{a.description}</dd>
+              </>
+            )}
             <dt className="text-muted-foreground">{t.appointmentDrawer.time}</dt>
             <dd>
               {timeInTz(a.scheduled_start_at, tz)}–{timeInTz(a.scheduled_end_at, tz)} (

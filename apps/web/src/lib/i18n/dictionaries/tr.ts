@@ -871,6 +871,9 @@ export const tr = {
       retentionOption: (days: number) => `${days} gün`,
       driverIdPrivacy:
         "Numarayı açık görmek için 'Sürücü kimlik numarasını görüntüle' izni gerekir ve her görüntüleme denetim kaydına yazılır. Süre dolunca numara kalıcı olarak silinir. Raporlara, e-postalara ve bildirimlere eklenmez.",
+      descriptionField: "Açıklama",
+      descriptionHint: (max: number) =>
+        `Sevkiyat için serbest metin (ör. aynı sevkiyattaki birden fazla ürün). En fazla ${max} karakter. Ürün adı alanı aynen kalır.`,
       loadError: "Randevu formu ayarları yüklenemedi.",
       saveFailed: "Randevu formu ayarları kaydedilemedi.",
     },
@@ -1142,6 +1145,7 @@ export const tr = {
         time: "Saat",
         supplier: "Tedarikçi",
         product: "Ürün",
+        description: "Açıklama",
         orderNumbers: "Sipariş no",
         quantity: "Miktar",
         unit: "Birim",
@@ -2507,6 +2511,14 @@ export const tr = {
     limitReached: (max: number) => `En fazla ${max} sipariş numarası eklenebilir`,
     remove: (value: string) => `${value} numarasını kaldır`,
     requiredError: "En az bir sipariş numarası girin.",
+  },
+
+  appointmentDescription: {
+    label: "Açıklama",
+    required: "zorunlu",
+    optional: "isteğe bağlı",
+    placeholder: "Sevkiyattaki ürünler, notlar…",
+    requiredError: "Açıklama girin.",
   },
 
   makeup: {

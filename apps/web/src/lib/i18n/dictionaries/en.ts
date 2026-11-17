@@ -873,6 +873,9 @@ export const en: Dictionary = {
       retentionOption: (days: number) => `${days} days`,
       driverIdPrivacy:
         "Viewing the full number requires the 'View driver ID number' permission and every view is written to the audit log. When the period ends the number is permanently deleted. It is never included in reports, emails or notifications.",
+      descriptionField: "Description",
+      descriptionHint: (max: number) =>
+        `Free text for the shipment (e.g. several products in the same delivery). Up to ${max} characters. The product name field stays as it is.`,
       loadError: "We couldn't load the appointment form settings.",
       saveFailed: "We couldn't save the appointment form settings.",
     },
@@ -1144,6 +1147,7 @@ export const en: Dictionary = {
         time: "Time",
         supplier: "Supplier",
         product: "Goods",
+        description: "Description",
         orderNumbers: "Order no.",
         quantity: "Quantity",
         unit: "Unit",
@@ -2510,6 +2514,14 @@ export const en: Dictionary = {
     limitReached: (max: number) => `You can add up to ${max} order numbers`,
     remove: (value: string) => `Remove ${value}`,
     requiredError: "Enter at least one order number.",
+  },
+
+  appointmentDescription: {
+    label: "Description",
+    required: "required",
+    optional: "optional",
+    placeholder: "Products in this shipment, notes…",
+    requiredError: "Enter a description.",
   },
 
   makeup: {

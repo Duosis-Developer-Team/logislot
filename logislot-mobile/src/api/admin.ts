@@ -455,6 +455,7 @@ export function useSaveCancellationReasons(facilityId: string | null) {
 export interface AppointmentFormResponse extends AppointmentFormDto {
   is_customized: boolean;
   max_order_numbers: number;
+  description_max_length?: number;
   driver_id_retention_days: number;
   driver_id_retention_choices: number[];
 }

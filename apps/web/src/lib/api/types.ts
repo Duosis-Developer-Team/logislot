@@ -186,6 +186,8 @@ export interface AppointmentFormDto {
   order_numbers: FormFieldMode;
   /** Surucu kimlik no (TCKN/pasaport) — guvenlik; kisisel veri. */
   driver_id_number: FormFieldMode;
+  /** Serbest metin aciklama (ayni sevkiyatta birden fazla urun). */
+  description: FormFieldMode;
 }
 
 /** Tesisin tedarikci iptal kurali (yonetim belirler; sunucu da zorlar). */
@@ -242,6 +244,7 @@ export interface SupplierCatalogDto {
   /** Islem suresini kim belirler. */
   duration_policy: { mode: DurationMode; rounding_minutes: number };
   max_order_numbers: number;
+  description_max_length?: number;
   cargo_default_min_block_minutes: number;
   quantity_units: { value: string; label: string }[];
 }
@@ -260,6 +263,8 @@ export interface AppointmentDto {
   driver_phone: string | null;
   /** Siparis numaralari (tesis formu ayarina gore zorunlu olabilir). */
   order_numbers?: string[];
+  /** Serbest metin aciklama (tesis formu ayarina gore). */
+  description?: string | null;
   /** Surucu kimligi YALNIZCA maskeli (son 4 hane); acik deger ayri uctan. */
   driver_id_masked?: string | null;
   driver_id_type?: "tckn" | "passport" | null;

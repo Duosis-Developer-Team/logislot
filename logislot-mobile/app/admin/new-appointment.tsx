@@ -39,6 +39,11 @@ import {
 import { DurationChips, withSuggested } from "@/components/duration";
 import { MinuteUsageCard, exceededUsage } from "@/components/minute-limits";
 import { OrderNumbersField } from "@/components/order-numbers";
+import {
+  DescriptionField,
+  descriptionMissing,
+  descriptionPayload,
+} from "@/components/description";
 import { DriverIdField, driverIdError, driverIdErrorText } from "@/components/driver-id";
 import { useTheme } from "@/theme/theme";
 import { spacing } from "@/theme/tokens";
@@ -65,6 +70,8 @@ export default function AdminNewAppointment() {
   const form = useAppointmentForm(session.activeFacilityId);
   const orderMode = form.data?.order_numbers ?? "hidden";
   const driverIdMode = form.data?.driver_id_number ?? "hidden";
+  const descriptionMode = form.data?.description ?? "hidden";
+  const [description, setDescription] = useState("");
   const [quantity, setQuantity] = useState("1");
   const [unit, setUnit] = useState("pallet");
   const [vehicleOverrideId, setVehicleOverrideId] = useState<string | null>(null);
@@ -196,6 +203,10 @@ export default function AdminNewAppointment() {
       setFormError("En az bir sipariş numarası girin.");
       return;
     }
+    if (descriptionMissing(descriptionMode, description)) {
+      setFormError("Açıklama girin.");
+      return;
+    }
     const idError = driverIdError(driverIdMode, driverId);
     if (idError) {
       setFormError(driverIdErrorText(idError));
@@ -215,6 +226,7 @@ export default function AdminNewAppointment() {
         product_category_id: category.id,
         product_name: productName,
         order_numbers: orderMode === "hidden" ? [] : orderNumbers,
+        description: descriptionPayload(descriptionMode, description),
         quantity: qty,
         quantity_unit: unit,
         vehicle_category_id: vehicleOverrideId,
@@ -301,6 +313,12 @@ export default function AdminNewAppointment() {
               value={productName}
               onChangeText={setProductName}
               placeholder="Örn. Acil teslimat"
+            />
+            <DescriptionField
+              mode={descriptionMode}
+              value={description}
+              onChange={setDescription}
+              maxLength={form.data?.description_max_length}
             />
             <OrderNumbersField
               mode={orderMode}

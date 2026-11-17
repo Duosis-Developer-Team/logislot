@@ -134,6 +134,11 @@ export function AppointmentCard({
               Sipariş: {a.order_numbers.join(", ")}
             </Text>
           )}
+          {a.description ? (
+            <Text numberOfLines={1} style={{ color: colors.faintText, fontSize: 12 }}>
+              {a.description}
+            </Text>
+          ) : null}
         </View>
         <StatusBadge status={a.status} />
       </View>

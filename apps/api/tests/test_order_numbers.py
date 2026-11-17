@@ -75,7 +75,11 @@ async def test_default_is_hidden_and_values_are_not_stored(client, seeded):
 
     token = await supplier(client)
     catalog = (await client.get("/supplier/catalog", headers=token)).json()["data"]
-    assert catalog["appointment_form"] == {"order_numbers": "hidden", "driver_id_number": "hidden"}
+    assert catalog["appointment_form"] == {
+        "order_numbers": "hidden",
+        "driver_id_number": "hidden",
+        "description": "hidden",
+    }
     assert catalog["max_order_numbers"] == MAX_ORDER_NUMBERS
 
     response = await client.post(

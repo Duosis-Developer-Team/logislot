@@ -48,7 +48,11 @@ from app.schemas.appointment import (
     SlotOut,
 )
 from app.services import appointments as svc
-from app.services.appointment_form import MAX_ORDER_NUMBERS, resolve_appointment_form
+from app.services.appointment_form import (
+    DESCRIPTION_MAX_LENGTH,
+    MAX_ORDER_NUMBERS,
+    resolve_appointment_form,
+)
 from app.services.appointments import build_rule_context
 from app.services.driver_id import (
     RETENTION_CHOICES,
@@ -553,6 +557,7 @@ async def create_appointment(
         driver_phone=body.driver_phone,
         order_numbers=body.order_numbers,
         driver_id_number=body.driver_id_number,
+        description=body.description,
         duration_minutes=body.duration_minutes,
         allowed_dock_ids=ctx.assigned_dock_ids,
         approved_override=True,
@@ -1326,6 +1331,7 @@ async def calendar_week(
 class AppointmentFormPatch(BaseModel):
     order_numbers: Literal["hidden", "optional", "required"] | None = None
     driver_id_number: Literal["hidden", "optional", "required"] | None = None
+    description: Literal["hidden", "optional", "required"] | None = None
     driver_id_retention_days: Literal[7, 30, 90, 180, 365] | None = None
 
 
@@ -1334,6 +1340,7 @@ def _appointment_form_out(facility: Facility) -> dict:
         **resolve_appointment_form(facility),
         "is_customized": bool(facility.appointment_form_json),
         "max_order_numbers": MAX_ORDER_NUMBERS,
+        "description_max_length": DESCRIPTION_MAX_LENGTH,
         "driver_id_retention_days": resolve_retention_days(facility),
         "driver_id_retention_choices": list(RETENTION_CHOICES),
     }

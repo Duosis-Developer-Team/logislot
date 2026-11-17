@@ -76,6 +76,7 @@ export default function AppointmentFormPage() {
       ? {
           order_numbers: form.data.order_numbers,
           driver_id_number: form.data.driver_id_number,
+          description: form.data.description,
           driver_id_retention_days: form.data.driver_id_retention_days,
         }
       : null);
@@ -132,6 +133,20 @@ export default function AppointmentFormPage() {
                   label={copy.orderNumbers}
                   value={draft.order_numbers}
                   onChange={(mode) => update({ order_numbers: mode })}
+                />
+              </div>
+
+              <div className="flex flex-col gap-3 rounded-lg border border-border p-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="min-w-0">
+                  <div className="text-sm font-medium">{copy.descriptionField}</div>
+                  <p className="text-xs text-muted-foreground">
+                    {copy.descriptionHint(form.data?.description_max_length ?? 1000)}
+                  </p>
+                </div>
+                <ModeSwitch
+                  label={copy.descriptionField}
+                  value={draft.description}
+                  onChange={(mode) => update({ description: mode })}
                 />
               </div>
 

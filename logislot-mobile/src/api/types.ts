@@ -177,6 +177,7 @@ export interface SupplierCatalogDto {
   /** Tesisin randevu formu: hangi alan gizli/isteğe bağlı/zorunlu. */
   appointment_form: AppointmentFormDto;
   max_order_numbers: number;
+  description_max_length?: number;
   /** Tesisin işlem süresi politikası (tedarikçi seçer / sistem önerir / hesaplar). */
   duration_policy?: { mode: DurationMode; rounding_minutes: number };
 }
@@ -262,6 +263,8 @@ export interface AppointmentFormDto {
   order_numbers: FormFieldMode;
   /** Sürücü kimlik no (TCKN/pasaport) — güvenlik; kişisel veri. */
   driver_id_number: FormFieldMode;
+  /** Serbest metin açıklama (aynı sevkiyatta birden fazla ürün). */
+  description: FormFieldMode;
 }
 
 export interface AllowedActions {
@@ -293,6 +296,8 @@ export interface AppointmentDto {
   driver_phone: string | null;
   /** Sipariş numaraları (tesis formu ayarına göre zorunlu olabilir). */
   order_numbers?: string[];
+  /** Serbest metin açıklama (tesis formu ayarına göre). */
+  description?: string | null;
   /** Sürücü kimliği YALNIZCA maskeli; açık değer ayrı, izinli uçtan. */
   driver_id_masked?: string | null;
   driver_id_type?: "tckn" | "passport" | null;

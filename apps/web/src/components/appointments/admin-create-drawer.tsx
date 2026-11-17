@@ -19,6 +19,11 @@ import {
   resolveDurationRange,
 } from "@logislot/shared";
 import { ErrorState, LoadingState } from "@/components/config/states";
+import {
+  DescriptionField,
+  descriptionMissing,
+  descriptionPayload,
+} from "@/components/domain/description-input";
 import { OrderNumbersInput } from "@/components/domain/order-numbers-input";
 import { Button } from "@/components/ui/button";
 import { Drawer } from "@/components/ui/drawer";
@@ -76,12 +81,14 @@ export function AdminCreateDrawer({ open, onClose, onSuccess, initial }: AdminCr
   const form = useAppointmentForm(activeFacilityId);
   const orderMode = form.data?.order_numbers ?? "hidden";
   const driverIdMode = form.data?.driver_id_number ?? "hidden";
+  const descriptionMode = form.data?.description ?? "hidden";
   const tz = activeFacility?.timezone ?? "Europe/Istanbul";
 
   const [supplierId, setSupplierId] = useState("");
   const [categoryId, setCategoryId] = useState("");
   const [productName, setProductName] = useState("");
   const [orderNumbers, setOrderNumbers] = useState<string[]>([]);
+  const [description, setDescription] = useState("");
   const [quantity, setQuantity] = useState(1);
   const [unit, setUnit] = useState("pallet");
   const [vehicleOverrideId, setVehicleOverrideId] = useState<string | null>(null);
@@ -251,6 +258,7 @@ export function AdminCreateDrawer({ open, onClose, onSuccess, initial }: AdminCr
     setCategoryId("");
     setProductName("");
     setOrderNumbers([]);
+    setDescription("");
     setQuantity(1);
     setVehicleOverrideId(null);
     setPlate("");
@@ -277,6 +285,10 @@ export function AdminCreateDrawer({ open, onClose, onSuccess, initial }: AdminCr
       setFormError(t.orderNumbers.requiredError);
       return;
     }
+    if (descriptionMissing(descriptionMode, description)) {
+      setFormError(t.appointmentDescription.requiredError);
+      return;
+    }
     const idError = driverIdError(driverIdMode, driverId);
     if (idError) {
       setFormError(
@@ -298,6 +310,7 @@ export function AdminCreateDrawer({ open, onClose, onSuccess, initial }: AdminCr
         product_category_id: category.id,
         product_name: productName,
         order_numbers: orderMode === "hidden" ? [] : orderNumbers,
+        description: descriptionPayload(descriptionMode, description),
         quantity,
         quantity_unit: unit,
         vehicle_category_id: vehicleOverrideId,
@@ -390,6 +403,14 @@ export function AdminCreateDrawer({ open, onClose, onSuccess, initial }: AdminCr
                   />
                 </div>
               </div>
+
+              <DescriptionField
+                id="admin-appointment-description"
+                mode={descriptionMode}
+                value={description}
+                onChange={setDescription}
+                maxLength={form.data?.description_max_length}
+              />
 
               {orderMode !== "hidden" && (
                 <div>

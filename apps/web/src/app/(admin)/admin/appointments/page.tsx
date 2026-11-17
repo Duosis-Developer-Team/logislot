@@ -155,6 +155,7 @@ function AppointmentsListContent() {
           [
             a.supplier_name ?? "",
             a.product_name,
+            a.description ?? "",
             a.license_plate ?? "",
             ...(a.order_numbers ?? []),
           ]
@@ -186,6 +187,7 @@ function AppointmentsListContent() {
         t.admin.appointments.csv.time,
         t.admin.appointments.csv.supplier,
         t.admin.appointments.csv.product,
+        t.admin.appointments.csv.description,
         t.admin.appointments.csv.orderNumbers,
         t.admin.appointments.csv.quantity,
         t.admin.appointments.csv.unit,
@@ -203,6 +205,7 @@ function AppointmentsListContent() {
           start.toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" }),
           a.supplier_name ?? "",
           a.product_name,
+          a.description ?? "",
           (a.order_numbers ?? []).join(", "),
           a.quantity,
           labels.quantityUnit[a.quantity_unit as QuantityUnit] ?? a.quantity_unit,
@@ -388,6 +391,14 @@ function AppointmentsListContent() {
                         value={a.order_numbers}
                         className="block text-[11px] text-muted-foreground"
                       />
+                      {a.description && (
+                        <span
+                          className="block max-w-xs truncate text-[11px] text-muted-foreground"
+                          title={a.description}
+                        >
+                          {a.description}
+                        </span>
+                      )}
                     </span>
                     {a.delivery_type === "cargo" && (
                       <CargoBadge window={a.cargo_window as never} />

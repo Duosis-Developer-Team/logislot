@@ -552,8 +552,8 @@ async def reports_appointments_csv(
 
     rows: list[list] = [
         [
-            "tarih", "saat", "tedarikci", "urun", "siparis_no", "kategori", "rampa",
-            "durum", "teslimat_tipi", "sure_dk", "telafi", "iptal_sebebi",
+            "tarih", "saat", "tedarikci", "urun", "aciklama", "siparis_no", "kategori",
+            "rampa", "durum", "teslimat_tipi", "sure_dk", "telafi", "iptal_sebebi",
             "olusturulma", "onaylanma",
         ]
     ]
@@ -565,6 +565,7 @@ async def reports_appointments_csv(
                 start_local.strftime("%H:%M"),
                 maps["suppliers"].get(a.supplier_id, ""),
                 a.product_name,
+                a.description or "",
                 ", ".join(a.order_numbers or []),
                 maps["categories"].get(a.product_category_id, ""),
                 maps["docks"].get(a.dock_id, ""),

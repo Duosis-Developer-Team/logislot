@@ -39,6 +39,7 @@ export default function AdminAppointmentForm() {
       ? {
           order_numbers: form.data.order_numbers,
           driver_id_number: form.data.driver_id_number,
+          description: form.data.description,
           driver_id_retention_days: form.data.driver_id_retention_days,
         }
       : null);
@@ -97,6 +98,28 @@ export default function AdminAppointmentForm() {
                       onPress={() => {
                         setSaved(false);
                         setDraft({ ...draft, order_numbers: mode.value });
+                      }}
+                    />
+                  ))}
+                </View>
+              </Card>
+              <Card style={{ gap: spacing.sm }}>
+                <Text style={{ color: colors.text, fontSize: 15, fontWeight: "600" }}>
+                  Açıklama
+                </Text>
+                <Text style={{ color: colors.faintText, fontSize: 12 }}>
+                  Sevkiyat için serbest metin (ör. aynı sevkiyattaki birden fazla ürün). En fazla{" "}
+                  {form.data?.description_max_length ?? 1000} karakter. Ürün adı alanı aynen kalır.
+                </Text>
+                <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
+                  {MODES.map((mode) => (
+                    <Chip
+                      key={mode.value}
+                      label={mode.label}
+                      selected={draft.description === mode.value}
+                      onPress={() => {
+                        setSaved(false);
+                        setDraft({ ...draft, description: mode.value });
                       }}
                     />
                   ))}

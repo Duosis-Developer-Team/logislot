@@ -57,7 +57,7 @@ def test_tenant_head_is_ticket_revision():
     # Sabitlenmis head: yeni bir tenant migration'i eklendiginde bu satirin
     # DEGISMESI gerekir. Amaci, tenant zincirine sessizce revizyon eklenmesini
     # engellemek — tasinmis ve tasinmamis tenant'lar ayri zincirlerden gecer.
-    assert tenant_head_revision() == "0012_driver_id_number"
+    assert tenant_head_revision() == "0013_appt_description"
 
 
 def test_revision_ids_fit_the_alembic_version_column():

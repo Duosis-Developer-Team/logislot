@@ -239,6 +239,11 @@ export default function SupplierAppointmentsPage() {
                     value={a.order_numbers}
                     className="block break-words text-xs text-muted-foreground"
                   />
+                  {a.description && (
+                    <p className="whitespace-pre-line break-words text-xs text-muted-foreground">
+                      {a.description}
+                    </p>
+                  )}
                 </div>
                 <StatusBadge status={a.status as never} className="shrink-0" />
               </div>

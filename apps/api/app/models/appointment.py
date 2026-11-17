@@ -105,6 +105,9 @@ class Appointment(Base, UUIDPkMixin, TimestampMixin, FacilityScopedMixin):
     # olabilir). Zorunlulugu tesisin randevu formu ayari belirler
     # (facilities.appointment_form_json). Sira korunur; bos liste = yok.
     order_numbers: Mapped[list[str] | None] = mapped_column(JsonVariant)
+    # Serbest metin aciklama (musteri karari 2026-11: ayni sevkiyatta birden
+    # fazla urun). Gorunurlugu/zorunlulugu randevu formu ayari belirler.
+    description: Mapped[str | None] = mapped_column(sa.Text)
     # Surucu kimlik numarasi (guvenlik; musteri karari 2026-11). KISISEL VERI:
     # duz metin YOK — AES-GCM sifreli deger + arama ozeti (HMAC) + maskeleme
     # icin son 4 hane. Saklama suresi dolunca silinir (purged_at isaretlenir).
