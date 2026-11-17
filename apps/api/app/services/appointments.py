@@ -58,6 +58,11 @@ from app.services.cancellation_policy import (
 from app.services.driver_id import apply_driver_id, validate_driver_id
 from app.services.duration_rules import estimate_duration, resolve_duration_policy
 from app.services.notifications import on_appointment_created, on_lifecycle_action
+from app.services.recurrence import (
+    RecurrenceError,
+    describe_rule_tr,
+    generate_occurrence_dates,
+)
 from app.services.supplier_limits import minute_usage
 
 
@@ -1159,6 +1164,39 @@ _FREQUENCY_RULES = {
 }
 
 
+def normalize_recurrence(recurrence: dict, start: date) -> dict:
+    """Desen varsayilanlarini baslangic tarihinden doldurur; saklanan kural
+    boylece aciktir (ozet metni ve tekrar uretimi icin)."""
+    rule = dict(recurrence)
+    rule["interval"] = max(1, int(rule.get("interval") or 1))
+    if rule["type"] == "weekly" and not rule.get("weekdays"):
+        rule["weekdays"] = [start.weekday()]
+    if rule["type"] == "monthly":
+        if rule.get("monthly_mode") == "nth_weekday":
+            if rule.get("weekday") is None:
+                rule["weekday"] = start.weekday()
+            if rule.get("week_of_month") is None:
+                rule["week_of_month"] = min((start.day - 1) // 7 + 1, 4)
+        else:
+            rule["monthly_mode"] = "day_of_month"
+            if not rule.get("day_of_month"):
+                rule["day_of_month"] = start.day
+    if isinstance(rule.get("until"), date):
+        rule["until"] = rule["until"].isoformat()
+    return rule
+
+
+def _rule_to_legacy(rule: dict) -> RecurringRule | None:
+    """Appointment.recurring_rule (eski enum) icin en yakin karsilik; yoksa None."""
+    if rule["type"] == "weekly" and rule["interval"] == 1 and len(rule["weekdays"]) == 1:
+        return RecurringRule.weekly
+    if rule["type"] == "weekly" and rule["interval"] == 2 and len(rule["weekdays"]) == 1:
+        return RecurringRule.biweekly
+    if rule["type"] == "monthly" and rule["interval"] == 1:
+        return RecurringRule.monthly
+    return None
+
+
 def _occurrence_start(start_at: datetime, frequency: str, index: int) -> datetime:
     if frequency == "weekly":
         return start_at + timedelta(days=7 * index)
@@ -1175,9 +1213,10 @@ async def create_appointment_series(
     actor_type: ActorType,
     actor_id: uuid.UUID | None,
     created_by_type: CreatedByType,
-    frequency: str,
-    occurrence_count: int,
+    frequency: str | None,
+    occurrence_count: int | None,
     start_at: datetime,
+    recurrence: dict | None = None,
     _audit_action: str = "appointment_series.create",
     **base_kwargs,
 ) -> tuple[AppointmentSeries, list[Appointment]]:
@@ -1203,8 +1242,41 @@ async def create_appointment_series(
             "VALIDATION_ERROR", "Tekrarlayan seri icin baslangic saati zorunlu", 422
         )
 
-    await acquire_facility_lock(db, facility.id)
     tz = ZoneInfo(facility.timezone)
+    rule_description: str | None = None
+    metadata: dict | None = None
+    if recurrence is not None:
+        # Outlook tarzi desen: tarihler saf fonksiyondan; saat yerel duvar saati.
+        local_start = to_utc(start_at).astimezone(tz)
+        rule = normalize_recurrence(recurrence, local_start.date())
+        try:
+            dates = generate_occurrence_dates(local_start.date(), rule)
+        except RecurrenceError as exc:
+            raise ApiError(exc.code, exc.message, 422) from exc
+        if len(dates) < 2:
+            raise ApiError(
+                "RECURRENCE_TOO_FEW", "Tekrarlayan seri en az 2 randevu içermeli", 422
+            )
+        starts = [
+            datetime.combine(d, local_start.timetz().replace(tzinfo=None), tzinfo=tz).astimezone(
+                UTC
+            )
+            for d in dates
+        ]
+        frequency = rule["type"]
+        occurrence_count = len(starts)
+        rule_description = describe_rule_tr(rule)
+        metadata = {"recurrence": rule, "description": rule_description}
+        occurrence_rule = _rule_to_legacy(rule)
+    else:
+        assert frequency is not None and occurrence_count is not None
+        starts = [
+            _occurrence_start(to_utc(start_at), frequency, index)
+            for index in range(occurrence_count)
+        ]
+        occurrence_rule = _FREQUENCY_RULES[frequency]
+
+    await acquire_facility_lock(db, facility.id)
 
     series = AppointmentSeries(
         tenant_id=facility.tenant_id,
@@ -1213,13 +1285,13 @@ async def create_appointment_series(
         recurrence_frequency=frequency,
         occurrence_count=occurrence_count,
         created_by_id=actor_id,
+        metadata_json=metadata,
     )
     db.add(series)
     await db.flush()
 
     appointments: list[Appointment] = []
-    for index in range(occurrence_count):
-        occurrence_start = _occurrence_start(to_utc(start_at), frequency, index)
+    for index, occurrence_start in enumerate(starts):
         try:
             appointment = await create_appointment(
                 db,
@@ -1230,7 +1302,7 @@ async def create_appointment_series(
                 created_by_type=created_by_type,
                 start_at=occurrence_start,
                 target_date=occurrence_start.astimezone(tz).date(),
-                recurring_rule=_FREQUENCY_RULES[frequency],
+                recurring_rule=occurrence_rule,
                 series_id=series.id,
                 occurrence_index=index + 1,
                 _commit=False,
@@ -1260,14 +1332,25 @@ async def create_appointment_series(
     first = appointments[0]
     auto_approved = first.status == AppointmentStatus.approved
     frequency_labels = {"weekly": "haftalık", "biweekly": "2 haftada bir", "monthly": "aylık"}
+    if rule_description is not None:
+        admin_body = (
+            f"{supplier.company_name}, {occurrence_count} randevuluk seri oluşturdu "
+            f"({rule_description})"
+        )
+        supplier_body = f"Tekrarlayan seri oluşturuldu: {rule_description}."
+    else:
+        admin_body = (
+            f"{supplier.company_name}, {occurrence_count} randevuluk "
+            f"{frequency_labels[frequency]} seri oluşturdu"
+        )
+        supplier_body = f"{frequency_labels[frequency].capitalize()} tekrarlayan seri oluşturuldu."
     await notify_admins(
         db, first,
         type_="appointment_created",
         severity="info" if auto_approved else "warning",
         title="Tekrarlayan randevu serisi",
         body=(
-            f"{supplier.company_name}, {occurrence_count} randevuluk "
-            f"{frequency_labels[frequency]} seri oluşturdu"
+            admin_body
             + (" (otomatik onaylandı)." if auto_approved else " — onay bekliyor.")
         ),
         extra={"series_id": str(series.id)},
@@ -1281,7 +1364,7 @@ async def create_appointment_series(
             if auto_approved
             else f"{occurrence_count} randevu talebiniz alındı"
         ),
-        body=f"{frequency_labels[frequency].capitalize()} tekrarlayan seri oluşturuldu.",
+        body=supplier_body,
         extra={"series_id": str(series.id)},
     )
     record_audit(
@@ -1297,6 +1380,7 @@ async def create_appointment_series(
             "frequency": frequency,
             "occurrence_count": occurrence_count,
             "supplier_id": str(supplier.id),
+            **({"recurrence": metadata["recurrence"]} if metadata else {}),
         },
     )
     await db.commit()
@@ -1428,7 +1512,12 @@ async def cancel_appointment_series(
     series.status = "cancelled"
 
     first = affected[0]
-    frequency_labels = {"weekly": "haftalık", "biweekly": "2 haftada bir", "monthly": "aylık"}
+    frequency_labels = {
+        "daily": "günlük",
+        "weekly": "haftalık",
+        "biweekly": "2 haftada bir",
+        "monthly": "aylık",
+    }
     frequency = frequency_labels.get(series.recurrence_frequency, series.recurrence_frequency)
     if by_supplier:
         # Tedarikci kendisi iptal etti: adminlere TEK ozet; tedarikciye uretim yok.

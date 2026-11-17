@@ -318,6 +318,16 @@ async def _linked_summary(db: AsyncSession, appointment_id: uuid.UUID | None) ->
     }
 
 
+def _recurrence_out(series: AppointmentSeries) -> dict:
+    """Outlook tarzi desenle olusturulan seride kural + Turkce ozet; eski
+    (weekly/biweekly/monthly) serilerde ikisi de None."""
+    meta = series.metadata_json or {}
+    return {
+        "recurrence": meta.get("recurrence"),
+        "recurrence_description": meta.get("description"),
+    }
+
+
 async def _series_summary(db: AsyncSession, appointment: Appointment) -> dict | None:
     """Drawer icin seri ozeti (randevu bir seriye bagliysa)."""
     if appointment.series_id is None:
@@ -333,6 +343,7 @@ async def _series_summary(db: AsyncSession, appointment: Appointment) -> dict | 
         "id": str(series.id),
         "frequency": series.recurrence_frequency,
         "occurrence_count": series.occurrence_count,
+        **_recurrence_out(series),
         "occurrence_index": appointment.occurrence_index,
     }
 
@@ -344,6 +355,7 @@ def _series_out(series: AppointmentSeries, maps: dict[str, dict]) -> dict:
         "supplier_name": maps["suppliers"].get(series.supplier_id),
         "frequency": series.recurrence_frequency,
         "occurrence_count": series.occurrence_count,
+        **_recurrence_out(series),
         "status": series.status,
         "created_at": series.created_at.isoformat() if series.created_at else None,
     }
@@ -569,6 +581,11 @@ async def create_appointment(
             db,
             frequency=body.recurring.frequency,
             occurrence_count=body.recurring.occurrence_count,
+            recurrence=(
+                body.recurring.recurrence.model_dump(mode="json")
+                if body.recurring.recurrence is not None
+                else None
+            ),
             start_at=body.start_at,
             _audit_action="appointment_series.create_admin",
             **base_kwargs,
@@ -581,6 +598,7 @@ async def create_appointment(
                 "series_id": str(series.id),
                 "frequency": series.recurrence_frequency,
                 "occurrence_count": series.occurrence_count,
+                **_recurrence_out(series),
                 "appointments": [_appointment_out(a) for a in appointments],
             }
         )

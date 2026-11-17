@@ -1,3 +1,4 @@
+import type { RecurrenceRule } from "@/lib/recurrence";
 /** Backend Out semalariyla birebir esleyen DTO tipleri. */
 
 export interface FacilitySummaryDto {
@@ -320,14 +321,20 @@ export interface AppointmentDto {
 
 export interface SeriesSummaryDto {
   id: string;
-  frequency: "weekly" | "biweekly" | "monthly";
+  frequency: "daily" | "weekly" | "biweekly" | "monthly";
+  /** Outlook tarzi desenle olusturulan seride kural + ozet; eski serilerde null. */
+  recurrence?: RecurrenceRule | null;
+  recurrence_description?: string | null;
   occurrence_count: number;
   occurrence_index: number | null;
 }
 
 export interface SeriesCreateResultDto {
   series_id: string;
-  frequency: "weekly" | "biweekly" | "monthly";
+  frequency: "daily" | "weekly" | "biweekly" | "monthly";
+  /** Outlook tarzi desenle olusturulan seride kural + ozet; eski serilerde null. */
+  recurrence?: RecurrenceRule | null;
+  recurrence_description?: string | null;
   occurrence_count: number;
   appointments: AppointmentDto[];
 }

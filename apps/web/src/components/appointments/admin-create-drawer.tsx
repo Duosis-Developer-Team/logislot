@@ -18,6 +18,7 @@ import {
   type QuantityUnit,
   resolveDurationRange,
 } from "@logislot/shared";
+import { RecurrenceEditor } from "@/components/appointments/recurrence-editor";
 import { ErrorState, LoadingState } from "@/components/config/states";
 import {
   DescriptionField,
@@ -41,6 +42,12 @@ import { MinuteUsagePanel, exceededUsage } from "@/components/domain/minute-limi
 import { DriverIdInput, driverIdError } from "@/components/domain/driver-id";
 import { docks, productCategories, suppliers, vehicleCategories } from "@/lib/api/resources";
 import type { AppointmentDto, SeriesCreateResultDto } from "@/lib/api/types";
+import {
+  type RecurrenceRule,
+  defaultRule,
+  generateOccurrenceDates,
+  toPayload as toRecurrencePayload,
+} from "@/lib/recurrence";
 import { useSession } from "@/lib/auth/session";
 import { useLabels } from "@/lib/i18n/labels";
 import { useT } from "@/lib/i18n/provider";
@@ -104,8 +111,7 @@ export function AdminCreateDrawer({ open, onClose, onSuccess, initial }: AdminCr
   const [dockId, setDockId] = useState("");
   const [note, setNote] = useState("");
   const [recurringEnabled, setRecurringEnabled] = useState(false);
-  const [frequency, setFrequency] = useState<"weekly" | "biweekly" | "monthly">("weekly");
-  const [count, setCount] = useState(4);
+  const [recurrence, setRecurrence] = useState<RecurrenceRule>(defaultRule);
   const [formError, setFormError] = useState<string | null>(null);
   // Takvimden gelen tercih edilen saat: slotlar yuklendiginde BIR kez uygulanir
   const [preferredTime, setPreferredTime] = useState<string | null>(null);
@@ -251,8 +257,6 @@ export function AdminCreateDrawer({ open, onClose, onSuccess, initial }: AdminCr
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [preferredTime, slots, selectedSlot]);
 
-  const maxCount = frequency === "monthly" ? 6 : 12;
-
   function reset() {
     setSupplierId("");
     setCategoryId("");
@@ -272,6 +276,7 @@ export function AdminCreateDrawer({ open, onClose, onSuccess, initial }: AdminCr
     setDockId("");
     setNote("");
     setRecurringEnabled(false);
+    setRecurrence(defaultRule());
     setFormError(null);
   }
 
@@ -304,6 +309,10 @@ export function AdminCreateDrawer({ open, onClose, onSuccess, initial }: AdminCr
       setFormError(copy.needsDock);
       return;
     }
+    if (recurringEnabled && !isCargo && generateOccurrenceDates(date, recurrence).error) {
+      setFormError(t.recurrence.errorInvalid);
+      return;
+    }
     try {
       const result = await create.mutateAsync({
         supplier_id: supplier.id,
@@ -327,7 +336,7 @@ export function AdminCreateDrawer({ open, onClose, onSuccess, initial }: AdminCr
         note: note || null,
         recurring:
           recurringEnabled && !isCargo
-            ? { frequency, occurrence_count: Math.min(Math.max(count, 2), maxCount) }
+            ? { recurrence: toRecurrencePayload(recurrence, date) }
             : undefined,
       });
       const isSeries = "series_id" in (result as SeriesCreateResultDto);
@@ -690,32 +699,12 @@ export function AdminCreateDrawer({ open, onClose, onSuccess, initial }: AdminCr
                     label={copy.recurring}
                   />
                   {recurringEnabled && (
-                    <div className="mt-2 grid grid-cols-2 gap-3">
-                      <div>
-                        <Label>{copy.frequency}</Label>
-                        <Select
-                          value={frequency}
-                          onChange={(e) => {
-                            const f = e.target.value as "weekly" | "biweekly" | "monthly";
-                            setFrequency(f);
-                            if (f === "monthly" && count > 6) setCount(6);
-                          }}
-                        >
-                          <option value="weekly">{copy.freqWeekly}</option>
-                          <option value="biweekly">{copy.freqBiweekly}</option>
-                          <option value="monthly">{copy.freqMonthly}</option>
-                        </Select>
-                      </div>
-                      <div>
-                        <Label>{copy.count}</Label>
-                        <Input
-                          type="number"
-                          min={2}
-                          max={maxCount}
-                          value={count}
-                          onChange={(e) => setCount(Number(e.target.value))}
-                        />
-                      </div>
+                    <div className="mt-2">
+                      <RecurrenceEditor
+                        startDate={date}
+                        value={recurrence}
+                        onChange={setRecurrence}
+                      />
                     </div>
                   )}
                 </div>

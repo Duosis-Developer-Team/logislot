@@ -48,6 +48,13 @@ import { DriverIdField, driverIdError, driverIdErrorText } from "@/components/dr
 import { useTheme } from "@/theme/theme";
 import { spacing } from "@/theme/tokens";
 import { addDaysISO, dayLabel, timeInTz, todayISO } from "@/utils/format";
+import { RecurrenceEditor } from "@/components/recurrence-editor";
+import {
+  type RecurrenceRule,
+  defaultRule,
+  generateOccurrenceDates,
+  toPayload as toRecurrencePayload,
+} from "@/lib/recurrence";
 
 const CARGO_WINDOWS: CargoWindow[] = ["morning", "afternoon", "all_day"];
 const UNITS = QUANTITY_UNITS.map((u) => ({ value: u, label: QUANTITY_UNIT_LABELS[u] }));
@@ -87,8 +94,7 @@ export default function AdminNewAppointment() {
   const [dockId, setDockId] = useState("");
   const [note, setNote] = useState("");
   const [recurringEnabled, setRecurringEnabled] = useState(false);
-  const [frequency, setFrequency] = useState<"weekly" | "biweekly" | "monthly">("weekly");
-  const [count, setCount] = useState("4");
+  const [recurrence, setRecurrence] = useState<RecurrenceRule>(defaultRule);
   const [formError, setFormError] = useState<string | null>(null);
 
   const supplier = supplierList.data?.find((s) => s.id === supplierId) ?? null;
@@ -190,8 +196,6 @@ export default function AdminNewAppointment() {
     [],
   );
 
-  const maxCount = frequency === "monthly" ? 6 : 12;
-  const effectiveCount = Math.min(Math.max(parseInt(count, 10) || 2, 2), maxCount);
 
   async function onSubmit() {
     setFormError(null);
@@ -220,6 +224,10 @@ export default function AdminNewAppointment() {
       setFormError("Manuel modda rampa seçin.");
       return;
     }
+    if (recurringEnabled && !isCargo && generateOccurrenceDates(date, recurrence).error) {
+      setFormError("Tekrar ayarlarını kontrol edin.");
+      return;
+    }
     try {
       const result = await create.mutateAsync({
         supplier_id: supplier.id,
@@ -243,7 +251,7 @@ export default function AdminNewAppointment() {
         note: note || null,
         recurring:
           recurringEnabled && !isCargo
-            ? { frequency, occurrence_count: effectiveCount }
+            ? { recurrence: toRecurrencePayload(recurrence, date) }
             : undefined,
       });
       const isSeries = "series_id" in (result as SeriesCreateResultDto);
@@ -538,37 +546,12 @@ export default function AdminNewAppointment() {
                   onValueChange={setRecurringEnabled}
                 />
                 {recurringEnabled && (
-                  <>
-                    <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
-                      {(
-                        [
-                          ["weekly", "Her hafta"],
-                          ["biweekly", "2 haftada bir"],
-                          ["monthly", "Her ay"],
-                        ] as const
-                      ).map(([f, label]) => (
-                        <Chip
-                          key={f}
-                          label={label}
-                          selected={frequency === f}
-                          onPress={() => {
-                            setFrequency(f);
-                            if (f === "monthly" && (parseInt(count, 10) || 0) > 6) setCount("6");
-                          }}
-                        />
-                      ))}
-                    </View>
-                    <Field
-                      label={`Tekrar Sayısı (en fazla ${maxCount})`}
-                      value={count}
-                      onChangeText={setCount}
-                      keyboardType="number-pad"
-                    />
-                    <Text style={{ color: colors.faintText, fontSize: 12 }}>
-                      Tüm tarihler kural setinden geçer; biri uygun değilse hiçbiri
-                      oluşturulmaz. Admin açtığı için tüm randevular onaylı doğar.
-                    </Text>
-                  </>
+                  <RecurrenceEditor
+                    startDate={date}
+                    value={recurrence}
+                    onChange={setRecurrence}
+                    footer="Tüm tarihler kural setinden geçer; biri uygun değilse hiçbiri oluşturulmaz. Admin açtığı için tüm randevular onaylı doğar."
+                  />
                 )}
               </View>
             )}

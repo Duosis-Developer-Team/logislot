@@ -27,6 +27,7 @@ from app.models import Appointment, ProductCategory, VehicleCategory
 from app.routers.appointments import (
     _appointment_out,
     _linked_summary,
+    _recurrence_out,
     _series_summary,
     appointment_out_named,
     evaluate_availability,
@@ -262,6 +263,11 @@ async def create_my_appointment(
             created_by_type=CreatedByType.supplier,
             frequency=body.recurring.frequency,
             occurrence_count=body.recurring.occurrence_count,
+            recurrence=(
+                body.recurring.recurrence.model_dump(mode="json")
+                if body.recurring.recurrence is not None
+                else None
+            ),
             start_at=body.start_at,
             product_category_id=body.product_category_id,
             product_name=body.product_name,
@@ -282,6 +288,7 @@ async def create_my_appointment(
                 "series_id": str(series.id),
                 "frequency": series.recurrence_frequency,
                 "occurrence_count": series.occurrence_count,
+                **_recurrence_out(series),
                 "appointments": [_appointment_out(a) for a in appointments],
             }
         )
@@ -472,6 +479,7 @@ async def my_appointment_series(
             "id": str(series.id),
             "frequency": series.recurrence_frequency,
             "occurrence_count": series.occurrence_count,
+            **_recurrence_out(series),
             "status": series.status,
             "status_counts": counts,
             "next_appointment_at": upcoming.isoformat() if upcoming else None,
@@ -519,6 +527,7 @@ async def my_appointment_series_detail(
             "id": str(series.id),
             "frequency": series.recurrence_frequency,
             "occurrence_count": series.occurrence_count,
+            **_recurrence_out(series),
             "status": series.status,
             "appointments": [appointment_out_named(a, maps) for a in occurrences],
         }

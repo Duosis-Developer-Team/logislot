@@ -44,6 +44,7 @@ import { formatDate, isoFromWallClock, timeInTz } from "@/lib/utils";
 import { useApiErrorMessage } from "@/lib/i18n/api-error";
 import { useLabels } from "@/lib/i18n/labels";
 import { useT } from "@/lib/i18n/provider";
+import { describeRule } from "@/lib/recurrence";
 
 interface AppointmentDrawerProps {
   appointmentId: string | null;
@@ -360,7 +361,9 @@ export function AppointmentDrawer({
                   a.series.occurrence_count,
                 )}{" "}
                 (
-                {a.series.frequency === "weekly"
+                {a.series.recurrence
+                  ? describeRule(a.series.recurrence, t.recurrence)
+                  : a.series.frequency === "weekly"
                   ? t.appointmentDrawer.weekly
                   : a.series.frequency === "biweekly"
                     ? t.appointmentDrawer.biweekly

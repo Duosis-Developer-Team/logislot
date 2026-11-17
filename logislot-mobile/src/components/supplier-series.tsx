@@ -22,6 +22,7 @@ import {
 import type { SupplierSeriesRowDto } from "@/api/types";
 import { SupplierCancelModal } from "@/components/supplier-cancel";
 import { AppModal, Badge, Button, Card } from "@/components/ui";
+import { RECURRENCE_COPY_TR, describeRule } from "@/lib/recurrence";
 import { useTheme } from "@/theme/theme";
 import { spacing } from "@/theme/tokens";
 
@@ -86,7 +87,9 @@ export function SupplierSeriesSection() {
                 {row.product_name ?? "Seri"}
               </Text>
               <Text style={{ color: colors.mutedText, fontSize: 12 }}>
-                {FREQUENCY_LABELS[row.frequency] ?? row.frequency} × {row.occurrence_count}
+                {row.recurrence
+                  ? describeRule(row.recurrence, RECURRENCE_COPY_TR)
+                  : `${FREQUENCY_LABELS[row.frequency] ?? row.frequency} × ${row.occurrence_count}`}
               </Text>
             </View>
             <Badge

@@ -14,16 +14,65 @@ from pydantic import (
 from app.core.enums import CargoWindow, DeliveryType, QuantityUnit, RecurringRule
 
 
+class RecurrenceRuleIn(BaseModel):
+    """Outlook tarzi tekrar deseni (bkz. services/recurrence.py).
+
+    Baslangic = randevunun start_at tarihi. Gunler 0=Pzt .. 6=Paz.
+    """
+
+    type: Literal["daily", "weekly", "monthly"]
+    interval: int = Field(default=1, ge=1, le=99)
+    # Gunluk: True -> her is gunu (Pzt-Cum); interval yok sayilir.
+    weekdays_only: bool = False
+    # Haftalik: secili gunler; bossa baslangic gunu.
+    weekdays: list[int] = Field(default_factory=list, max_length=7)
+    # Aylik: "ayin X. gunu" ya da "ayin [1-4/son] [gun]"
+    monthly_mode: Literal["day_of_month", "nth_weekday"] = "day_of_month"
+    day_of_month: int | None = Field(default=None, ge=1, le=31)
+    week_of_month: Literal[1, 2, 3, 4, -1] | None = None
+    weekday: int | None = Field(default=None, ge=0, le=6)
+    # Aralik
+    end_type: Literal["count", "until"] = "count"
+    count: int | None = Field(default=None, ge=2, le=52)
+    until: date | None = None
+
+    @field_validator("weekdays")
+    @classmethod
+    def check_weekdays(cls, value: list[int]) -> list[int]:
+        if any(d < 0 or d > 6 for d in value):
+            raise ValueError("Gecersiz hafta gunu")
+        return sorted(set(value))
+
+    @model_validator(mode="after")
+    def check_end(self) -> "RecurrenceRuleIn":
+        if self.end_type == "count" and self.count is None:
+            raise ValueError("Tekrar sayisi zorunlu")
+        if self.end_type == "until" and self.until is None:
+            raise ValueError("Bitis tarihi zorunlu")
+        return self
+
+
 class RecurringRequest(BaseModel):
-    """Tekrarlayan seri istegi. Limitler (rapor karari):
-    weekly/biweekly <= 12 occurrence, monthly <= 6 (~6 ay ufku)."""
+    """Tekrarlayan seri istegi.
+
+    Iki bicim (geriye uyumlu):
+    - Eski: frequency + occurrence_count. Limitler (rapor karari):
+      weekly/biweekly <= 12 occurrence, monthly <= 6 (~6 ay ufku).
+    - Yeni: recurrence (Outlook tarzi desen); en fazla 52 occurrence.
+    recurrence verilirse frequency/occurrence_count yok sayilir.
+    """
 
     enabled: bool = True
-    frequency: Literal["weekly", "biweekly", "monthly"]
-    occurrence_count: int = Field(ge=2, le=12)
+    frequency: Literal["weekly", "biweekly", "monthly"] | None = None
+    occurrence_count: int | None = Field(default=None, ge=2, le=12)
+    recurrence: RecurrenceRuleIn | None = None
 
     @model_validator(mode="after")
     def check_monthly_limit(self) -> "RecurringRequest":
+        if self.recurrence is not None:
+            return self
+        if self.frequency is None or self.occurrence_count is None:
+            raise ValueError("frequency ve occurrence_count ya da recurrence zorunlu")
         if self.frequency == "monthly" and self.occurrence_count > 6:
             raise ValueError("Aylik tekrarda en fazla 6 randevu olusturulabilir")
         return self

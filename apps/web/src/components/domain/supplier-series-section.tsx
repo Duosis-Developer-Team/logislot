@@ -27,6 +27,7 @@ import {
 import { useApiErrorMessage } from "@/lib/i18n/api-error";
 import { useLabels } from "@/lib/i18n/labels";
 import { useFormat, useT } from "@/lib/i18n/provider";
+import { describeRule } from "@/lib/recurrence";
 
 export function SupplierSeriesSection({
   onFlash,
@@ -80,8 +81,9 @@ export function SupplierSeriesSection({
                 <div>
                   <div className="text-sm font-semibold">{row.product_name ?? copy.fallbackName}</div>
                   <div className="text-xs text-muted-foreground">
-                    {copy.frequency[row.frequency] ?? row.frequency} ×{" "}
-                    {row.occurrence_count}
+                    {row.recurrence
+                      ? describeRule(row.recurrence, t.recurrence)
+                      : `${copy.frequency[row.frequency] ?? row.frequency} × ${row.occurrence_count}`}
                   </div>
                 </div>
                 <Badge

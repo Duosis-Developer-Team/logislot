@@ -34,6 +34,7 @@ import {
 import { useTheme } from "@/theme/theme";
 import { spacing } from "@/theme/tokens";
 import { dayLabel } from "@/utils/format";
+import { RECURRENCE_COPY_TR, describeRule } from "@/lib/recurrence";
 
 const FREQUENCY_LABELS: Record<string, string> = {
   weekly: "Haftalık",
@@ -219,7 +220,9 @@ export default function AdminSeries() {
                 />
               </View>
               <Text style={{ color: colors.mutedText, fontSize: 13 }}>
-                {FREQUENCY_LABELS[row.frequency] ?? row.frequency} × {row.occurrence_count}
+                {row.recurrence
+                  ? describeRule(row.recurrence, RECURRENCE_COPY_TR)
+                  : `${FREQUENCY_LABELS[row.frequency] ?? row.frequency} × ${row.occurrence_count}`}
                 {row.created_at ? ` · ${dayLabel(row.created_at.slice(0, 10))}` : ""}
               </Text>
               <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 4 }}>

@@ -1,3 +1,4 @@
+import type { RecurrenceRule } from "@/lib/recurrence";
 "use client";
 
 /** Yonetim paneli randevu/takvim/dashboard hook'lari. */
@@ -212,7 +213,10 @@ export interface SeriesListRowDto {
   id: string;
   supplier_id: string;
   supplier_name: string | null;
-  frequency: "weekly" | "biweekly" | "monthly";
+  frequency: "daily" | "weekly" | "biweekly" | "monthly";
+  /** Outlook tarzi desenle olusturulan seride kural + ozet; eski serilerde null. */
+  recurrence?: RecurrenceRule | null;
+  recurrence_description?: string | null;
   occurrence_count: number;
   status: string;
   created_at: string | null;

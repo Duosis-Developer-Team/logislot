@@ -1,3 +1,4 @@
+import type { RecurrenceRule } from "@/lib/recurrence";
 /**
  * Backend Out şemalarıyla birebir eşleşen DTO tipleri.
  * KAYNAK CONTRACT: apps/web/src/lib/api/types.ts ile aynı — web/mobile parity
@@ -277,7 +278,10 @@ export interface AllowedActions {
 
 export interface SeriesSummaryDto {
   id: string;
-  frequency: "weekly" | "biweekly" | "monthly";
+  frequency: "daily" | "weekly" | "biweekly" | "monthly";
+  /** Outlook tarzi desenle olusturulan seride kural + ozet; eski serilerde null. */
+  recurrence?: RecurrenceRule | null;
+  recurrence_description?: string | null;
   occurrence_count: number;
   occurrence_index: number | null;
 }
@@ -401,7 +405,10 @@ export interface CalendarDayDto {
 
 export interface SupplierSeriesRowDto {
   id: string;
-  frequency: "weekly" | "biweekly" | "monthly";
+  frequency: "daily" | "weekly" | "biweekly" | "monthly";
+  /** Outlook tarzi desenle olusturulan seride kural + ozet; eski serilerde null. */
+  recurrence?: RecurrenceRule | null;
+  recurrence_description?: string | null;
   occurrence_count: number;
   status: string;
   status_counts: Record<string, number>;
@@ -413,7 +420,10 @@ export interface SupplierSeriesRowDto {
 
 export interface SeriesCreateResultDto {
   series_id: string;
-  frequency: "weekly" | "biweekly" | "monthly";
+  frequency: "daily" | "weekly" | "biweekly" | "monthly";
+  /** Outlook tarzi desenle olusturulan seride kural + ozet; eski serilerde null. */
+  recurrence?: RecurrenceRule | null;
+  recurrence_description?: string | null;
   occurrence_count: number;
   appointments: AppointmentDto[];
 }

@@ -1,3 +1,4 @@
+import type { RecurrenceRule } from "@/lib/recurrence";
 "use client";
 
 /** Tedarikci portal hook'lari — tumu authenticated supplier context'inde calisir. */
@@ -97,7 +98,10 @@ export function useCancelSupplierAppointment() {
 
 export interface SupplierSeriesRowDto {
   id: string;
-  frequency: "weekly" | "biweekly" | "monthly";
+  frequency: "daily" | "weekly" | "biweekly" | "monthly";
+  /** Outlook tarzi desenle olusturulan seride kural + ozet; eski serilerde null. */
+  recurrence?: RecurrenceRule | null;
+  recurrence_description?: string | null;
   occurrence_count: number;
   status: string;
   status_counts: Record<string, number>;

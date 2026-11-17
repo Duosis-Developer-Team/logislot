@@ -10,6 +10,10 @@ import {
   resolveDurationRange,
 } from "@logislot/shared";
 import { ErrorState, LoadingState } from "@/components/config/states";
+import {
+  RecurrenceEditor,
+  useRecurrencePreview,
+} from "@/components/appointments/recurrence-editor";
 import { DurationEstimatePanel } from "@/components/duration/duration-estimate-panel";
 import { DriverIdInput, driverIdError } from "@/components/domain/driver-id";
 import { MinuteUsagePanel, exceededUsage } from "@/components/domain/minute-limits";
@@ -37,6 +41,12 @@ import type { AppointmentDto, SeriesCreateResultDto } from "@/lib/api/types";
 import { useApiErrorMessage } from "@/lib/i18n/api-error";
 import { useLabels } from "@/lib/i18n/labels";
 import { useT } from "@/lib/i18n/provider";
+import {
+  type RecurrenceRule,
+  defaultRule,
+  describeRule,
+  toPayload as toRecurrencePayload,
+} from "@/lib/recurrence";
 import { cn } from "@/lib/utils";
 
 /**
@@ -56,27 +66,6 @@ function tomorrowISO(): string {
 }
 
 /** Ay ekleme — backend ile ayni kural: hedef ayda gun yoksa ayin son gunune kirpilir. */
-function addMonthsClamped(base: Date, months: number): Date {
-  const day = base.getDate();
-  const target = new Date(base.getFullYear(), base.getMonth() + months, 1);
-  const lastDay = new Date(target.getFullYear(), target.getMonth() + 1, 0).getDate();
-  target.setDate(Math.min(day, lastDay));
-  return target;
-}
-
-function occurrenceDates(
-  startDate: string,
-  frequency: "weekly" | "biweekly" | "monthly",
-  count: number,
-): Date[] {
-  const base = new Date(`${startDate}T12:00:00`);
-  return Array.from({ length: count }, (_, i) => {
-    if (frequency === "weekly") return new Date(base.getTime() + i * 7 * 86_400_000);
-    if (frequency === "biweekly") return new Date(base.getTime() + i * 14 * 86_400_000);
-    return addMonthsClamped(base, i);
-  });
-}
-
 export default function NewAppointmentWizard() {
   const t = useT();
   const labels = useLabels();
@@ -114,10 +103,7 @@ export default function NewAppointmentWizard() {
 
   // Tekrarlayan seri (yalnizca standart teslimat; kargo ile birlesmez)
   const [recurringEnabled, setRecurringEnabled] = useState(false);
-  const [recurringFrequency, setRecurringFrequency] = useState<
-    "weekly" | "biweekly" | "monthly"
-  >("weekly");
-  const [recurringCount, setRecurringCount] = useState(4);
+  const [recurrence, setRecurrence] = useState<RecurrenceRule>(defaultRule);
 
   const categories = catalog.data?.product_categories ?? [];
   const vehicles = catalog.data?.vehicle_categories ?? [];
@@ -225,11 +211,8 @@ export default function NewAppointmentWizard() {
   const selectedAdvisories = selectedSlotData?.advisory_warnings ?? [];
 
   const recurringActive = recurringEnabled && !isCargo;
-  const maxOccurrences = recurringFrequency === "monthly" ? 6 : 12;
-  const effectiveRecurringCount = Math.min(Math.max(recurringCount, 2), maxOccurrences);
-  const previewDates = recurringActive
-    ? occurrenceDates(date, recurringFrequency, effectiveRecurringCount)
-    : [];
+  const recurrencePreview = useRecurrencePreview(date, recurrence);
+  const effectiveRecurringCount = recurrencePreview.dates.length;
 
   async function doSubmit() {
     setSubmitError(null);
@@ -252,7 +235,7 @@ export default function NewAppointmentWizard() {
       duration_minutes: isCargo ? null : effectiveDuration,
       acknowledged_warning_codes: selectedAdvisories.map((w) => w.code),
       recurring: recurringActive
-        ? { frequency: recurringFrequency, occurrence_count: effectiveRecurringCount }
+        ? { recurrence: toRecurrencePayload(recurrence, date) }
         : undefined,
     };
     try {
@@ -313,9 +296,12 @@ export default function NewAppointmentWizard() {
               : t.supplier.newAppointment.seriesPending(seriesResult.occurrence_count)}
           </h2>
           <p className="text-sm text-muted-foreground">
-            {t.supplier.newAppointment.seriesCreated(
-              t.supplier.newAppointment.frequencyLabels[seriesResult.frequency],
-            )}
+            {seriesResult.recurrence_description ??
+              t.supplier.newAppointment.seriesCreated(
+                t.supplier.newAppointment.frequencyLabels[
+                  seriesResult.frequency as keyof typeof t.supplier.newAppointment.frequencyLabels
+                ] ?? seriesResult.frequency,
+              )}
           </p>
           <ul className="flex flex-col gap-1 text-sm">
             {seriesResult.appointments.map((a) => (
@@ -729,57 +715,13 @@ export default function NewAppointmentWizard() {
                   label={t.supplier.newAppointment.recurringToggle}
                 />
                 {recurringEnabled && (
-                  <>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <Label>{t.supplier.newAppointment.frequency}</Label>
-                        <Select
-                          value={recurringFrequency}
-                          onChange={(e) => {
-                            const f = e.target.value as "weekly" | "biweekly" | "monthly";
-                            setRecurringFrequency(f);
-                            if (f === "monthly" && recurringCount > 6) setRecurringCount(6);
-                          }}
-                        >
-                          <option value="weekly">{t.supplier.newAppointment.freqWeekly}</option>
-                          <option value="biweekly">{t.supplier.newAppointment.freqBiweekly}</option>
-                          <option value="monthly">{t.supplier.newAppointment.freqMonthly}</option>
-                        </Select>
-                      </div>
-                      <div>
-                        <Label>{t.supplier.newAppointment.repeatCount}</Label>
-                        <Input
-                          type="number"
-                          min={2}
-                          max={maxOccurrences}
-                          value={recurringCount}
-                          onChange={(e) => setRecurringCount(Number(e.target.value))}
-                        />
-                      </div>
-                    </div>
-                    <div className="rounded-lg border border-border bg-muted/40 px-3 py-2">
-                      <p className="mb-1 text-xs font-semibold">
-                        {t.supplier.newAppointment.willCreate(effectiveRecurringCount)}
-                      </p>
-                      <ul className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-xs text-muted-foreground">
-                        {previewDates.map((d, i) => (
-                          <li key={d.toISOString()}>
-                            {i + 1}.{" "}
-                            {d.toLocaleDateString("tr-TR", {
-                              day: "2-digit",
-                              month: "long",
-                              year: "numeric",
-                            })}
-                          </li>
-                        ))}
-                      </ul>
-                      <p className="mt-1.5 text-[11px] text-muted-foreground">
-                        {t.supplier.newAppointment.allOrNothingLead}{" "}
-                        <strong>{t.supplier.newAppointment.allOrNothingStrong}</strong>{" "}
-                        {t.supplier.newAppointment.allOrNothingTail}
-                      </p>
-                    </div>
-                  </>
+                  <RecurrenceEditor startDate={date} value={recurrence} onChange={setRecurrence}>
+                    <p className="text-[11px] text-muted-foreground">
+                      {t.supplier.newAppointment.allOrNothingLead}{" "}
+                      <strong>{t.supplier.newAppointment.allOrNothingStrong}</strong>{" "}
+                      {t.supplier.newAppointment.allOrNothingTail}
+                    </p>
+                  </RecurrenceEditor>
                 )}
               </CardContent>
             </Card>
@@ -838,10 +780,7 @@ export default function NewAppointmentWizard() {
                   <>
                     <dt className="text-muted-foreground">{t.supplier.newAppointment.repeatLabel}</dt>
                     <dd>
-                      {t.supplier.newAppointment.repeatSummary(
-                        t.supplier.newAppointment.frequencyLabels[recurringFrequency],
-                        effectiveRecurringCount,
-                      )}
+                      {describeRule(recurrence, t.recurrence, date)}
                     </dd>
                   </>
                 )}
@@ -875,7 +814,9 @@ export default function NewAppointmentWizard() {
         ) : (
           <Button
             className="flex-1"
-            disabled={!canNext || create.isPending}
+            disabled={
+              !canNext || create.isPending || (recurringActive && recurrencePreview.error !== null)
+            }
             onClick={onSubmit}
           >
             {create.isPending
