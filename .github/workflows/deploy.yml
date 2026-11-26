@@ -143,6 +143,8 @@ jobs:
           DEV_SMTP_PASSWORD: ${{ secrets.DEV_SMTP_PASSWORD }}
           DEV_SMTP_FROM_EMAIL: ${{ secrets.DEV_SMTP_FROM_EMAIL }}
           DEV_SMTP_FROM_NAME: ${{ secrets.DEV_SMTP_FROM_NAME }}
+          DEV_PII_ENCRYPTION_KEY: ${{ secrets.DEV_PII_ENCRYPTION_KEY }}
+          PROD_PII_ENCRYPTION_KEY: ${{ secrets.PROD_PII_ENCRYPTION_KEY }}
           PROD_LOGISLOT_SECRET_KEY: ${{ secrets.PROD_LOGISLOT_SECRET_KEY }}
           PROD_POSTGRES_PASSWORD: ${{ secrets.PROD_POSTGRES_PASSWORD }}
           PROD_DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
@@ -165,6 +167,7 @@ jobs:
             SMTP_FROM_NAME="$PROD_SMTP_FROM_NAME"
             BOOTSTRAP_EMAIL="$PROD_BOOTSTRAP_ADMIN_EMAIL"
             BOOTSTRAP_PASSWORD="$PROD_BOOTSTRAP_ADMIN_PASSWORD"
+            PII_KEY="$PROD_PII_ENCRYPTION_KEY"
           else
             SECRET_KEY="$DEV_LOGISLOT_SECRET_KEY"; PG_PASSWORD="$DEV_POSTGRES_PASSWORD"
             DATABASE_URL="$DEV_DATABASE_URL"; SMTP_HOST="$DEV_SMTP_HOST"
@@ -173,9 +176,27 @@ jobs:
             SMTP_FROM_NAME="$DEV_SMTP_FROM_NAME"
             BOOTSTRAP_EMAIL="$DEV_BOOTSTRAP_ADMIN_EMAIL"
             BOOTSTRAP_PASSWORD="$DEV_BOOTSTRAP_ADMIN_PASSWORD"
+            PII_KEY="$DEV_PII_ENCRYPTION_KEY"
           fi
           if [[ -z "$SECRET_KEY" || -z "$PG_PASSWORD" || -z "$DATABASE_URL" ]]; then
             echo "Zorunlu secret'lar eksik: ${ENV_NAME^^}_LOGISLOT_SECRET_KEY / _POSTGRES_PASSWORD / _DATABASE_URL"
+            exit 1
+          fi
+          # --- KISISEL VERI SIFRELEME ANAHTARI (surucu TCKN/pasaport) ---
+          # Verilmezse API anahtari LOGISLOT_SECRET_KEY'den turetir. Prod'da
+          # ZORUNLU: secret_key bir gun degistirilirse (or. oturumlari dusurmek
+          # icin) sifreli kimlikler okunamaz hale gelmesin. Anahtar bir kez
+          # kullanilmaya baslandiktan sonra DEGISTIRILMEMELI ve SILINMEMELIDIR —
+          # eksik kalirsa apply onu secret'tan da kaldirir ve veri okunamaz.
+          # Dev bilincli olarak turetilmis anahtarla calisir (mevcut test verisi).
+          PII_ARGS=()
+          if [[ -n "${PII_KEY:-}" ]]; then
+            if (( ${#PII_KEY} < 32 )); then
+              echo "::error::${ENV_NAME^^}_PII_ENCRYPTION_KEY en az 32 karakter olmali"; exit 1
+            fi
+            PII_ARGS+=(--from-literal=LOGISLOT_PII_ENCRYPTION_KEY="$PII_KEY")
+          elif [[ "$ENV_NAME" == "prod" ]]; then
+            echo "::error::PROD_PII_ENCRYPTION_KEY secret'i eksik — prod deploy durduruldu (sifreli kisisel veri korunmasi)"
             exit 1
           fi
           # --- CAPRAZ ORTAM GUARD'I ---
@@ -203,6 +224,7 @@ jobs:
             --from-literal=LOGISLOT_SMTP_FROM_NAME="${SMTP_FROM_NAME:-LogiSlot}" \
             --from-literal=LOGISLOT_BOOTSTRAP_ADMIN_EMAIL="${BOOTSTRAP_EMAIL:-}" \
             --from-literal=LOGISLOT_BOOTSTRAP_ADMIN_PASSWORD="${BOOTSTRAP_PASSWORD:-}" \
+            "${PII_ARGS[@]}" \
             --dry-run=client -o yaml | kubectl apply -f -
 
       - name: GHCR pull secret guard (yeni namespace tuzagi)
