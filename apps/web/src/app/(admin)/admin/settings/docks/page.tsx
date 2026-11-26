@@ -212,7 +212,7 @@ export default function DocksPage() {
                       <Badge className="bg-muted text-muted-foreground">{t.admin.docks.allVehicles}</Badge>
                     ) : (
                       row.accepted_vehicle_category_ids.map((id) => (
-                        <Badge key={id} className="bg-accent/15 text-accent-foreground">
+                        <Badge key={id} className="bg-accent/15 text-accent">
                           {vehicleName(id)}
                         </Badge>
                       ))

@@ -1,7 +1,7 @@
-/** Randevu domain bileşenleri — StatusBadge, CargoBadge, AppointmentCard. */
+/** Randevu domain bileşenleri — StatusBadge, CargoBadge, MakeupBadge, AppointmentCard. */
 
 import { Ionicons } from "@expo/vector-icons";
-import { Text, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
 import {
   APPOINTMENT_STATUS_LABELS,
   CARGO_WINDOW_LABELS,
@@ -10,7 +10,7 @@ import {
   type CargoWindow,
   type QuantityUnit,
 } from "@/api/shared";
-import type { AppointmentDto } from "@/api/types";
+import type { AppointmentDto, LinkedAppointmentDto } from "@/api/types";
 import { Badge, Card } from "@/components/ui";
 import { useTheme } from "@/theme/theme";
 import { formatDate, timeInTz } from "@/utils/format";
@@ -48,6 +48,58 @@ export function CargoBadge({ window }: { window?: string | null }) {
   return <Badge label={label} color={colors.cargo} />;
 }
 
+/** Telafi randevusu işareti (müşteri kararı 2026-11: telafiler bayrakla işaretlenir). */
+export function MakeupBadge() {
+  const { colors } = useTheme();
+  return <Badge label="Telafi" color={colors.status.revision} />;
+}
+
+/** İptal edilen <-> telafi randevusu bağlantıları; dokununca karşı randevu açılır. */
+export function MakeupLinks({
+  makeupOf,
+  makeup,
+  tz,
+  onOpen,
+}: {
+  makeupOf: LinkedAppointmentDto | null;
+  makeup: LinkedAppointmentDto | null;
+  tz: string;
+  onOpen: (id: string) => void;
+}) {
+  const { colors } = useTheme();
+  const rows = [
+    makeupOf ? { label: "İptal edilen randevu", linked: makeupOf } : null,
+    makeup ? { label: "Telafi randevusu", linked: makeup } : null,
+  ].filter((row): row is { label: string; linked: LinkedAppointmentDto } => row !== null);
+  return (
+    <View
+      style={{
+        gap: 8,
+        borderRadius: 12,
+        padding: 12,
+        backgroundColor: `${colors.status.revision}12`,
+      }}
+    >
+      {rows.map(({ label, linked }) => (
+        <Pressable
+          key={linked.id}
+          onPress={() => onOpen(linked.id)}
+          style={{ flexDirection: "row", alignItems: "center", gap: 8 }}
+        >
+          <View style={{ flex: 1 }}>
+            <Text style={{ color: colors.mutedText, fontSize: 12 }}>{label}</Text>
+            <Text style={{ color: colors.text, fontSize: 13, fontWeight: "600" }}>
+              {formatDate(linked.scheduled_start_at)} {timeInTz(linked.scheduled_start_at, tz)}
+            </Text>
+          </View>
+          <StatusBadge status={linked.status} />
+          <Ionicons name="chevron-forward" size={16} color={colors.mutedText} />
+        </Pressable>
+      ))}
+    </View>
+  );
+}
+
 /** Ortak randevu kartı — supplier ve admin listelerinde kullanılır. */
 export function AppointmentCard({
   appointment: a,
@@ -77,6 +129,16 @@ export function AppointmentCard({
             {showSupplier ? a.product_name : `${a.quantity} ${unitLabel}`}
             {a.product_category_name ? ` · ${a.product_category_name}` : ""}
           </Text>
+          {a.order_numbers && a.order_numbers.length > 0 && (
+            <Text numberOfLines={1} style={{ color: colors.faintText, fontSize: 12 }}>
+              Sipariş: {a.order_numbers.join(", ")}
+            </Text>
+          )}
+          {a.description ? (
+            <Text numberOfLines={1} style={{ color: colors.faintText, fontSize: 12 }}>
+              {a.description}
+            </Text>
+          ) : null}
         </View>
         <StatusBadge status={a.status} />
       </View>
@@ -100,7 +162,12 @@ export function AppointmentCard({
           </View>
         )}
       </View>
-      {a.delivery_type === "cargo" && <CargoBadge window={a.cargo_window} />}
+      {(a.delivery_type === "cargo" || a.is_makeup) && (
+        <View style={{ flexDirection: "row", gap: 6, flexWrap: "wrap" }}>
+          {a.delivery_type === "cargo" && <CargoBadge window={a.cargo_window} />}
+          {a.is_makeup && <MakeupBadge />}
+        </View>
+      )}
     </Card>
   );
 }

@@ -12,11 +12,15 @@
 import { router } from "expo-router";
 import { useMemo, useState } from "react";
 import { Alert, ScrollView, Text, View } from "react-native";
-import { useAdminAvailability, useAdminCreateAppointment } from "@/api/admin";
+import { useAdminAvailability, useAdminCreateAppointment, useAppointmentForm } from "@/api/admin";
 import { ApiError } from "@/api/client";
+import { useDurationEvaluate, useDurationPolicy } from "@/api/duration";
+import { useAdminMinuteUsage } from "@/api/supplier-limits";
 import {
   CARGO_WINDOW_LABELS,
   type CargoWindow,
+  QUANTITY_UNIT_LABELS,
+  QUANTITY_UNITS,
   resolveDurationRange,
 } from "@/api/shared";
 import { docks, productCategories, suppliers, vehicleCategories } from "@/api/resources";
@@ -32,17 +36,28 @@ import {
   PickerField,
   SwitchRow,
 } from "@/components/ui";
+import { DurationChips, withSuggested } from "@/components/duration";
+import { MinuteUsageCard, exceededUsage } from "@/components/minute-limits";
+import { OrderNumbersField } from "@/components/order-numbers";
+import {
+  DescriptionField,
+  descriptionMissing,
+  descriptionPayload,
+} from "@/components/description";
+import { DriverIdField, driverIdError, driverIdErrorText } from "@/components/driver-id";
 import { useTheme } from "@/theme/theme";
 import { spacing } from "@/theme/tokens";
 import { addDaysISO, dayLabel, timeInTz, todayISO } from "@/utils/format";
+import { RecurrenceEditor } from "@/components/recurrence-editor";
+import {
+  type RecurrenceRule,
+  defaultRule,
+  generateOccurrenceDates,
+  toPayload as toRecurrencePayload,
+} from "@/lib/recurrence";
 
 const CARGO_WINDOWS: CargoWindow[] = ["morning", "afternoon", "all_day"];
-const UNITS = [
-  { value: "pallet", label: "Palet" },
-  { value: "piece", label: "Adet" },
-  { value: "box", label: "Kutu" },
-  { value: "carton", label: "Koli" },
-];
+const UNITS = QUANTITY_UNITS.map((u) => ({ value: u, label: QUANTITY_UNIT_LABELS[u] }));
 
 export default function AdminNewAppointment() {
   const { colors } = useTheme();
@@ -58,11 +73,18 @@ export default function AdminNewAppointment() {
   const [supplierId, setSupplierId] = useState("");
   const [categoryId, setCategoryId] = useState("");
   const [productName, setProductName] = useState("");
+  const [orderNumbers, setOrderNumbers] = useState<string[]>([]);
+  const form = useAppointmentForm(session.activeFacilityId);
+  const orderMode = form.data?.order_numbers ?? "hidden";
+  const driverIdMode = form.data?.driver_id_number ?? "hidden";
+  const descriptionMode = form.data?.description ?? "hidden";
+  const [description, setDescription] = useState("");
   const [quantity, setQuantity] = useState("1");
   const [unit, setUnit] = useState("pallet");
   const [vehicleOverrideId, setVehicleOverrideId] = useState<string | null>(null);
   const [plate, setPlate] = useState("");
   const [driver, setDriver] = useState("");
+  const [driverId, setDriverId] = useState("");
   const [cargoSelected, setIsCargo] = useState(false);
   const [cargoWindow, setCargoWindow] = useState<CargoWindow>("morning");
   const [date, setDate] = useState(addDaysISO(todayISO(), 1));
@@ -72,8 +94,7 @@ export default function AdminNewAppointment() {
   const [dockId, setDockId] = useState("");
   const [note, setNote] = useState("");
   const [recurringEnabled, setRecurringEnabled] = useState(false);
-  const [frequency, setFrequency] = useState<"weekly" | "biweekly" | "monthly">("weekly");
-  const [count, setCount] = useState("4");
+  const [recurrence, setRecurrence] = useState<RecurrenceRule>(defaultRule);
   const [formError, setFormError] = useState<string | null>(null);
 
   const supplier = supplierList.data?.find((s) => s.id === supplierId) ?? null;
@@ -90,9 +111,40 @@ export default function AdminNewAppointment() {
   // useMemo yok: React Compiler türetilmiş listeyi kendisi optimize eder.
   // Kategori aralığı x tedarikçi aralığı kesişimi (backend ile aynı kural).
   const durationRange = category ? resolveDurationRange(category, supplier) : null;
-  const durationOptions = durationRange?.options ?? [];
+  // Süre kuralları: tesis "tedarikçi seçer" dışındaysa hesaplanan süre
+  // varsayılan gelir; yönetim her modda değiştirebilir (farklı seçim "elle"
+  // kaydedilir ve kategori sınırlarına tabidir).
+  const qty = Math.max(1, parseInt(quantity, 10) || 1);
+  const durationPolicy = useDurationPolicy(facilityId);
+  const rulesActive = (durationPolicy.data?.mode ?? "supplier") !== "supplier";
+  const estimateQuery = useDurationEvaluate(
+    facilityId,
+    rulesActive && category
+      ? [
+          {
+            product_category_id: category.id,
+            vehicle_category_id: effectiveVehicleId,
+            quantity: qty,
+            quantity_unit: unit,
+          },
+        ]
+      : null,
+  );
+  const estimate = rulesActive ? estimateQuery.data?.results[0] ?? null : null;
+  const suggestedMinutes = estimate?.minutes ?? null;
+  const durationOptions = withSuggested(durationRange?.options ?? [], suggestedMinutes);
   const effectiveDuration =
-    duration && durationOptions.includes(duration) ? duration : durationOptions[0] ?? null;
+    duration && durationOptions.includes(duration)
+      ? duration
+      : suggestedMinutes ?? durationOptions[0] ?? null;
+  // Kural süresi kategori aralığı dışında da geçerlidir.
+  const durationBlocked =
+    durationRange?.conflicting === true &&
+    (suggestedMinutes === null || effectiveDuration !== suggestedMinutes);
+  // Tedarikçinin süre limitleri yönetim adına oluşturmada da geçerli (sunucu zorlar).
+  const minuteUsage = useAdminMinuteUsage(facilityId, supplier?.id ?? null, date || null);
+  const limitExceeded =
+    !isCargo && exceededUsage(minuteUsage.data?.usage, effectiveDuration) !== null;
 
   const availability = useAdminAvailability(
     facilityId,
@@ -103,6 +155,8 @@ export default function AdminNewAppointment() {
           vehicle_category_id: effectiveVehicleId,
           target_date: date,
           duration_minutes: effectiveDuration,
+          quantity: qty,
+          quantity_unit: unit,
         }
       : null,
   );
@@ -142,13 +196,24 @@ export default function AdminNewAppointment() {
     [],
   );
 
-  const maxCount = frequency === "monthly" ? 6 : 12;
-  const effectiveCount = Math.min(Math.max(parseInt(count, 10) || 2, 2), maxCount);
 
   async function onSubmit() {
     setFormError(null);
     if (!supplier || !category || !productName.trim()) {
       setFormError("Tedarikçi, kategori ve ürün adı zorunludur.");
+      return;
+    }
+    if (orderMode === "required" && orderNumbers.length === 0) {
+      setFormError("En az bir sipariş numarası girin.");
+      return;
+    }
+    if (descriptionMissing(descriptionMode, description)) {
+      setFormError("Açıklama girin.");
+      return;
+    }
+    const idError = driverIdError(driverIdMode, driverId);
+    if (idError) {
+      setFormError(driverIdErrorText(idError));
       return;
     }
     if (!isCargo && !selectedSlot) {
@@ -159,16 +224,23 @@ export default function AdminNewAppointment() {
       setFormError("Manuel modda rampa seçin.");
       return;
     }
+    if (recurringEnabled && !isCargo && generateOccurrenceDates(date, recurrence).error) {
+      setFormError("Tekrar ayarlarını kontrol edin.");
+      return;
+    }
     try {
       const result = await create.mutateAsync({
         supplier_id: supplier.id,
         product_category_id: category.id,
         product_name: productName,
-        quantity: Math.max(1, parseInt(quantity, 10) || 1),
+        order_numbers: orderMode === "hidden" ? [] : orderNumbers,
+        description: descriptionPayload(descriptionMode, description),
+        quantity: qty,
         quantity_unit: unit,
         vehicle_category_id: vehicleOverrideId,
         license_plate: plate || null,
         driver_name: driver || null,
+        driver_id_number: driverIdMode === "hidden" ? null : driverId.trim() || null,
         delivery_type: isCargo ? "cargo" : "standard",
         cargo_window: isCargo ? cargoWindow : null,
         target_date: date,
@@ -179,7 +251,7 @@ export default function AdminNewAppointment() {
         note: note || null,
         recurring:
           recurringEnabled && !isCargo
-            ? { frequency, occurrence_count: effectiveCount }
+            ? { recurrence: toRecurrencePayload(recurrence, date) }
             : undefined,
       });
       const isSeries = "series_id" in (result as SeriesCreateResultDto);
@@ -250,6 +322,18 @@ export default function AdminNewAppointment() {
               onChangeText={setProductName}
               placeholder="Örn. Acil teslimat"
             />
+            <DescriptionField
+              mode={descriptionMode}
+              value={description}
+              onChange={setDescription}
+              maxLength={form.data?.description_max_length}
+            />
+            <OrderNumbersField
+              mode={orderMode}
+              value={orderNumbers}
+              onChange={setOrderNumbers}
+              max={form.data?.max_order_numbers ?? 20}
+            />
             <View style={{ flexDirection: "row", gap: spacing.md }}>
               <View style={{ flex: 1 }}>
                 <Field
@@ -299,6 +383,7 @@ export default function AdminNewAppointment() {
                 />
               </View>
             </View>
+            <DriverIdField mode={driverIdMode} value={driverId} onChange={setDriverId} />
 
             <View style={{ gap: 8 }}>
               <Text style={{ color: colors.text, fontSize: 14, fontWeight: "500" }}>
@@ -358,28 +443,27 @@ export default function AdminNewAppointment() {
               category && (
                 <>
                   <View style={{ gap: 8 }}>
-                    <Text style={{ color: colors.text, fontSize: 14, fontWeight: "500" }}>
-                      Süre
-                    </Text>
-                    <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
-                      {durationOptions.map((d) => (
-                        <Chip
-                          key={d}
-                          label={`${d} dk`}
-                          selected={effectiveDuration === d}
-                          onPress={() => {
-                            setDuration(d);
-                            setSelectedSlot(null);
-                          }}
-                        />
-                      ))}
-                    </View>
-                    {durationRange?.conflicting && (
+                    <DurationChips
+                      options={durationOptions}
+                      value={effectiveDuration}
+                      suggested={suggestedMinutes}
+                      estimate={estimate}
+                      onChange={(d) => {
+                        setDuration(d);
+                        setSelectedSlot(null);
+                      }}
+                    />
+                    {durationBlocked && (
                       <Text style={{ color: colors.destructive, fontSize: 12 }}>
                         Bu kategorinin süre aralığı tedarikçinin limitleriyle kesişmiyor.
                         Ayarlardan limitlerden birini güncelleyin.
                       </Text>
                     )}
+                    <MinuteUsageCard
+                      usage={minuteUsage.data?.usage}
+                      requested={effectiveDuration}
+                      title="Tedarikçinin süre limiti"
+                    />
                   </View>
                   <View style={{ gap: 8 }}>
                     <Text style={{ color: colors.text, fontSize: 14, fontWeight: "500" }}>
@@ -462,37 +546,12 @@ export default function AdminNewAppointment() {
                   onValueChange={setRecurringEnabled}
                 />
                 {recurringEnabled && (
-                  <>
-                    <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
-                      {(
-                        [
-                          ["weekly", "Her hafta"],
-                          ["biweekly", "2 haftada bir"],
-                          ["monthly", "Her ay"],
-                        ] as const
-                      ).map(([f, label]) => (
-                        <Chip
-                          key={f}
-                          label={label}
-                          selected={frequency === f}
-                          onPress={() => {
-                            setFrequency(f);
-                            if (f === "monthly" && (parseInt(count, 10) || 0) > 6) setCount("6");
-                          }}
-                        />
-                      ))}
-                    </View>
-                    <Field
-                      label={`Tekrar Sayısı (en fazla ${maxCount})`}
-                      value={count}
-                      onChangeText={setCount}
-                      keyboardType="number-pad"
-                    />
-                    <Text style={{ color: colors.faintText, fontSize: 12 }}>
-                      Tüm tarihler kural setinden geçer; biri uygun değilse hiçbiri
-                      oluşturulmaz. Admin açtığı için tüm randevular onaylı doğar.
-                    </Text>
-                  </>
+                  <RecurrenceEditor
+                    startDate={date}
+                    value={recurrence}
+                    onChange={setRecurrence}
+                    footer="Tüm tarihler kural setinden geçer; biri uygun değilse hiçbiri oluşturulmaz. Admin açtığı için tüm randevular onaylı doğar."
+                  />
                 )}
               </View>
             )}
@@ -513,7 +572,7 @@ export default function AdminNewAppointment() {
           title={create.isPending ? "Oluşturuluyor…" : "Randevu Oluştur"}
           loading={create.isPending}
           // Çakışan limitlerde geçerli bir süre yok; sunucuya boşuna gitme.
-          disabled={!supplier || (!isCargo && durationRange?.conflicting === true)}
+          disabled={!supplier || (!isCargo && durationBlocked) || limitExceeded}
           onPress={() => void onSubmit()}
         />
       </ScrollView>

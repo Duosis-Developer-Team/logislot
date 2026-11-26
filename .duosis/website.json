@@ -1,0 +1,335 @@
+{
+  "schemaVersion": "1.0",
+  "slug": "logislot",
+  "kind": "owned_product",
+  "status": "draft",
+  "featured": false,
+  "brand": {
+    "name": "LogiSlot",
+    "shortName": "LogiSlot",
+    "tagline": {
+      "tr": "Akıllı mal kabul ve rampa randevu platformu.",
+      "en": "Smart goods receiving and dock scheduling platform."
+    },
+    "accentColor": "#2179DE",
+    "accentColorDark": "#3189ED",
+    "logoLight": ".duosis/media/logo-light.png",
+    "logoDark": ".duosis/media/logo-dark.png",
+    "icon": ".duosis/media/icon.png"
+  },
+  "content": {
+    "headline": {
+      "tr": "Depo randevularını tesisinizin gerçek kurallarına göre planlayın.",
+      "en": "Plan inbound deliveries around the rules your site actually runs on."
+    },
+    "summary": {
+      "tr": "LogiSlot; fabrikaların, depoların ve üretim tesislerinin tedarikçi mal kabul ve rampa randevu süreçlerini dijitalleştiren, kurallara dayalı, çok kiracılı bir SaaS platformudur. Tedarikçi ürün, araç ve teslimat bilgisini girer; sistem tesis kurallarını değerlendirip yalnızca gerçekten uygun saatleri gösterir ve rampayı kendisi atar.",
+      "en": "LogiSlot is a rule-based, multi-tenant SaaS platform that digitises supplier goods receiving and dock appointments for factories, warehouses and production sites. The supplier enters the goods, vehicle and delivery details; the system evaluates the site's rules, shows only the times that are genuinely available and assigns the dock itself."
+    },
+    "problem": {
+      "tr": "Geleneksel mal kabul operasyonunda tedarikçi talepleri e-posta ve telefonla dağınık yönetilir; rampa doluluğu gerçek zamanlı görünmez; araç tipi ile rampa uyumsuzluğu araç kapıya geldiğinde fark edilir; kargo geliş saatleri günün planını bozar; planlama, depo ve tedarikçi aynı bilgiye bakamaz.",
+      "en": "In a typical goods-in operation, supplier requests arrive by e-mail and phone and are never captured in one place. Dock occupancy is not visible in real time, vehicle-dock mismatches only surface when the lorry is at the gate, courier arrivals with no fixed time upset the day's plan, and planning, warehouse and supplier are all looking at different lists."
+    },
+    "approach": {
+      "tr": "Tüm tesis kuralları — kategori süreleri, araç-rampa uyumluluğu, rampa çakışma grupları, çalışma saatleri ve takvim istisnaları, tedarikçi kota ve limitleri — tek bir kural motorunda değerlendirilir. Sert kurallar uygun olmayan randevuyu engeller; kargo gibi tavsiye kuralları yalnızca takvimde sinyal üretir. Randevu yaşam döngüsü tek akışta yönetilir, her aksiyon denetim kaydına yazılır ve taraflara bildirim gider. Veri tenant ve tesis kapsamında izole edilir; platform sağlayıcı operasyonel veriye varsayılan olarak erişmez.",
+      "en": "Every facility rule — category handling times, vehicle-dock compatibility, dock conflict groups, working hours and calendar exceptions, supplier quotas and limits — is evaluated in one rule engine. Hard rules block an appointment that does not fit; advisory rules, such as the courier layer, only signal on the calendar. The appointment lifecycle runs as a single flow, every action is written to the audit log and the parties are notified. Data is isolated per tenant and facility, and the platform provider has no default access to operational data."
+    },
+    "outcomes": [
+      {
+        "title": { "tr": "Gerçek müsaitlik", "en": "Availability you can trust" },
+        "description": {
+          "tr": "Tedarikçiye gösterilen saatler ürün, araç, rampa ve çakışma kuralları hesaba katılarak üretilir.",
+          "en": "The times a supplier sees are derived from product, vehicle, dock and conflict rules, not from an empty calendar."
+        }
+      },
+      {
+        "title": { "tr": "Kapıda sürpriz yok", "en": "Fewer surprises at the gate" },
+        "description": {
+          "tr": "Araç tipi ve rampa uyumluluğu randevu anında değerlendirilir; uygun olmayan rampaya randevu yerleştirilemez.",
+          "en": "Vehicle type and dock compatibility are checked at booking time; an appointment cannot land on an unsuitable dock."
+        }
+      },
+      {
+        "title": { "tr": "Tek akışta onay ve izlenebilirlik", "en": "One approval flow, full traceability" },
+        "description": {
+          "tr": "Bekliyor, onaylandı, revize bekliyor, tamamlandı ve iptal durumları tek akışta yönetilir; her revizyon geçmişiyle saklanır.",
+          "en": "Pending, approved, revision pending, completed and cancelled states are handled in one flow, and every revision is kept with its history."
+        }
+      },
+      {
+        "title": { "tr": "Kod değişmeden tesis bazlı yapılandırma", "en": "Configured per site, without code changes" },
+        "description": {
+          "tr": "Kategoriler, araç kategorileri, rampalar, çakışma grupları, tedarikçiler ve roller tesisin kendi yöneticileri tarafından yönetilir.",
+          "en": "Categories, vehicle classes, docks, conflict groups, suppliers and roles are managed per facility by the site's own administrators."
+        }
+      },
+      {
+        "title": { "tr": "Sağlayıcı operasyon verinizi görmez", "en": "The provider sees health, not your data" },
+        "description": {
+          "tr": "Platform paneli yalnızca agregat kullanım ve sağlık metriklerini gösterir; tedarikçi, sürücü veya plaka gibi detaylara varsayılan erişimi yoktur.",
+          "en": "The platform console shows only aggregate usage and health metrics; it has no default access to details such as supplier, driver or plate."
+        }
+      }
+    ],
+    "audiences": [
+      { "tr": "Tedarikçiler ve nakliyeciler", "en": "Suppliers and carriers" },
+      { "tr": "Rampa ve depo yöneticileri", "en": "Dock and warehouse managers" },
+      { "tr": "Tesis sistem yöneticileri", "en": "Site system administrators" },
+      { "tr": "Planlama ve satın alma ekipleri", "en": "Planning and procurement teams" }
+    ],
+    "capabilities": [
+      {
+        "title": { "tr": "Üç adımlı randevu sihirbazı", "en": "Three-step booking wizard" },
+        "description": {
+          "tr": "Tedarikçi önce ürün ve kategoriyi, sonra araç ve teslimat tipini, en son gerçek müsaitlikten tarih ve saati seçer; rampayı sistem atar.",
+          "en": "The supplier picks the goods and category, then the vehicle and delivery type, and finally a date and time from real availability. The dock is assigned by the system."
+        }
+      },
+      {
+        "title": { "tr": "Kural motoru", "en": "Rule engine" },
+        "description": {
+          "tr": "Kategori-süre kuralları, araç-rampa uyumluluğu, rampa çakışma grupları ve tavsiye katmanı tek serviste değerlendirilir; sert kurallar engeller, tavsiye kuralları yalnızca sinyal üretir.",
+          "en": "Category handling times, vehicle-dock compatibility, dock conflict groups and the advisory layer are evaluated in one service. Hard rules block; advisory rules only signal."
+        }
+      },
+      {
+        "title": { "tr": "Rampa çakışma grupları", "en": "Dock conflict groups" },
+        "description": {
+          "tr": "Yan yana rampalar veya fiziksel kapasite paylaşan alanlar karşılıklı bloke, paylaşımlı kapasite ya da koşullu tetik olarak konfigürasyonla tanımlanır; kodda sabit rampa ilişkisi yoktur.",
+          "en": "Adjacent docks or areas that share physical capacity are modelled as mutual-block, shared-capacity or conditional groups in configuration; no dock relationship is hard-coded."
+        }
+      },
+      {
+        "title": { "tr": "Kargo uyarı katmanı", "en": "Courier advisory layer" },
+        "description": {
+          "tr": "Belirsiz varışlı kargolar kaba bir zaman penceresiyle kaydedilir ve takvimde ayrı bir uyarı katmanı olarak görünür; standart randevuları engellemez.",
+          "en": "Courier deliveries with no fixed arrival are recorded with a rough time window and shown as a separate alert layer on the calendar; they never block standard appointments."
+        }
+      },
+      {
+        "title": { "tr": "Yönetim takvimi ve randevu aksiyonları", "en": "Operations calendar and appointment actions" },
+        "description": {
+          "tr": "Günlük rampa-saat takvimi ve haftalık özet; onay, red, revize, tamamlama ve iptal aksiyonları duruma göre sunulur; revize geçmişi saklanır.",
+          "en": "A daily dock-by-hour calendar and a weekly summary; approve, reject, revise, complete and cancel actions are offered according to state, and revision history is kept."
+        }
+      },
+      {
+        "title": { "tr": "Tedarikçi adına randevu", "en": "Booking on a supplier's behalf" },
+        "description": {
+          "tr": "Yöneticiler tedarikçi adına randevu oluşturur; tedarikçi kuralları aynen uygulanır ve manuel rampa seçimi de tam kural setinden geçer.",
+          "en": "Managers can book on behalf of a supplier; the supplier's rules still apply, and a manually chosen dock goes through the full rule set."
+        }
+      },
+      {
+        "title": { "tr": "Tekrarlayan randevu serileri", "en": "Recurring appointment series" },
+        "description": {
+          "tr": "Haftalık, iki haftalık veya aylık seriler oluşturulur; her tekrar tam kural setinden geçer ve seri ya bütünüyle kabul edilir ya hiç. Seriler toplu iptal, revize ve onaylanabilir.",
+          "en": "Weekly, fortnightly or monthly series can be created; every occurrence goes through the full rule set and the series is accepted as a whole or not at all. Series can be cancelled, revised and approved in bulk."
+        }
+      },
+      {
+        "title": { "tr": "Bildirimler ve e-posta", "en": "Notifications and e-mail" },
+        "description": {
+          "tr": "Randevu yaşam döngüsü olayları panel bildirimi ve e-posta olarak iletilir; kullanıcılar tercihlerini yönetir, başarısız e-postalar loglanır ve yeniden gönderilir.",
+          "en": "Appointment lifecycle events are delivered as in-app notifications and e-mail; users manage their preferences, and failed e-mails are logged and retried."
+        }
+      },
+      {
+        "title": { "tr": "Raporlar ve CSV", "en": "Reports and CSV export" },
+        "description": {
+          "tr": "Tarih aralıklı operasyon raporları: durum ve kategori dağılımları, günlük trend, onay süresi; özet ve randevu detayı CSV olarak dışa aktarılır.",
+          "en": "Date-ranged operational reports: status and category breakdowns, daily trend and approval time; summary and appointment detail can be exported as CSV."
+        }
+      },
+      {
+        "title": { "tr": "Tesis konfigürasyonu", "en": "Facility configuration" },
+        "description": {
+          "tr": "Ürün kategorileri, araç kategorileri, rampalar ve çalışma saatleri, takvim istisnaları, tedarikçiler (izinli kategori, kota, otomatik onay) ve tesis bazlı marka ayarları yönetim panelinden düzenlenir.",
+          "en": "Product categories, vehicle classes, docks and working hours, calendar exceptions, suppliers (allowed categories, quotas, auto-approval) and per-site branding are all managed from the operations panel."
+        }
+      },
+      {
+        "title": { "tr": "Kullanıcı ve rol yönetimi", "en": "Users and roles" },
+        "description": {
+          "tr": "Tesis kullanıcıları ve rolleri izin gruplarıyla tanımlanır; sistem rolleri kilitlidir, rampa yöneticileri yalnızca atanmış rampalarında işlem yapar.",
+          "en": "Site users and roles are defined from permission groups; system roles are locked, and dock managers act only on their assigned docks."
+        }
+      },
+      {
+        "title": { "tr": "Platform paneli", "en": "Platform console" },
+        "description": {
+          "tr": "SaaS sağlayıcı müşteri hesaplarını açar, plan ve limit atar, agregat kullanım ve sağlık metriklerini izler; operasyonel veriye erişmez.",
+          "en": "The SaaS provider onboards customer accounts, assigns plans and limits, and monitors aggregate usage and health metrics, without access to operational data."
+        }
+      },
+      {
+        "title": { "tr": "Mobil uygulama", "en": "Mobile app" },
+        "description": {
+          "tr": "iOS ve Android uygulaması tedarikçi ve yönetim akışlarını web ile parite hedefiyle sunar; platform paneli bilinçli olarak mobilde yoktur.",
+          "en": "The iOS and Android app covers the supplier and operations flows in step with the web; the platform console is deliberately not on mobile."
+        }
+      },
+      {
+        "title": { "tr": "Destek talepleri", "en": "Support requests" },
+        "description": {
+          "tr": "Yönetim ve tedarikçi kullanıcıları destek talebi açar ve takip eder; talepler Duosis'in Hermes destek merkezine iletilir, iç notlar müşteriye çıkmaz.",
+          "en": "Operations and supplier users open and follow support requests; tickets are routed to Duosis' Hermes support hub, and internal notes never reach the customer."
+        }
+      },
+      {
+        "title": { "tr": "Türkçe ve İngilizce arayüz", "en": "Turkish and English interface" },
+        "description": {
+          "tr": "Açılış sayfası ve üç portal Türkçe ve İngilizce sunulur; dil tercihi sunucu tarafında okunur.",
+          "en": "The landing page and all three portals are available in Turkish and English; the language preference is read server-side."
+        }
+      }
+    ],
+    "workflow": [
+      {
+        "title": { "tr": "Ürün ve kategori", "en": "Goods and category" },
+        "description": {
+          "tr": "Tedarikçi ürünü, kategoriyi, miktarı ve birimi girer; yalnızca kendisine izinli kategoriler listelenir.",
+          "en": "The supplier enters the goods, category, quantity and unit; only the categories allowed for that supplier are listed."
+        }
+      },
+      {
+        "title": { "tr": "Araç ve teslimat tipi", "en": "Vehicle and delivery type" },
+        "description": {
+          "tr": "Araç kategorisi kategori varsayılanından gelir ve değiştirilebilir; plaka ve sürücü girilir; standart ya da kargo teslimat seçilir.",
+          "en": "The vehicle class defaults from the category and can be changed; plate and driver are entered; standard or courier delivery is chosen."
+        }
+      },
+      {
+        "title": { "tr": "Gerçek müsaitlikten saat", "en": "A time from real availability" },
+        "description": {
+          "tr": "Gün, 30 dakikalık başlangıç dilimi ve tahmini süre seçilir; dilimler müsait, kısmen dolu veya dolu olarak gösterilir.",
+          "en": "Day, a 30-minute start slot and an estimated duration are chosen; slots are shown as available, partly booked or full."
+        }
+      },
+      {
+        "title": { "tr": "Gönderim ve otomatik onay", "en": "Submission and auto-approval" },
+        "description": {
+          "tr": "Tedarikçinin otomatik onay yetkisi varsa randevu onaylanır, yoksa yönetici onayına düşer.",
+          "en": "If the supplier has auto-approval, the appointment is confirmed; otherwise it waits for a manager."
+        }
+      },
+      {
+        "title": { "tr": "Yönetici işlemi", "en": "Manager action" },
+        "description": {
+          "tr": "Yönetici onaylar, reddeder, revize eder, tamamlar veya iptal eder; revize halinde eski ve yeni aralık saklanır.",
+          "en": "The manager approves, rejects, revises, completes or cancels; on revision both the old and the new slot are kept."
+        }
+      },
+      {
+        "title": { "tr": "Bildirim ve denetim kaydı", "en": "Notification and audit" },
+        "description": {
+          "tr": "Her aksiyon tarafları bilgilendirir ve denetim kaydına işlenir.",
+          "en": "Every action notifies the parties and is written to the audit log."
+        }
+      }
+    ],
+    "security": [
+      {
+        "tr": "Platform izinleri ile tenant içi izinler ayrı uzaylardır ve asla birleşmez; tenant ve tedarikçi kimlikleri platform uçlarından 403 alır.",
+        "en": "Platform permissions and tenant permissions are separate spaces that never merge; tenant and supplier identities get 403 from platform endpoints."
+      },
+      {
+        "tr": "Her istek kimliği doğrulanmış kullanıcı ve aktif tenant/tesis bağlamıyla çalışır; tedarikçi yalnızca kendi randevularını görür.",
+        "en": "Every request runs with an authenticated user and an active tenant/facility context; a supplier sees only its own appointments."
+      },
+      {
+        "tr": "Rampa yöneticilerinin işlem yetkisi atanmış rampa listesiyle daraltılır.",
+        "en": "A dock manager's actions are limited to the docks assigned to them."
+      },
+      {
+        "tr": "Refresh token'lar her kullanımda yenilenir; çıkış tüm oturumları kapatır; giriş ve parola sıfırlama hız sınırlıdır.",
+        "en": "Refresh tokens rotate on every use, logout closes all sessions, and login and password reset are rate-limited."
+      },
+      {
+        "tr": "Parola politikası uygulanır; geçici parolayla açılan hesaplar ilk girişte parola değişimine zorlanır.",
+        "en": "A password policy is enforced, and accounts opened with a temporary password must change it at first login."
+      },
+      {
+        "tr": "Kritik işlemler önce/sonra durumlarıyla denetim kaydına yazılır; parola ve token gibi alanlar maskelenir.",
+        "en": "Critical actions are written to the audit log with before/after state; fields such as passwords and tokens are masked."
+      },
+      {
+        "tr": "Platform paneli yalnızca agregat veri gösterir; tedarikçi adı, sürücü, telefon ve plaka gibi detaylar varsayılan olarak platform katmanına çıkmaz.",
+        "en": "The platform console shows aggregate data only; details such as supplier name, driver, phone and plate do not reach the platform layer by default."
+      }
+    ]
+  },
+  "screenshots": [
+    {
+      "path": ".duosis/media/screenshots/landing-hero-light.png",
+      "alt": {
+        "tr": "LogiSlot açılış sayfası, açık tema: 'Akıllı mal kabul ve rampa randevu platformu' başlığı ile tedarikçi ve yönetim portalı kartları.",
+        "en": "LogiSlot landing page in the light theme: the 'Smart goods receiving and dock scheduling platform' headline with supplier and operations portal cards."
+      },
+      "theme": "light",
+      "priority": 90
+    },
+    {
+      "path": ".duosis/media/screenshots/landing-hero-dark.png",
+      "alt": {
+        "tr": "LogiSlot açılış sayfası, koyu tema: aynı başlık ve portal kartları.",
+        "en": "LogiSlot landing page in the dark theme: the same headline and portal cards."
+      },
+      "theme": "dark",
+      "priority": 80
+    },
+    {
+      "path": ".duosis/media/screenshots/supplier-wizard-step3.png",
+      "alt": {
+        "tr": "Tedarikçi portalında randevu sihirbazının üçüncü adımı: gün, tahmini süre ve 30 dakikalık başlangıç dilimleri; müsait, kısmen dolu ve dolu dilimler işaretli.",
+        "en": "Third step of the supplier booking wizard: day, estimated duration and 30-minute start slots, marked as available, partly booked or full."
+      },
+      "caption": {
+        "tr": "Demo verisi (seed hesabı).",
+        "en": "Demo data from the seed account."
+      },
+      "theme": "light",
+      "priority": 75
+    },
+    {
+      "path": ".duosis/media/screenshots/supplier-wizard-step2.png",
+      "alt": {
+        "tr": "Tedarikçi portalında randevu sihirbazının ikinci adımı: araç kategorisi, plaka, sürücü ve standart/kargo teslimat tipi seçimi.",
+        "en": "Second step of the supplier booking wizard: vehicle class, plate, driver and the choice between standard and courier delivery."
+      },
+      "caption": {
+        "tr": "Demo verisi (seed hesabı).",
+        "en": "Demo data from the seed account."
+      },
+      "theme": "light",
+      "priority": 70
+    }
+  ],
+  "metrics": [],
+  "links": {
+    "repository": "https://github.com/Duosis-Developer-Team/logislot"
+  },
+  "relations": {
+    "technologies": [
+      "Next.js",
+      "React",
+      "TypeScript",
+      "Tailwind CSS",
+      "FastAPI",
+      "SQLAlchemy",
+      "Alembic",
+      "PostgreSQL",
+      "Kubernetes",
+      "Expo",
+      "React Native",
+      "Playwright"
+    ]
+  },
+  "seo": {
+    "title": { "tr": "LogiSlot | Duosis", "en": "LogiSlot | Duosis" },
+    "description": {
+      "tr": "Fabrika ve depoların tedarikçi mal kabul ve rampa randevularını kurallara dayalı, çok kiracılı LogiSlot platformuyla dijitalleştirin.",
+      "en": "Digitise supplier goods receiving and dock appointments for factories and warehouses with LogiSlot, Duosis' rule-based multi-tenant platform."
+    }
+  }
+}

@@ -2,7 +2,7 @@ import uuid
 from datetime import date, datetime, time
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, field_validator
 
 
 class OrmModel(BaseModel):
@@ -67,6 +67,7 @@ class SupplierOut(OrmModel):
     contact_name: str | None = None
     contact_email: str | None = None
     contact_phone: str | None = None
+    additional_emails: list[str] = []
     status: str
     is_active: bool = True
     auto_approval_enabled: bool
@@ -76,8 +77,15 @@ class SupplierOut(OrmModel):
     max_block_minutes: int | None = None
     weekly_quota: int | None = None
     monthly_quota: int | None = None
+    # Donem bazinda sure limiti ezmesi (cozulmus: inherit/unlimited/custom).
+    minute_limits: dict[str, Any] = {}
     notes: str | None = None
     allowed_product_category_ids: list[uuid.UUID] = []
+
+    @field_validator("additional_emails", mode="before")
+    @classmethod
+    def _emails_list(cls, value):
+        return value or []
     # Portal hesabi ozeti
     account_email: str | None = None
     account_active: bool | None = None

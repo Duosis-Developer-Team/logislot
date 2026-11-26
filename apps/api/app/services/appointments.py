@@ -6,6 +6,7 @@ UI/router katmaninda kural yazilmaz.
 
 import calendar
 import uuid
+from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
 
 from fastapi import status as http_status
@@ -20,6 +21,7 @@ from app.core.enums import (
     CargoWindow,
     CreatedByType,
     DeliveryType,
+    DurationMode,
     QuantityUnit,
     RecurringRule,
     SupplierStatus,
@@ -40,8 +42,28 @@ from app.models import (
 )
 from app.rules.availability import AvailabilityService
 from app.rules.context import HardRuleCode, HardRuleResult, RuleEvaluationContext
+from app.services.appointment_form import (
+    resolve_appointment_form,
+    validate_description,
+    validate_order_numbers,
+)
 from app.services.audit import record_audit
+from app.services.cancellation_policy import (
+    ensure_cancellation_notice,
+    notice_cutoff,
+    reason_text,
+    resolve_cancellation_policy,
+    resolve_supplier_reason,
+)
+from app.services.driver_id import apply_driver_id, validate_driver_id
+from app.services.duration_rules import estimate_duration, resolve_duration_policy
 from app.services.notifications import on_appointment_created, on_lifecycle_action
+from app.services.recurrence import (
+    RecurrenceError,
+    describe_rule_tr,
+    generate_occurrence_dates,
+)
+from app.services.supplier_limits import minute_usage
 
 
 class InvalidTransitionError(ApiError):
@@ -199,6 +221,7 @@ async def build_rule_context(
         existing_appointments=existing,
         supplier_week_count=await _count_supplier_appointments(db, supplier.id, *week),
         supplier_month_count=await _count_supplier_appointments(db, supplier.id, *month),
+        supplier_minute_usage=await minute_usage(db, facility, supplier, target_date),
     )
 
 
@@ -222,6 +245,9 @@ async def create_appointment(
     license_plate: str | None = None,
     driver_name: str | None = None,
     driver_phone: str | None = None,
+    order_numbers: list[str] | None = None,
+    driver_id_number: str | None = None,
+    description: str | None = None,
     start_at: datetime | None = None,
     duration_minutes: int | None = None,
     cargo_window: CargoWindow | None = None,
@@ -236,6 +262,7 @@ async def create_appointment(
     _commit: bool = True,
     _notify: bool = True,
     _skip_lock: bool = False,
+    _enforce_form: bool = True,
 ) -> Appointment:
     # Savunma: pasif tedarikci hicbir yoldan randevu olusturamaz
     # (admin on-behalf dahil; portal tarafinda auth katmani zaten engeller).
@@ -245,6 +272,27 @@ async def create_appointment(
     # Kargo tedarikci bazinda acilir; kapaliyken admin adina olusturma dahil
     # hicbir yoldan kargo randevusu olusmaz.
     ensure_delivery_type_allowed(supplier, delivery_type)
+
+    # Tesisin randevu formu: siparis no gizli/istege bagli/zorunlu. Telafi gibi
+    # turetilmis randevular (_enforce_form=False) kaynaginin degerini tasir.
+    order_numbers = (
+        validate_order_numbers(facility, order_numbers)
+        if _enforce_form
+        else (order_numbers or None)
+    )
+    # Aciklama: telafi kaynaginin aciklamasini aynen tasir (kurala takilmaz).
+    description = (
+        validate_description(facility, description)
+        if _enforce_form
+        else (description or None)
+    )
+    # Surucu kimligi: telafi gibi turetilmis randevulara TASINMAZ (farkli surucu
+    # gelebilir; kisisel veri gereksiz cogaltilmaz).
+    driver_id = (
+        validate_driver_id(resolve_appointment_form(facility)["driver_id_number"], driver_id_number)
+        if _enforce_form
+        else None
+    )
 
     # Eszamanlilik: kilit altinda son-an availability degerlendirmesi yapilir;
     # ayni tesise paralel create/revise istekleri serialize edilir.
@@ -279,12 +327,26 @@ async def create_appointment(
             raise NotFoundError("Arac kategorisi bulunamadi")
 
     cargo_min_block: int | None = None
+    duration_source: str | None = None
+    duration_from_rule = False
     if delivery_type == DeliveryType.cargo:
         cargo_min_block = facility.cargo_default_min_block_minutes
         duration = duration_minutes or cargo_min_block
         duration = max(duration, cargo_min_block, category.min_block_minutes)
     else:
-        duration = duration_minutes or category.min_block_minutes
+        duration, duration_source = await _resolve_duration(
+            db,
+            facility,
+            category=category,
+            vehicle_category_id=resolved_vehicle_id,
+            quantity=quantity,
+            quantity_unit=quantity_unit,
+            requested=duration_minutes,
+            # Kilitli modda tedarikcinin gonderdigi sure yok sayilir; yonetim
+            # (ve onun adina olusturma) her modda elle sure verebilir.
+            locked=created_by_type == CreatedByType.supplier,
+        )
+        duration_from_rule = duration_source == "rule"
 
     ctx = await build_rule_context(
         db,
@@ -297,6 +359,7 @@ async def create_appointment(
         duration_minutes=duration,
         cargo_window=cargo_window,
     )
+    ctx.duration_from_rule = duration_from_rule
     if allowed_dock_ids is not None:
         # Rampa yoneticisi scope'u: yalnizca atanmis rampalar aday olur.
         ctx.docks = [d for d in ctx.docks if d.id in allowed_dock_ids]
@@ -304,7 +367,9 @@ async def create_appointment(
 
     check = engine.validate_request()
     if not check.ok:
-        raise RuleViolationError(check.code or "RULE_VIOLATION", check.message or "")
+        raise RuleViolationError(
+            check.code or "RULE_VIOLATION", check.message or "", details=check.details
+        )
 
     if not engine.compatible_docks():
         raise RuleViolationError(
@@ -367,6 +432,8 @@ async def create_appointment(
         license_plate=license_plate,
         driver_name=driver_name,
         driver_phone=driver_phone,
+        order_numbers=order_numbers,
+        description=description,
         delivery_type=delivery_type,
         cargo_window=cargo_window,
         cargo_min_block_minutes=cargo_min_block,
@@ -375,6 +442,7 @@ async def create_appointment(
         scheduled_start_at=start_dt,
         scheduled_end_at=end_dt,
         duration_minutes=duration,
+        duration_source=duration_source,
         status=(
             AppointmentStatus.approved
             # Karar (Sprint 10): admin tesisin adina aciyorsa randevu ONAYLI dogar.
@@ -387,6 +455,7 @@ async def create_appointment(
         created_by_type=created_by_type,
         created_by_id=actor_id,
     )
+    apply_driver_id(appointment, driver_id)
     db.add(appointment)
     await db.flush()
 
@@ -411,6 +480,44 @@ async def create_appointment(
     return appointment
 
 
+async def _resolve_duration(
+    db: AsyncSession,
+    facility: Facility,
+    *,
+    category: ProductCategory,
+    vehicle_category_id: uuid.UUID | None,
+    quantity: int,
+    quantity_unit: QuantityUnit | str,
+    requested: int | None,
+    locked: bool,
+) -> tuple[int, str]:
+    """Standart randevunun suresi ve kaynagi ("rule" / "fallback" / "manual").
+
+    Tesis politikasi (services/duration_rules.py):
+    - supplier : istenen sure (yoksa kategori tabani) — eski davranis.
+    - suggested: istek yoksa ya da hesapla AYNIYSA hesaplanan; farkliysa elle.
+    - computed : tedarikci icin (locked) her zaman hesaplanan; yonetim farkli
+      bir sure verirse elle kabul edilir (sinirlara tabi).
+    """
+    policy = resolve_duration_policy(facility)
+    if policy["mode"] == DurationMode.supplier:
+        return requested or category.min_block_minutes, "manual"
+    estimate = await estimate_duration(
+        db,
+        facility,
+        product_category=category,
+        vehicle_category_id=vehicle_category_id,
+        quantity=quantity,
+        quantity_unit=str(quantity_unit),
+    )
+    if (policy["mode"] == DurationMode.computed and locked) or requested in (
+        None,
+        estimate.minutes,
+    ):
+        return estimate.minutes, estimate.source
+    return requested, "manual"
+
+
 async def _get_for_update(
     db: AsyncSession, facility_id: uuid.UUID, appointment_id: uuid.UUID
 ) -> Appointment:
@@ -433,6 +540,7 @@ async def _finalize_action(
     actor_type: ActorType,
     actor_id: uuid.UUID | None,
     before_status: AppointmentStatus,
+    audit_after: dict | None = None,
 ) -> Appointment:
     record_audit(
         db,
@@ -444,7 +552,7 @@ async def _finalize_action(
         entity_type="appointment",
         entity_id=appointment.id,
         before={"status": before_status.value},
-        after={"status": appointment.status.value},
+        after={"status": appointment.status.value, **(audit_after or {})},
     )
     await db.commit()
     await db.refresh(appointment)
@@ -894,37 +1002,21 @@ async def cancel_appointment(
     *,
     actor_type: ActorType,
     actor_id: uuid.UUID | None,
-    supplier_id: uuid.UUID | None = None,
     reason: str | None = None,
 ) -> Appointment:
+    """YONETIM iptali: tesis kurallarina (sure, sebep, telafi) tabi degildir."""
     appointment = await _get_for_update(db, facility_id, appointment_id)
     before = appointment.status
-
-    if supplier_id is not None:
-        # Tedarikci yalnizca kendi gelecek tarihli bekleyen/onayli randevusunu iptal eder.
-        if appointment.supplier_id != supplier_id:
-            raise NotFoundError("Randevu bulunamadi")
-        if before not in (AppointmentStatus.pending, AppointmentStatus.approved):
-            raise InvalidTransitionError(before, "cancel")
-        if to_utc(appointment.scheduled_start_at) <= datetime.now(UTC):
-            raise ApiError(
-                "APPOINTMENT_IN_PAST",
-                "Gecmis veya baslamis randevu iptal edilemez",
-                409,
-            )
-    else:
-        if before in (
-            AppointmentStatus.completed,
-            AppointmentStatus.cancelled,
-            AppointmentStatus.rejected,
-        ):
-            raise InvalidTransitionError(before, "cancel")
+    if before in (
+        AppointmentStatus.completed,
+        AppointmentStatus.cancelled,
+        AppointmentStatus.rejected,
+    ):
+        raise InvalidTransitionError(before, "cancel")
 
     appointment.status = AppointmentStatus.cancelled
     appointment.cancellation_reason = reason
-    await on_lifecycle_action(
-        db, appointment, action="cancel", by_supplier=supplier_id is not None, reason=reason
-    )
+    await on_lifecycle_action(db, appointment, action="cancel", reason=reason)
     return await _finalize_action(
         db,
         appointment,
@@ -933,6 +1025,127 @@ async def cancel_appointment(
         actor_id=actor_id,
         before_status=before,
     )
+
+
+@dataclass(frozen=True)
+class MakeupSlot:
+    """Telafi randevusunun zamani: standartta kesin saat, kargoda pencere."""
+
+    target_date: date
+    start_at: datetime | None = None
+    cargo_window: CargoWindow | None = None
+
+
+async def supplier_cancel_appointment(
+    db: AsyncSession,
+    *,
+    facility: Facility,
+    supplier: Supplier,
+    appointment_id: uuid.UUID,
+    actor_id: uuid.UUID | None,
+    reason_id: uuid.UUID | None = None,
+    note: str | None = None,
+    makeup: MakeupSlot | None = None,
+) -> tuple[Appointment, Appointment | None]:
+    """Tedarikci iptali + (varsa) telafi randevusu — TEK transaction.
+
+    Siralama bilincli: once iptal (flush), sonra telafi olusturma. Boylece
+    iptal edilen randevu kota/rampa hesabinda telafinin onunu kesmez. Telafi
+    olusturulamazsa (slot dolu, kural ihlali) hata yukari cikar ve transaction
+    commit EDILMEDIGI icin iptal de geri alinir: "telafisiz iptal" olusmaz.
+    """
+    await acquire_facility_lock(db, facility.id)
+    appointment = await _get_for_update(db, facility.id, appointment_id)
+    before = appointment.status
+    # Tedarikci yalnizca kendi gelecek tarihli bekleyen/onayli randevusunu iptal eder.
+    if appointment.supplier_id != supplier.id:
+        raise NotFoundError("Randevu bulunamadi")
+    if before not in (AppointmentStatus.pending, AppointmentStatus.approved):
+        raise InvalidTransitionError(before, "cancel")
+    now = datetime.now(UTC)
+    if to_utc(appointment.scheduled_start_at) <= now:
+        raise ApiError("APPOINTMENT_IN_PAST", "Gecmis veya baslamis randevu iptal edilemez", 409)
+
+    policy = resolve_cancellation_policy(facility)
+    ensure_cancellation_notice(policy, appointment.scheduled_start_at, now)
+    reason, note = await resolve_supplier_reason(db, facility, reason_id=reason_id, note=note)
+    if policy["require_makeup"] and makeup is None:
+        raise ApiError(
+            "MAKEUP_REQUIRED",
+            "Iptal icin telafi randevusunun tarihini secmelisiniz",
+            422,
+        )
+
+    appointment.status = AppointmentStatus.cancelled
+    appointment.cancellation_reason = note
+    appointment.cancellation_reason_id = reason.id if reason else None
+    appointment.cancellation_reason_label = reason.label if reason else None
+    await db.flush()
+
+    makeup_appointment: Appointment | None = None
+    if makeup is not None:
+        is_cargo = appointment.delivery_type == DeliveryType.cargo
+        makeup_appointment = await create_appointment(
+            db,
+            facility=facility,
+            supplier=supplier,
+            actor_type=ActorType.supplier_user,
+            actor_id=actor_id,
+            created_by_type=CreatedByType.supplier,
+            product_category_id=appointment.product_category_id,
+            product_name=appointment.product_name,
+            quantity=appointment.quantity,
+            quantity_unit=appointment.quantity_unit,
+            target_date=makeup.target_date,
+            delivery_type=appointment.delivery_type,
+            vehicle_category_id=appointment.vehicle_category_id,
+            license_plate=appointment.license_plate,
+            driver_name=appointment.driver_name,
+            driver_phone=appointment.driver_phone,
+            order_numbers=appointment.order_numbers,
+            description=appointment.description,
+            start_at=None if is_cargo else makeup.start_at,
+            duration_minutes=appointment.duration_minutes,
+            cargo_window=(makeup.cargo_window or appointment.cargo_window) if is_cargo else None,
+            _audit_action="appointment.create_makeup",
+            _commit=False,
+            _skip_lock=True,
+            # Telafi, iptal edilenin siparis numaralarini aynen tasir; kural
+            # sonradan acildiysa eski randevunun iptali bu yuzden kilitlenmez.
+            _enforce_form=False,
+        )
+        makeup_appointment.is_makeup = True
+        makeup_appointment.makeup_of_id = appointment.id
+        appointment.makeup_appointment_id = makeup_appointment.id
+        await db.flush()
+
+    await on_lifecycle_action(
+        db,
+        appointment,
+        action="cancel",
+        by_supplier=True,
+        reason=reason_text(appointment.cancellation_reason_label, note),
+        makeup=makeup_appointment,
+    )
+    result = await _finalize_action(
+        db,
+        appointment,
+        action="cancel",
+        actor_type=ActorType.supplier_user,
+        actor_id=actor_id,
+        before_status=before,
+        audit_after={
+            "reason_id": str(reason.id) if reason else None,
+            "reason_label": appointment.cancellation_reason_label,
+            "reason": note,
+            "makeup_appointment_id": (
+                str(makeup_appointment.id) if makeup_appointment else None
+            ),
+        },
+    )
+    if makeup_appointment is not None:
+        await db.refresh(makeup_appointment)
+    return result, makeup_appointment
 
 
 def _add_months_clamped(dt: datetime, months: int) -> datetime:
@@ -951,6 +1164,39 @@ _FREQUENCY_RULES = {
 }
 
 
+def normalize_recurrence(recurrence: dict, start: date) -> dict:
+    """Desen varsayilanlarini baslangic tarihinden doldurur; saklanan kural
+    boylece aciktir (ozet metni ve tekrar uretimi icin)."""
+    rule = dict(recurrence)
+    rule["interval"] = max(1, int(rule.get("interval") or 1))
+    if rule["type"] == "weekly" and not rule.get("weekdays"):
+        rule["weekdays"] = [start.weekday()]
+    if rule["type"] == "monthly":
+        if rule.get("monthly_mode") == "nth_weekday":
+            if rule.get("weekday") is None:
+                rule["weekday"] = start.weekday()
+            if rule.get("week_of_month") is None:
+                rule["week_of_month"] = min((start.day - 1) // 7 + 1, 4)
+        else:
+            rule["monthly_mode"] = "day_of_month"
+            if not rule.get("day_of_month"):
+                rule["day_of_month"] = start.day
+    if isinstance(rule.get("until"), date):
+        rule["until"] = rule["until"].isoformat()
+    return rule
+
+
+def _rule_to_legacy(rule: dict) -> RecurringRule | None:
+    """Appointment.recurring_rule (eski enum) icin en yakin karsilik; yoksa None."""
+    if rule["type"] == "weekly" and rule["interval"] == 1 and len(rule["weekdays"]) == 1:
+        return RecurringRule.weekly
+    if rule["type"] == "weekly" and rule["interval"] == 2 and len(rule["weekdays"]) == 1:
+        return RecurringRule.biweekly
+    if rule["type"] == "monthly" and rule["interval"] == 1:
+        return RecurringRule.monthly
+    return None
+
+
 def _occurrence_start(start_at: datetime, frequency: str, index: int) -> datetime:
     if frequency == "weekly":
         return start_at + timedelta(days=7 * index)
@@ -967,9 +1213,10 @@ async def create_appointment_series(
     actor_type: ActorType,
     actor_id: uuid.UUID | None,
     created_by_type: CreatedByType,
-    frequency: str,
-    occurrence_count: int,
+    frequency: str | None,
+    occurrence_count: int | None,
     start_at: datetime,
+    recurrence: dict | None = None,
     _audit_action: str = "appointment_series.create",
     **base_kwargs,
 ) -> tuple[AppointmentSeries, list[Appointment]]:
@@ -995,8 +1242,41 @@ async def create_appointment_series(
             "VALIDATION_ERROR", "Tekrarlayan seri icin baslangic saati zorunlu", 422
         )
 
-    await acquire_facility_lock(db, facility.id)
     tz = ZoneInfo(facility.timezone)
+    rule_description: str | None = None
+    metadata: dict | None = None
+    if recurrence is not None:
+        # Outlook tarzi desen: tarihler saf fonksiyondan; saat yerel duvar saati.
+        local_start = to_utc(start_at).astimezone(tz)
+        rule = normalize_recurrence(recurrence, local_start.date())
+        try:
+            dates = generate_occurrence_dates(local_start.date(), rule)
+        except RecurrenceError as exc:
+            raise ApiError(exc.code, exc.message, 422) from exc
+        if len(dates) < 2:
+            raise ApiError(
+                "RECURRENCE_TOO_FEW", "Tekrarlayan seri en az 2 randevu içermeli", 422
+            )
+        starts = [
+            datetime.combine(d, local_start.timetz().replace(tzinfo=None), tzinfo=tz).astimezone(
+                UTC
+            )
+            for d in dates
+        ]
+        frequency = rule["type"]
+        occurrence_count = len(starts)
+        rule_description = describe_rule_tr(rule)
+        metadata = {"recurrence": rule, "description": rule_description}
+        occurrence_rule = _rule_to_legacy(rule)
+    else:
+        assert frequency is not None and occurrence_count is not None
+        starts = [
+            _occurrence_start(to_utc(start_at), frequency, index)
+            for index in range(occurrence_count)
+        ]
+        occurrence_rule = _FREQUENCY_RULES[frequency]
+
+    await acquire_facility_lock(db, facility.id)
 
     series = AppointmentSeries(
         tenant_id=facility.tenant_id,
@@ -1005,13 +1285,13 @@ async def create_appointment_series(
         recurrence_frequency=frequency,
         occurrence_count=occurrence_count,
         created_by_id=actor_id,
+        metadata_json=metadata,
     )
     db.add(series)
     await db.flush()
 
     appointments: list[Appointment] = []
-    for index in range(occurrence_count):
-        occurrence_start = _occurrence_start(to_utc(start_at), frequency, index)
+    for index, occurrence_start in enumerate(starts):
         try:
             appointment = await create_appointment(
                 db,
@@ -1022,7 +1302,7 @@ async def create_appointment_series(
                 created_by_type=created_by_type,
                 start_at=occurrence_start,
                 target_date=occurrence_start.astimezone(tz).date(),
-                recurring_rule=_FREQUENCY_RULES[frequency],
+                recurring_rule=occurrence_rule,
                 series_id=series.id,
                 occurrence_index=index + 1,
                 _commit=False,
@@ -1052,14 +1332,25 @@ async def create_appointment_series(
     first = appointments[0]
     auto_approved = first.status == AppointmentStatus.approved
     frequency_labels = {"weekly": "haftalık", "biweekly": "2 haftada bir", "monthly": "aylık"}
+    if rule_description is not None:
+        admin_body = (
+            f"{supplier.company_name}, {occurrence_count} randevuluk seri oluşturdu "
+            f"({rule_description})"
+        )
+        supplier_body = f"Tekrarlayan seri oluşturuldu: {rule_description}."
+    else:
+        admin_body = (
+            f"{supplier.company_name}, {occurrence_count} randevuluk "
+            f"{frequency_labels[frequency]} seri oluşturdu"
+        )
+        supplier_body = f"{frequency_labels[frequency].capitalize()} tekrarlayan seri oluşturuldu."
     await notify_admins(
         db, first,
         type_="appointment_created",
         severity="info" if auto_approved else "warning",
         title="Tekrarlayan randevu serisi",
         body=(
-            f"{supplier.company_name}, {occurrence_count} randevuluk "
-            f"{frequency_labels[frequency]} seri oluşturdu"
+            admin_body
             + (" (otomatik onaylandı)." if auto_approved else " — onay bekliyor.")
         ),
         extra={"series_id": str(series.id)},
@@ -1073,7 +1364,7 @@ async def create_appointment_series(
             if auto_approved
             else f"{occurrence_count} randevu talebiniz alındı"
         ),
-        body=f"{frequency_labels[frequency].capitalize()} tekrarlayan seri oluşturuldu.",
+        body=supplier_body,
         extra={"series_id": str(series.id)},
     )
     record_audit(
@@ -1089,6 +1380,7 @@ async def create_appointment_series(
             "frequency": frequency,
             "occurrence_count": occurrence_count,
             "supplier_id": str(supplier.id),
+            **({"recurrence": metadata["recurrence"]} if metadata else {}),
         },
     )
     await db.commit()
@@ -1106,15 +1398,25 @@ async def cancel_appointment_series(
     actor_type: ActorType,
     actor_id: uuid.UUID | None,
     reason: str | None = None,
+    reason_id: uuid.UUID | None = None,
     allowed_dock_ids: list[uuid.UUID] | None = None,
     supplier_id: uuid.UUID | None = None,
     by_supplier: bool = False,
-) -> tuple[AppointmentSeries, list[Appointment]]:
+) -> tuple[AppointmentSeries, list[Appointment], int]:
     """Serinin GELECEKTEKI iptal edilebilir randevularini toplu iptal eder.
+
+    Donus: (seri, iptal edilenler, bildirim suresi icinde kaldigi icin
+    DOKUNULMAYAN occurrence sayisi).
 
     Sprint 12: `supplier_id` verilirse yalnizca KENDI serisi (aksi 404);
     `by_supplier=True` ise bildirim yonu tersine doner — adminlere tek ozet
     gider, tedarikciye bildirim/e-posta uretilmez (islemi kendisi yapti).
+
+    Tedarikci iptalinde tesisin iptal kurallari tekil iptalle AYNEN uygulanir
+    (seri iptali kurali delen bir kacis yolu olmasin): sebep dogrulanir ve
+    randevuya kural suresinden az kalan occurrence'lar iptal EDILMEZ, aktif
+    kalir. Tesis TELAFI zorunlu tuttuysa tedarikci seriyi toplu iptal edemez:
+    her iptal kendi telafisiyle tek tek yapilmalidir.
 
     Kurallar (rapor):
     - Scope MVP'de future_only'dir: yalnizca pending/approved/revision_pending
@@ -1158,7 +1460,34 @@ async def cancel_appointment_series(
         ).scalars()
     )
     now = datetime.now(UTC)
-    affected = [a for a in rows if to_utc(a.scheduled_start_at) > now]
+    upcoming = [a for a in rows if to_utc(a.scheduled_start_at) > now]
+    affected = upcoming
+    reason_label = reason
+    chosen_reason = None
+    if supplier_id is not None:
+        policy = resolve_cancellation_policy(facility)
+        if policy["require_makeup"]:
+            raise ApiError(
+                "MAKEUP_SERIES_BLOCKED",
+                "Telafi randevusu zorunlu oldugu icin seri toplu iptal edilemez; "
+                "randevulari tek tek iptal edip telafilerini olusturun",
+                409,
+            )
+        chosen_reason, reason = await resolve_supplier_reason(
+            db, facility, reason_id=reason_id, note=reason
+        )
+        # Seri iptalinde sebep tesis kuralindan bagimsiz olarak hep zorunluydu
+        # (Sprint 12); listeden secilmediyse serbest metin bu boslugu doldurur.
+        if chosen_reason is None and (reason is None or len(reason) < 3):
+            raise ApiError(
+                "CANCELLATION_REASON_REQUIRED", "Seri iptali icin sebep girilmelidir", 422
+            )
+        reason_label = reason_text(chosen_reason.label if chosen_reason else None, reason)
+        cutoff = notice_cutoff(policy, now)
+        affected = [a for a in upcoming if to_utc(a.scheduled_start_at) >= cutoff]
+        if upcoming and not affected:
+            ensure_cancellation_notice(policy, upcoming[0].scheduled_start_at, now)
+    kept_within_notice = len(upcoming) - len(affected)
     if not affected:
         raise ApiError(
             "NO_FUTURE_OCCURRENCES",
@@ -1178,10 +1507,17 @@ async def cancel_appointment_series(
     for appointment in affected:
         appointment.status = AppointmentStatus.cancelled
         appointment.cancellation_reason = reason
+        appointment.cancellation_reason_id = chosen_reason.id if chosen_reason else None
+        appointment.cancellation_reason_label = chosen_reason.label if chosen_reason else None
     series.status = "cancelled"
 
     first = affected[0]
-    frequency_labels = {"weekly": "haftalık", "biweekly": "2 haftada bir", "monthly": "aylık"}
+    frequency_labels = {
+        "daily": "günlük",
+        "weekly": "haftalık",
+        "biweekly": "2 haftada bir",
+        "monthly": "aylık",
+    }
     frequency = frequency_labels.get(series.recurrence_frequency, series.recurrence_frequency)
     if by_supplier:
         # Tedarikci kendisi iptal etti: adminlere TEK ozet; tedarikciye uretim yok.
@@ -1192,9 +1528,21 @@ async def cancel_appointment_series(
             title="Seri tedarikçi tarafından iptal edildi",
             body=(
                 f"Tedarikçi, serinin gelecekteki {len(affected)} randevusunu iptal etti. "
-                f"Sebep: {reason}"
+                f"Sebep: {reason_label}."
+                + (
+                    f" Bildirim süresi içinde kalan {kept_within_notice} randevu "
+                    "iptal edilmedi."
+                    if kept_within_notice
+                    else ""
+                )
             ),
-            extra={"series_id": str(series.id), "affected_count": len(affected)},
+            extra={
+                "series_id": str(series.id),
+                "affected_count": len(affected),
+                "reason": reason_label,
+                "reason_id": str(chosen_reason.id) if chosen_reason else None,
+                "kept_within_notice": kept_within_notice,
+            },
         )
     else:
         await notify_supplier(
@@ -1218,10 +1566,13 @@ async def cancel_appointment_series(
         )
     # Tedarikciye TEK ozet e-posta (occurrence basina e-posta YOK; kendi
     # iptalinde e-posta da uretilmez)
-    from app.services.email import EmailMessage, send_email
     from app.services.email_templates import EmailContext, render_email
     from app.services.notification_preferences import prefs_email_allowed
-    from app.services.notifications import _supplier_email, _supplier_policy
+    from app.services.notifications import (
+        _supplier_email,
+        _supplier_policy,
+        send_supplier_email,
+    )
 
     email, supplier_name = await _supplier_email(db, series.supplier_id)
     policy = await _supplier_policy(db, facility.id)
@@ -1236,19 +1587,16 @@ async def cancel_appointment_series(
                 occurrence_count=len(affected),
             ),
         )
-        await send_email(
+        await send_supplier_email(
             db,
-            EmailMessage(
-                tenant_id=facility.tenant_id,
-                facility_id=facility.id,
-                recipient_email=email,
-                recipient_name=supplier_name,
-                subject=subject,
-                body=body,
-                template_key="appointment_series_cancelled",
-                appointment_id=first.id,
-                metadata={"series_id": str(series.id), "affected_count": len(affected)},
-            ),
+            supplier_id=series.supplier_id,
+            tenant_id=facility.tenant_id,
+            facility_id=facility.id,
+            subject=subject,
+            body=body,
+            template_key="appointment_series_cancelled",
+            appointment_id=first.id,
+            metadata={"series_id": str(series.id), "affected_count": len(affected)},
         )
     record_audit(
         db,
@@ -1263,11 +1611,13 @@ async def cancel_appointment_series(
             "scope": "future_only",
             "affected_count": len(affected),
             "reason": reason,
+            "reason_id": str(chosen_reason.id) if chosen_reason else None,
+            "kept_within_notice": kept_within_notice,
         },
     )
     await db.commit()
     await db.refresh(series)
-    return series, affected
+    return series, affected, kept_within_notice
 
 
 async def revise_appointment_series(
@@ -1475,10 +1825,13 @@ async def revise_appointment_series(
         ),
         extra={"series_id": str(series.id), "affected_count": len(affected)},
     )
-    from app.services.email import EmailMessage, send_email
     from app.services.email_templates import EmailContext, render_email
     from app.services.notification_preferences import prefs_email_allowed
-    from app.services.notifications import _supplier_email, _supplier_policy
+    from app.services.notifications import (
+        _supplier_email,
+        _supplier_policy,
+        send_supplier_email,
+    )
 
     email, supplier_name = await _supplier_email(db, series.supplier_id)
     policy = await _supplier_policy(db, facility.id)
@@ -1494,19 +1847,16 @@ async def revise_appointment_series(
                 occurrence_count=len(affected),
             ),
         )
-        await send_email(
+        await send_supplier_email(
             db,
-            EmailMessage(
-                tenant_id=facility.tenant_id,
-                facility_id=facility.id,
-                recipient_email=email,
-                recipient_name=supplier_name,
-                subject=subject,
-                body=body,
-                template_key="appointment_series_revised",
-                appointment_id=first.id,
-                metadata={"series_id": str(series.id), "affected_count": len(affected)},
-            ),
+            supplier_id=series.supplier_id,
+            tenant_id=facility.tenant_id,
+            facility_id=facility.id,
+            subject=subject,
+            body=body,
+            template_key="appointment_series_revised",
+            appointment_id=first.id,
+            metadata={"series_id": str(series.id), "affected_count": len(affected)},
         )
     record_audit(
         db,
@@ -1685,10 +2035,13 @@ async def approve_appointment_series(
         ),
         extra={"series_id": str(series.id), "affected_count": len(affected)},
     )
-    from app.services.email import EmailMessage, send_email
     from app.services.email_templates import EmailContext, render_email
     from app.services.notification_preferences import prefs_email_allowed
-    from app.services.notifications import _supplier_account, _supplier_policy
+    from app.services.notifications import (
+        _supplier_account,
+        _supplier_policy,
+        send_supplier_email,
+    )
 
     supplier_row, account = await _supplier_account(db, series.supplier_id)
     email = account.email if account else (supplier_row.contact_email if supplier_row else None)
@@ -1703,19 +2056,16 @@ async def approve_appointment_series(
                 status="approved",
             ),
         )
-        await send_email(
+        await send_supplier_email(
             db,
-            EmailMessage(
-                tenant_id=facility.tenant_id,
-                facility_id=facility.id,
-                recipient_email=email,
-                recipient_name=supplier_row.company_name if supplier_row else None,
-                subject=subject,
-                body=body_text,
-                template_key="appointment_approved",
-                appointment_id=first.id,
-                metadata={"series_id": str(series.id), "affected_count": len(affected)},
-            ),
+            supplier_id=series.supplier_id,
+            tenant_id=facility.tenant_id,
+            facility_id=facility.id,
+            subject=subject,
+            body=body_text,
+            template_key="appointment_approved",
+            appointment_id=first.id,
+            metadata={"series_id": str(series.id), "affected_count": len(affected)},
         )
     record_audit(
         db,

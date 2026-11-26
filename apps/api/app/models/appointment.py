@@ -18,7 +18,14 @@ from app.core.enums import (
     QuantityUnit,
     RecurringRule,
 )
-from app.models.base import Base, FacilityScopedMixin, TimestampMixin, UUIDPkMixin, str_enum
+from app.models.base import (
+    Base,
+    FacilityScopedMixin,
+    JsonVariant,
+    TimestampMixin,
+    UUIDPkMixin,
+    str_enum,
+)
 
 
 class Appointment(Base, UUIDPkMixin, TimestampMixin, FacilityScopedMixin):
@@ -67,13 +74,49 @@ class Appointment(Base, UUIDPkMixin, TimestampMixin, FacilityScopedMixin):
     scheduled_start_at: Mapped[datetime] = mapped_column(sa.DateTime(timezone=True))
     scheduled_end_at: Mapped[datetime] = mapped_column(sa.DateTime(timezone=True))
     duration_minutes: Mapped[int] = mapped_column(sa.Integer)
+    # Surenin kaynagi: "rule" (kuraldan hesaplandi), "fallback" (kural yok,
+    # kategori varsayilani), "manual" (tedarikci/yonetim secti). Eski kayit NULL.
+    duration_source: Mapped[str | None] = mapped_column(sa.String(16))
 
     status: Mapped[AppointmentStatus] = mapped_column(
         str_enum(AppointmentStatus), default=AppointmentStatus.pending, index=True
     )
     rejection_reason: Mapped[str | None] = mapped_column(sa.Text)
     cancellation_reason: Mapped[str | None] = mapped_column(sa.Text)
+    # Tedarikci iptalinde secilen sebep (firmanin listesi) ve O ANKI etiketi.
+    # Etiket kopyalanir: sebep sonradan degisse/silinse de kayit bozulmaz.
+    # `cancellation_reason` serbest aciklamadir (yonetim iptalinde tek alan).
+    cancellation_reason_id: Mapped[uuid.UUID | None] = mapped_column(
+        sa.Uuid, sa.ForeignKey("cancellation_reasons.id", ondelete="SET NULL")
+    )
+    cancellation_reason_label: Mapped[str | None] = mapped_column(sa.String(120))
+    # Telafi randevusu (musteri karari 2026-11): tedarikci iptal ederken
+    # telafi randevusunu AYNI islemde acar. Yeni randevu bayrakla isaretlenir
+    # ve iki randevu birbirine baglanir.
+    is_makeup: Mapped[bool] = mapped_column(sa.Boolean, default=False, server_default=sa.false())
+    makeup_of_id: Mapped[uuid.UUID | None] = mapped_column(
+        sa.Uuid, sa.ForeignKey("appointments.id", ondelete="SET NULL")
+    )
+    makeup_appointment_id: Mapped[uuid.UUID | None] = mapped_column(
+        sa.Uuid, sa.ForeignKey("appointments.id", ondelete="SET NULL")
+    )
     completion_note: Mapped[str | None] = mapped_column(sa.Text)
+    # Sevkiyatin siparis numaralari (musteri karari 2026-11: zorunlu, coklu
+    # olabilir). Zorunlulugu tesisin randevu formu ayari belirler
+    # (facilities.appointment_form_json). Sira korunur; bos liste = yok.
+    order_numbers: Mapped[list[str] | None] = mapped_column(JsonVariant)
+    # Serbest metin aciklama (musteri karari 2026-11: ayni sevkiyatta birden
+    # fazla urun). Gorunurlugu/zorunlulugu randevu formu ayari belirler.
+    description: Mapped[str | None] = mapped_column(sa.Text)
+    # Surucu kimlik numarasi (guvenlik; musteri karari 2026-11). KISISEL VERI:
+    # duz metin YOK — AES-GCM sifreli deger + arama ozeti (HMAC) + maskeleme
+    # icin son 4 hane. Saklama suresi dolunca silinir (purged_at isaretlenir).
+    # Bkz. services/driver_id.py, core/pii.py.
+    driver_id_type: Mapped[str | None] = mapped_column(sa.String(16))
+    driver_id_ciphertext: Mapped[str | None] = mapped_column(sa.Text)
+    driver_id_hash: Mapped[str | None] = mapped_column(sa.String(64), index=True)
+    driver_id_last4: Mapped[str | None] = mapped_column(sa.String(4))
+    driver_id_purged_at: Mapped[datetime | None] = mapped_column(sa.DateTime(timezone=True))
     revision_note: Mapped[str | None] = mapped_column(sa.Text)
     original_start_at: Mapped[datetime | None] = mapped_column(sa.DateTime(timezone=True))
     original_end_at: Mapped[datetime | None] = mapped_column(sa.DateTime(timezone=True))

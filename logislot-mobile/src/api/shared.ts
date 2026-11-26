@@ -34,20 +34,46 @@ export const DELIVERY_TYPE_LABELS: Record<DeliveryType, string> = {
 
 export type CargoWindow = "morning" | "afternoon" | "all_day";
 
+/** Kargo pencereleri — ekrandaki seçim sırası. */
+export const CARGO_WINDOWS: readonly CargoWindow[] = ["morning", "afternoon", "all_day"];
+
 export const CARGO_WINDOW_LABELS: Record<CargoWindow, string> = {
   morning: "Sabah (08:00–12:00)",
   afternoon: "Öğleden Sonra (12:00–18:00)",
   all_day: "Tüm Gün",
 };
 
-export type QuantityUnit = "pallet" | "piece" | "box" | "carton";
+export type QuantityUnit = "pallet" | "piece" | "box" | "carton" | "sack" | "big_bag" | "ton";
+
+/** Sevkiyat tipleri — ekrandaki seçim sırası (backend QuantityUnit ile birebir). */
+export const QUANTITY_UNITS: readonly QuantityUnit[] = [
+  "pallet",
+  "piece",
+  "box",
+  "carton",
+  "sack",
+  "big_bag",
+  "ton",
+];
 
 export const QUANTITY_UNIT_LABELS: Record<QuantityUnit, string> = {
   pallet: "Palet",
   piece: "Adet",
   box: "Kutu",
   carton: "Koli",
+  sack: "Çuval",
+  big_bag: "Big Bag",
+  ton: "Ton",
 };
+
+/** "Araç / nakliye sorunu — açıklama"; sebep yoksa (yönetim iptali) yalnızca metin. */
+export function cancellationReasonText(
+  label: string | null | undefined,
+  note: string | null | undefined,
+): string | null {
+  if (label && note) return `${label} — ${note}`;
+  return label ?? note ?? null;
+}
 
 export type SlotStatus = "available" | "partial" | "full";
 

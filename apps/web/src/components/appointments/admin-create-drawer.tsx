@@ -12,8 +12,20 @@
 
 import { Package } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { type CargoWindow, resolveDurationRange } from "@logislot/shared";
+import {
+  type CargoWindow,
+  QUANTITY_UNITS,
+  type QuantityUnit,
+  resolveDurationRange,
+} from "@logislot/shared";
+import { RecurrenceEditor } from "@/components/appointments/recurrence-editor";
 import { ErrorState, LoadingState } from "@/components/config/states";
+import {
+  DescriptionField,
+  descriptionMissing,
+  descriptionPayload,
+} from "@/components/domain/description-input";
+import { OrderNumbersInput } from "@/components/domain/order-numbers-input";
 import { Button } from "@/components/ui/button";
 import { Drawer } from "@/components/ui/drawer";
 import { Input, Label, Select } from "@/components/ui/input";
@@ -21,10 +33,21 @@ import { Switch } from "@/components/ui/switch";
 import {
   useAdminAvailability,
   useAdminCreateAppointment,
+  useAppointmentForm,
 } from "@/lib/api/appointments";
 import { ApiError } from "@/lib/api/client";
+import { useDurationEvaluate, useDurationPolicy } from "@/lib/api/duration";
+import { useAdminMinuteUsage } from "@/lib/api/supplier-limits";
+import { MinuteUsagePanel, exceededUsage } from "@/components/domain/minute-limits";
+import { DriverIdInput, driverIdError } from "@/components/domain/driver-id";
 import { docks, productCategories, suppliers, vehicleCategories } from "@/lib/api/resources";
 import type { AppointmentDto, SeriesCreateResultDto } from "@/lib/api/types";
+import {
+  type RecurrenceRule,
+  defaultRule,
+  generateOccurrenceDates,
+  toPayload as toRecurrencePayload,
+} from "@/lib/recurrence";
 import { useSession } from "@/lib/auth/session";
 import { useLabels } from "@/lib/i18n/labels";
 import { useT } from "@/lib/i18n/provider";
@@ -62,16 +85,23 @@ export function AdminCreateDrawer({ open, onClose, onSuccess, initial }: AdminCr
   const vehicleList = vehicleCategories.useList(activeFacilityId);
   const dockList = docks.useList(activeFacilityId);
   const create = useAdminCreateAppointment(activeFacilityId);
+  const form = useAppointmentForm(activeFacilityId);
+  const orderMode = form.data?.order_numbers ?? "hidden";
+  const driverIdMode = form.data?.driver_id_number ?? "hidden";
+  const descriptionMode = form.data?.description ?? "hidden";
   const tz = activeFacility?.timezone ?? "Europe/Istanbul";
 
   const [supplierId, setSupplierId] = useState("");
   const [categoryId, setCategoryId] = useState("");
   const [productName, setProductName] = useState("");
+  const [orderNumbers, setOrderNumbers] = useState<string[]>([]);
+  const [description, setDescription] = useState("");
   const [quantity, setQuantity] = useState(1);
   const [unit, setUnit] = useState("pallet");
   const [vehicleOverrideId, setVehicleOverrideId] = useState<string | null>(null);
   const [plate, setPlate] = useState("");
   const [driver, setDriver] = useState("");
+  const [driverId, setDriverId] = useState("");
   const [cargoSelected, setIsCargo] = useState(false);
   const [cargoWindow, setCargoWindow] = useState<CargoWindow>("morning");
   const [date, setDate] = useState(addDaysISO(1));
@@ -81,8 +111,7 @@ export function AdminCreateDrawer({ open, onClose, onSuccess, initial }: AdminCr
   const [dockId, setDockId] = useState("");
   const [note, setNote] = useState("");
   const [recurringEnabled, setRecurringEnabled] = useState(false);
-  const [frequency, setFrequency] = useState<"weekly" | "biweekly" | "monthly">("weekly");
-  const [count, setCount] = useState(4);
+  const [recurrence, setRecurrence] = useState<RecurrenceRule>(defaultRule);
   const [formError, setFormError] = useState<string | null>(null);
   // Takvimden gelen tercih edilen saat: slotlar yuklendiginde BIR kez uygulanir
   const [preferredTime, setPreferredTime] = useState<string | null>(null);
@@ -119,9 +148,47 @@ export function AdminCreateDrawer({ open, onClose, onSuccess, initial }: AdminCr
     () => (category ? resolveDurationRange(category, supplier) : null),
     [category, supplier],
   );
-  const durationOptions = durationRange?.options ?? [];
+  // Sure kurallari (docs/SURE_HESAPLAMA.md): tesis "tedarikci secer" disinda
+  // bir moddaysa hesaplanan sure varsayilan gelir. Yonetim her modda
+  // degistirebilir; farkli secim "elle" kaydedilir ve kategori sinirlarina
+  // tabidir.
+  const durationPolicy = useDurationPolicy(activeFacilityId);
+  const rulesActive = (durationPolicy.data?.mode ?? "supplier") !== "supplier";
+  const estimateQuery = useDurationEvaluate(
+    activeFacilityId,
+    rulesActive && category && quantity > 0
+      ? [
+          {
+            product_category_id: category.id,
+            vehicle_category_id: effectiveVehicleId,
+            quantity,
+            quantity_unit: unit as QuantityUnit,
+          },
+        ]
+      : null,
+  );
+  const estimate = rulesActive ? estimateQuery.data?.results[0] ?? null : null;
+  const suggestedMinutes = estimate?.minutes ?? null;
+  const durationOptions = useMemo(() => {
+    const base = durationRange?.options ?? [];
+    if (suggestedMinutes === null || base.includes(suggestedMinutes)) return base;
+    return [...base, suggestedMinutes].sort((a, b) => a - b);
+  }, [durationRange, suggestedMinutes]);
   const effectiveDuration =
-    duration && durationOptions.includes(duration) ? duration : durationOptions[0] ?? null;
+    duration && durationOptions.includes(duration)
+      ? duration
+      : suggestedMinutes ?? durationOptions[0] ?? null;
+  // Kural suresi kategori araligi disinda da gecerlidir; cakisma yalnizca
+  // hesaplanan sure YOKSA ya da elle baska sure secildiyse engeller.
+  const durationBlocked =
+    durationRange?.conflicting === true &&
+    (suggestedMinutes === null || effectiveDuration !== suggestedMinutes);
+
+  // Tedarikcinin sure limitleri yonetim adina olusturmada da gecerli (sunucu
+  // zorlar); kalan sure burada gosterilir, asim varsa gonderim kapatilir.
+  const minuteUsage = useAdminMinuteUsage(activeFacilityId, supplier?.id ?? null, date || null);
+  const limitExceeded =
+    !isCargo && exceededUsage(minuteUsage.data?.usage, effectiveDuration) !== null;
 
   const availability = useAdminAvailability(
     activeFacilityId,
@@ -132,6 +199,8 @@ export function AdminCreateDrawer({ open, onClose, onSuccess, initial }: AdminCr
           vehicle_category_id: effectiveVehicleId,
           target_date: date,
           duration_minutes: effectiveDuration,
+          quantity,
+          quantity_unit: unit,
         }
       : null,
   );
@@ -188,16 +257,17 @@ export function AdminCreateDrawer({ open, onClose, onSuccess, initial }: AdminCr
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [preferredTime, slots, selectedSlot]);
 
-  const maxCount = frequency === "monthly" ? 6 : 12;
-
   function reset() {
     setSupplierId("");
     setCategoryId("");
     setProductName("");
+    setOrderNumbers([]);
+    setDescription("");
     setQuantity(1);
     setVehicleOverrideId(null);
     setPlate("");
     setDriver("");
+    setDriverId("");
     setIsCargo(false);
     setDate(addDaysISO(1));
     setDuration(null);
@@ -206,6 +276,7 @@ export function AdminCreateDrawer({ open, onClose, onSuccess, initial }: AdminCr
     setDockId("");
     setNote("");
     setRecurringEnabled(false);
+    setRecurrence(defaultRule());
     setFormError(null);
   }
 
@@ -213,6 +284,21 @@ export function AdminCreateDrawer({ open, onClose, onSuccess, initial }: AdminCr
     setFormError(null);
     if (!supplier || !category || !productName.trim()) {
       setFormError(copy.needsFields);
+      return;
+    }
+    if (orderMode === "required" && orderNumbers.length === 0) {
+      setFormError(t.orderNumbers.requiredError);
+      return;
+    }
+    if (descriptionMissing(descriptionMode, description)) {
+      setFormError(t.appointmentDescription.requiredError);
+      return;
+    }
+    const idError = driverIdError(driverIdMode, driverId);
+    if (idError) {
+      setFormError(
+        idError === "required" ? t.errors.byCode.DRIVER_ID_REQUIRED : t.driverId.errors[idError],
+      );
       return;
     }
     if (!isCargo && !selectedSlot) {
@@ -223,16 +309,23 @@ export function AdminCreateDrawer({ open, onClose, onSuccess, initial }: AdminCr
       setFormError(copy.needsDock);
       return;
     }
+    if (recurringEnabled && !isCargo && generateOccurrenceDates(date, recurrence).error) {
+      setFormError(t.recurrence.errorInvalid);
+      return;
+    }
     try {
       const result = await create.mutateAsync({
         supplier_id: supplier.id,
         product_category_id: category.id,
         product_name: productName,
+        order_numbers: orderMode === "hidden" ? [] : orderNumbers,
+        description: descriptionPayload(descriptionMode, description),
         quantity,
         quantity_unit: unit,
         vehicle_category_id: vehicleOverrideId,
         license_plate: plate || null,
         driver_name: driver || null,
+        driver_id_number: driverIdMode === "hidden" ? null : driverId.trim() || null,
         delivery_type: isCargo ? "cargo" : "standard",
         cargo_window: isCargo ? cargoWindow : null,
         target_date: date,
@@ -243,7 +336,7 @@ export function AdminCreateDrawer({ open, onClose, onSuccess, initial }: AdminCr
         note: note || null,
         recurring:
           recurringEnabled && !isCargo
-            ? { frequency, occurrence_count: Math.min(Math.max(count, 2), maxCount) }
+            ? { recurrence: toRecurrencePayload(recurrence, date) }
             : undefined,
       });
       const isSeries = "series_id" in (result as SeriesCreateResultDto);
@@ -320,6 +413,31 @@ export function AdminCreateDrawer({ open, onClose, onSuccess, initial }: AdminCr
                 </div>
               </div>
 
+              <DescriptionField
+                id="admin-appointment-description"
+                mode={descriptionMode}
+                value={description}
+                onChange={setDescription}
+                maxLength={form.data?.description_max_length}
+              />
+
+              {orderMode !== "hidden" && (
+                <div>
+                  <Label htmlFor="admin-order-numbers">
+                    {t.orderNumbers.label}{" "}
+                    <span className="text-xs font-normal text-muted-foreground">
+                      ({orderMode === "required" ? t.orderNumbers.required : t.orderNumbers.optional})
+                    </span>
+                  </Label>
+                  <OrderNumbersInput
+                    id="admin-order-numbers"
+                    value={orderNumbers}
+                    onChange={setOrderNumbers}
+                    max={form.data?.max_order_numbers ?? 20}
+                  />
+                </div>
+              )}
+
               <div className="grid grid-cols-3 gap-3">
                 <div>
                   <Label>{copy.quantity}</Label>
@@ -333,7 +451,7 @@ export function AdminCreateDrawer({ open, onClose, onSuccess, initial }: AdminCr
                 <div>
                   <Label>{copy.unit}</Label>
                   <Select value={unit} onChange={(e) => setUnit(e.target.value)}>
-                    {(["pallet", "piece", "box", "carton"] as const).map((u) => (
+                    {QUANTITY_UNITS.map((u) => (
                       <option key={u} value={u}>
                         {labels.quantityUnit[u]}
                       </option>
@@ -379,6 +497,12 @@ export function AdminCreateDrawer({ open, onClose, onSuccess, initial }: AdminCr
                   />
                 </div>
               </div>
+              <DriverIdInput
+                id="admin-driver-id"
+                mode={driverIdMode}
+                value={driverId}
+                onChange={setDriverId}
+              />
 
               <div>
                 <Label>{copy.deliveryType}</Label>
@@ -441,15 +565,33 @@ export function AdminCreateDrawer({ open, onClose, onSuccess, initial }: AdminCr
                     >
                       {durationOptions.map((d) => (
                         <option key={d} value={d}>
-                          {copy.durationOption(d)}
+                          {d === suggestedMinutes
+                            ? t.duration.suggestedOption(d)
+                            : copy.durationOption(d)}
                         </option>
                       ))}
                     </Select>
+                    {estimate && (
+                      <p
+                        className="mt-1 text-xs text-muted-foreground"
+                        title={estimate.steps.join(" · ")}
+                      >
+                        {effectiveDuration === suggestedMinutes
+                          ? t.duration.source[estimate.source]
+                          : t.duration.deviatedHint(estimate.minutes)}
+                      </p>
+                    )}
                   </div>
                 )}
               </div>
 
-              {!isCargo && durationRange?.conflicting && (
+              <MinuteUsagePanel
+                usage={minuteUsage.data?.usage}
+                requested={isCargo ? null : effectiveDuration}
+                title={t.admin.suppliers.minuteLimitsTitle}
+              />
+
+              {!isCargo && durationBlocked && (
                 <p className="text-sm text-destructive">
                   {copy.conflictNote(
                     category?.min_block_minutes ?? 0,
@@ -557,32 +699,12 @@ export function AdminCreateDrawer({ open, onClose, onSuccess, initial }: AdminCr
                     label={copy.recurring}
                   />
                   {recurringEnabled && (
-                    <div className="mt-2 grid grid-cols-2 gap-3">
-                      <div>
-                        <Label>{copy.frequency}</Label>
-                        <Select
-                          value={frequency}
-                          onChange={(e) => {
-                            const f = e.target.value as "weekly" | "biweekly" | "monthly";
-                            setFrequency(f);
-                            if (f === "monthly" && count > 6) setCount(6);
-                          }}
-                        >
-                          <option value="weekly">{copy.freqWeekly}</option>
-                          <option value="biweekly">{copy.freqBiweekly}</option>
-                          <option value="monthly">{copy.freqMonthly}</option>
-                        </Select>
-                      </div>
-                      <div>
-                        <Label>{copy.count}</Label>
-                        <Input
-                          type="number"
-                          min={2}
-                          max={maxCount}
-                          value={count}
-                          onChange={(e) => setCount(Number(e.target.value))}
-                        />
-                      </div>
+                    <div className="mt-2">
+                      <RecurrenceEditor
+                        startDate={date}
+                        value={recurrence}
+                        onChange={setRecurrence}
+                      />
                     </div>
                   )}
                 </div>
@@ -610,7 +732,8 @@ export function AdminCreateDrawer({ open, onClose, onSuccess, initial }: AdminCr
                 create.isPending ||
                 !supplier ||
                 // Cakisan limitlerde gecerli bir sure yok; sunucuya bosuna gitme.
-                (!isCargo && durationRange?.conflicting === true)
+                (!isCargo && durationBlocked) ||
+                limitExceeded
               }
             >
               {create.isPending ? copy.creating : copy.submit}

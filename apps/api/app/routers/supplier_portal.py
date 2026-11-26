@@ -4,6 +4,7 @@ Tedarikci yalnizca kendi supplier_id kayitlarini gorur; baska veri donmez.
 """
 
 import uuid
+from datetime import date
 
 from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, Field
@@ -25,6 +26,8 @@ from app.core.responses import ok
 from app.models import Appointment, ProductCategory, VehicleCategory
 from app.routers.appointments import (
     _appointment_out,
+    _linked_summary,
+    _recurrence_out,
     _series_summary,
     appointment_out_named,
     evaluate_availability,
@@ -32,33 +35,59 @@ from app.routers.appointments import (
 )
 from app.schemas.appointment import (
     AvailabilityRequest,
+    DurationEstimateRequest,
     RevisionOut,
     SupplierAppointmentCreate,
+    SupplierCancelRequest,
 )
 from app.schemas.catalog import ProductCategoryOut, SupplierOut, VehicleCategoryOut
 from app.services import appointments as svc
+from app.services.appointment_form import (
+    DESCRIPTION_MAX_LENGTH,
+    MAX_ORDER_NUMBERS,
+    resolve_appointment_form,
+)
 from app.services.appointments import allowed_delivery_types
+from app.services.cancellation_policy import (
+    list_reasons,
+    notice_cutoff,
+    resolve_cancellation_policy,
+)
+from app.services.duration_rules import estimate_duration, resolve_duration_policy
+from app.services.supplier_limits import minute_usage
 from app.tenancy.deps import FacilityContext, get_supplier_context
 
 router = APIRouter(prefix="/supplier", tags=["supplier-portal"])
 
 
 class SupplierSeriesCancelRequest(BaseModel):
-    """Sebep ZORUNLU: yanlislikla toplu iptal riskine karsi bilinçli surtunme."""
+    """Sebep ZORUNLU: yanlislikla toplu iptal riskine karsi bilinçli surtunme.
 
-    reason: str = Field(min_length=3)
+    Sebep ya listeden (`reason_id`) ya serbest metinle (`reason`, >= 3
+    karakter) verilir; tesis kurali sebep istiyorsa liste zorunludur. Kontrol
+    serviste yapilir (services/cancellation_policy.py).
+    """
+
+    reason_id: uuid.UUID | None = None
+    reason: str | None = Field(default=None, max_length=500)
 
 QUANTITY_UNIT_LABELS = {
     QuantityUnit.pallet: "Palet",
     QuantityUnit.piece: "Adet",
     QuantityUnit.box: "Kutu",
     QuantityUnit.carton: "Koli",
+    QuantityUnit.sack: "Çuval",
+    QuantityUnit.big_bag: "Big Bag",
+    QuantityUnit.ton: "Ton",
 }
 
 
 @router.get("/profile")
 @router.get("/me")
-async def profile(ctx: FacilityContext = Depends(get_supplier_context)):
+async def profile(
+    ctx: FacilityContext = Depends(get_supplier_context),
+    db: AsyncSession = Depends(get_db),
+):
     supplier = ctx.supplier
     assert supplier is not None
     data = SupplierOut.model_validate(supplier)
@@ -72,6 +101,15 @@ async def profile(ctx: FacilityContext = Depends(get_supplier_context)):
                 "name": ctx.facility.name,
                 "timezone": ctx.facility.timezone,
             },
+            # Iptal penceresi ve zorunlu alanlar; arayuz buna gore iptal
+            # dugmesini kapatir ve formu kurar. Kural sunucuda da zorlanir.
+            "cancellation_policy": resolve_cancellation_policy(ctx.facility),
+            # Firmanin AKTIF sebep listesi (siraya gore). Tedarikci yalnizca
+            # bunlardan secebilir; aciklama zorunlulugu sebep bazindadir.
+            "cancellation_reasons": [
+                {"id": str(r.id), "label": r.label, "note_required": r.note_required}
+                for r in await list_reasons(db, ctx.facility_id, active_only=True)
+            ],
         }
     )
 
@@ -144,6 +182,12 @@ async def catalog(
                 {"value": u.value, "label": label}
                 for u, label in QUANTITY_UNIT_LABELS.items()
             ],
+            # Tesisin form ayari: hangi alan gizli/istege bagli/zorunlu.
+            "appointment_form": resolve_appointment_form(ctx.facility),
+            # Islem suresini kim belirler (supplier / suggested / computed).
+            "duration_policy": resolve_duration_policy(ctx.facility),
+            "max_order_numbers": MAX_ORDER_NUMBERS,
+            "description_max_length": DESCRIPTION_MAX_LENGTH,
         }
     )
 
@@ -189,6 +233,9 @@ async def my_appointment_detail(
         RevisionOut.model_validate(r).model_dump(mode="json") for r in appointment.revisions
     ]
     data["series"] = await _series_summary(db, appointment)
+    # Telafi baglantilari (ayni tedarikcinin kendi randevulari arasinda).
+    data["makeup_of"] = await _linked_summary(db, appointment.makeup_of_id)
+    data["makeup_appointment"] = await _linked_summary(db, appointment.makeup_appointment_id)
     return ok(data)
 
 
@@ -216,6 +263,11 @@ async def create_my_appointment(
             created_by_type=CreatedByType.supplier,
             frequency=body.recurring.frequency,
             occurrence_count=body.recurring.occurrence_count,
+            recurrence=(
+                body.recurring.recurrence.model_dump(mode="json")
+                if body.recurring.recurrence is not None
+                else None
+            ),
             start_at=body.start_at,
             product_category_id=body.product_category_id,
             product_name=body.product_name,
@@ -226,6 +278,9 @@ async def create_my_appointment(
             license_plate=body.license_plate,
             driver_name=body.driver_name,
             driver_phone=body.driver_phone,
+            order_numbers=body.order_numbers,
+            driver_id_number=body.driver_id_number,
+            description=body.description,
             duration_minutes=body.duration_minutes,
         )
         return ok(
@@ -233,6 +288,7 @@ async def create_my_appointment(
                 "series_id": str(series.id),
                 "frequency": series.recurrence_frequency,
                 "occurrence_count": series.occurrence_count,
+                **_recurrence_out(series),
                 "appointments": [_appointment_out(a) for a in appointments],
             }
         )
@@ -253,6 +309,9 @@ async def create_my_appointment(
         license_plate=body.license_plate,
         driver_name=body.driver_name,
         driver_phone=body.driver_phone,
+        order_numbers=body.order_numbers,
+        driver_id_number=body.driver_id_number,
+        description=body.description,
         start_at=body.start_at,
         duration_minutes=body.duration_minutes,
         cargo_window=body.cargo_window,
@@ -264,19 +323,39 @@ async def create_my_appointment(
 @router.post("/appointments/{appointment_id}/cancel")
 async def cancel_my_appointment(
     appointment_id: uuid.UUID,
+    body: SupplierCancelRequest | None = None,
     ctx: FacilityContext = Depends(get_supplier_context),
     db: AsyncSession = Depends(get_db),
 ):
+    """Tedarikci kendi randevusunu iptal eder (+ zorunluysa telafi randevusu).
+
+    Govde opsiyoneldir (eski istemciler bos POST atar); tesisin iptal kurali
+    sebep veya telafi istiyorsa eksik govde 422 ile reddedilir. Telafi
+    olusturulamazsa (slot dolu vb.) iptal de YAPILMAZ.
+    """
     assert ctx.supplier is not None
-    appointment = await svc.cancel_appointment(
+    body = body or SupplierCancelRequest()
+    appointment, makeup = await svc.supplier_cancel_appointment(
         db,
-        ctx.facility_id,
-        appointment_id,
-        actor_type=ActorType.supplier_user,
+        facility=ctx.facility,
+        supplier=ctx.supplier,
+        appointment_id=appointment_id,
         actor_id=ctx.identity.id,
-        supplier_id=ctx.supplier.id,
+        reason_id=body.reason_id,
+        note=body.reason,
+        makeup=(
+            svc.MakeupSlot(
+                target_date=body.makeup.target_date,
+                start_at=body.makeup.start_at,
+                cargo_window=body.makeup.cargo_window,
+            )
+            if body.makeup
+            else None
+        ),
     )
-    return ok(_appointment_out(appointment))
+    data = _appointment_out(appointment)
+    data["makeup_appointment"] = _appointment_out(makeup) if makeup else None
+    return ok(data)
 
 
 @router.post("/availability/evaluate")
@@ -286,7 +365,52 @@ async def my_availability(
     db: AsyncSession = Depends(get_db),
 ):
     assert ctx.supplier is not None
-    return ok(await evaluate_availability(body, ctx, db, ctx.supplier))
+    return ok(await evaluate_availability(body, ctx, db, ctx.supplier, locked=True))
+
+
+@router.get("/minute-usage")
+async def my_minute_usage(
+    target_date: date,
+    ctx: FacilityContext = Depends(get_supplier_context),
+    db: AsyncSession = Depends(get_db),
+):
+    """Sihirbaz: hedef gunun gun/hafta/ay donemlerinde kullanilan ve kalan sure.
+
+    Limitler tesis varsayilani ya da tedarikciye ozel olabilir; sunucu
+    randevu olustururken ayni hesabi kilit altinda yeniden yapar.
+    """
+    assert ctx.supplier is not None
+    usage = await minute_usage(db, ctx.facility, ctx.supplier, target_date)
+    return ok({"target_date": target_date.isoformat(), "usage": [u.as_dict() for u in usage]})
+
+
+@router.post("/duration/estimate")
+async def estimate_my_duration(
+    body: DurationEstimateRequest,
+    ctx: FacilityContext = Depends(get_supplier_context),
+    db: AsyncSession = Depends(get_db),
+):
+    """Sihirbazin islem suresi: tesisin sure kurallarindan hesaplanir.
+
+    Mod "tedarikci secer" ise hesap yine doner (bilgi amacli) ama sihirbaz
+    secimi tedarikciye birakir. Yalnizca tedarikcinin izinli kategorileri.
+    """
+    assert ctx.supplier is not None
+    allowed = {c.id for c in ctx.supplier.allowed_product_categories}
+    if body.product_category_id not in allowed:
+        raise NotFoundError("Urun kategorisi bulunamadi")
+    category = await db.get(ProductCategory, body.product_category_id)
+    if category is None or category.facility_id != ctx.facility_id:
+        raise NotFoundError("Urun kategorisi bulunamadi")
+    estimate = await estimate_duration(
+        db,
+        ctx.facility,
+        product_category=category,
+        vehicle_category_id=body.vehicle_category_id,
+        quantity=body.quantity,
+        quantity_unit=body.quantity_unit.value,
+    )
+    return ok({**estimate.as_dict(), **resolve_duration_policy(ctx.facility)})
 
 
 # ---------- tekrarlayan seriler (Sprint 12) ----------
@@ -327,6 +451,10 @@ async def my_appointment_series(
         ).scalars()
     )
     now = datetime.now(UTC)
+    # Tesisin bildirim suresinden yakin occurrence'lar portaldan iptal
+    # edilemez; sayaclar ve "seriyi iptal et" hakki buna gore hesaplanir.
+    policy = resolve_cancellation_policy(ctx.facility)
+    cutoff = notice_cutoff(policy, now)
     by_series: dict = {}
     for a in appointments:
         by_series.setdefault(a.series_id, []).append(a)
@@ -336,23 +464,29 @@ async def my_appointment_series(
         counts: dict[str, int] = {}
         for a in rows:
             counts[a.status.value] = counts.get(a.status.value, 0) + 1
-        future_cancellable = [
+        future_active = [
             a for a in rows
             if a.status.value in ("pending", "approved", "revision_pending")
             and to_utc(a.scheduled_start_at) > now
         ]
+        future_cancellable = [
+            a for a in future_active if to_utc(a.scheduled_start_at) >= cutoff
+        ]
         upcoming = min(
-            (to_utc(a.scheduled_start_at) for a in future_cancellable), default=None
+            (to_utc(a.scheduled_start_at) for a in future_active), default=None
         )
         return {
             "id": str(series.id),
             "frequency": series.recurrence_frequency,
             "occurrence_count": series.occurrence_count,
+            **_recurrence_out(series),
             "status": series.status,
             "status_counts": counts,
             "next_appointment_at": upcoming.isoformat() if upcoming else None,
             "product_name": rows[0].product_name if rows else None,
-            "can_cancel_series": len(future_cancellable) > 0,
+            # Telafi zorunluysa seri toplu iptal edilemez (her iptal kendi
+            # telafisiyle tek tek yapilir).
+            "can_cancel_series": len(future_cancellable) > 0 and not policy["require_makeup"],
             "future_cancellable_count": len(future_cancellable),
         }
 
@@ -393,6 +527,7 @@ async def my_appointment_series_detail(
             "id": str(series.id),
             "frequency": series.recurrence_frequency,
             "occurrence_count": series.occurrence_count,
+            **_recurrence_out(series),
             "status": series.status,
             "appointments": [appointment_out_named(a, maps) for a in occurrences],
         }
@@ -413,13 +548,14 @@ async def cancel_my_appointment_series(
     tamamlanmis/gecmis randevulara dokunulmaz; adminlere TEK ozet bildirim.
     """
     assert ctx.supplier is not None
-    series, affected = await svc.cancel_appointment_series(
+    series, affected, kept_within_notice = await svc.cancel_appointment_series(
         db,
         facility=ctx.facility,
         series_id=series_id,
         actor_type=ActorType.supplier_user,
         actor_id=ctx.identity.id,
         reason=body.reason,
+        reason_id=body.reason_id,
         supplier_id=ctx.supplier.id,
         by_supplier=True,
     )
@@ -428,5 +564,6 @@ async def cancel_my_appointment_series(
             "series_id": str(series.id),
             "status": series.status,
             "affected_count": len(affected),
+            "kept_within_notice_count": kept_within_notice,
         }
     )

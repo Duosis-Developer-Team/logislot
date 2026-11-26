@@ -27,6 +27,11 @@ from app.rules.context import (
     WarningRuleResult,
 )
 from app.services.overrides import pick_override
+from app.services.supplier_limits import (
+    first_violation,
+    violation_details,
+    violation_message,
+)
 
 #: Randevu slot izgarasinin adimi (dakika).
 SLOT_MINUTES = 30
@@ -75,6 +80,11 @@ class AvailabilityService:
         saatini tasimayi engellememelidir.
         """
         ctx = self.ctx
+
+        if ctx.duration_from_rule:
+            if 0 < ctx.duration_minutes <= 1440:
+                return HardRuleResult.passed()
+            return HardRuleResult.failed(HardRuleCode.DURATION_ABOVE_CATEGORY_MAXIMUM)
 
         if ctx.duration_minutes < ctx.product_category.min_block_minutes:
             return HardRuleResult.failed(HardRuleCode.DURATION_BELOW_CATEGORY_MINIMUM)
@@ -129,6 +139,15 @@ class AvailabilityService:
             and ctx.supplier_month_count >= ctx.supplier.monthly_quota
         ):
             return HardRuleResult.failed(HardRuleCode.SUPPLIER_QUOTA_EXCEEDED)
+
+        violation = first_violation(ctx.supplier_minute_usage, ctx.duration_minutes)
+        if violation is not None:
+            return HardRuleResult(
+                ok=False,
+                code=HardRuleCode.SUPPLIER_MINUTE_LIMIT_EXCEEDED,
+                message=violation_message(violation, ctx.duration_minutes),
+                details=violation_details(violation, ctx.duration_minutes),
+            )
 
         return HardRuleResult.passed()
 

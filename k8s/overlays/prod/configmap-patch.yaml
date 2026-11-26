@@ -28,6 +28,11 @@ data:
   # E-posta sablonlarindaki portal linki. Domain yayina girdiginde musteri
   # e-postalarinda IP:port gormesin diye simdiden alan adi.
   LOGISLOT_PUBLIC_WEB_URL: "https://logislot.io"
+  # Sifremi unuttum / kullanici adi hatirlatma e-postalarindaki baglanti
+  # bu portallara gider (bos kalirsa PUBLIC_WEB_URL + ?portal= kullanilir).
+  # Markali alan adli tenant'lar girisi yapinca kendi alan adlarina devredilir.
+  LOGISLOT_SUPPLIER_PORTAL_URL: "https://tedarikci.logislot.io"
+  LOGISLOT_ADMIN_PORTAL_URL: "https://yonetim.logislot.io"
   # CORS — GECIS LISTESI.
   #
   # Hem YENI alan adlari hem ESKI IP:port kokenleri birlikte duruyor.

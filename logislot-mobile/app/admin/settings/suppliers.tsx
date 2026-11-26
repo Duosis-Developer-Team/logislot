@@ -9,7 +9,7 @@ import {
   suppliers,
   useSupplierAccountActions,
 } from "@/api/resources";
-import type { SupplierDto } from "@/api/types";
+import type { MinuteLimitOverrides, SupplierDto } from "@/api/types";
 import { useSession } from "@/auth/session";
 import { ActiveBadge, ConfigList, MultiSelectField } from "@/components/config";
 import {
@@ -22,6 +22,14 @@ import {
   SectionTitle,
   SwitchRow,
 } from "@/components/ui";
+import { EmailListField } from "@/components/email-list";
+import {
+  INHERIT_ALL,
+  MINUTE_DIMENSIONS,
+  MinuteLimitsField,
+  overridesToBody,
+} from "@/components/minute-limits";
+import { useSupplierMinuteLimits } from "@/api/supplier-limits";
 import { useTheme } from "@/theme/theme";
 import { spacing } from "@/theme/tokens";
 
@@ -39,6 +47,7 @@ export default function SuppliersScreen() {
   const save = suppliers.useSave(facilityId);
   const deactivate = suppliers.useDeactivate(facilityId);
   const account = useSupplierAccountActions(facilityId);
+  const minuteDefaults = useSupplierMinuteLimits(facilityId);
 
   const [editing, setEditing] = useState<SupplierDto | null>(null);
   const [open, setOpen] = useState(false);
@@ -47,11 +56,13 @@ export default function SuppliersScreen() {
   const [categoryLabel, setCategoryLabel] = useState("");
   const [contactName, setContactName] = useState("");
   const [contactEmail, setContactEmail] = useState("");
+  const [additionalEmails, setAdditionalEmails] = useState<string[]>([]);
   const [contactPhone, setContactPhone] = useState("");
   const [minBlock, setMinBlock] = useState("");
   const [maxBlock, setMaxBlock] = useState("");
   const [weeklyQuota, setWeeklyQuota] = useState("");
   const [monthlyQuota, setMonthlyQuota] = useState("");
+  const [minuteLimits, setMinuteLimits] = useState<MinuteLimitOverrides>(INHERIT_ALL);
   const [notes, setNotes] = useState("");
   const [allowedCategories, setAllowedCategories] = useState<string[]>([]);
   const [autoApprove, setAutoApprove] = useState(false);
@@ -70,11 +81,13 @@ export default function SuppliersScreen() {
     setCategoryLabel("");
     setContactName("");
     setContactEmail("");
+    setAdditionalEmails([]);
     setContactPhone("");
     setMinBlock("");
     setMaxBlock("");
     setWeeklyQuota("");
     setMonthlyQuota("");
+    setMinuteLimits(INHERIT_ALL);
     setNotes("");
     setAllowedCategories([]);
     setAutoApprove(false);
@@ -94,11 +107,13 @@ export default function SuppliersScreen() {
     setCategoryLabel(row.category_label ?? "");
     setContactName(row.contact_name ?? "");
     setContactEmail(row.contact_email ?? "");
+    setAdditionalEmails(row.additional_emails ?? []);
     setContactPhone(row.contact_phone ?? "");
     setMinBlock(row.min_block_minutes != null ? String(row.min_block_minutes) : "");
     setMaxBlock(row.max_block_minutes != null ? String(row.max_block_minutes) : "");
     setWeeklyQuota(row.weekly_quota != null ? String(row.weekly_quota) : "");
     setMonthlyQuota(row.monthly_quota != null ? String(row.monthly_quota) : "");
+    setMinuteLimits(row.minute_limits ?? INHERIT_ALL);
     setNotes(row.notes ?? "");
     setAllowedCategories(row.allowed_product_category_ids);
     setAutoApprove(row.auto_approval_enabled);
@@ -128,18 +143,24 @@ export default function SuppliersScreen() {
       setFormError("Maks. süre, min. süreden küçük olamaz.");
       return;
     }
+    if (MINUTE_DIMENSIONS.some((d) => minuteLimits[d].mode === "custom" && !minuteLimits[d].minutes)) {
+      setFormError("Özel süre limiti seçilen dönem için dakika girin.");
+      return;
+    }
     const base = {
       company_name: companyName,
       code,
       category_label: categoryLabel || null,
       contact_name: contactName || null,
       contact_email: contactEmail || null,
+      additional_emails: additionalEmails,
       contact_phone: contactPhone || null,
       allowed_product_category_ids: allowedCategories,
       min_block_minutes: min,
       max_block_minutes: max,
       weekly_quota: numOrNull(weeklyQuota),
       monthly_quota: numOrNull(monthlyQuota),
+      minute_limits: overridesToBody(minuteLimits),
       auto_approval_enabled: autoApprove,
       cargo_enabled: cargoEnabled,
       is_active: isActive,
@@ -224,7 +245,7 @@ export default function SuppliersScreen() {
         query={list}
         createLabel="Yeni Tedarikçi"
         onCreate={openCreate}
-        description="Tedarikçi yalnızca kendisine izinli kategorilerden randevu oluşturabilir; kota ve süre limitleri rule engine tarafından uygulanır."
+        description="Tedarikçi yalnızca kendisine izinli kategorilerden randevu oluşturabilir; kota ve süre limitleri rule engine tarafından uygulanır. Excel ile toplu içe aktarma web yönetim panelinden (Tedarikçiler → Excel'den içe aktar) yapılır."
         searchText={(r) =>
           `${r.company_name} ${r.code} ${r.contact_name ?? ""} ${r.contact_email ?? ""}`
         }
@@ -327,6 +348,12 @@ export default function SuppliersScreen() {
             keyboardType="email-address"
             autoCapitalize="none"
           />
+          <EmailListField
+            label="Ek bildirim e-postaları"
+            value={additionalEmails}
+            onChange={setAdditionalEmails}
+            max={10}
+          />
 
           <SectionTitle title="İzinler / Kategoriler" />
           <MultiSelectField
@@ -375,6 +402,16 @@ export default function SuppliersScreen() {
           </View>
           <Text style={{ color: colors.faintText, fontSize: 12 }}>
             Boş bırakılan limitler uygulanmaz. Bu ayarlar randevu uygunluğunu etkiler.
+          </Text>
+
+          <SectionTitle title="Süre Limitleri" />
+          <MinuteLimitsField
+            value={minuteLimits}
+            onChange={setMinuteLimits}
+            defaults={minuteDefaults.data}
+          />
+          <Text style={{ color: colors.faintText, fontSize: 12 }}>
+            Dönem bazında tesis varsayılanını kullanın, sınırsız yapın ya da özel süre verin.
           </Text>
 
           <SectionTitle title="Portal Hesabı" />

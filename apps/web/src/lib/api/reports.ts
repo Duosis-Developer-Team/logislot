@@ -91,6 +91,8 @@ export interface EmailLogDto {
   recipient_email: string;
   recipient_name: string | null;
   subject: string;
+  /** Duz metin icerik (log_only ortaminda e-postanin tek kopyasi). */
+  body?: string | null;
   template_key: string;
   status: string;
   provider: string;

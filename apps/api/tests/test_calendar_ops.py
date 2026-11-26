@@ -55,7 +55,8 @@ async def test_dashboard_requires_appt_view(client, seeded):
 async def test_calendar_day_returns_docks_appointments_advisories(client, seeded):
     headers = await admin(client)
     fid = seeded["facility"].id
-    tomorrow = (date.today() + timedelta(days=1)).isoformat()
+    # Seed gelecek demo randevularini IS GUNUNE koyar (hafta sonu da kararli).
+    tomorrow = next_weekday().isoformat()
     response = await client.get(
         f"/facilities/{fid}/calendar/day?date={tomorrow}", headers=headers
     )

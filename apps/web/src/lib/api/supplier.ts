@@ -1,3 +1,4 @@
+import type { RecurrenceRule } from "@/lib/recurrence";
 "use client";
 
 /** Tedarikci portal hook'lari — tumu authenticated supplier context'inde calisir. */
@@ -39,6 +40,10 @@ export interface AvailabilityParams {
   vehicle_category_id: string | null;
   target_date: string;
   duration_minutes: number;
+  // Sure kurallari: "sistem hesaplar" modunda slotlar bunlardan SUNUCUDA
+  // hesaplanan sureyle aranir.
+  quantity?: number;
+  quantity_unit?: string;
 }
 
 export function useSupplierAvailability(params: AvailabilityParams | null) {
@@ -61,19 +66,31 @@ export function useCreateSupplierAppointment() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["supplier", "appointments"] });
       queryClient.invalidateQueries({ queryKey: ["supplier", "availability"] });
+      queryClient.invalidateQueries({ queryKey: ["minute-usage"] });
     },
   });
+}
+
+/** Tedarikci iptal govdesi; hangi alanin zorunlu oldugunu tesis kurali belirler. */
+export interface SupplierCancelBody {
+  reason_id?: string;
+  reason?: string;
+  /** Telafi randevusu: standartta kesin saat, kargoda pencere. */
+  makeup?: { target_date: string; start_at?: string; cargo_window?: string };
 }
 
 export function useCancelSupplierAppointment() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) =>
-      apiRequest<AppointmentDto>(`/supplier/appointments/${id}/cancel`, {
-        method: "POST",
-      }),
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: ["supplier", "appointments"] }),
+    mutationFn: ({ id, ...body }: SupplierCancelBody & { id: string }) =>
+      apiRequest<AppointmentDto & { makeup_appointment: AppointmentDto | null }>(
+        `/supplier/appointments/${id}/cancel`,
+        { method: "POST", body },
+      ),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["supplier", "appointments"] });
+      queryClient.invalidateQueries({ queryKey: ["minute-usage"] });
+    },
   });
 }
 
@@ -81,7 +98,10 @@ export function useCancelSupplierAppointment() {
 
 export interface SupplierSeriesRowDto {
   id: string;
-  frequency: "weekly" | "biweekly" | "monthly";
+  frequency: "daily" | "weekly" | "biweekly" | "monthly";
+  /** Outlook tarzi desenle olusturulan seride kural + ozet; eski serilerde null. */
+  recurrence?: RecurrenceRule | null;
+  recurrence_description?: string | null;
   occurrence_count: number;
   status: string;
   status_counts: Record<string, number>;
@@ -109,17 +129,19 @@ export function useSupplierSeriesDetail(seriesId: string | null) {
   });
 }
 
-/** Tedarikci kendi serisinin GELECEK randevularini iptal eder (sebep zorunlu). */
+/** Tedarikci kendi serisinin GELECEK randevularini iptal eder (sebep zorunlu).
+ *  Tesisin bildirim suresi icindeki tekrarlar iptal edilmez, aktif kalir. */
 export function useSupplierSeriesCancel() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ seriesId, reason }: { seriesId: string; reason: string }) =>
-      apiRequest<{ affected_count: number }>(
+    mutationFn: ({ seriesId, ...body }: SupplierCancelBody & { seriesId: string }) =>
+      apiRequest<{ affected_count: number; kept_within_notice_count: number }>(
         `/supplier/appointment-series/${seriesId}/cancel`,
-        { method: "POST", body: { reason } },
+        { method: "POST", body },
       ),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["supplier"] });
+      queryClient.invalidateQueries({ queryKey: ["minute-usage"] });
     },
   });
 }

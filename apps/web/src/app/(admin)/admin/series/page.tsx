@@ -27,6 +27,7 @@ import { useSession } from "@/lib/auth/session";
 import { cn, formatDate } from "@/lib/utils";
 import { useApiErrorMessage } from "@/lib/i18n/api-error";
 import { useT } from "@/lib/i18n/provider";
+import { describeRule } from "@/lib/recurrence";
 
 
 
@@ -168,7 +169,9 @@ export default function SeriesPage() {
                     </span>
                   </TD>
                   <TD>
-                    {t.admin.series.frequency[row.frequency] ?? row.frequency} × {row.occurrence_count}
+                    {row.recurrence
+                      ? describeRule(row.recurrence, t.recurrence)
+                      : `${t.admin.series.frequency[row.frequency] ?? row.frequency} × ${row.occurrence_count}`}
                   </TD>
                   <TD>
                     <div className="flex flex-wrap gap-1">

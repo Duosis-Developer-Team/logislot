@@ -17,6 +17,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.core.enums import AppointmentStatus
 from app.core.permissions import TenantPermission
 from app.models import Appointment, Dock, Facility, FacilityMembership, Notification, Supplier
 from app.services.email import EmailMessage, send_email
@@ -111,12 +112,68 @@ async def _supplier_account(db: AsyncSession, supplier_id: uuid.UUID):
 async def _supplier_email(
     db: AsyncSession, supplier_id: uuid.UUID
 ) -> tuple[str | None, str | None]:
-    """(email, ad) — once portal hesabi, yoksa iletisim e-postasi."""
+    """(birincil email, ad) — once portal hesabi, yoksa iletisim e-postasi."""
+    recipients, name = await supplier_recipients(db, supplier_id)
+    return (recipients[0] if recipients else None), name
+
+
+async def supplier_recipients(
+    db: AsyncSession, supplier_id: uuid.UUID
+) -> tuple[list[str], str | None]:
+    """(alicilar, ad) — birincil adres + tedarikci kartindaki ek bildirim adresleri.
+
+    Musteri karari (2026-11): tedarikciye 10'a kadar ek e-posta yazilabilir ve
+    tedarikciye giden her e-posta bunlarin hepsine gider. Birincil adres
+    portal hesabi (yoksa iletisim e-postasi); tekrarlar buyuk/kucuk harf
+    duyarsiz atilir.
+    """
     supplier, account = await _supplier_account(db, supplier_id)
     if supplier is None:
-        return None, None
-    email = account.email if account else supplier.contact_email
-    return email, supplier.company_name
+        return [], None
+    primary = account.email if account else supplier.contact_email
+    result: list[str] = []
+    seen: set[str] = set()
+    for email in [primary, *(supplier.additional_emails or [])]:
+        if email and email.casefold() not in seen:
+            seen.add(email.casefold())
+            result.append(email)
+    return result, supplier.company_name
+
+
+async def send_supplier_email(
+    db: AsyncSession,
+    *,
+    supplier_id: uuid.UUID,
+    tenant_id: uuid.UUID,
+    facility_id: uuid.UUID,
+    subject: str,
+    body: str,
+    template_key: str,
+    appointment_id: uuid.UUID | None = None,
+    metadata: dict[str, Any] | None = None,
+) -> int:
+    """Tedarikcinin TUM alicilarina ayni e-postayi gonderir; gonderilen sayisini doner.
+
+    Her alici ayri EmailLog satiri alir: tekrar gonderme ve teslim takibi
+    alici bazinda calisir.
+    """
+    recipients, name = await supplier_recipients(db, supplier_id)
+    for email in recipients:
+        await send_email(
+            db,
+            EmailMessage(
+                tenant_id=tenant_id,
+                facility_id=facility_id,
+                recipient_email=email,
+                recipient_name=name,
+                subject=subject,
+                body=body,
+                template_key=template_key,
+                appointment_id=appointment_id,
+                metadata=metadata,
+            ),
+        )
+    return len(recipients)
 
 
 def _add(
@@ -191,18 +248,15 @@ async def _email_supplier(
     if not email:
         return
     subject, body = render_email(template_key, ctx)
-    await send_email(
+    await send_supplier_email(
         db,
-        EmailMessage(
-            tenant_id=appointment.tenant_id,
-            facility_id=appointment.facility_id,
-            recipient_email=email,
-            recipient_name=ctx.supplier_name,
-            subject=subject,
-            body=body,
-            template_key=template_key,
-            appointment_id=appointment.id,
-        ),
+        supplier_id=appointment.supplier_id,
+        tenant_id=appointment.tenant_id,
+        facility_id=appointment.facility_id,
+        subject=subject,
+        body=body,
+        template_key=template_key,
+        appointment_id=appointment.id,
     )
 
 
@@ -321,6 +375,7 @@ async def on_lifecycle_action(
     new_start: str | None = None,
     old_dock_name: str | None = None,
     new_dock_name: str | None = None,
+    makeup: Appointment | None = None,
 ) -> None:
     """approve/reject/revise/dock_change/complete/cancel bildirim + e-postalari."""
     when = await _facility_when(db, appointment)
@@ -422,12 +477,33 @@ async def on_lifecycle_action(
         )
     elif action == "cancel":
         if by_supplier:
+            # Tesis sebebi ve tedarikcinin actigi TELAFI randevusunu
+            # bildirimden gorup planlayabilsin (musteri karari 2026-11).
+            body = f"{when} randevusu iptal edildi."
+            if reason:
+                body += f" Sebep: {reason}."
+            if makeup is not None:
+                makeup_when = await _facility_when(db, makeup)
+                state = (
+                    "onay bekliyor"
+                    if makeup.status == AppointmentStatus.pending
+                    else "onaylandı"
+                )
+                body += f" Telafi randevusu: {makeup_when} ({state})."
             await notify_admins(
                 db, appointment,
                 type_="appointment_cancelled", severity="warning",
                 title="Randevu tedarikçi tarafından iptal edildi",
-                body=f"{when} randevusu iptal edildi.",
-                extra={"reason": reason},
+                body=body,
+                extra={
+                    "reason": reason,
+                    "reason_id": (
+                        str(appointment.cancellation_reason_id)
+                        if appointment.cancellation_reason_id
+                        else None
+                    ),
+                    "makeup_appointment_id": str(makeup.id) if makeup else None,
+                },
             )
         else:
             await notify_supplier(

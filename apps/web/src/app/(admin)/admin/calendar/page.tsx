@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarOff, ChevronLeft, ChevronRight, Package } from "lucide-react";
+import { CalendarOff, ChevronLeft, ChevronRight, Package, RotateCcw } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { AppointmentStatus } from "@logislot/shared";
 import { APPOINTMENT_STATUS_LABELS } from "@logislot/shared";
@@ -408,11 +408,17 @@ export default function CalendarPage() {
                                   a.delivery_type === "cargo" && "cargo-overlay",
                                 )}
                                 style={{ left, width }}
-                                title={`${timeInTz(a.scheduled_start_at, tz)} · ${a.supplier_name ?? ""} · ${a.product_name}`}
+                                title={`${timeInTz(a.scheduled_start_at, tz)} · ${a.supplier_name ?? ""} · ${a.product_name}${a.is_makeup ? ` · ${t.makeup.badge}` : ""}${a.order_numbers?.length ? ` · ${t.orderNumbers.short}: ${a.order_numbers.join(", ")}` : ""}`}
                               >
                                 <div className="flex items-center gap-1 truncate font-semibold leading-tight">
                                   {a.delivery_type === "cargo" && (
                                     <Package className="h-3 w-3 shrink-0 text-cargo" />
+                                  )}
+                                  {a.is_makeup && (
+                                    <RotateCcw
+                                      className="h-3 w-3 shrink-0 text-status-revision"
+                                      aria-label={t.makeup.badge}
+                                    />
                                   )}
                                   <span className="truncate">
                                     {timeInTz(a.scheduled_start_at, tz)} {a.supplier_name}

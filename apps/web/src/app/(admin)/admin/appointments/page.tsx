@@ -1,6 +1,6 @@
 "use client";
 
-import { Download, Search } from "lucide-react";
+import { Download, Search, ShieldCheck } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useState } from "react";
 import {
@@ -11,10 +11,13 @@ import {
 } from "@logislot/shared";
 import { AdminCreateDrawer } from "@/components/appointments/admin-create-drawer";
 import { AppointmentDrawer } from "@/components/appointments/appointment-drawer";
+import { DriverIdSearchDialog } from "@/components/domain/driver-id";
 import { ConfirmDialog } from "@/components/config/confirm-dialog";
 import { useFlash } from "@/components/config/page-shell";
 import { EmptyState, ErrorState, LoadingState } from "@/components/config/states";
 import { CargoBadge } from "@/components/domain/cargo-badge";
+import { MakeupBadge } from "@/components/domain/makeup-badge";
+import { OrderNumbersText } from "@/components/domain/order-numbers-input";
 import { StatusBadge } from "@/components/domain/status-badge";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
@@ -125,6 +128,7 @@ function AppointmentsListContent() {
   const actions = useAppointmentActions(activeFacilityId);
   const { flash, showFlash } = useFlash();
   const [createOpen, setCreateOpen] = useState(false);
+  const [idSearchOpen, setIdSearchOpen] = useState(false);
 
   const [approveTarget, setApproveTarget] = useState<AppointmentDto | null>(null);
   const [rejectTarget, setRejectTarget] = useState<AppointmentDto | null>(null);
@@ -148,7 +152,13 @@ function AppointmentsListContent() {
     const q = query.trim().toLocaleLowerCase("tr");
     const filtered = q
       ? all.filter((a) =>
-          [a.supplier_name ?? "", a.product_name, a.license_plate ?? ""]
+          [
+            a.supplier_name ?? "",
+            a.product_name,
+            a.description ?? "",
+            a.license_plate ?? "",
+            ...(a.order_numbers ?? []),
+          ]
             .join(" ")
             .toLocaleLowerCase("tr")
             .includes(q),
@@ -177,6 +187,8 @@ function AppointmentsListContent() {
         t.admin.appointments.csv.time,
         t.admin.appointments.csv.supplier,
         t.admin.appointments.csv.product,
+        t.admin.appointments.csv.description,
+        t.admin.appointments.csv.orderNumbers,
         t.admin.appointments.csv.quantity,
         t.admin.appointments.csv.unit,
         t.admin.appointments.csv.dock,
@@ -193,6 +205,8 @@ function AppointmentsListContent() {
           start.toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" }),
           a.supplier_name ?? "",
           a.product_name,
+          a.description ?? "",
+          (a.order_numbers ?? []).join(", "),
           a.quantity,
           labels.quantityUnit[a.quantity_unit as QuantityUnit] ?? a.quantity_unit,
           a.dock_name ?? "",
@@ -247,9 +261,16 @@ function AppointmentsListContent() {
             {t.admin.appointments.description}
           </p>
         </div>
-        {can("appt.create") && (
-          <Button onClick={() => setCreateOpen(true)}>{t.admin.appointments.create}</Button>
-        )}
+        <div className="flex flex-wrap gap-2">
+          {can("appt.driver_id.view") && (
+            <Button variant="secondary" onClick={() => setIdSearchOpen(true)}>
+              <ShieldCheck className="h-4 w-4" /> {t.driverId.searchTitle}
+            </Button>
+          )}
+          {can("appt.create") && (
+            <Button onClick={() => setCreateOpen(true)}>{t.admin.appointments.create}</Button>
+          )}
+        </div>
       </div>
 
       {flash && (
@@ -364,10 +385,25 @@ function AppointmentsListContent() {
                 <TD>{a.supplier_name ?? "—"}</TD>
                 <TD>
                   <div className="flex items-center gap-2">
-                    {a.product_name}
+                    <span className="min-w-0">
+                      {a.product_name}
+                      <OrderNumbersText
+                        value={a.order_numbers}
+                        className="block text-[11px] text-muted-foreground"
+                      />
+                      {a.description && (
+                        <span
+                          className="block max-w-xs truncate text-[11px] text-muted-foreground"
+                          title={a.description}
+                        >
+                          {a.description}
+                        </span>
+                      )}
+                    </span>
                     {a.delivery_type === "cargo" && (
                       <CargoBadge window={a.cargo_window as never} />
                     )}
+                    {a.is_makeup && <MakeupBadge />}
                   </div>
                 </TD>
                 <TD className="whitespace-nowrap">
@@ -417,6 +453,12 @@ function AppointmentsListContent() {
         appointmentId={selectedId}
         onClose={closeDrawer}
         onActionSuccess={(message) => showFlash("success", message)}
+      />
+
+      <DriverIdSearchDialog
+        open={idSearchOpen}
+        onClose={() => setIdSearchOpen(false)}
+        onSelect={setSelectedId}
       />
 
       <AdminCreateDrawer

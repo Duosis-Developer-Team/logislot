@@ -16,6 +16,8 @@ import {
 import { ConfirmDialog } from "@/components/config/confirm-dialog";
 import { ErrorState, LoadingState } from "@/components/config/states";
 import { CargoBadge } from "@/components/domain/cargo-badge";
+import { DriverIdValue } from "@/components/domain/driver-id";
+import { MakeupBadge } from "@/components/domain/makeup-badge";
 import { StatusBadge } from "@/components/domain/status-badge";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
@@ -30,6 +32,7 @@ import {
   useSeriesCancel,
 } from "@/lib/api/appointments";
 import { ApiError } from "@/lib/api/client";
+import type { LinkedAppointmentDto } from "@/lib/api/types";
 import { emailProviderLabel, emailStatusLabel, emailTemplateLabel } from "@/lib/email-labels";
 import { useEmailLogs } from "@/lib/api/reports";
 import {
@@ -41,6 +44,7 @@ import { formatDate, isoFromWallClock, timeInTz } from "@/lib/utils";
 import { useApiErrorMessage } from "@/lib/i18n/api-error";
 import { useLabels } from "@/lib/i18n/labels";
 import { useT } from "@/lib/i18n/provider";
+import { describeRule } from "@/lib/recurrence";
 
 interface AppointmentDrawerProps {
   appointmentId: string | null;
@@ -58,7 +62,12 @@ export function AppointmentDrawer({
   const labels = useLabels();
   const errorMessage = useApiErrorMessage();
   const { activeFacilityId, activeFacility, can } = useSession();
-  const detail = useAppointmentDetail(activeFacilityId, appointmentId);
+  // Telafi baglantisina tiklaninca drawer karsi randevuya gecer. Gecis,
+  // disaridan acilan randevuya baglidir: baska randevu acilinca kendiliginden
+  // sifirlanir (effect gerekmez).
+  const [linked, setLinked] = useState<{ from: string | null; id: string } | null>(null);
+  const currentId = linked && linked.from === appointmentId ? linked.id : appointmentId;
+  const detail = useAppointmentDetail(activeFacilityId, currentId);
   const dockList = dockResource.useList(activeFacilityId);
   const categoryList = categoryResource.useList(activeFacilityId);
   const actions = useAppointmentActions(activeFacilityId);
@@ -92,12 +101,12 @@ export function AppointmentDrawer({
   // Secenekler yalnizca diyalog acikken cekilir (gereksiz istek uretme).
   const dockOptions = useDockOptions(
     activeFacilityId,
-    dialog === "dock-change" ? appointmentId : null,
+    dialog === "dock-change" ? currentId : null,
   );
 
   const a = detail.data ?? null;
   const allowed = a?.allowed_actions;
-  const emailLogs = useEmailLogs(activeFacilityId, appointmentId);
+  const emailLogs = useEmailLogs(activeFacilityId, currentId);
   const emailResend = useEmailResend(activeFacilityId);
   const [resendError, setResendError] = useState<string | null>(null);
 
@@ -240,17 +249,59 @@ export function AppointmentDrawer({
               {a.delivery_type === "cargo" && (
                 <CargoBadge window={a.cargo_window as never} />
               )}
+              {a.is_makeup && <MakeupBadge />}
             </div>
           </div>
+
+          {/* Telafi baglantilari: iptal edilen <-> telafi randevusu */}
+          {(a.makeup_of || a.makeup_appointment) && (
+            <div className="flex flex-col gap-1.5 rounded-lg border border-status-revision/30 bg-status-revision/5 px-3 py-2 text-sm">
+              {a.makeup_of && (
+                <LinkedRow
+                  label={t.makeup.replacesLabel}
+                  linked={a.makeup_of}
+                  tz={tz}
+                  onOpen={() => setLinked({ from: appointmentId, id: a.makeup_of!.id })}
+                />
+              )}
+              {a.makeup_appointment && (
+                <LinkedRow
+                  label={t.makeup.makeupLabel}
+                  linked={a.makeup_appointment}
+                  tz={tz}
+                  onOpen={() => setLinked({ from: appointmentId, id: a.makeup_appointment!.id })}
+                />
+              )}
+            </div>
+          )}
 
           {/* Bilgi izgarasi */}
           <dl className="grid grid-cols-2 gap-x-4 gap-y-2 rounded-lg border border-border p-4 text-sm">
             <dt className="text-muted-foreground">{t.common.date}</dt>
             <dd>{formatDate(a.scheduled_start_at)}</dd>
+            {a.order_numbers && a.order_numbers.length > 0 && (
+              <>
+                <dt className="text-muted-foreground">{t.orderNumbers.label}</dt>
+                <dd className="break-words font-mono text-xs">{a.order_numbers.join(", ")}</dd>
+              </>
+            )}
+            {a.description && (
+              <>
+                <dt className="text-muted-foreground">{t.appointmentDescription.label}</dt>
+                <dd className="whitespace-pre-line break-words">{a.description}</dd>
+              </>
+            )}
             <dt className="text-muted-foreground">{t.appointmentDrawer.time}</dt>
             <dd>
               {timeInTz(a.scheduled_start_at, tz)}–{timeInTz(a.scheduled_end_at, tz)} (
               {t.appointmentDrawer.durationSuffix(a.duration_minutes)})
+              {/* Yalnizca kural motoru devredeyken anlamli; "elle" eski
+                  davranisla ayni oldugu icin gurultu yapmasin. */}
+              {(a.duration_source === "rule" || a.duration_source === "fallback") && (
+                <span className="block text-xs text-muted-foreground">
+                  {t.duration.source[a.duration_source]}
+                </span>
+              )}
             </dd>
             <dt className="text-muted-foreground">{t.common.dock}</dt>
             <dd>{a.dock_name ?? "—"}</dd>
@@ -273,6 +324,14 @@ export function AppointmentDrawer({
               <>
                 <dt className="text-muted-foreground">{t.appointmentDrawer.driver}</dt>
                 <dd>{a.driver_name}</dd>
+              </>
+            )}
+            {(a.driver_id_masked || a.driver_id_purged_at) && (
+              <>
+                <dt className="text-muted-foreground">{t.driverId.shortLabel}</dt>
+                <dd>
+                  <DriverIdValue appointment={a} />
+                </dd>
               </>
             )}
             {a.supplier_contact?.phone && (
@@ -302,7 +361,9 @@ export function AppointmentDrawer({
                   a.series.occurrence_count,
                 )}{" "}
                 (
-                {a.series.frequency === "weekly"
+                {a.series.recurrence
+                  ? describeRule(a.series.recurrence, t.recurrence)
+                  : a.series.frequency === "weekly"
                   ? t.appointmentDrawer.weekly
                   : a.series.frequency === "biweekly"
                     ? t.appointmentDrawer.biweekly
@@ -331,9 +392,10 @@ export function AppointmentDrawer({
               {t.appointmentDrawer.rejectionReason} {a.rejection_reason}
             </p>
           )}
-          {a.cancellation_reason && (
+          {(a.cancellation_reason || a.cancellation_reason_label) && (
             <p className="rounded-lg bg-status-cancelled/10 px-3 py-2 text-sm text-status-cancelled">
-              {t.appointmentDrawer.cancellationReason} {a.cancellation_reason}
+              {t.appointmentDrawer.cancellationReason}{" "}
+              {labels.cancellationReasonText(a.cancellation_reason_label, a.cancellation_reason)}
             </p>
           )}
           {a.completion_note && (
@@ -838,5 +900,36 @@ export function AppointmentDrawer({
         </div>
       </Dialog>
     </Modal>
+  );
+}
+
+/** Telafi baglantisi satiri: tarih/saat + durum + karsi randevuya gecis. */
+function LinkedRow({
+  label,
+  linked,
+  tz,
+  onOpen,
+}: {
+  label: string;
+  linked: LinkedAppointmentDto;
+  tz: string;
+  onOpen: () => void;
+}) {
+  const t = useT();
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-2">
+      <span>
+        <span className="text-muted-foreground">{label}:</span>{" "}
+        <span className="font-medium">
+          {formatDate(linked.scheduled_start_at)} {timeInTz(linked.scheduled_start_at, tz)}
+        </span>
+      </span>
+      <span className="flex items-center gap-2">
+        <StatusBadge status={linked.status as never} />
+        <Button size="sm" variant="ghost" className="h-7 px-2" onClick={onOpen}>
+          {t.makeup.open}
+        </Button>
+      </span>
+    </div>
   );
 }

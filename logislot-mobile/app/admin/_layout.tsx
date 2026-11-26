@@ -32,6 +32,10 @@ export default function AdminLayout() {
             ["settings/audit-logs", "Denetim İzleri"],
             ["settings/notification-preferences", "Bildirim Tercihleri"],
             ["settings/supplier-notifications", "Tedarikçi Bildirimleri"],
+            ["settings/supplier-cancellation", "Tedarikçi İptal Kuralları"],
+            ["settings/appointment-form", "Randevu Formu"],
+            ["settings/duration-rules", "Süre Kuralları"],
+            ["settings/supplier-limits", "Tedarikçi Süre Limitleri"],
           ] as const
         ).map(([name, title]) => (
           <Stack.Screen

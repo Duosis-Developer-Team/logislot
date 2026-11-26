@@ -1,7 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { BadgeCheck, KeyRound, Package } from "lucide-react";
+import { BadgeCheck, FileSpreadsheet, KeyRound, Package } from "lucide-react";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -17,6 +17,14 @@ import { ActiveBadge, EmptyState, ErrorState, LoadingState } from "@/components/
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Drawer } from "@/components/ui/drawer";
+import { EmailListInput } from "@/components/domain/email-list-input";
+import { SupplierImportDialog } from "@/components/domain/supplier-import-dialog";
+import {
+  INHERIT_ALL,
+  MINUTE_DIMENSIONS,
+  MinuteLimitsEditor,
+  overridesToBody,
+} from "@/components/domain/minute-limits";
 import { Input, Label } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
@@ -26,7 +34,8 @@ import {
   suppliers,
   useSupplierAccountActions,
 } from "@/lib/api/resources";
-import type { SupplierDto } from "@/lib/api/types";
+import { useSupplierMinuteLimits } from "@/lib/api/supplier-limits";
+import type { MinuteLimitOverrides, SupplierDto } from "@/lib/api/types";
 import { useSession } from "@/lib/auth/session";
 import { useApiErrorMessage } from "@/lib/i18n/api-error";
 import type { Dictionary } from "@/lib/i18n/dictionaries/tr";
@@ -110,9 +119,11 @@ export default function SuppliersPage() {
   const save = suppliers.useSave(activeFacilityId);
   const deactivate = suppliers.useDeactivate(activeFacilityId);
   const account = useSupplierAccountActions(activeFacilityId);
+  const minuteDefaults = useSupplierMinuteLimits(activeFacilityId);
   const { flash, showFlash } = useFlash();
 
   const [search, setSearch] = useState("");
+  const [importOpen, setImportOpen] = useState(false);
   const [activeFilter, setActiveFilter] = useState<ActiveFilter>("all");
   const [drawer, setDrawer] = useState<{ open: boolean; editing: SupplierDto | null }>({
     open: false,
@@ -129,6 +140,9 @@ export default function SuppliersPage() {
   const [accountActive, setAccountActive] = useState(true);
 
   const form = useForm<FormValues>({ resolver: zodResolver(formSchema) });
+  // Ek bildirim adresleri (en fazla 10); tedarikciye giden e-postalar bunlara da gider.
+  const [additionalEmails, setAdditionalEmails] = useState<string[]>([]);
+  const [minuteLimits, setMinuteLimits] = useState<MinuteLimitOverrides>(INHERIT_ALL);
   // Onerilen parola cekmece ACILIRKEN bir kez uretilir. Render sirasinda
   // uretilseydi ekranda gosterilen parola ile gonderilen farkli olabilirdi.
   const [generatedPassword, setGeneratedPassword] = useState("");
@@ -141,6 +155,8 @@ export default function SuppliersPage() {
       notes: "", account_email: "", account_password: "",
     });
     setAllowedCategories([]);
+    setAdditionalEmails([]);
+    setMinuteLimits(INHERIT_ALL);
     setAutoApprove(false);
     setCargoEnabled(false);
     setEditActive(true);
@@ -167,6 +183,8 @@ export default function SuppliersPage() {
       account_password: "",
     });
     setAllowedCategories(row.allowed_product_category_ids);
+    setAdditionalEmails(row.additional_emails ?? []);
+    setMinuteLimits(row.minute_limits ?? INHERIT_ALL);
     setAutoApprove(row.auto_approval_enabled);
     setCargoEnabled(row.cargo_enabled);
     setEditActive(row.is_active);
@@ -177,6 +195,10 @@ export default function SuppliersPage() {
 
   async function onSubmit(values: FormValues) {
     setFormError(null);
+    if (MINUTE_DIMENSIONS.some((d) => minuteLimits[d].mode === "custom" && !minuteLimits[d].minutes)) {
+      setFormError(t.admin.suppliers.minuteLimitsMissing);
+      return;
+    }
     const base = {
       company_name: values.company_name,
       code: values.code,
@@ -184,11 +206,13 @@ export default function SuppliersPage() {
       contact_name: values.contact_name || null,
       contact_email: values.contact_email || null,
       contact_phone: values.contact_phone || null,
+      additional_emails: additionalEmails,
       allowed_product_category_ids: allowedCategories,
       min_block_minutes: num(values.min_block_minutes),
       max_block_minutes: num(values.max_block_minutes),
       weekly_quota: num(values.weekly_quota),
       monthly_quota: num(values.monthly_quota),
+      minute_limits: overridesToBody(minuteLimits),
       auto_approval_enabled: autoApprove,
       cargo_enabled: cargoEnabled,
       is_active: editActive,
@@ -320,7 +344,17 @@ export default function SuppliersPage() {
       activeFilter={activeFilter}
       onActiveFilterChange={setActiveFilter}
       flash={flash}
+      extraActions={
+        <Button variant="secondary" onClick={() => setImportOpen(true)}>
+          <FileSpreadsheet className="h-4 w-4" /> {t.admin.supplierImport.open}
+        </Button>
+      }
     >
+      <SupplierImportDialog
+        facilityId={activeFacilityId}
+        open={importOpen}
+        onClose={() => setImportOpen(false)}
+      />
       {list.isLoading ? (
         <LoadingState />
       ) : list.isError ? (
@@ -485,6 +519,17 @@ export default function SuppliersPage() {
                   </p>
                 )}
               </div>
+              <div className="col-span-2">
+                <Label htmlFor="supplier-additional-emails">
+                  {t.admin.suppliers.additionalEmails.label}
+                </Label>
+                <EmailListInput
+                  id="supplier-additional-emails"
+                  value={additionalEmails}
+                  onChange={setAdditionalEmails}
+                  max={10}
+                />
+              </div>
             </div>
           </Section>
 
@@ -551,6 +596,15 @@ export default function SuppliersPage() {
             <p className="text-xs text-muted-foreground">
               {t.admin.suppliers.limitsHint}
             </p>
+          </Section>
+
+          <Section title={t.admin.suppliers.minuteLimitsTitle}>
+            <MinuteLimitsEditor
+              value={minuteLimits}
+              onChange={setMinuteLimits}
+              defaults={minuteDefaults.data}
+            />
+            <p className="text-xs text-muted-foreground">{t.admin.suppliers.minuteLimitsHint}</p>
           </Section>
 
           <Section title={t.admin.suppliers.portalSection}>

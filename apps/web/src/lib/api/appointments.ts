@@ -1,3 +1,4 @@
+import type { RecurrenceRule } from "@/lib/recurrence";
 "use client";
 
 /** Yonetim paneli randevu/takvim/dashboard hook'lari. */
@@ -6,6 +7,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/api/client";
 import type {
   AppointmentDto,
+  AppointmentFormDto,
   CalendarDayDto,
   CalendarWeekDto,
   DashboardSummaryDto,
@@ -89,6 +91,8 @@ export interface AdminAvailabilityParams {
   vehicle_category_id: string | null;
   target_date: string;
   duration_minutes: number;
+  quantity?: number;
+  quantity_unit?: string;
 }
 
 /** Revize formunda advisory onizlemesi icin admin availability sorgusu. */
@@ -134,6 +138,7 @@ export function useAppointmentActions(facilityId: string | null) {
     queryClient.invalidateQueries({ queryKey: ["appointment", fid] });
     queryClient.invalidateQueries({ queryKey: ["calendar", fid] });
     queryClient.invalidateQueries({ queryKey: ["dashboard", fid] });
+    queryClient.invalidateQueries({ queryKey: ["minute-usage"] });
   };
 
   const approve = useMutation({
@@ -208,7 +213,10 @@ export interface SeriesListRowDto {
   id: string;
   supplier_id: string;
   supplier_name: string | null;
-  frequency: "weekly" | "biweekly" | "monthly";
+  frequency: "daily" | "weekly" | "biweekly" | "monthly";
+  /** Outlook tarzi desenle olusturulan seride kural + ozet; eski serilerde null. */
+  recurrence?: RecurrenceRule | null;
+  recurrence_description?: string | null;
   occurrence_count: number;
   status: string;
   created_at: string | null;
@@ -281,6 +289,7 @@ export function useAdminCreateAppointment(facilityId: string | null) {
       for (const prefix of ["appointments", "calendar", "dashboard", "series"]) {
         queryClient.invalidateQueries({ queryKey: [prefix, fid] });
       }
+      queryClient.invalidateQueries({ queryKey: ["minute-usage"] });
     },
   });
 }
@@ -358,5 +367,66 @@ export function useSeriesApprove(facilityId: string | null) {
         queryClient.invalidateQueries({ queryKey: [prefix, fid] });
       }
     },
+  });
+}
+
+// ------------------------------------------------------ randevu formu ayarlari
+
+export interface AppointmentFormResponse extends AppointmentFormDto {
+  is_customized: boolean;
+  max_order_numbers: number;
+  description_max_length?: number;
+  driver_id_retention_days: number;
+  driver_id_retention_choices: number[];
+}
+
+const appointmentFormKey = (facilityId: string | null) => [
+  "config",
+  "appointment-form",
+  facilityId ?? "none",
+];
+
+/** Yonetim adina olusturma ve ayar ekrani ayni ayari okur. */
+export function useAppointmentForm(facilityId: string | null) {
+  return useQuery({
+    queryKey: appointmentFormKey(facilityId),
+    queryFn: () =>
+      apiRequest<AppointmentFormResponse>(`/facilities/${facilityId}/appointment-form`),
+    enabled: facilityId !== null,
+    staleTime: 60_000,
+  });
+}
+
+export function useSaveAppointmentForm(facilityId: string | null) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (body: Partial<AppointmentFormDto> & { driver_id_retention_days?: number }) =>
+      apiRequest<AppointmentFormResponse>(`/facilities/${facilityId}/appointment-form`, {
+        method: "PATCH",
+        body,
+      }),
+    onSuccess: (data) => {
+      queryClient.setQueryData(appointmentFormKey(facilityId), data);
+      // Tedarikci sihirbazi formu katalogdan okur.
+      queryClient.invalidateQueries({ queryKey: ["supplier", "catalog"] });
+    },
+  });
+}
+
+// ------------------------------------------------------ surucu kimligi (guvenlik)
+
+/** Acik kimlik numarasi — `appt.driver_id.view` izni; her cagri denetlenir. */
+export async function revealDriverId(facilityId: string, appointmentId: string) {
+  return apiRequest<{ type: "tckn" | "passport"; value: string }>(
+    `/facilities/${facilityId}/appointments/${appointmentId}/driver-id/reveal`,
+    { method: "POST" },
+  );
+}
+
+/** Guvenlik kapisi: numarayla randevu bulma. Numara GOVDEDE (URL'de degil). */
+export async function searchByDriverId(facilityId: string, driverId: string) {
+  return apiRequest<AppointmentDto[]>(`/facilities/${facilityId}/appointments/search-by-driver-id`, {
+    method: "POST",
+    body: { driver_id: driverId },
   });
 }

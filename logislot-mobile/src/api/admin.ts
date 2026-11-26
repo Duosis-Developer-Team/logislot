@@ -1,3 +1,4 @@
+import type { RecurrenceRule } from "@/lib/recurrence";
 /** Yönetim paneli hook'ları — web apps/web/src/lib/api/appointments.ts ile aynı contract. */
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -10,6 +11,9 @@ import type {
   DashboardSummaryDto,
   SeriesCreateResultDto,
   SlotDto,
+  AppointmentFormDto,
+  CancellationReasonDto,
+  SupplierCancellationPolicyDto,
 } from "./types";
 
 export function useAppointments(facilityId: string | null, status?: string) {
@@ -74,6 +78,7 @@ export function useAppointmentActions(facilityId: string | null) {
     for (const prefix of ["appointments", "appointment", "calendar", "dashboard"]) {
       queryClient.invalidateQueries({ queryKey: [prefix, fid] });
     }
+    queryClient.invalidateQueries({ queryKey: ["minute-usage"] });
   };
 
   const approve = useMutation({
@@ -164,6 +169,8 @@ export interface AdminAvailabilityParams {
   vehicle_category_id: string | null;
   target_date: string;
   duration_minutes: number;
+  quantity?: number;
+  quantity_unit?: string;
 }
 
 /** Revize/oluşturma formunda advisory önizlemesi için admin availability sorgusu. */
@@ -189,7 +196,10 @@ export interface SeriesListRowDto {
   id: string;
   supplier_id: string;
   supplier_name: string | null;
-  frequency: "weekly" | "biweekly" | "monthly";
+  frequency: "daily" | "weekly" | "biweekly" | "monthly";
+  /** Outlook tarzi desenle olusturulan seride kural + ozet; eski serilerde null. */
+  recurrence?: RecurrenceRule | null;
+  recurrence_description?: string | null;
   occurrence_count: number;
   status: string;
   created_at: string | null;
@@ -228,6 +238,7 @@ function invalidateSeriesScope(
   for (const prefix of ["series", "appointments", "appointment", "calendar", "dashboard"]) {
     queryClient.invalidateQueries({ queryKey: [prefix, fid] });
   }
+  queryClient.invalidateQueries({ queryKey: ["minute-usage"] });
 }
 
 export interface SeriesCancelResultDto {
@@ -357,4 +368,146 @@ export function useAuditLogs(facilityId: string | null, filters: AuditLogFilters
       ),
     enabled: facilityId !== null,
   });
+}
+
+// ------------------------------------------- tedarikçi iptal kuralları
+//
+// Müşteri talebi (2026-10): tedarikçi iptalinde sebep + alternatif tarih
+// zorunluluğu ve "randevuya X saat kala iptal kapanır" kuralı. Yönetim belirler;
+// yalnızca tedarikçi iptallerine uygulanır.
+
+export interface SupplierCancellationPolicyResponse extends SupplierCancellationPolicyDto {
+  /** false ise hiç kural kaydedilmemiş: eski davranış geçerli. */
+  is_customized: boolean;
+  max_notice_hours: number;
+}
+
+const cancellationPolicyKey = (facilityId: string | null) => [
+  "config",
+  "supplier-cancellation-policy",
+  facilityId ?? "none",
+];
+
+export function useSupplierCancellationPolicy(facilityId: string | null) {
+  return useQuery({
+    queryKey: cancellationPolicyKey(facilityId),
+    queryFn: () =>
+      apiRequest<SupplierCancellationPolicyResponse>(
+        `/facilities/${facilityId}/supplier-cancellation-policy`,
+      ),
+    enabled: facilityId !== null,
+  });
+}
+
+export function useSaveSupplierCancellationPolicy(facilityId: string | null) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (body: SupplierCancellationPolicyDto) =>
+      apiRequest<SupplierCancellationPolicyResponse>(
+        `/facilities/${facilityId}/supplier-cancellation-policy`,
+        { method: "PATCH", body },
+      ),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: cancellationPolicyKey(facilityId) }),
+  });
+}
+
+// ------------------------------------------- iptal sebebi listesi
+//
+// Firma kendi listesini düzenler; PUT listenin tamamını gönderilen sırayla
+// yazar, gönderilmeyen sebep silinir (geçmiş randevular etiketini korur).
+
+const cancellationReasonsKey = (facilityId: string | null) => [
+  "config",
+  "cancellation-reasons",
+  facilityId ?? "none",
+];
+
+export function useCancellationReasons(facilityId: string | null) {
+  return useQuery({
+    queryKey: cancellationReasonsKey(facilityId),
+    queryFn: () =>
+      apiRequest<CancellationReasonDto[]>(`/facilities/${facilityId}/cancellation-reasons`),
+    enabled: facilityId !== null,
+  });
+}
+
+export interface CancellationReasonInput {
+  id?: string;
+  label: string;
+  note_required: boolean;
+  is_active: boolean;
+}
+
+export function useSaveCancellationReasons(facilityId: string | null) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (reasons: CancellationReasonInput[]) =>
+      apiRequest<CancellationReasonDto[]>(`/facilities/${facilityId}/cancellation-reasons`, {
+        method: "PUT",
+        body: { reasons },
+      }),
+    onSuccess: (rows) => {
+      queryClient.setQueryData(cancellationReasonsKey(facilityId), rows);
+      queryClient.invalidateQueries({ queryKey: ["supplier", "profile"] });
+    },
+  });
+}
+
+// ------------------------------------------- randevu formu ayarları
+
+export interface AppointmentFormResponse extends AppointmentFormDto {
+  is_customized: boolean;
+  max_order_numbers: number;
+  description_max_length?: number;
+  driver_id_retention_days: number;
+  driver_id_retention_choices: number[];
+}
+
+const appointmentFormKey = (facilityId: string | null) => [
+  "config",
+  "appointment-form",
+  facilityId ?? "none",
+];
+
+export function useAppointmentForm(facilityId: string | null) {
+  return useQuery({
+    queryKey: appointmentFormKey(facilityId),
+    queryFn: () =>
+      apiRequest<AppointmentFormResponse>(`/facilities/${facilityId}/appointment-form`),
+    enabled: facilityId !== null,
+  });
+}
+
+export function useSaveAppointmentForm(facilityId: string | null) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (body: Partial<AppointmentFormDto> & { driver_id_retention_days?: number }) =>
+      apiRequest<AppointmentFormResponse>(`/facilities/${facilityId}/appointment-form`, {
+        method: "PATCH",
+        body,
+      }),
+    onSuccess: (data) => {
+      queryClient.setQueryData(appointmentFormKey(facilityId), data);
+      queryClient.invalidateQueries({ queryKey: ["supplier", "catalog"] });
+    },
+  });
+}
+
+// ------------------------------------------- sürücü kimliği (güvenlik)
+
+/** Açık kimlik numarası — `appt.driver_id.view` izni; her çağrı denetlenir. */
+export function revealDriverId(facilityId: string, appointmentId: string) {
+  return apiRequest<{ type: "tckn" | "passport"; value: string }>(
+    `/facilities/${facilityId}/appointments/${appointmentId}/driver-id/reveal`,
+    { method: "POST" },
+  );
+}
+
+/** Güvenlik kapısı: numarayla randevu bulma. Numara GÖVDEDE (URL'de değil). */
+export function searchByDriverId(facilityId: string, driverId: string) {
+  return apiRequest<AppointmentDto[]>(
+    `/facilities/${facilityId}/appointments/search-by-driver-id`,
+    { method: "POST", body: { driver_id: driverId } },
+  );
 }

@@ -25,6 +25,7 @@ from app.models import (
 class HardRuleCode:
     SUPPLIER_CATEGORY_NOT_ALLOWED = "SUPPLIER_CATEGORY_NOT_ALLOWED"
     SUPPLIER_QUOTA_EXCEEDED = "SUPPLIER_QUOTA_EXCEEDED"
+    SUPPLIER_MINUTE_LIMIT_EXCEEDED = "SUPPLIER_MINUTE_LIMIT_EXCEEDED"
     DURATION_BELOW_CATEGORY_MINIMUM = "DURATION_BELOW_CATEGORY_MINIMUM"
     DURATION_ABOVE_CATEGORY_MAXIMUM = "DURATION_ABOVE_CATEGORY_MAXIMUM"
     DURATION_OUTSIDE_SUPPLIER_LIMITS = "DURATION_OUTSIDE_SUPPLIER_LIMITS"
@@ -45,6 +46,7 @@ class WarningCode:
 HARD_RULE_MESSAGES = {
     HardRuleCode.SUPPLIER_CATEGORY_NOT_ALLOWED: "Tedarikci bu kategoride randevu olusturamaz",
     HardRuleCode.SUPPLIER_QUOTA_EXCEEDED: "Tedarikci rezervasyon kotasi asildi",
+    HardRuleCode.SUPPLIER_MINUTE_LIMIT_EXCEEDED: "Tedarikci sure limiti asildi",
     HardRuleCode.DURATION_BELOW_CATEGORY_MINIMUM: "Sure, kategori minimum blokaj suresinin altinda",
     HardRuleCode.DURATION_ABOVE_CATEGORY_MAXIMUM: "Sure, kategori maksimum blokaj suresini asiyor",
     HardRuleCode.DURATION_OUTSIDE_SUPPLIER_LIMITS: "Sure, tedarikci min/maks limitleri disinda",
@@ -62,6 +64,7 @@ class HardRuleResult:
     ok: bool
     code: str | None = None
     message: str | None = None
+    details: dict | None = None
 
     @classmethod
     def passed(cls) -> "HardRuleResult":
@@ -111,6 +114,10 @@ class RuleEvaluationContext:
     target_date: date_type
     duration_minutes: int
     cargo_window: CargoWindow | None = None
+    # Sure tesisin sure KURALINDAN hesaplandiysa kategori/tedarikci min-maks
+    # sinirlari uygulanmaz (kurali yonetim acikca tanimladi); yalnizca gun
+    # siniri gecerlidir. Elle girilen sure her zaman sinirlara tabidir.
+    duration_from_rule: bool = False
 
     # Onceden yuklenmis tesis konfigurasyonu
     docks: list[Dock] = field(default_factory=list)
@@ -121,6 +128,9 @@ class RuleEvaluationContext:
     # Kota kontrolu icin sayimlar (iptal/red haric)
     supplier_week_count: int = 0
     supplier_month_count: int = 0
+    # Sure limitleri: hedef gunun gun/hafta/ay donemlerindeki kullanim ve
+    # gecerli limit (services/supplier_limits.MinuteUsage). Bos = sinirsiz.
+    supplier_minute_usage: list = field(default_factory=list)
     # "Simdi" (UTC, aware). Gecmis saate randevu acilmasini engeller; varsayilan
     # olarak HER ZAMAN doludur — bir cagiran bunu vermeyi unutursa koruma
     # sessizce kapanmasin diye bilerek Optional DEGIL.

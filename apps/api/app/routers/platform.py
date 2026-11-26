@@ -34,6 +34,7 @@ from app.core.plan_limits import (
 from app.core.responses import ok
 from app.models import Appointment, Facility, Plan, Tenant
 from app.services.audit import record_audit
+from app.services.cancellation_policy import seed_default_reasons
 from app.services.onboarding import bootstrap_facility_defaults
 from app.services.plan_warnings import evaluate_rate_card
 from app.tenancy.directory import claim_email_once, tenant_for_email
@@ -327,6 +328,7 @@ async def _finish_tenant_creation(
         )
         tdb.add(facility)
         await tdb.flush()
+        seed_default_reasons(tdb, facility)
 
         bootstrap_summary = None
         if bootstrap_defaults:
@@ -509,6 +511,7 @@ async def create_facility(
     )
     db.add(facility)
     await db.flush()
+    seed_default_reasons(db, facility)
     bootstrap_summary = None
     if body.bootstrap_defaults:
         bootstrap_summary = await bootstrap_facility_defaults(db, facility)

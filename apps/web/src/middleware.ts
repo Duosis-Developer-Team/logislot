@@ -11,6 +11,9 @@ import { NextRequest, NextResponse } from "next/server";
 
 type Mode = "entry" | "supplier" | "admin" | "platform" | "all";
 
+/** Self-servis hesap kurtarma (tedarikçi + yönetim; platform HARİÇ). */
+const RECOVERY_PATHS = ["/forgot-password", "/forgot-username", "/reset-password"];
+
 function mode(): Mode {
   const raw = (process.env.LOGISLOT_PORTAL_MODE ?? "all").toLowerCase();
   return (["entry", "supplier", "admin", "platform", "all"] as const).includes(raw as Mode)
@@ -29,10 +32,15 @@ export function middleware(request: NextRequest) {
   if (m === "entry") {
     // Entry, landing + public pazarlama/yasal sayfaları servis eder;
     // uygulama (portal) route'ları burada YOK.
-    const publicPaths = ["/", "/demo", "/kvkk", "/cerez-politikasi"];
+    // Hesap kurtarma sayfaları da burada açıktır: portal URL'i tanımlı
+    // değilse e-posta bağlantıları public adrese düşer (`?portal=` ile).
+    const publicPaths = ["/", "/demo", "/kvkk", "/cerez-politikasi", ...RECOVERY_PATHS];
     if (!publicPaths.includes(pathname)) return redirect("/");
     return NextResponse.next();
   }
+
+  // Gizli platform portalında self-servis hesap kurtarma YOKTUR.
+  if (m === "platform" && RECOVERY_PATHS.includes(pathname)) return redirect("/login");
 
   // Portal modları: kendi alanı + /login + /change-password serbest.
   const own =

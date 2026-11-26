@@ -1,3 +1,4 @@
+import type { RecurrenceRule } from "@/lib/recurrence";
 /**
  * Backend Out şemalarıyla birebir eşleşen DTO tipleri.
  * KAYNAK CONTRACT: apps/web/src/lib/api/types.ts ile aynı — web/mobile parity
@@ -90,6 +91,8 @@ export interface SupplierDto {
   contact_name: string | null;
   contact_email: string | null;
   contact_phone: string | null;
+  /** Ek bildirim e-postaları (en fazla 10). */
+  additional_emails?: string[];
   status: string;
   is_active: boolean;
   auto_approval_enabled: boolean;
@@ -99,6 +102,8 @@ export interface SupplierDto {
   max_block_minutes: number | null;
   weekly_quota: number | null;
   monthly_quota: number | null;
+  /** Dönem bazında süre limiti ezmesi (devral / sınırsız / özel). */
+  minute_limits?: MinuteLimitOverrides;
   notes: string | null;
   allowed_product_category_ids: string[];
   account_email: string | null;
@@ -121,6 +126,37 @@ export interface SupplierProfileDto {
   weekly_quota: number | null;
   monthly_quota: number | null;
   facility: { id: string; name: string; timezone: string };
+  cancellation_policy: SupplierCancellationPolicyDto;
+  /** Firmanın AKTİF iptal sebepleri (sıraya göre). */
+  cancellation_reasons: CancellationReasonOptionDto[];
+}
+
+export interface CancellationReasonOptionDto {
+  id: string;
+  label: string;
+  note_required: boolean;
+}
+
+/** Yönetim ekranındaki tam sebep satırı (pasifler dahil). */
+export interface CancellationReasonDto extends CancellationReasonOptionDto {
+  is_active: boolean;
+  position: number;
+}
+
+/** Telafi bağlantısının kısa özeti (yönetim detayı). */
+export interface LinkedAppointmentDto {
+  id: string;
+  scheduled_start_at: string;
+  status: string;
+}
+
+/** Tesisin tedarikçi iptal kuralı (yönetim belirler; sunucu da zorlar). */
+export interface SupplierCancellationPolicyDto {
+  require_reason: boolean;
+  /** Tedarikçi iptalinde telafi randevusu aynı işlemde zorunlu. */
+  require_makeup: boolean;
+  /** 0 = başlangıca kadar iptal serbest. */
+  min_notice_hours: number;
 }
 
 export interface SupplierCatalogDto {
@@ -139,6 +175,97 @@ export interface SupplierCatalogDto {
   cargo_windows: string[];
   cargo_default_min_block_minutes: number;
   quantity_units: { value: string; label: string }[];
+  /** Tesisin randevu formu: hangi alan gizli/isteğe bağlı/zorunlu. */
+  appointment_form: AppointmentFormDto;
+  max_order_numbers: number;
+  description_max_length?: number;
+  /** Tesisin işlem süresi politikası (tedarikçi seçer / sistem önerir / hesaplar). */
+  duration_policy?: { mode: DurationMode; rounding_minutes: number };
+}
+
+/** İşlem süresi kuralları — web lib/api/types.ts ile birebir (docs/SURE_HESAPLAMA.md). */
+export type DurationMode = "supplier" | "suggested" | "computed";
+
+export interface DurationPolicyDto {
+  mode: DurationMode;
+  rounding_minutes: number;
+  is_customized: boolean;
+  rounding_choices: number[];
+}
+
+export interface DurationRuleDto {
+  id: string;
+  position: number;
+  name: string | null;
+  is_active: boolean;
+  vehicle_category_id: string | null;
+  product_category_id: string | null;
+  quantity_unit: string | null;
+  min_quantity: number | null;
+  max_quantity: number | null;
+  calc_type: "fixed" | "per_unit";
+  fixed_minutes: number | null;
+  base_minutes: number | null;
+  per_unit_minutes: number | null;
+  min_minutes: number | null;
+  max_minutes: number | null;
+  specificity: number;
+  /** Ustteki bir kural her durumda once esliyorsa onun kimligi (kural olu). */
+  shadowed_by: string | null;
+}
+
+export type DurationRuleInput = Omit<DurationRuleDto, "id" | "position" | "specificity" | "shadowed_by">;
+
+export interface DurationEstimateDto {
+  minutes: number;
+  source: "rule" | "fallback";
+  rule_id: string | null;
+  rule_position: number | null;
+  rule_name: string | null;
+  steps: string[];
+}
+
+export interface DurationScenario {
+  product_category_id: string;
+  vehicle_category_id: string | null;
+  quantity: number;
+  quantity_unit: string;
+}
+
+/** Tedarikci sure limitleri (dakika) — bkz. apps/api/app/services/supplier_limits.py. */
+export type MinuteDimension = "daily" | "weekly" | "monthly";
+export type MinuteLimitMode = "inherit" | "unlimited" | "custom";
+export interface MinuteLimitOverride {
+  mode: MinuteLimitMode;
+  minutes: number | null;
+}
+export type MinuteLimitOverrides = Record<MinuteDimension, MinuteLimitOverride>;
+export interface SupplierMinuteLimitsDto {
+  daily: number | null;
+  weekly: number | null;
+  monthly: number | null;
+  is_customized: boolean;
+  max_minutes: Record<MinuteDimension, number>;
+}
+export interface MinuteUsageDto {
+  dimension: MinuteDimension;
+  limit: number | null;
+  source: "facility" | "supplier";
+  used: number;
+  remaining: number | null;
+  period_start: string;
+  period_end: string;
+}
+
+export type FormFieldMode = "hidden" | "optional" | "required";
+
+/** Tesisin randevu formu ayarı (alan bazında). */
+export interface AppointmentFormDto {
+  order_numbers: FormFieldMode;
+  /** Sürücü kimlik no (TCKN/pasaport) — güvenlik; kişisel veri. */
+  driver_id_number: FormFieldMode;
+  /** Serbest metin açıklama (aynı sevkiyatta birden fazla ürün). */
+  description: FormFieldMode;
 }
 
 export interface AllowedActions {
@@ -151,7 +278,10 @@ export interface AllowedActions {
 
 export interface SeriesSummaryDto {
   id: string;
-  frequency: "weekly" | "biweekly" | "monthly";
+  frequency: "daily" | "weekly" | "biweekly" | "monthly";
+  /** Outlook tarzi desenle olusturulan seride kural + ozet; eski serilerde null. */
+  recurrence?: RecurrenceRule | null;
+  recurrence_description?: string | null;
   occurrence_count: number;
   occurrence_index: number | null;
 }
@@ -168,14 +298,34 @@ export interface AppointmentDto {
   license_plate: string | null;
   driver_name: string | null;
   driver_phone: string | null;
+  /** Sipariş numaraları (tesis formu ayarına göre zorunlu olabilir). */
+  order_numbers?: string[];
+  /** Serbest metin açıklama (tesis formu ayarına göre). */
+  description?: string | null;
+  /** Sürücü kimliği YALNIZCA maskeli; açık değer ayrı, izinli uçtan. */
+  driver_id_masked?: string | null;
+  driver_id_type?: "tckn" | "passport" | null;
+  driver_id_purged_at?: string | null;
   delivery_type: "standard" | "cargo";
   cargo_window: string | null;
   scheduled_start_at: string;
   scheduled_end_at: string;
   duration_minutes: number;
+  /** Sürenin kaynağı: kural / kural yok (kategori tabanı) / elle. */
+  duration_source?: "rule" | "fallback" | "manual" | null;
   status: string;
   rejection_reason: string | null;
   cancellation_reason?: string | null;
+  /** Tedarikçi iptalinde seçilen sebep ve O ANKİ etiketi. */
+  cancellation_reason_id?: string | null;
+  cancellation_reason_label?: string | null;
+  /** Telafi randevusu: iptal edilen randevunun yerine açıldı. */
+  is_makeup?: boolean;
+  makeup_of_id?: string | null;
+  makeup_appointment_id?: string | null;
+  /** Yalnızca yönetim detayında dolu. */
+  makeup_of?: LinkedAppointmentDto | null;
+  makeup_appointment?: LinkedAppointmentDto | null;
   completion_note?: string | null;
   revision_note: string | null;
   original_start_at: string | null;
@@ -255,7 +405,10 @@ export interface CalendarDayDto {
 
 export interface SupplierSeriesRowDto {
   id: string;
-  frequency: "weekly" | "biweekly" | "monthly";
+  frequency: "daily" | "weekly" | "biweekly" | "monthly";
+  /** Outlook tarzi desenle olusturulan seride kural + ozet; eski serilerde null. */
+  recurrence?: RecurrenceRule | null;
+  recurrence_description?: string | null;
   occurrence_count: number;
   status: string;
   status_counts: Record<string, number>;
@@ -267,7 +420,10 @@ export interface SupplierSeriesRowDto {
 
 export interface SeriesCreateResultDto {
   series_id: string;
-  frequency: "weekly" | "biweekly" | "monthly";
+  frequency: "daily" | "weekly" | "biweekly" | "monthly";
+  /** Outlook tarzi desenle olusturulan seride kural + ozet; eski serilerde null. */
+  recurrence?: RecurrenceRule | null;
+  recurrence_description?: string | null;
   occurrence_count: number;
   appointments: AppointmentDto[];
 }

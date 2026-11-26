@@ -45,5 +45,8 @@ export function useLabels() {
       category,
     ticketImpactLabel: (impact: string) =>
       (TICKET_IMPACT_LABELS_BY_LOCALE[locale] as Record<string, string>)[impact] ?? impact,
+    /** "Arac / nakliye sorunu — aciklama"; sebep yoksa (yonetim iptali) yalnizca metin. */
+    cancellationReasonText: (label: string | null | undefined, note: string | null | undefined) =>
+      label && note ? `${label} — ${note}` : (label ?? note ?? null),
   };
 }

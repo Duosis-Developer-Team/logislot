@@ -2,6 +2,7 @@
 
 import uuid
 from datetime import datetime
+from typing import Any
 
 import sqlalchemy as sa
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -42,6 +43,9 @@ class Supplier(Base, UUIDPkMixin, TimestampMixin, FacilityScopedMixin):
     contact_name: Mapped[str | None] = mapped_column(sa.String(255))
     contact_email: Mapped[str | None] = mapped_column(sa.String(255))
     contact_phone: Mapped[str | None] = mapped_column(sa.String(50))
+    # Ek bildirim e-postalari (musteri karari 2026-11: 10'a kadar). Tedarikciye
+    # giden her e-posta birincil adrese ve bunlarin hepsine gider.
+    additional_emails: Mapped[list[str] | None] = mapped_column(JsonVariant)
     status: Mapped[SupplierStatus] = mapped_column(
         str_enum(SupplierStatus), default=SupplierStatus.active
     )
@@ -56,6 +60,10 @@ class Supplier(Base, UUIDPkMixin, TimestampMixin, FacilityScopedMixin):
     max_block_minutes: Mapped[int | None] = mapped_column(sa.Integer)
     weekly_quota: Mapped[int | None] = mapped_column(sa.Integer)
     monthly_quota: Mapped[int | None] = mapped_column(sa.Integer)
+    # Sure limitleri (dakika) icin tedarikci bazli ezme. None = tesis
+    # varsayilanini devral. Sekil: {"daily": {"mode": "inherit"|"unlimited"|
+    # "custom", "minutes": int|None}, "weekly": {...}, "monthly": {...}}
+    minute_limits_json: Mapped[dict[str, Any] | None] = mapped_column(JsonVariant)
     notes: Mapped[str | None] = mapped_column(sa.Text)
 
     allowed_product_categories: Mapped[list[ProductCategory]] = relationship(

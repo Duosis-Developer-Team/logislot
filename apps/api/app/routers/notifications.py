@@ -216,6 +216,11 @@ def _email_log_out(e) -> dict:
         "recipient_email": e.recipient_email,
         "recipient_name": e.recipient_name,
         "subject": e.subject,
+        # Icerik: log_only ortaminda (dev/demo) e-postalar gonderilmez; tesis
+        # yoneticisi sifre sifirlama baglantisini dahil icerigi buradan gorur.
+        # Bu ucun gerektirdigi yetkiye sahip yonetici bu hesaplarin parolasini
+        # zaten sifirlayabildigi icin yeni bir yetki acmaz.
+        "body": e.body,
         "template_key": e.template_key,
         "status": e.status,
         "provider": e.provider,

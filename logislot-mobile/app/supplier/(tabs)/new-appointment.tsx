@@ -4,6 +4,8 @@ import { useMemo, useState } from "react";
 import { Pressable, ScrollView, Switch, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ApiError } from "@/api/client";
+import { useSupplierDurationEstimate } from "@/api/duration";
+import { useSupplierMinuteUsage } from "@/api/supplier-limits";
 import {
   CARGO_WINDOW_LABELS,
   QUANTITY_UNIT_LABELS,
@@ -18,6 +20,23 @@ import {
 } from "@/api/supplier";
 import type { AppointmentDto, SeriesCreateResultDto } from "@/api/types";
 import { Button, Card, Chip, ErrorState, Field, LoadingState } from "@/components/ui";
+import { DurationChips, DurationEstimateCard, withSuggested } from "@/components/duration";
+import { MinuteUsageCard, exceededUsage } from "@/components/minute-limits";
+import { OrderNumbersField } from "@/components/order-numbers";
+import {
+  DescriptionField,
+  descriptionMissing,
+  descriptionPayload,
+} from "@/components/description";
+import { DriverIdField, driverIdError } from "@/components/driver-id";
+import { RecurrenceEditor, useRecurrencePreview } from "@/components/recurrence-editor";
+import {
+  RECURRENCE_COPY_TR,
+  type RecurrenceRule,
+  defaultRule,
+  describeRule,
+  toPayload as toRecurrencePayload,
+} from "@/lib/recurrence";
 import { useTheme } from "@/theme/theme";
 import { spacing } from "@/theme/tokens";
 import { addDaysISO, dayLabel, timeInTz, todayISO } from "@/utils/format";
@@ -32,30 +51,12 @@ import { addDaysISO, dayLabel, timeInTz, todayISO } from "@/utils/format";
 
 const STEPS = ["Ürün", "Araç & Teslimat", "Tarih & Özet"];
 
-const FREQUENCY_LABELS = {
+const FREQUENCY_LABELS: Record<string, string> = {
   weekly: "Her hafta",
   biweekly: "2 haftada bir",
   monthly: "Her ay",
-} as const;
-type Frequency = keyof typeof FREQUENCY_LABELS;
-
-/** Ay ekleme — backend ile aynı kural: hedef ayda gün yoksa ayın son gününe kırpılır. */
-function addMonthsClamped(base: Date, months: number): Date {
-  const day = base.getDate();
-  const target = new Date(base.getFullYear(), base.getMonth() + months, 1);
-  const lastDay = new Date(target.getFullYear(), target.getMonth() + 1, 0).getDate();
-  target.setDate(Math.min(day, lastDay));
-  return target;
-}
-
-function occurrenceDates(startDate: string, frequency: Frequency, count: number): Date[] {
-  const base = new Date(`${startDate}T12:00:00`);
-  return Array.from({ length: count }, (_, i) => {
-    if (frequency === "weekly") return new Date(base.getTime() + i * 7 * 86_400_000);
-    if (frequency === "biweekly") return new Date(base.getTime() + i * 14 * 86_400_000);
-    return addMonthsClamped(base, i);
-  });
-}
+  daily: "Her gün",
+};
 
 export default function NewAppointmentWizard() {
   const { colors } = useTheme();
@@ -70,6 +71,8 @@ export default function NewAppointmentWizard() {
 
   // Adım 1 — ürün
   const [productName, setProductName] = useState("");
+  const [orderNumbers, setOrderNumbers] = useState<string[]>([]);
+  const [description, setDescription] = useState("");
   const [categoryId, setCategoryId] = useState("");
   const [quantity, setQuantity] = useState("1");
   const [unit, setUnit] = useState("pallet");
@@ -78,6 +81,7 @@ export default function NewAppointmentWizard() {
   const [vehicleOverrideId, setVehicleOverrideId] = useState<string | null>(null);
   const [plate, setPlate] = useState("");
   const [driver, setDriver] = useState("");
+  const [driverId, setDriverId] = useState("");
   const [cargoSelected, setIsCargo] = useState(false);
   const [cargoWindow, setCargoWindow] = useState<CargoWindow>("morning");
 
@@ -88,8 +92,7 @@ export default function NewAppointmentWizard() {
 
   // Tekrarlayan seri (yalnızca standart teslimat; kargo ile birleşmez)
   const [recurringEnabled, setRecurringEnabled] = useState(false);
-  const [recurringFrequency, setRecurringFrequency] = useState<Frequency>("weekly");
-  const [recurringCount, setRecurringCount] = useState("4");
+  const [recurrence, setRecurrence] = useState<RecurrenceRule>(defaultRule);
   const [seriesResult, setSeriesResult] = useState<SeriesCreateResultDto | null>(null);
 
   const categories = catalog.data?.product_categories ?? [];
@@ -108,10 +111,35 @@ export default function NewAppointmentWizard() {
     () => (category ? resolveDurationRange(category, limits) : null),
     [category, limits],
   );
-  const durationOptions = durationRange?.options ?? [];
+  const qty = Math.max(1, parseInt(quantity, 10) || 1);
+
+  // İşlem süresi politikası (web ile aynı; docs/SURE_HESAPLAMA.md):
+  // supplier = tedarikçi seçer, suggested = hesaplanan önceden seçili,
+  // computed = süre sunucuda hesaplanır, tedarikçi seçmez.
+  const durationMode = catalog.data?.duration_policy?.mode ?? "supplier";
+  const estimateQuery = useSupplierDurationEstimate(
+    durationMode !== "supplier" && category
+      ? {
+          product_category_id: category.id,
+          vehicle_category_id: effectiveVehicleId,
+          quantity: qty,
+          quantity_unit: unit,
+        }
+      : null,
+  );
+  const estimate = durationMode !== "supplier" ? estimateQuery.data ?? null : null;
+  const suggestedMinutes = durationMode === "suggested" ? estimate?.minutes ?? null : null;
+  const durationOptions = useMemo(
+    () => withSuggested(durationRange?.options ?? [], suggestedMinutes),
+    [durationRange, suggestedMinutes],
+  );
 
   const effectiveDuration =
-    duration && durationOptions.includes(duration) ? duration : durationOptions[0] ?? null;
+    durationMode === "computed"
+      ? estimate?.minutes ?? null
+      : duration && durationOptions.includes(duration)
+        ? duration
+        : suggestedMinutes ?? durationOptions[0] ?? null;
 
   const availabilityParams =
     step === 2 && !isCargo && category && effectiveDuration
@@ -120,6 +148,8 @@ export default function NewAppointmentWizard() {
           vehicle_category_id: effectiveVehicleId,
           target_date: date,
           duration_minutes: effectiveDuration,
+          quantity: qty,
+          quantity_unit: unit,
         }
       : null;
   const availability = useSupplierAvailability(availabilityParams);
@@ -129,40 +159,53 @@ export default function NewAppointmentWizard() {
   const selectedSlotData = slots.find((s) => s.start === selectedSlot) ?? null;
   const selectedAdvisories = selectedSlotData?.advisory_warnings ?? [];
 
-  const qty = Math.max(1, parseInt(quantity, 10) || 1);
+  // Süre limitleri (web ile aynı): hedef günün gün/hafta/ay dönemlerinde kalan süre.
+  const minuteUsage = useSupplierMinuteUsage(step === 2 ? date : null);
+  const bookedMinutes = isCargo
+    ? Math.max(catalog.data?.cargo_default_min_block_minutes ?? 0, category?.min_block_minutes ?? 0)
+    : effectiveDuration;
+  const limitExceeded = exceededUsage(minuteUsage.data?.usage, bookedMinutes) !== null;
+
+  // Tesisin form ayarı: sipariş no gizli / isteğe bağlı / zorunlu.
+  const orderMode = catalog.data?.appointment_form.order_numbers ?? "hidden";
+  const driverIdMode = catalog.data?.appointment_form.driver_id_number ?? "hidden";
+  const descriptionMode = catalog.data?.appointment_form.description ?? "hidden";
   const canNext =
     step === 0
-      ? productName.trim().length > 0 && category !== null
+      ? productName.trim().length > 0 &&
+        category !== null &&
+        (orderMode !== "required" || orderNumbers.length > 0) &&
+        !descriptionMissing(descriptionMode, description)
       : step === 1
-        ? isCargo || plate.trim().length > 0
-        : isCargo || selectedSlot !== null;
+        ? (isCargo || plate.trim().length > 0) && driverIdError(driverIdMode, driverId) === null
+        : // Seçili saat GÜNCEL listede açık olmalı (miktar/araç değişince süre
+          // ve slot listesi değişebilir).
+          !limitExceeded &&
+          (isCargo || slots.some((s) => s.start === selectedSlot && s.status !== "full"));
 
   const dayOptions = useMemo(
     () => Array.from({ length: 14 }, (_, i) => addDaysISO(todayISO(), i + 1)),
     [],
   );
 
-  // Web ile aynı kurallar: kargo iken seri kapalı; aylıkta en fazla 6 tekrar.
+  // Web ile aynı kurallar: kargo iken seri kapalı; Outlook tarzı desen (en fazla 52).
   const recurringActive = recurringEnabled && !isCargo;
-  const maxOccurrences = recurringFrequency === "monthly" ? 6 : 12;
-  const effectiveRecurringCount = Math.min(
-    Math.max(parseInt(recurringCount, 10) || 2, 2),
-    maxOccurrences,
-  );
-  const previewDates = recurringActive
-    ? occurrenceDates(date, recurringFrequency, effectiveRecurringCount)
-    : [];
+  const recurrencePreview = useRecurrencePreview(date, recurrence);
+  const effectiveRecurringCount = recurrencePreview.dates.length;
 
   async function submit() {
     setSubmitError(null);
     const body = {
       product_category_id: categoryId,
       product_name: productName,
+      order_numbers: orderMode === "hidden" ? [] : orderNumbers,
+      description: descriptionPayload(descriptionMode, description),
       quantity: qty,
       quantity_unit: unit,
       vehicle_category_id: vehicleOverrideId,
       license_plate: plate || null,
       driver_name: driver || null,
+      driver_id_number: driverIdMode === "hidden" ? null : driverId.trim() || null,
       delivery_type: isCargo ? "cargo" : "standard",
       cargo_window: isCargo ? cargoWindow : null,
       target_date: date,
@@ -170,7 +213,7 @@ export default function NewAppointmentWizard() {
       duration_minutes: isCargo ? null : effectiveDuration,
       acknowledged_warning_codes: selectedAdvisories.map((w) => w.code),
       recurring: recurringActive
-        ? { frequency: recurringFrequency, occurrence_count: effectiveRecurringCount }
+        ? { recurrence: toRecurrencePayload(recurrence, date) }
         : undefined,
     };
     try {
@@ -199,12 +242,12 @@ export default function NewAppointmentWizard() {
     setVehicleOverrideId(null);
     setPlate("");
     setDriver("");
+    setDriverId("");
     setIsCargo(false);
     setSelectedSlot(null);
     setSubmitError(null);
     setRecurringEnabled(false);
-    setRecurringFrequency("weekly");
-    setRecurringCount("4");
+    setRecurrence(defaultRule());
   }
 
   if (catalog.isLoading)
@@ -248,7 +291,8 @@ export default function NewAppointmentWizard() {
                 : `${seriesResult.occurrence_count} randevu talebiniz onaya gönderildi`}
             </Text>
             <Text style={{ color: colors.mutedText, fontSize: 13, textAlign: "center" }}>
-              {FREQUENCY_LABELS[seriesResult.frequency]} tekrarlayan seri oluşturuldu.
+              {seriesResult.recurrence_description ??
+                `${FREQUENCY_LABELS[seriesResult.frequency] ?? seriesResult.frequency} tekrarlayan seri oluşturuldu.`}
             </Text>
             <View style={{ gap: 4, alignSelf: "stretch" }}>
               {seriesResult.appointments.map((a) => (
@@ -386,6 +430,18 @@ export default function NewAppointmentWizard() {
               onChangeText={setProductName}
               placeholder="Örn. Buğday Unu Tip 650"
             />
+            <DescriptionField
+              mode={descriptionMode}
+              value={description}
+              onChange={setDescription}
+              maxLength={catalog.data?.description_max_length}
+            />
+            <OrderNumbersField
+              mode={orderMode}
+              value={orderNumbers}
+              onChange={setOrderNumbers}
+              max={catalog.data?.max_order_numbers ?? 20}
+            />
             <View style={{ gap: 8 }}>
               <Text style={{ color: colors.text, fontSize: 14, fontWeight: "500" }}>
                 Kategori
@@ -455,6 +511,7 @@ export default function NewAppointmentWizard() {
             </View>
             <Field label="Plaka" value={plate} onChangeText={setPlate} placeholder="34 ABC 123" autoCapitalize="characters" />
             <Field label="Sürücü" value={driver} onChangeText={setDriver} placeholder="Ad Soyad" />
+            <DriverIdField mode={driverIdMode} value={driverId} onChange={setDriverId} />
             <View style={{ gap: 8 }}>
               <Text style={{ color: colors.text, fontSize: 14, fontWeight: "500" }}>
                 Teslimat Tipi
@@ -520,30 +577,33 @@ export default function NewAppointmentWizard() {
 
             {!isCargo && (
               <>
-                <View style={{ gap: 8 }}>
-                  <Text style={{ color: colors.text, fontSize: 14, fontWeight: "500" }}>
-                    Tahmini Süre
-                  </Text>
-                  <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
-                    {durationOptions.map((d) => (
-                      <Chip
-                        key={d}
-                        label={`${d} dk`}
-                        selected={effectiveDuration === d}
-                        onPress={() => {
-                          setDuration(d);
-                          setSelectedSlot(null);
-                        }}
-                      />
-                    ))}
+                {durationMode === "computed" ? (
+                  <DurationEstimateCard
+                    estimate={estimate}
+                    loading={estimateQuery.isLoading}
+                    error={estimateQuery.isError}
+                    onRetry={() => void estimateQuery.refetch()}
+                  />
+                ) : (
+                  <View style={{ gap: 8 }}>
+                    <DurationChips
+                      options={durationOptions}
+                      value={effectiveDuration}
+                      suggested={suggestedMinutes}
+                      estimate={estimate}
+                      onChange={(d) => {
+                        setDuration(d);
+                        setSelectedSlot(null);
+                      }}
+                    />
+                    {durationRange?.conflicting && suggestedMinutes === null && (
+                      <Text style={{ color: colors.destructive, fontSize: 12 }}>
+                        Bu kategorinin süre aralığı size tanımlı limitlerle kesişmiyor.
+                        Lütfen tesis yöneticisiyle iletişime geçin.
+                      </Text>
+                    )}
                   </View>
-                  {durationRange?.conflicting && (
-                    <Text style={{ color: colors.destructive, fontSize: 12 }}>
-                      Bu kategorinin süre aralığı size tanımlı limitlerle kesişmiyor.
-                      Lütfen tesis yöneticisiyle iletişime geçin.
-                    </Text>
-                  )}
-                </View>
+                )}
                 <View style={{ gap: 8 }}>
                   <Text style={{ color: colors.text, fontSize: 14, fontWeight: "500" }}>
                     Başlangıç Saati
@@ -578,6 +638,8 @@ export default function NewAppointmentWizard() {
               </>
             )}
 
+            <MinuteUsageCard usage={minuteUsage.data?.usage} requested={bookedMinutes} />
+
             {/* Tekrarlayan seri — web ile aynı: yalnızca standart teslimatta */}
             {!isCargo && (
               <View
@@ -605,56 +667,12 @@ export default function NewAppointmentWizard() {
                   />
                 </View>
                 {recurringEnabled && (
-                  <>
-                    <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
-                      {(Object.keys(FREQUENCY_LABELS) as Frequency[]).map((f) => (
-                        <Chip
-                          key={f}
-                          label={FREQUENCY_LABELS[f]}
-                          selected={recurringFrequency === f}
-                          onPress={() => {
-                            setRecurringFrequency(f);
-                            if (f === "monthly" && (parseInt(recurringCount, 10) || 0) > 6) {
-                              setRecurringCount("6");
-                            }
-                          }}
-                        />
-                      ))}
-                    </View>
-                    <Field
-                      label={`Tekrar Sayısı (2–${maxOccurrences})`}
-                      value={recurringCount}
-                      onChangeText={setRecurringCount}
-                      keyboardType="number-pad"
-                    />
-                    <View
-                      style={{
-                        gap: 4,
-                        borderRadius: 12,
-                        borderWidth: 1,
-                        borderColor: colors.border,
-                        padding: spacing.md,
-                      }}
-                    >
-                      <Text style={{ color: colors.text, fontSize: 12, fontWeight: "700" }}>
-                        {effectiveRecurringCount} randevu oluşturulacak:
-                      </Text>
-                      {previewDates.map((d, i) => (
-                        <Text key={d.toISOString()} style={{ color: colors.mutedText, fontSize: 12 }}>
-                          {i + 1}.{" "}
-                          {d.toLocaleDateString("tr-TR", {
-                            day: "2-digit",
-                            month: "long",
-                            year: "numeric",
-                          })}
-                        </Text>
-                      ))}
-                      <Text style={{ color: colors.faintText, fontSize: 11, marginTop: 2 }}>
-                        Tüm tarihler kural setinden geçer; biri uygun değilse hiçbiri
-                        oluşturulmaz ve hangi tarihin neden uygun olmadığı gösterilir.
-                      </Text>
-                    </View>
-                  </>
+                  <RecurrenceEditor
+                    startDate={date}
+                    value={recurrence}
+                    onChange={setRecurrence}
+                    footer="Tüm tarihler kural setinden geçer; biri uygun değilse hiçbiri oluşturulmaz ve hangi tarihin neden uygun olmadığı gösterilir."
+                  />
                 )}
               </View>
             )}
@@ -672,6 +690,12 @@ export default function NewAppointmentWizard() {
                 Talep Özeti
               </Text>
               <SummaryRow label="Ürün" value={productName || "—"} />
+              {descriptionMode !== "hidden" && description.trim().length > 0 && (
+                <SummaryRow label="Açıklama" value={description.trim()} />
+              )}
+              {orderMode !== "hidden" && orderNumbers.length > 0 && (
+                <SummaryRow label="Sipariş no" value={orderNumbers.join(", ")} />
+              )}
               <SummaryRow label="Kategori" value={category?.display_name ?? "—"} />
               <SummaryRow
                 label="Miktar"
@@ -692,7 +716,7 @@ export default function NewAppointmentWizard() {
               {recurringActive && (
                 <SummaryRow
                   label="Tekrar"
-                  value={`${FREQUENCY_LABELS[recurringFrequency]} · ${effectiveRecurringCount} randevu`}
+                  value={`${describeRule(recurrence, RECURRENCE_COPY_TR, date)} · ${effectiveRecurringCount} randevu`}
                 />
               )}
               {limits?.auto_approval_enabled && (
@@ -727,7 +751,7 @@ export default function NewAppointmentWizard() {
           ) : (
             <Button
               title="Randevu Talep Et"
-              disabled={!canNext}
+              disabled={!canNext || (recurringActive && recurrencePreview.error !== null)}
               loading={create.isPending}
               onPress={() => void submit()}
               style={{ flex: 2 }}

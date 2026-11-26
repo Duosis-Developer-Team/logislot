@@ -6,14 +6,30 @@ import { useMemo, useState } from "react";
 import {
   SLOT_STATUS_LABELS,
   type CargoWindow,
+  type QuantityUnit,
   resolveDurationRange,
 } from "@logislot/shared";
 import { ErrorState, LoadingState } from "@/components/config/states";
+import {
+  RecurrenceEditor,
+  useRecurrencePreview,
+} from "@/components/appointments/recurrence-editor";
+import { DurationEstimatePanel } from "@/components/duration/duration-estimate-panel";
+import { DriverIdInput, driverIdError } from "@/components/domain/driver-id";
+import { MinuteUsagePanel, exceededUsage } from "@/components/domain/minute-limits";
+import {
+  DescriptionField,
+  descriptionMissing,
+  descriptionPayload,
+} from "@/components/domain/description-input";
+import { OrderNumbersInput } from "@/components/domain/order-numbers-input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog } from "@/components/ui/dialog";
 import { Input, Label, Select } from "@/components/ui/input";
 import { ApiError } from "@/lib/api/client";
+import { useSupplierDurationEstimate } from "@/lib/api/duration";
+import { useSupplierMinuteUsage } from "@/lib/api/supplier-limits";
 import {
   useCreateSupplierAppointment,
   useSupplierAvailability,
@@ -25,6 +41,12 @@ import type { AppointmentDto, SeriesCreateResultDto } from "@/lib/api/types";
 import { useApiErrorMessage } from "@/lib/i18n/api-error";
 import { useLabels } from "@/lib/i18n/labels";
 import { useT } from "@/lib/i18n/provider";
+import {
+  type RecurrenceRule,
+  defaultRule,
+  describeRule,
+  toPayload as toRecurrencePayload,
+} from "@/lib/recurrence";
 import { cn } from "@/lib/utils";
 
 /**
@@ -44,27 +66,6 @@ function tomorrowISO(): string {
 }
 
 /** Ay ekleme — backend ile ayni kural: hedef ayda gun yoksa ayin son gunune kirpilir. */
-function addMonthsClamped(base: Date, months: number): Date {
-  const day = base.getDate();
-  const target = new Date(base.getFullYear(), base.getMonth() + months, 1);
-  const lastDay = new Date(target.getFullYear(), target.getMonth() + 1, 0).getDate();
-  target.setDate(Math.min(day, lastDay));
-  return target;
-}
-
-function occurrenceDates(
-  startDate: string,
-  frequency: "weekly" | "biweekly" | "monthly",
-  count: number,
-): Date[] {
-  const base = new Date(`${startDate}T12:00:00`);
-  return Array.from({ length: count }, (_, i) => {
-    if (frequency === "weekly") return new Date(base.getTime() + i * 7 * 86_400_000);
-    if (frequency === "biweekly") return new Date(base.getTime() + i * 14 * 86_400_000);
-    return addMonthsClamped(base, i);
-  });
-}
-
 export default function NewAppointmentWizard() {
   const t = useT();
   const labels = useLabels();
@@ -83,12 +84,15 @@ export default function NewAppointmentWizard() {
   const [productName, setProductName] = useState("");
   const [categoryId, setCategoryId] = useState<string>("");
   const [quantity, setQuantity] = useState(1);
+  const [orderNumbers, setOrderNumbers] = useState<string[]>([]);
+  const [description, setDescription] = useState("");
   const [unit, setUnit] = useState("pallet");
 
   // Adim 2 — arac & teslimat
   const [vehicleOverrideId, setVehicleOverrideId] = useState<string | null>(null);
   const [plate, setPlate] = useState("");
   const [driver, setDriver] = useState("");
+  const [driverId, setDriverId] = useState("");
   const [cargoSelected, setIsCargo] = useState(false);
   const [cargoWindow, setCargoWindow] = useState<CargoWindow>("morning");
 
@@ -99,10 +103,7 @@ export default function NewAppointmentWizard() {
 
   // Tekrarlayan seri (yalnizca standart teslimat; kargo ile birlesmez)
   const [recurringEnabled, setRecurringEnabled] = useState(false);
-  const [recurringFrequency, setRecurringFrequency] = useState<
-    "weekly" | "biweekly" | "monthly"
-  >("weekly");
-  const [recurringCount, setRecurringCount] = useState(4);
+  const [recurrence, setRecurrence] = useState<RecurrenceRule>(defaultRule);
 
   const categories = catalog.data?.product_categories ?? [];
   const vehicles = catalog.data?.vehicle_categories ?? [];
@@ -123,10 +124,37 @@ export default function NewAppointmentWizard() {
     () => (category ? resolveDurationRange(category, limits) : null),
     [category, limits],
   );
-  const durationOptions = durationRange?.options ?? [];
+  // Islem suresi politikasi (docs/SURE_HESAPLAMA.md):
+  // - supplier : eski davranis, tedarikci aralik icinden secer.
+  // - suggested: kurallardan hesaplanan sure secili gelir ("onerilen").
+  // - computed : tedarikci secmez; sure sunucuda hesaplanir, ekranda gosterilir.
+  const durationMode = catalog.data?.duration_policy?.mode ?? "supplier";
+  const estimateQuery = useSupplierDurationEstimate(
+    durationMode !== "supplier" && category && quantity > 0
+      ? {
+          product_category_id: category.id,
+          vehicle_category_id: effectiveVehicleId,
+          quantity,
+          quantity_unit: unit as QuantityUnit,
+        }
+      : null,
+  );
+  const estimate = durationMode !== "supplier" ? estimateQuery.data ?? null : null;
+  const suggestedMinutes = durationMode === "suggested" ? estimate?.minutes ?? null : null;
+  const durationOptions = useMemo(() => {
+    const base = durationRange?.options ?? [];
+    // Kuralin suresi kategori araliginin disinda olabilir (yonetim bilerek
+    // tanimladi); onerilen deger listede her zaman bulunur.
+    if (suggestedMinutes === null || base.includes(suggestedMinutes)) return base;
+    return [...base, suggestedMinutes].sort((a, b) => a - b);
+  }, [durationRange, suggestedMinutes]);
 
   const effectiveDuration =
-    duration && durationOptions.includes(duration) ? duration : durationOptions[0] ?? null;
+    durationMode === "computed"
+      ? estimate?.minutes ?? null
+      : duration && durationOptions.includes(duration)
+        ? duration
+        : suggestedMinutes ?? durationOptions[0] ?? null;
 
   // Availability: urun + arac + gun + sure sabitlenince GERCEK musaitlik cekilir.
   const availabilityParams =
@@ -136,6 +164,8 @@ export default function NewAppointmentWizard() {
           vehicle_category_id: effectiveVehicleId,
           target_date: date,
           duration_minutes: effectiveDuration,
+          quantity,
+          quantity_unit: unit,
         }
       : null;
   const availability = useSupplierAvailability(availabilityParams);
@@ -149,23 +179,40 @@ export default function NewAppointmentWizard() {
       timeZone: tz,
     });
 
+  // Sure limitleri: hedef gunun gun/hafta/ay donemlerinde kalan sure. Kargo
+  // suresini sunucu kargo tabani ve kategori tabanindan buyugu olarak alir.
+  const minuteUsage = useSupplierMinuteUsage(step === 2 ? date : null);
+  const bookedMinutes = isCargo
+    ? Math.max(catalog.data?.cargo_default_min_block_minutes ?? 0, category?.min_block_minutes ?? 0)
+    : effectiveDuration;
+  const limitExceeded = exceededUsage(minuteUsage.data?.usage, bookedMinutes) !== null;
+
+  // Tesisin form ayari: siparis no gizli / istege bagli / zorunlu.
+  const orderMode = catalog.data?.appointment_form.order_numbers ?? "hidden";
+  // Surucu kimlik no (guvenlik): ayni ayarin ikinci alani.
+  const driverIdMode = catalog.data?.appointment_form.driver_id_number ?? "hidden";
+  const descriptionMode = catalog.data?.appointment_form.description ?? "hidden";
   const canNext =
     step === 0
-      ? productName.trim().length > 0 && category !== null && quantity > 0
+      ? productName.trim().length > 0 &&
+        category !== null &&
+        quantity > 0 &&
+        (orderMode !== "required" || orderNumbers.length > 0) &&
+        !descriptionMissing(descriptionMode, description)
       : step === 1
-        ? isCargo || plate.trim().length > 0
-        : isCargo || selectedSlot !== null;
+        ? (isCargo || plate.trim().length > 0) && driverIdError(driverIdMode, driverId) === null
+        : // Secili saat GUNCEL listede acik olmali: miktar/arac degisince sure
+          // (ve slot listesi) degisebilir; eski secim gecersiz kalir.
+          !limitExceeded &&
+          (isCargo || slots.some((s) => s.start === selectedSlot && s.status !== "full"));
 
   // Secili slottaki kargo tavsiye uyarilari (engellemez; yalnizca farkindalik).
   const selectedSlotData = slots.find((s) => s.start === selectedSlot) ?? null;
   const selectedAdvisories = selectedSlotData?.advisory_warnings ?? [];
 
   const recurringActive = recurringEnabled && !isCargo;
-  const maxOccurrences = recurringFrequency === "monthly" ? 6 : 12;
-  const effectiveRecurringCount = Math.min(Math.max(recurringCount, 2), maxOccurrences);
-  const previewDates = recurringActive
-    ? occurrenceDates(date, recurringFrequency, effectiveRecurringCount)
-    : [];
+  const recurrencePreview = useRecurrencePreview(date, recurrence);
+  const effectiveRecurringCount = recurrencePreview.dates.length;
 
   async function doSubmit() {
     setSubmitError(null);
@@ -173,11 +220,14 @@ export default function NewAppointmentWizard() {
     const body = {
       product_category_id: categoryId,
       product_name: productName,
+      order_numbers: orderMode === "hidden" ? [] : orderNumbers,
+      description: descriptionPayload(descriptionMode, description),
       quantity,
       quantity_unit: unit,
       vehicle_category_id: vehicleOverrideId, // null -> backend kategori varsayilanini cozer
       license_plate: plate || null,
       driver_name: driver || null,
+      driver_id_number: driverIdMode === "hidden" ? null : driverId.trim() || null,
       delivery_type: isCargo ? "cargo" : "standard",
       cargo_window: isCargo ? cargoWindow : null,
       target_date: date,
@@ -185,7 +235,7 @@ export default function NewAppointmentWizard() {
       duration_minutes: isCargo ? null : effectiveDuration,
       acknowledged_warning_codes: selectedAdvisories.map((w) => w.code),
       recurring: recurringActive
-        ? { frequency: recurringFrequency, occurrence_count: effectiveRecurringCount }
+        ? { recurrence: toRecurrencePayload(recurrence, date) }
         : undefined,
     };
     try {
@@ -246,9 +296,12 @@ export default function NewAppointmentWizard() {
               : t.supplier.newAppointment.seriesPending(seriesResult.occurrence_count)}
           </h2>
           <p className="text-sm text-muted-foreground">
-            {t.supplier.newAppointment.seriesCreated(
-              t.supplier.newAppointment.frequencyLabels[seriesResult.frequency],
-            )}
+            {seriesResult.recurrence_description ??
+              t.supplier.newAppointment.seriesCreated(
+                t.supplier.newAppointment.frequencyLabels[
+                  seriesResult.frequency as keyof typeof t.supplier.newAppointment.frequencyLabels
+                ] ?? seriesResult.frequency,
+              )}
           </p>
           <ul className="flex flex-col gap-1 text-sm">
             {seriesResult.appointments.map((a) => (
@@ -350,6 +403,29 @@ export default function NewAppointmentWizard() {
                 placeholder={t.supplier.newAppointment.productPlaceholder}
               />
             </div>
+            <DescriptionField
+              id="appointment-description"
+              mode={descriptionMode}
+              value={description}
+              onChange={setDescription}
+              maxLength={catalog.data?.description_max_length}
+            />
+            {orderMode !== "hidden" && (
+              <div>
+                <Label htmlFor="order-numbers">
+                  {t.orderNumbers.label}{" "}
+                  <span className="text-xs font-normal text-muted-foreground">
+                    ({orderMode === "required" ? t.orderNumbers.required : t.orderNumbers.optional})
+                  </span>
+                </Label>
+                <OrderNumbersInput
+                  id="order-numbers"
+                  value={orderNumbers}
+                  onChange={setOrderNumbers}
+                  max={catalog.data?.max_order_numbers ?? 20}
+                />
+              </div>
+            )}
             <div>
               <Label>{t.supplier.newAppointment.category}</Label>
               <Select
@@ -430,6 +506,7 @@ export default function NewAppointmentWizard() {
                 />
               </div>
             </div>
+            <DriverIdInput mode={driverIdMode} value={driverId} onChange={setDriverId} />
 
             <div>
               <Label>{t.supplier.newAppointment.deliveryType}</Label>
@@ -512,28 +589,46 @@ export default function NewAppointmentWizard() {
                 </div>
               ) : (
                 <>
-                  <div>
-                    <Label>{t.supplier.newAppointment.estimatedDuration}</Label>
-                    <Select
-                      value={effectiveDuration ?? ""}
-                      disabled={durationOptions.length === 0}
-                      onChange={(e) => {
-                        setDuration(Number(e.target.value));
-                        setSelectedSlot(null);
-                      }}
-                    >
-                      {durationOptions.map((d) => (
-                        <option key={d} value={d}>
-                          {t.supplier.newAppointment.durationMinutes(d)}
-                        </option>
-                      ))}
-                    </Select>
-                    {durationRange?.conflicting && (
-                      <p className="mt-1 text-xs text-destructive">
-                        {t.supplier.newAppointment.durationMismatch}
-                      </p>
-                    )}
-                  </div>
+                  {durationMode === "computed" ? (
+                    <DurationEstimatePanel
+                      estimate={estimate}
+                      loading={estimateQuery.isLoading}
+                      error={estimateQuery.isError}
+                      onRetry={() => void estimateQuery.refetch()}
+                    />
+                  ) : (
+                    <div>
+                      <Label>{t.supplier.newAppointment.estimatedDuration}</Label>
+                      <Select
+                        value={effectiveDuration ?? ""}
+                        disabled={durationOptions.length === 0}
+                        onChange={(e) => {
+                          setDuration(Number(e.target.value));
+                          setSelectedSlot(null);
+                        }}
+                      >
+                        {durationOptions.map((d) => (
+                          <option key={d} value={d}>
+                            {d === suggestedMinutes
+                              ? t.duration.suggestedOption(d)
+                              : t.supplier.newAppointment.durationMinutes(d)}
+                          </option>
+                        ))}
+                      </Select>
+                      {suggestedMinutes !== null && estimate && (
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {effectiveDuration === suggestedMinutes
+                            ? t.duration.suggestedHint(estimate.source === "rule")
+                            : t.duration.deviatedHint(suggestedMinutes)}
+                        </p>
+                      )}
+                      {durationRange?.conflicting && suggestedMinutes === null && (
+                        <p className="mt-1 text-xs text-destructive">
+                          {t.supplier.newAppointment.durationMismatch}
+                        </p>
+                      )}
+                    </div>
+                  )}
                   <div>
                     <Label>{t.supplier.newAppointment.startTime}</Label>
                     {availability.isLoading ? (
@@ -605,6 +700,7 @@ export default function NewAppointmentWizard() {
                   </div>
                 </>
               )}
+              <MinuteUsagePanel usage={minuteUsage.data?.usage} requested={bookedMinutes} />
             </CardContent>
           </Card>
 
@@ -619,57 +715,13 @@ export default function NewAppointmentWizard() {
                   label={t.supplier.newAppointment.recurringToggle}
                 />
                 {recurringEnabled && (
-                  <>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <Label>{t.supplier.newAppointment.frequency}</Label>
-                        <Select
-                          value={recurringFrequency}
-                          onChange={(e) => {
-                            const f = e.target.value as "weekly" | "biweekly" | "monthly";
-                            setRecurringFrequency(f);
-                            if (f === "monthly" && recurringCount > 6) setRecurringCount(6);
-                          }}
-                        >
-                          <option value="weekly">{t.supplier.newAppointment.freqWeekly}</option>
-                          <option value="biweekly">{t.supplier.newAppointment.freqBiweekly}</option>
-                          <option value="monthly">{t.supplier.newAppointment.freqMonthly}</option>
-                        </Select>
-                      </div>
-                      <div>
-                        <Label>{t.supplier.newAppointment.repeatCount}</Label>
-                        <Input
-                          type="number"
-                          min={2}
-                          max={maxOccurrences}
-                          value={recurringCount}
-                          onChange={(e) => setRecurringCount(Number(e.target.value))}
-                        />
-                      </div>
-                    </div>
-                    <div className="rounded-lg border border-border bg-muted/40 px-3 py-2">
-                      <p className="mb-1 text-xs font-semibold">
-                        {t.supplier.newAppointment.willCreate(effectiveRecurringCount)}
-                      </p>
-                      <ul className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-xs text-muted-foreground">
-                        {previewDates.map((d, i) => (
-                          <li key={d.toISOString()}>
-                            {i + 1}.{" "}
-                            {d.toLocaleDateString("tr-TR", {
-                              day: "2-digit",
-                              month: "long",
-                              year: "numeric",
-                            })}
-                          </li>
-                        ))}
-                      </ul>
-                      <p className="mt-1.5 text-[11px] text-muted-foreground">
-                        {t.supplier.newAppointment.allOrNothingLead}{" "}
-                        <strong>{t.supplier.newAppointment.allOrNothingStrong}</strong>{" "}
-                        {t.supplier.newAppointment.allOrNothingTail}
-                      </p>
-                    </div>
-                  </>
+                  <RecurrenceEditor startDate={date} value={recurrence} onChange={setRecurrence}>
+                    <p className="text-[11px] text-muted-foreground">
+                      {t.supplier.newAppointment.allOrNothingLead}{" "}
+                      <strong>{t.supplier.newAppointment.allOrNothingStrong}</strong>{" "}
+                      {t.supplier.newAppointment.allOrNothingTail}
+                    </p>
+                  </RecurrenceEditor>
                 )}
               </CardContent>
             </Card>
@@ -681,6 +733,18 @@ export default function NewAppointmentWizard() {
               <dl className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
                 <dt className="text-muted-foreground">{t.supplier.newAppointment.summaryProduct}</dt>
                 <dd>{productName || "—"}</dd>
+                {descriptionMode !== "hidden" && description.trim() && (
+                  <>
+                    <dt className="text-muted-foreground">{t.appointmentDescription.label}</dt>
+                    <dd className="whitespace-pre-line break-words">{description.trim()}</dd>
+                  </>
+                )}
+                {orderNumbers.length > 0 && orderMode !== "hidden" && (
+                  <>
+                    <dt className="text-muted-foreground">{t.orderNumbers.label}</dt>
+                    <dd className="font-mono">{orderNumbers.join(", ")}</dd>
+                  </>
+                )}
                 <dt className="text-muted-foreground">{t.supplier.newAppointment.category}</dt>
                 <dd>{category?.display_name ?? "—"}</dd>
                 <dt className="text-muted-foreground">{t.supplier.newAppointment.quantity}</dt>
@@ -705,7 +769,7 @@ export default function NewAppointmentWizard() {
                 <dt className="text-muted-foreground">{t.common.date}</dt>
                 <dd>
                   {date}
-                  {!isCargo && selectedSlot
+                  {!isCargo && selectedSlot && effectiveDuration
                     ? t.supplier.newAppointment.slotSummary(
                         slotLabel(selectedSlot),
                         effectiveDuration,
@@ -716,10 +780,7 @@ export default function NewAppointmentWizard() {
                   <>
                     <dt className="text-muted-foreground">{t.supplier.newAppointment.repeatLabel}</dt>
                     <dd>
-                      {t.supplier.newAppointment.repeatSummary(
-                        t.supplier.newAppointment.frequencyLabels[recurringFrequency],
-                        effectiveRecurringCount,
-                      )}
+                      {describeRule(recurrence, t.recurrence, date)}
                     </dd>
                   </>
                 )}
@@ -753,7 +814,9 @@ export default function NewAppointmentWizard() {
         ) : (
           <Button
             className="flex-1"
-            disabled={!canNext || create.isPending}
+            disabled={
+              !canNext || create.isPending || (recurringActive && recurrencePreview.error !== null)
+            }
             onClick={onSubmit}
           >
             {create.isPending

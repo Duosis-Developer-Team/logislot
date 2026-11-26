@@ -12,6 +12,7 @@ import { useSession } from "@/lib/auth/session";
 import { downloadCsv } from "@/lib/api/client";
 import { cn } from "@/lib/utils";
 import type { Dictionary } from "@/lib/i18n/dictionaries/tr";
+import { useLabels } from "@/lib/i18n/labels";
 import { useT } from "@/lib/i18n/provider";
 
 /** Aralik etiketi: "Bu ay" `ranges` altinda degil, ayri bir anahtardir. */
@@ -53,6 +54,7 @@ function Bar({ value, max, className }: { value: number; max: number; className?
 
 export default function ReportsPage() {
   const t = useT();
+  const labels = useLabels();
   const { activeFacilityId } = useSession();
   const [preset, setPreset] = useState<string>("30d");
   const [dateFrom, setDateFrom] = useState(daysAgo(29));
@@ -250,7 +252,9 @@ export default function ReportsPage() {
                   .filter((s) => s.count > 0)
                   .map((s) => (
                     <div key={s.key} className="flex items-center gap-3 text-sm">
-                      <span className="w-32 truncate">{s.label}</span>
+                      <span className="w-32 truncate">
+                        {(labels.appointmentStatus as Record<string, string>)[s.key] ?? s.label}
+                      </span>
                       <Bar value={s.count} max={totals.appointments} />
                       <span className="w-10 text-right font-medium">{s.count}</span>
                     </div>

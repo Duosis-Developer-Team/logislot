@@ -46,6 +46,9 @@ export interface AvailabilityParams {
   vehicle_category_id: string | null;
   target_date: string;
   duration_minutes: number;
+  /** "Sistem hesaplar" modunda slotlar bunlardan sunucuda hesaplanan süreyle aranır. */
+  quantity?: number;
+  quantity_unit?: string;
 }
 
 export function useSupplierAvailability(params: AvailabilityParams | null) {
@@ -68,18 +71,31 @@ export function useCreateSupplierAppointment() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["supplier", "appointments"] });
       queryClient.invalidateQueries({ queryKey: ["supplier", "availability"] });
+      queryClient.invalidateQueries({ queryKey: ["minute-usage"] });
     },
   });
+}
+
+/** Tedarikçi iptal gövdesi; hangi alanın zorunlu olduğunu tesis kuralı belirler. */
+export interface SupplierCancelBody {
+  reason_id?: string;
+  reason?: string;
+  /** Telafi randevusu: standartta kesin saat, kargoda pencere. */
+  makeup?: { target_date: string; start_at?: string; cargo_window?: string };
 }
 
 export function useCancelSupplierAppointment() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) =>
+    mutationFn: ({ id, ...body }: SupplierCancelBody & { id: string }) =>
       apiRequest<AppointmentDto>(`/supplier/appointments/${id}/cancel`, {
         method: "POST",
+        body,
       }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["supplier"] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["supplier"] });
+      queryClient.invalidateQueries({ queryKey: ["minute-usage"] });
+    },
   });
 }
 
@@ -104,17 +120,19 @@ export function useSupplierSeriesDetail(seriesId: string | null) {
   });
 }
 
-/** Tedarikçi kendi serisinin GELECEK randevularını iptal eder (sebep zorunlu). */
+/** Tedarikçi kendi serisinin GELECEK randevularını iptal eder (sebep zorunlu).
+ *  Tesisin bildirim süresi içindeki tekrarlar iptal edilmez, aktif kalır. */
 export function useSupplierSeriesCancel() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ seriesId, reason }: { seriesId: string; reason: string }) =>
-      apiRequest<{ affected_count: number }>(
+    mutationFn: ({ seriesId, ...body }: SupplierCancelBody & { seriesId: string }) =>
+      apiRequest<{ affected_count: number; kept_within_notice_count: number }>(
         `/supplier/appointment-series/${seriesId}/cancel`,
-        { method: "POST", body: { reason } },
+        { method: "POST", body },
       ),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["supplier"] });
+      queryClient.invalidateQueries({ queryKey: ["minute-usage"] });
     },
   });
 }

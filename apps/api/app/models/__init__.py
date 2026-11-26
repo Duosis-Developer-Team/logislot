@@ -9,6 +9,7 @@ from app.models.audit import AuditLog
 from app.models.auth_handoff import AuthHandoffCode
 from app.models.auth_session import AuthSession
 from app.models.base import CONTROL_SCHEMA, Base
+from app.models.cancellation import CancellationReason
 from app.models.catalog import ProductCategory, VehicleCategory
 from app.models.dock import (
     Dock,
@@ -18,6 +19,7 @@ from app.models.dock import (
     dock_product_categories,
     dock_vehicle_categories,
 )
+from app.models.duration import DurationRule
 from app.models.email_log import EmailLog
 from app.models.maintenance_run import MaintenanceRun
 from app.models.notification import Notification
@@ -44,6 +46,8 @@ from app.models.ticketing_control import (
 )
 
 __all__ = [
+    "DurationRule",
+    "CancellationReason",
     "Base",
     "CONTROL_SCHEMA",
     "TenantDatastore",

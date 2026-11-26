@@ -228,6 +228,54 @@ class OverridePatch(BaseModel):
 # ---------- Supplier ----------
 
 
+#: Tedarikci kartindaki ek bildirim e-postalari ust siniri (musteri karari 2026-11).
+MAX_ADDITIONAL_EMAILS = 10
+
+
+def _dedupe_emails(values: list[str] | None) -> list[str] | None:
+    """Kirpar, buyuk/kucuk harf duyarsiz tekrarlari atar; sira korunur."""
+    if values is None:
+        return None
+    result: list[str] = []
+    seen: set[str] = set()
+    for value in values:
+        email = str(value).strip()
+        if email and email.casefold() not in seen:
+            seen.add(email.casefold())
+            result.append(email)
+    if len(result) > MAX_ADDITIONAL_EMAILS:
+        raise ValueError(f"En fazla {MAX_ADDITIONAL_EMAILS} ek e-posta girilebilir")
+    return result
+
+
+class MinuteLimitOverrideIn(BaseModel):
+    """Tek donem icin tedarikci ezmesi (bkz. services/supplier_limits.py)."""
+
+    mode: str = "inherit"  # inherit | unlimited | custom
+    minutes: int | None = Field(default=None, ge=1, le=31 * 1440)
+
+
+class SupplierMinuteLimitsIn(BaseModel):
+    """Tedarikcinin sure limitleri; donem bazinda tesis varsayilanini devral,
+    sinirsiz yap ya da ozel dakika ver."""
+
+    daily: MinuteLimitOverrideIn = Field(default_factory=MinuteLimitOverrideIn)
+    weekly: MinuteLimitOverrideIn = Field(default_factory=MinuteLimitOverrideIn)
+    monthly: MinuteLimitOverrideIn = Field(default_factory=MinuteLimitOverrideIn)
+
+    @model_validator(mode="after")
+    def _check(self) -> "SupplierMinuteLimitsIn":
+        from app.services.supplier_limits import normalize_supplier_overrides
+
+        normalize_supplier_overrides(self.model_dump())  # ValueError -> 422
+        return self
+
+    def to_json(self) -> dict[str, Any] | None:
+        from app.services.supplier_limits import normalize_supplier_overrides
+
+        return normalize_supplier_overrides(self.model_dump())
+
+
 class SupplierCreate(BaseModel):
     company_name: str = Field(min_length=1, max_length=255)
     code: str = Field(min_length=1, max_length=50)
@@ -235,11 +283,15 @@ class SupplierCreate(BaseModel):
     contact_name: str | None = None
     contact_email: EmailStr | None = None
     contact_phone: str | None = None
+    # Ek bildirim adresleri; tedarikciye giden e-postalar bunlara da gider.
+    additional_emails: list[EmailStr] = Field(default_factory=list, max_length=30)
     allowed_product_category_ids: list[uuid.UUID] = []
     min_block_minutes: int | None = Field(default=None, gt=0, le=MAX_BLOCK_MINUTES_CAP)
     max_block_minutes: int | None = Field(default=None, gt=0, le=MAX_BLOCK_MINUTES_CAP)
     weekly_quota: int | None = Field(default=None, ge=0)
     monthly_quota: int | None = Field(default=None, ge=0)
+    # Sure limitleri (dakika). Verilmezse tesis varsayilani devralinir.
+    minute_limits: SupplierMinuteLimitsIn | None = None
     auto_approval_enabled: bool = False
     # Kargo teslimat tipi yalnizca acikca izin verilirse kullanilabilir.
     cargo_enabled: bool = False
@@ -255,6 +307,11 @@ class SupplierCreate(BaseModel):
         _validate_block_limits(self.min_block_minutes, self.max_block_minutes)
         return self
 
+    @field_validator("additional_emails")
+    @classmethod
+    def _emails(cls, value: list[str]) -> list[str]:
+        return _dedupe_emails(value) or []
+
 
 class SupplierPatch(BaseModel):
     company_name: str | None = Field(default=None, min_length=1, max_length=255)
@@ -263,15 +320,24 @@ class SupplierPatch(BaseModel):
     contact_name: str | None = None
     contact_email: EmailStr | None = None
     contact_phone: str | None = None
+    additional_emails: list[EmailStr] | None = Field(default=None, max_length=30)
     allowed_product_category_ids: list[uuid.UUID] | None = None
     min_block_minutes: int | None = Field(default=None, gt=0, le=MAX_BLOCK_MINUTES_CAP)
     max_block_minutes: int | None = Field(default=None, gt=0, le=MAX_BLOCK_MINUTES_CAP)
     weekly_quota: int | None = Field(default=None, ge=0)
     monthly_quota: int | None = Field(default=None, ge=0)
+    # null = tum donemlerde tesis varsayilanina don.
+    minute_limits: SupplierMinuteLimitsIn | None = None
     auto_approval_enabled: bool | None = None
     cargo_enabled: bool | None = None
     is_active: bool | None = None
     notes: str | None = None
+
+
+    @field_validator("additional_emails")
+    @classmethod
+    def _emails(cls, value: list[str] | None) -> list[str] | None:
+        return _dedupe_emails(value)
 
 
 class SupplierAccountCreate(BaseModel):

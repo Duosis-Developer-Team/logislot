@@ -332,6 +332,16 @@ export default function EmailLogsPage() {
                 <TD className="text-xs">{log.recipient_email}</TD>
                 <TD className="max-w-64">
                   <div className="truncate text-xs font-medium">{log.subject}</div>
+                  {log.body && (
+                    <details className="mt-0.5">
+                      <summary className="cursor-pointer text-[10px] text-primary">
+                        {t.accountRecovery.emailLogBody}
+                      </summary>
+                      <pre className="mt-1 max-w-64 whitespace-pre-wrap break-all rounded-lg bg-muted/50 p-2 font-sans text-[11px] leading-relaxed">
+                        {log.body}
+                      </pre>
+                    </details>
+                  )}
                   {log.error_message && (
                     <div className="truncate text-[10px] text-status-rejected">
                       {log.error_message}

@@ -61,6 +61,26 @@ class ChangePasswordRequest(BaseModel):
     new_password: str = Field(min_length=1)
 
 
+# --- Self-servis sifre sifirlama / kullanici adi hatirlatma ---
+#: Platform BILEREK yok: gizli portal hicbir public akista yer almaz.
+ResetPortalField = Literal["supplier", "admin"]
+
+
+class PasswordResetRequest(BaseModel):
+    email: EmailStr
+    portal: ResetPortalField
+
+
+class PasswordResetConfirm(BaseModel):
+    token: str = Field(min_length=16, max_length=2048)
+    new_password: str = Field(min_length=1, max_length=256)
+    portal: ResetPortalField
+
+
+class UsernameReminderRequest(BaseModel):
+    email: EmailStr
+
+
 class NotificationPreferencesPatch(BaseModel):
     in_app_enabled: bool | None = None
     email_enabled: bool | None = None

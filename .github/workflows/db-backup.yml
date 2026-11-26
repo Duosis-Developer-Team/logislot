@@ -1,0 +1,123 @@
+# Veritabani YEDEGI (riskli deploy / migration oncesi).
+#
+# Ne yapar:
+#   1. Postgres pod'unda tum veritabanini (control-plane + her tenant'in t_*
+#      semasi) `pg_dump -Fc` ile alir; rolleri/yetkileri (tenant DB rolleri)
+#      `pg_dumpall --globals-only` ile ayri dosyaya yazar.
+#   2. Dosyalari PVC'de `/var/lib/postgresql/data/backups/` altina koyar
+#      (PGDATA `.../data/pgdata` oldugu icin veri dizinine karismaz).
+#   3. Yedegi DOGRULAR: gecici bir veritabanina geri yukler, her tablonun
+#      satir sayisini canli veritabaniyla karsilastirir, sonra gecici
+#      veritabanini siler. Geri yuklenemeyen yedek "yedek" sayilmaz.
+#
+# Canli veriyi DEGISTIRMEZ: canli DB'ye yalnizca okuma (pg_dump, SELECT
+# count) yapilir. Yazilan tek sey yedek dosyalari ve adi sabit gecici
+# dogrulama veritabanidir (`logislot_backup_verify`).
+#
+# Sinir: yedek, veritabaniyla AYNI diskte durur (local-path PVC). Migration
+# hatasina karsi korur; disk/dugum kaybina karsi KORUMAZ.
+#
+# Geri donus (gerekirse, elle ve bilincli):
+#   kubectl -n logislot-<env> exec -it <postgres-pod> -- \
+#     pg_restore -U logislot -d logislot --clean --if-exists <dosya.dump>
+name: DB Backup
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Yedeklenecek ortam"
+        required: true
+        type: choice
+        options: [prod, dev]
+      label:
+        description: "Dosya adina eklenecek kisa etiket (ornek: pre-release)"
+        required: false
+        default: "manual"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: db-backup-${{ inputs.environment }}
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      ENV_NAME: ${{ inputs.environment }}
+      LABEL: ${{ inputs.label }}
+    steps:
+      - name: Kubeconfig hazirla (loglanmaz)
+        run: |
+          mkdir -p ~/.kube
+          if [[ "$ENV_NAME" == "prod" && -n "${{ secrets.KUBE_CONFIG_PROD }}" ]]; then
+            printf '%s' "${{ secrets.KUBE_CONFIG_PROD }}" | base64 -d > ~/.kube/config
+          elif [[ "$ENV_NAME" == "dev" && -n "${{ secrets.KUBE_CONFIG_DEV }}" ]]; then
+            printf '%s' "${{ secrets.KUBE_CONFIG_DEV }}" | base64 -d > ~/.kube/config
+          else
+            printf '%s' "${{ secrets.KUBE_CONFIG }}" | base64 -d > ~/.kube/config
+          fi
+          chmod 600 ~/.kube/config
+
+      - name: Yedek al ve dogrula
+        run: |
+          set -euo pipefail
+          NAMESPACE="logislot-$ENV_NAME"
+          if [[ "$NAMESPACE" != "logislot-dev" && "$NAMESPACE" != "logislot-prod" ]]; then
+            echo "Gecersiz namespace: $NAMESPACE"; exit 1
+          fi
+          SAFE_LABEL=$(printf '%s' "${LABEL:-manual}" | tr -cd 'A-Za-z0-9_-' | cut -c1-40)
+          STAMP=$(date -u +%Y%m%dT%H%M%SZ)
+          DIR=/var/lib/postgresql/data/backups
+          BASE="$DIR/logislot_${ENV_NAME}_${STAMP}_${SAFE_LABEL:-manual}"
+          VERIFY_DB=logislot_backup_verify
+
+          PG=$(kubectl -n "$NAMESPACE" get pod -l app.kubernetes.io/name=logislot-postgres \
+                 -o jsonpath='{.items[0].metadata.name}')
+          [[ -n "$PG" ]] || { echo "Postgres pod'u bulunamadi"; exit 1; }
+          pgx() { kubectl -n "$NAMESPACE" exec "$PG" -- "$@"; }
+
+          echo "== Pod: $PG  Hedef: $BASE.{dump,globals.sql}"
+          pgx mkdir -p "$DIR"
+          pgx pg_dump -U logislot -d logislot -Fc -f "$BASE.dump"
+          pgx sh -c "pg_dumpall -U logislot --globals-only > '$BASE.globals.sql'"
+
+          echo "== Dosyalar"
+          pgx sh -c "ls -l '$BASE'.* && sha256sum '$BASE'.*"
+          ENTRIES=$(pgx pg_restore --list "$BASE.dump" | grep -vc '^;')
+          echo "Arsivdeki nesne sayisi: $ENTRIES"
+          [[ "$ENTRIES" -gt 10 ]] || { echo "::error::Yedek bos ya da bozuk gorunuyor"; exit 1; }
+
+          # Satir sayilari: tum kullanici semalarindaki tum tablolar (tam sayim).
+          COUNT_SQL="SELECT string_agg(format('SELECT %L AS t, count(*) AS n FROM %I.%I', table_schema||'.'||table_name, table_schema, table_name), ' UNION ALL ' ORDER BY table_schema, table_name) FROM information_schema.tables WHERE table_type='BASE TABLE' AND table_schema NOT IN ('pg_catalog','information_schema')"
+          counts() {
+            local q; q=$(pgx psql -U logislot -d "$1" -tAc "$COUNT_SQL")
+            pgx psql -U logislot -d "$1" -tA -F ' ' -c "$q ORDER BY 1"
+          }
+
+          echo "== Geri yukleme dogrulamasi ($VERIFY_DB)"
+          pgx dropdb -U logislot --if-exists "$VERIFY_DB"
+          pgx createdb -U logislot "$VERIFY_DB"
+          pgx pg_restore -U logislot -d "$VERIFY_DB" --no-owner --no-privileges --exit-on-error "$BASE.dump"
+          counts logislot > /tmp/live.txt
+          counts "$VERIFY_DB" > /tmp/restored.txt
+          pgx dropdb -U logislot "$VERIFY_DB"
+
+          # Deploy oncesi/sonrasi karsilastirma icin tam liste (yalnizca sayilar).
+          echo "== Canli satir sayilari (tablo basina)"
+          sed 's/^/  /' /tmp/live.txt
+          echo "Tablo sayisi: canli=$(wc -l < /tmp/live.txt) geri-yuklenen=$(wc -l < /tmp/restored.txt)"
+          echo "Toplam satir: canli=$(awk '{s+=$2} END {print s}' /tmp/live.txt) geri-yuklenen=$(awk '{s+=$2} END {print s}' /tmp/restored.txt)"
+          if diff -u /tmp/live.txt /tmp/restored.txt; then
+            echo "DOGRULANDI: geri yuklenen yedek canli veritabaniyla birebir ayni satir sayilarina sahip."
+          else
+            # Yedek tutarli bir anlik goruntudur; arada yazilan satirlar fark yaratabilir.
+            echo "::warning::Satir sayilarinda fark var (yedek sonrasi yazilan kayitlar olabilir) — yukaridaki farka bakin."
+          fi
+
+          echo "== Mevcut yedekler"
+          pgx sh -c "ls -lh '$DIR'"
+          echo "BACKUP_FILE=$BASE.dump"

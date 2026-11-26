@@ -12,6 +12,7 @@
 import { ArrowLeft } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { RecoveryLinks } from "@/components/auth/account-recovery";
 import { LoginBackground } from "@/components/auth/login-background";
 import { LoginFormCard } from "@/components/auth/login-form-card";
 import { portals, type Portal } from "@/components/auth/portals";
@@ -122,6 +123,8 @@ export function PortalLoginPage({
               error={error}
               onSubmit={handleSubmit}
             />
+            {/* Gizli platform portalında self-servis kurtarma YOK. */}
+            {portal !== "platform" && <RecoveryLinks portal={portal} />}
           </div>
 
           {entryUrl && (

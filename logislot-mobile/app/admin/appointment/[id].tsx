@@ -7,12 +7,15 @@ import { productCategories } from "@/api/resources";
 import {
   QUANTITY_UNIT_LABELS,
   type QuantityUnit,
+  cancellationReasonText,
   formatDurationRange,
   resolveDurationRange,
 } from "@/api/shared";
 import { useSession } from "@/auth/session";
-import { CargoBadge, StatusBadge } from "@/components/appointment";
+import { CargoBadge, MakeupBadge, MakeupLinks, StatusBadge } from "@/components/appointment";
+import { DURATION_SOURCE_LABELS } from "@/components/duration";
 import { Button, Card, Chip, ErrorState, Field, LoadingState, Screen } from "@/components/ui";
+import { DriverIdRow } from "@/components/driver-id";
 import { useTheme } from "@/theme/theme";
 import { spacing } from "@/theme/tokens";
 import { addDaysISO, dayLabel, formatDate, isoFromWallClock, timeInTz, todayISO } from "@/utils/format";
@@ -138,15 +141,23 @@ export default function AdminAppointmentDetail() {
           <View style={{ gap: 6, alignItems: "flex-end" }}>
             <StatusBadge status={a.status} />
             {a.delivery_type === "cargo" && <CargoBadge window={a.cargo_window} />}
+            {a.is_makeup && <MakeupBadge />}
           </View>
         </View>
 
         <Card style={{ gap: 8 }}>
           <Row label="Tarih" value={formatDate(a.scheduled_start_at)} />
+          {a.order_numbers && a.order_numbers.length > 0 && (
+            <Row label="Sipariş no" value={a.order_numbers.join(", ")} />
+          )}
+          {a.description ? <Row label="Açıklama" value={a.description} /> : null}
           <Row
             label="Saat"
             value={`${timeInTz(a.scheduled_start_at, tz)}–${timeInTz(a.scheduled_end_at, tz)} (${a.duration_minutes} dk)`}
           />
+          {(a.duration_source === "rule" || a.duration_source === "fallback") && (
+            <Row label="Süre kaynağı" value={DURATION_SOURCE_LABELS[a.duration_source]} />
+          )}
           <Row label="Rampa" value={a.dock_name ?? "—"} />
           <Row label="Kategori" value={a.product_category_name ?? "—"} />
           <Row
@@ -156,6 +167,7 @@ export default function AdminAppointmentDetail() {
           <Row label="Araç" value={a.vehicle_category_name ?? "—"} />
           {a.license_plate && <Row label="Plaka" value={a.license_plate} />}
           {a.driver_name && <Row label="Sürücü" value={a.driver_name} />}
+          <DriverIdRow appointment={a} />
           {a.supplier_contact?.phone && (
             <Row label="İletişim" value={a.supplier_contact.phone} />
           )}
@@ -164,8 +176,19 @@ export default function AdminAppointmentDetail() {
         {a.rejection_reason && (
           <NoteBox color={colors.status.rejected} text={`Red sebebi: ${a.rejection_reason}`} />
         )}
-        {a.cancellation_reason && (
-          <NoteBox color={colors.status.cancelled} text={`İptal sebebi: ${a.cancellation_reason}`} />
+        {(a.cancellation_reason || a.cancellation_reason_label) && (
+          <NoteBox
+            color={colors.status.cancelled}
+            text={`İptal sebebi: ${cancellationReasonText(a.cancellation_reason_label, a.cancellation_reason)}`}
+          />
+        )}
+        {(a.makeup_of || a.makeup_appointment) && (
+          <MakeupLinks
+            makeupOf={a.makeup_of ?? null}
+            makeup={a.makeup_appointment ?? null}
+            tz={tz}
+            onOpen={(linkedId) => router.push(`/admin/appointment/${linkedId}`)}
+          />
         )}
         {a.completion_note && (
           <NoteBox color={colors.status.completed} text={`Tamamlama notu: ${a.completion_note}`} />

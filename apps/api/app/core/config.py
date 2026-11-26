@@ -16,6 +16,12 @@ class Settings(BaseSettings):
     cors_origins: list[str] = ["http://localhost:3000"]
     # Portal linki (e-posta sablonlarindaki yonlendirme adresi)
     public_web_url: str = "http://localhost:3010"
+    # Self-servis sifre sifirlama / kullanici adi e-postalarindaki portal
+    # taban adresleri (ornek: https://tedarikci.logislot.io). Bos ise
+    # public_web_url kullanilir; web bu sayfalari entry/"all" modunda da
+    # `?portal=` parametresiyle sunar.
+    supplier_portal_url: str = ""
+    admin_portal_url: str = ""
     # E-posta saglayicisi: log_only (varsayilan) | smtp
     email_provider: str = "log_only"
     smtp_host: str = ""
@@ -137,6 +143,14 @@ class Settings(BaseSettings):
     email_retry_interval_seconds: int = 300
     notification_cleanup_interval_seconds: int = 86400
     notification_retention_days: int = 90
+    # Surucu kimlik numarasi saklama suresi dolanlari silen is (saat basi).
+    driver_id_purge_interval_seconds: int = 3600
+
+    # Kisisel veri (surucu TCKN/pasaport) sifreleme anahtari. Verilmezse
+    # secret_key'den HKDF ile turetilir. Uretimde AYRI verilmesi onerilir:
+    # secret_key degisirse (oturumlari dusurmek icin) sifreli veri okunamaz
+    # hale gelmesin. Bicim: serbest metin (en az 32 karakter onerilir).
+    pii_encryption_key: str | None = None
 
 
 @lru_cache

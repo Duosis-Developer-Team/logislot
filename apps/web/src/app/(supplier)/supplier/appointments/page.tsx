@@ -3,8 +3,10 @@
 import { Boxes, Clock3, Repeat, Truck } from "lucide-react";
 import { useState } from "react";
 import { QUANTITY_UNIT_LABELS, type QuantityUnit } from "@logislot/shared";
-import { ConfirmDialog } from "@/components/config/confirm-dialog";
 import { useFlash } from "@/components/config/page-shell";
+import { MakeupBadge } from "@/components/domain/makeup-badge";
+import { OrderNumbersText } from "@/components/domain/order-numbers-input";
+import { SupplierCancelDialog } from "@/components/domain/supplier-cancel-dialog";
 import { SupplierSeriesSection } from "@/components/domain/supplier-series-section";
 import { EmptyState, ErrorState, LoadingState } from "@/components/config/states";
 import { CargoBadge } from "@/components/domain/cargo-badge";
@@ -13,22 +15,72 @@ import { MetricCard } from "@/components/shell/metric-card";
 import { PageContainer, PageHeader } from "@/components/shell/page";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { ApiError } from "@/lib/api/client";
 import {
   useCancelSupplierAppointment,
   useSupplierAppointments,
   useSupplierProfile,
+  type SupplierCancelBody,
 } from "@/lib/api/supplier";
-import type { AppointmentDto } from "@/lib/api/types";
+import type { AppointmentDto, SupplierCancellationPolicyDto } from "@/lib/api/types";
 import { useApiErrorMessage } from "@/lib/i18n/api-error";
 import { useLabels } from "@/lib/i18n/labels";
 import { useFormat, useT } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
 
-function canCancel(appointment: AppointmentDto): boolean {
+const HOUR_MS = 3600_000;
+
+/** Tedarikcinin iptal edebilecegi durum: bekleyen/onayli ve henuz baslamamis. */
+function isCancellableStatus(appointment: AppointmentDto): boolean {
   return (
     ["pending", "approved"].includes(appointment.status) &&
     new Date(appointment.scheduled_start_at).getTime() > Date.now()
+  );
+}
+
+/** Tesisin iptal kuralina gore son iptal ani (kural yoksa null). */
+function cancelDeadline(
+  appointment: AppointmentDto,
+  policy: SupplierCancellationPolicyDto | undefined,
+): Date | null {
+  if (!policy?.min_notice_hours) return null;
+  return new Date(
+    new Date(appointment.scheduled_start_at).getTime() - policy.min_notice_hours * HOUR_MS,
+  );
+}
+
+
+/** Iptal dugmesi + son iptal ani; kural suresi dolduysa dugme yerine aciklama. */
+function CancelAction({
+  appointment,
+  policy,
+  now,
+  onCancel,
+}: {
+  appointment: AppointmentDto;
+  policy: SupplierCancellationPolicyDto | undefined;
+  now: number;
+  onCancel: () => void;
+}) {
+  const t = useT();
+  const fmt = useFormat();
+  const deadline = cancelDeadline(appointment, policy);
+  if (deadline && deadline.getTime() < now)
+    return (
+      <p className="rounded-md bg-muted px-2 py-1.5 text-xs text-muted-foreground">
+        {t.supplier.appointments.cancelWindowClosed(policy!.min_notice_hours)}
+      </p>
+    );
+  return (
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+      <Button size="sm" variant="ghost" className="w-fit text-destructive" onClick={onCancel}>
+        {t.supplier.appointments.cancel}
+      </Button>
+      {deadline && (
+        <span className="text-xs text-muted-foreground">
+          {t.supplier.appointments.cancelDeadline(fmt.dayMonthTime(deadline.toISOString()))}
+        </span>
+      )}
+    </div>
   );
 }
 
@@ -43,12 +95,16 @@ export default function SupplierAppointmentsPage() {
   const cancel = useCancelSupplierAppointment();
   const { flash, showFlash } = useFlash();
   const [confirmTarget, setConfirmTarget] = useState<AppointmentDto | null>(null);
+  const [cancelError, setCancelError] = useState<string | null>(null);
+  const policy = profile.data?.cancellation_policy;
 
   if (list.isLoading) return <LoadingState />;
   if (list.isError)
     return <ErrorState message={t.supplier.appointments.loadError} onRetry={() => list.refetch()} />;
 
   const all = list.data ?? [];
+  // Telafi baglantilarini (iptal <-> telafi) kartta gostermek icin.
+  const byId = new Map(all.map((a) => [a.id, a]));
   const now = Date.now();
   const upcoming = all
     .filter(
@@ -84,15 +140,16 @@ export default function SupplierAppointmentsPage() {
     },
   ];
 
-  async function onCancel() {
+  async function onCancel(body: SupplierCancelBody) {
     if (!confirmTarget) return;
+    setCancelError(null);
     try {
-      await cancel.mutateAsync(confirmTarget.id);
-      showFlash("success", t.appointmentDrawer.cancelled);
-    } catch (err) {
-      showFlash("error", errorMessage(err, t.supplier.appointments.cancelFailed));
-    } finally {
+      await cancel.mutateAsync({ id: confirmTarget.id, ...body });
+      showFlash("success", body.makeup ? t.makeup.cancelledWithMakeup : t.appointmentDrawer.cancelled);
       setConfirmTarget(null);
+    } catch (err) {
+      // Form acik kalir: kullanici secimini kaybetmeden duzeltebilsin.
+      setCancelError(errorMessage(err, t.supplier.appointments.cancelFailed));
     }
   }
 
@@ -178,6 +235,15 @@ export default function SupplierAppointmentsPage() {
                     {labels.quantityUnit[a.quantity_unit as QuantityUnit] ?? a.quantity_unit}
                     {a.product_category_name ? ` · ${a.product_category_name}` : ""}
                   </div>
+                  <OrderNumbersText
+                    value={a.order_numbers}
+                    className="block break-words text-xs text-muted-foreground"
+                  />
+                  {a.description && (
+                    <p className="whitespace-pre-line break-words text-xs text-muted-foreground">
+                      {a.description}
+                    </p>
+                  )}
                 </div>
                 <StatusBadge status={a.status as never} className="shrink-0" />
               </div>
@@ -192,6 +258,20 @@ export default function SupplierAppointmentsPage() {
               </div>
               {a.delivery_type === "cargo" && (
                 <CargoBadge window={a.cargo_window as never} />
+              )}
+              {a.is_makeup && (
+                <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                  <MakeupBadge />
+                  {a.makeup_of_id && byId.get(a.makeup_of_id) && (
+                    <span>
+                      {t.makeup.replaces(
+                        `${fmt.date(byId.get(a.makeup_of_id)!.scheduled_start_at)} ${fmt.time(
+                          byId.get(a.makeup_of_id)!.scheduled_start_at,
+                        )}`,
+                      )}
+                    </span>
+                  )}
+                </div>
               )}
               {a.series_id && a.occurrence_index && (
                 <span className="w-fit rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">
@@ -216,20 +296,40 @@ export default function SupplierAppointmentsPage() {
                     </div>}
                 </div>
               )}
-              {a.status === "cancelled" && a.cancellation_reason && (
-                <p className="rounded-md bg-status-cancelled/10 px-2 py-1 text-xs text-status-cancelled">
-                  {t.supplier.appointments.cancellationReason} {a.cancellation_reason}
-                </p>
-              )}
-              {canCancel(a) && (
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="w-fit text-destructive"
-                  onClick={() => setConfirmTarget(a)}
-                >
-                  {t.supplier.appointments.cancel}
-                </Button>
+              {a.status === "cancelled" &&
+                (a.cancellation_reason_label || a.cancellation_reason || a.makeup_appointment_id) && (
+                  <div className="rounded-md bg-status-cancelled/10 px-2 py-1 text-xs text-status-cancelled">
+                    {(a.cancellation_reason_label || a.cancellation_reason) && (
+                      <p>
+                        {t.supplier.appointments.cancellationReason}{" "}
+                        {labels.cancellationReasonText(
+                          a.cancellation_reason_label,
+                          a.cancellation_reason,
+                        )}
+                      </p>
+                    )}
+                    {a.makeup_appointment_id && byId.get(a.makeup_appointment_id) && (
+                      <p className="font-medium">
+                        {t.makeup.scheduledAt(
+                          `${fmt.date(byId.get(a.makeup_appointment_id)!.scheduled_start_at)} ${fmt.time(
+                            byId.get(a.makeup_appointment_id)!.scheduled_start_at,
+                          )}`,
+                        )}
+                      </p>
+                    )}
+                  </div>
+                )}
+              {/* Kural profille gelir; yuklenmeden form eksik alanla acilmasin. */}
+              {isCancellableStatus(a) && profile.isSuccess && (
+                <CancelAction
+                  appointment={a}
+                  policy={policy}
+                  now={now}
+                  onCancel={() => {
+                    setCancelError(null);
+                    setConfirmTarget(a);
+                  }}
+                />
               )}
             </CardContent>
           </Card>
@@ -237,13 +337,18 @@ export default function SupplierAppointmentsPage() {
         </div>
       )}
 
-      <ConfirmDialog
+      <SupplierCancelDialog
         open={confirmTarget !== null}
         title={t.supplier.appointments.cancelTitle}
-        message={t.supplier.appointments.cancelMessage(confirmTarget?.product_name ?? "")}
+        intro={t.supplier.appointments.cancelMessage(confirmTarget?.product_name ?? "")}
+        policy={policy}
+        reasons={profile.data?.cancellation_reasons ?? []}
+        appointment={confirmTarget ?? undefined}
+        timezone={profile.data?.facility.timezone}
         confirmLabel={t.supplier.appointments.cancel}
-        loading={cancel.isPending}
-        onConfirm={onCancel}
+        pending={cancel.isPending}
+        error={cancelError}
+        onSubmit={(body) => void onCancel(body)}
         onClose={() => setConfirmTarget(null)}
       />
     </PageContainer>

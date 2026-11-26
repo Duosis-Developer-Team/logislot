@@ -32,19 +32,36 @@ export const DELIVERY_TYPE_LABELS: Record<DeliveryType, string> = {
 
 export type CargoWindow = "morning" | "afternoon" | "all_day";
 
+/** Kargo pencereleri — ekrandaki secim sirasi. */
+export const CARGO_WINDOWS: readonly CargoWindow[] = ["morning", "afternoon", "all_day"];
+
 export const CARGO_WINDOW_LABELS: Record<CargoWindow, string> = {
   morning: "Sabah (08:00–12:00)",
   afternoon: "Öğleden Sonra (12:00–18:00)",
   all_day: "Tüm Gün",
 };
 
-export type QuantityUnit = "pallet" | "piece" | "box" | "carton";
+export type QuantityUnit = "pallet" | "piece" | "box" | "carton" | "sack" | "big_bag" | "ton";
+
+/** Sevkiyat tipleri — ekrandaki seçim sırası (backend QuantityUnit ile birebir). */
+export const QUANTITY_UNITS: readonly QuantityUnit[] = [
+  "pallet",
+  "piece",
+  "box",
+  "carton",
+  "sack",
+  "big_bag",
+  "ton",
+];
 
 export const QUANTITY_UNIT_LABELS: Record<QuantityUnit, string> = {
   pallet: "Palet",
   piece: "Adet",
   box: "Kutu",
   carton: "Koli",
+  sack: "Çuval",
+  big_bag: "Big Bag",
+  ton: "Ton",
 };
 
 export type SlotStatus = "available" | "partial" | "full";
@@ -300,6 +317,9 @@ export const QUANTITY_UNIT_LABELS_BY_LOCALE = byLocale(QUANTITY_UNIT_LABELS, {
   piece: "Piece",
   box: "Box",
   carton: "Carton",
+  sack: "Sack",
+  big_bag: "Big bag",
+  ton: "Tonne",
 });
 
 export const SLOT_STATUS_LABELS_BY_LOCALE = byLocale(SLOT_STATUS_LABELS, {

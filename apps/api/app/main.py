@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.auth.password_reset import router as password_reset_router
 from app.auth.router import router as auth_router
 from app.core.config import get_settings
 from app.core.errors import register_error_handlers
@@ -13,6 +14,7 @@ from app.routers.audit import router as audit_router
 from app.routers.branding import router as branding_router
 from app.routers.catalogs import router as catalogs_router
 from app.routers.docks import router as docks_router
+from app.routers.duration import router as duration_router
 from app.routers.health import router as health_router
 from app.routers.hermes_support_webhook import router as hermes_webhook_router
 from app.routers.me import router as me_router
@@ -20,6 +22,7 @@ from app.routers.notifications import router as notifications_router
 from app.routers.platform import router as platform_router
 from app.routers.platform_ticketing import router as platform_ticketing_router
 from app.routers.reports import router as reports_router
+from app.routers.supplier_import import router as supplier_import_router
 from app.routers.supplier_portal import router as supplier_router
 from app.routers.suppliers import router as suppliers_router
 from app.routers.tickets import router as tickets_router
@@ -85,6 +88,7 @@ def create_app() -> FastAPI:
 
     app.include_router(health_router)
     app.include_router(auth_router)
+    app.include_router(password_reset_router)
     app.include_router(me_router)
     app.include_router(platform_router)
     app.include_router(platform_ticketing_router)
@@ -94,6 +98,8 @@ def create_app() -> FastAPI:
     app.include_router(suppliers_router)
     app.include_router(users_router)
     app.include_router(appointments_router)
+    app.include_router(duration_router)
+    app.include_router(supplier_import_router)
     app.include_router(reports_router)
     app.include_router(supplier_router)
     app.include_router(notifications_router)

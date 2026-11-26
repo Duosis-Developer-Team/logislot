@@ -69,10 +69,30 @@ class CargoWindow(StrEnum):
 
 
 class QuantityUnit(StrEnum):
+    """Sevkiyat tipi / miktar birimi. Sure kurallari birime gore ayrisir
+    (musteri karari 2026-11: "palet, cuval vb."). Kolon varchar(32): yeni
+    deger eklemek migration gerektirmez."""
+
     pallet = "pallet"
     piece = "piece"
     box = "box"
     carton = "carton"
+    sack = "sack"  # Cuval
+    big_bag = "big_bag"  # Big bag
+    ton = "ton"  # Dokme / tonaj
+
+
+class DurationMode(StrEnum):
+    """Islem suresini kim belirler (tesis ayari)."""
+
+    supplier = "supplier"  # Tedarikci secer (eski davranis, varsayilan)
+    suggested = "suggested"  # Sistem hesaplar, tedarikci sinirlar icinde degistirebilir
+    computed = "computed"  # Sistem hesaplar, tedarikci degistiremez
+
+
+class DurationCalcType(StrEnum):
+    fixed = "fixed"  # Sabit sure
+    per_unit = "per_unit"  # Taban sure + birim basina dakika
 
 
 class DockOverrideType(StrEnum):
