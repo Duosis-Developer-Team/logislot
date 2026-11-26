@@ -106,6 +106,9 @@ jobs:
           counts "$VERIFY_DB" > /tmp/restored.txt
           pgx dropdb -U logislot "$VERIFY_DB"
 
+          # Deploy oncesi/sonrasi karsilastirma icin tam liste (yalnizca sayilar).
+          echo "== Canli satir sayilari (tablo basina)"
+          sed 's/^/  /' /tmp/live.txt
           echo "Tablo sayisi: canli=$(wc -l < /tmp/live.txt) geri-yuklenen=$(wc -l < /tmp/restored.txt)"
           echo "Toplam satir: canli=$(awk '{s+=$2} END {print s}' /tmp/live.txt) geri-yuklenen=$(awk '{s+=$2} END {print s}' /tmp/restored.txt)"
           if diff -u /tmp/live.txt /tmp/restored.txt; then
